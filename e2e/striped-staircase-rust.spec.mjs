@@ -112,7 +112,8 @@ test('Stripe rhythm holds separate branch voices on white and releases them on b
   expect(white.rhythm.voices.filter(voice => voice.presence >= .5)).toHaveLength(white.rhythm.count);
   expect(new Set(white.rhythm.voices.map(voice => voice.slot)).size).toBe(white.rhythm.voices.length);
   expect(white.rhythm.voices.every(voice => [voice.cx, voice.cy, voice.presence].every(value => Number.isFinite(value) && value >= 0 && value <= 1))).toBe(true);
-  await expect(page.locator('#rhythmReadout')).toContainText(`White · on · ${white.rhythm.count} voices`);
+  await expect(page.locator('#rhythmReadout')).toContainText('White · on');
+  await expect(page.locator('#rhythmReadout')).toContainText(`${white.rhythm.count} voices`);
   const sustained = await sampleAudioEnvelope(page, { durationMs: 600 });
   expect(sustained.summary.maxRms).toBeGreaterThan(.00001);
   expect(sustained.summary.clippedSamples).toBe(0);
@@ -286,10 +287,10 @@ for (const viewport of [
     test('controls remain reachable and stage input stays usable', async ({ page }, info) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
-      await page.locator('.study-section details > summary').click();
+      await page.locator('summary').filter({ hasText: 'Stripe structure' }).click();
       const selectors = [
         ...['audioButton', 'playButton', 'holdButton', 'progress', 'speed', 'baseFrequency', 'brightness', 'body',
-          'viewPreset', 'palette', 'startIteration', 'maxIterations', 'steps', 'stripePeriod', 'resetAll',
+          'pitchSource', 'pitchMapping', 'pitchSpan', 'voiceLimit', 'viewPreset', 'palette', 'startIteration', 'maxIterations', 'steps', 'stripePeriod', 'resetAll',
           'zoomIn', 'zoomOut', 'homeView'].map(id => `#${id}`),
         ...[0, 1, 2, 3].map(mode => `[data-mode="${mode}"]`),
       ];

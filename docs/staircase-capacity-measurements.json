@@ -1,0 +1,1671 @@
+{
+  "measuredAt": "2026-10-15T18:41:02.017Z",
+  "sourceCommit": "eaa70f1c1c9b2a3c10539a8eac7ba176f1f79c45",
+  "rustSource": "src/instruments/striped-staircase-rust/rust/src/lib.rs",
+  "rustSourceSha256": "f7f0d8286014db76fd331143ab7643d75b47842d350a7f5b855257fd93fb7b79",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "runtime": "v24.14.0",
+  "platform": "linux",
+  "arch": "x64",
+  "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+  "sampleRate": 48000,
+  "blockSize": 128,
+  "deadlineMs": 2.6666666666666665,
+  "warmupBlocks": 512,
+  "repeats": 5,
+  "blocksPerRepeat": 384,
+  "scenario": "All synthetic components sustain a white stripe; mode 2, maximum Detail, held depth, 32-sample metadata refresh. All existing mode calculations remain in the measured callback.",
+  "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+  "rows": [
+    {
+      "capacity": 32,
+      "activeVoices": 32,
+      "wasmBytes": 73674,
+      "wasmSha256": "1437d885875b1661e9982f693bfb912587ebc282aa77e35371b2136022208d2d",
+      "tableBytes": 172032,
+      "blocks": 1920,
+      "medianMs": 0.109043,
+      "p95Ms": 0.110929,
+      "p99Ms": 0.116447,
+      "maximumMs": 0.424536,
+      "p95DeadlinePercent": 4.159837,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.109208,
+          "p95Ms": 0.111508,
+          "p99Ms": 0.123612,
+          "maximumMs": 0.131991,
+          "p95DeadlinePercent": 4.18155,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.109104,
+          "p95Ms": 0.111119,
+          "p99Ms": 0.123404,
+          "maximumMs": 0.424536,
+          "p95DeadlinePercent": 4.166963,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.108803,
+          "p95Ms": 0.110866,
+          "p99Ms": 0.112726,
+          "maximumMs": 0.123099,
+          "p95DeadlinePercent": 4.157475,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.109003,
+          "p95Ms": 0.110692,
+          "p99Ms": 0.112972,
+          "maximumMs": 0.142603,
+          "p95DeadlinePercent": 4.15095,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.108679,
+          "p95Ms": 0.110664,
+          "p99Ms": 0.111306,
+          "maximumMs": 0.116454,
+          "p95DeadlinePercent": 4.1499,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.090877,
+        "p95Ms": 0.111115,
+        "p99Ms": 0.111115,
+        "maximumMs": 0.111115,
+        "p95DeadlinePercent": 4.166813,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 64,
+      "activeVoices": 64,
+      "wasmBytes": 73197,
+      "wasmSha256": "3785421c57f7e96e7553cce652d6dd1bd6af8177af41c7071653247b80142017",
+      "tableBytes": 204800,
+      "blocks": 1920,
+      "medianMs": 0.201295,
+      "p95Ms": 0.212054,
+      "p99Ms": 0.223906,
+      "maximumMs": 0.27671,
+      "p95DeadlinePercent": 7.952025,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.198327,
+          "p95Ms": 0.203267,
+          "p99Ms": 0.204214,
+          "maximumMs": 0.275273,
+          "p95DeadlinePercent": 7.622512,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.201184,
+          "p95Ms": 0.210412,
+          "p99Ms": 0.226112,
+          "maximumMs": 0.228355,
+          "p95DeadlinePercent": 7.89045,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.202679,
+          "p95Ms": 0.222756,
+          "p99Ms": 0.229171,
+          "maximumMs": 0.234729,
+          "p95DeadlinePercent": 8.35335,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.201353,
+          "p95Ms": 0.205647,
+          "p99Ms": 0.220793,
+          "maximumMs": 0.222795,
+          "p95DeadlinePercent": 7.711762,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.20123,
+          "p95Ms": 0.203792,
+          "p99Ms": 0.216721,
+          "maximumMs": 0.27671,
+          "p95DeadlinePercent": 7.6422,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.107767,
+        "p95Ms": 0.135463,
+        "p99Ms": 0.135463,
+        "maximumMs": 0.135463,
+        "p95DeadlinePercent": 5.079862,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 128,
+      "activeVoices": 128,
+      "wasmBytes": 73192,
+      "wasmSha256": "0e9d78980e0d15711ad5128462be0a2bab631eb765637b93caf018ef8610f9a4",
+      "tableBytes": 270336,
+      "blocks": 1920,
+      "medianMs": 0.379784,
+      "p95Ms": 0.388246,
+      "p99Ms": 0.397737,
+      "maximumMs": 0.421149,
+      "p95DeadlinePercent": 14.559225,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.383215,
+          "p95Ms": 0.387639,
+          "p99Ms": 0.389017,
+          "maximumMs": 0.399619,
+          "p95DeadlinePercent": 14.536463,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.375831,
+          "p95Ms": 0.387341,
+          "p99Ms": 0.390205,
+          "maximumMs": 0.393765,
+          "p95DeadlinePercent": 14.525288,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.379226,
+          "p95Ms": 0.38915,
+          "p99Ms": 0.405808,
+          "maximumMs": 0.415059,
+          "p95DeadlinePercent": 14.593125,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.378649,
+          "p95Ms": 0.390224,
+          "p99Ms": 0.413551,
+          "maximumMs": 0.421149,
+          "p95DeadlinePercent": 14.6334,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.385332,
+          "p95Ms": 0.388258,
+          "p99Ms": 0.395032,
+          "maximumMs": 0.413388,
+          "p95DeadlinePercent": 14.559675,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.142163,
+        "p95Ms": 0.18421,
+        "p99Ms": 0.18421,
+        "maximumMs": 0.18421,
+        "p95DeadlinePercent": 6.907875,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 256,
+      "activeVoices": 256,
+      "wasmBytes": 73193,
+      "wasmSha256": "6114afcad3947ff27c0bdf81b5249393a272f2cb62ee06ef112e878fed98027c",
+      "tableBytes": 401408,
+      "blocks": 1920,
+      "medianMs": 0.742406,
+      "p95Ms": 0.759299,
+      "p99Ms": 0.791715,
+      "maximumMs": 1.438507,
+      "p95DeadlinePercent": 28.473713,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.751812,
+          "p95Ms": 0.757323,
+          "p99Ms": 0.76491,
+          "maximumMs": 0.838929,
+          "p95DeadlinePercent": 28.399613,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.733567,
+          "p95Ms": 0.757177,
+          "p99Ms": 0.797668,
+          "maximumMs": 0.81038,
+          "p95DeadlinePercent": 28.394137,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.739311,
+          "p95Ms": 0.752916,
+          "p99Ms": 0.762077,
+          "maximumMs": 0.778393,
+          "p95DeadlinePercent": 28.23435,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.735729,
+          "p95Ms": 0.753354,
+          "p99Ms": 0.773077,
+          "maximumMs": 0.78928,
+          "p95DeadlinePercent": 28.250775,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.753506,
+          "p95Ms": 0.781618,
+          "p99Ms": 0.853336,
+          "maximumMs": 1.438507,
+          "p95DeadlinePercent": 29.310675,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.216291,
+        "p95Ms": 0.275132,
+        "p99Ms": 0.275132,
+        "maximumMs": 0.275132,
+        "p95DeadlinePercent": 10.31745,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 512,
+      "activeVoices": 512,
+      "wasmBytes": 73275,
+      "wasmSha256": "6f2e6bebc6b35a7bc5f309212e8b3dfdf2120b80973dec5318da9d3b8af1fb7d",
+      "tableBytes": 663552,
+      "blocks": 1920,
+      "medianMs": 1.458908,
+      "p95Ms": 1.499543,
+      "p99Ms": 1.533665,
+      "maximumMs": 1.613726,
+      "p95DeadlinePercent": 56.232862,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 1.449441,
+          "p95Ms": 1.492683,
+          "p99Ms": 1.540674,
+          "maximumMs": 1.613726,
+          "p95DeadlinePercent": 55.975613,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.455662,
+          "p95Ms": 1.49918,
+          "p99Ms": 1.548992,
+          "maximumMs": 1.601001,
+          "p95DeadlinePercent": 56.21925,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.456912,
+          "p95Ms": 1.499257,
+          "p99Ms": 1.520353,
+          "maximumMs": 1.540786,
+          "p95DeadlinePercent": 56.222138,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.471424,
+          "p95Ms": 1.508657,
+          "p99Ms": 1.537197,
+          "maximumMs": 1.589094,
+          "p95DeadlinePercent": 56.574637,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.465105,
+          "p95Ms": 1.499323,
+          "p99Ms": 1.505119,
+          "maximumMs": 1.510146,
+          "p95DeadlinePercent": 56.224613,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.350376,
+        "p95Ms": 0.472396,
+        "p99Ms": 0.472396,
+        "maximumMs": 0.472396,
+        "p95DeadlinePercent": 17.71485,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 1024,
+      "activeVoices": 1024,
+      "wasmBytes": 73274,
+      "wasmSha256": "1de6db667e32dfa054330c01c805175036a867706bec3d1cb44c25759a5e5c56",
+      "tableBytes": 1187840,
+      "blocks": 1920,
+      "medianMs": 2.903394,
+      "p95Ms": 2.979755,
+      "p99Ms": 3.058448,
+      "maximumMs": 3.55656,
+      "p95DeadlinePercent": 111.740813,
+      "deadlineOverruns": 1920,
+      "rounds": [
+        {
+          "medianMs": 2.907158,
+          "p95Ms": 2.98154,
+          "p99Ms": 3.050102,
+          "maximumMs": 3.110408,
+          "p95DeadlinePercent": 111.80775,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.922225,
+          "p95Ms": 2.999706,
+          "p99Ms": 3.107298,
+          "maximumMs": 3.55656,
+          "p95DeadlinePercent": 112.488975,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.906917,
+          "p95Ms": 2.979755,
+          "p99Ms": 3.100929,
+          "maximumMs": 3.261032,
+          "p95DeadlinePercent": 111.740813,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.905473,
+          "p95Ms": 2.979231,
+          "p99Ms": 3.049042,
+          "maximumMs": 3.481571,
+          "p95DeadlinePercent": 111.721163,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.876186,
+          "p95Ms": 2.965462,
+          "p99Ms": 3.00146,
+          "maximumMs": 3.469725,
+          "p95DeadlinePercent": 111.204825,
+          "deadlineOverruns": 384
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.624054,
+        "p95Ms": 0.70676,
+        "p99Ms": 0.70676,
+        "maximumMs": 0.70676,
+        "p95DeadlinePercent": 26.5035,
+        "deadlineOverruns": 0
+      }
+    }
+  ],
+  "geometry": {
+    "scope": "Single worker-equivalent builds after one warmup, including the checked-in branch matcher. Counts are uncapped sampled contour components, not mathematical branches. Censoring, clipping, aspect and grid resolution affect them. This is separate from DSP throughput.",
+    "rows": [
+      {
+        "view": "seahorse",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 20.71973,
+        "censoredPercent": 44.476744,
+        "maxContours": 32,
+        "p50Contours": 14,
+        "p95Contours": 30,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 40.585515,
+        "censoredPercent": 44.392857,
+        "maxContours": 84,
+        "p50Contours": 37,
+        "p95Contours": 80,
+        "framesAbove": {
+          "32": 34,
+          "64": 21,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 106.90605,
+        "censoredPercent": 44.266764,
+        "maxContours": 211,
+        "p50Contours": 85,
+        "p95Contours": 201,
+        "framesAbove": {
+          "32": 42,
+          "64": 37,
+          "128": 23,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "overview",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 12.608922,
+        "censoredPercent": 12.390988,
+        "maxContours": 20,
+        "p50Contours": 0,
+        "p95Contours": 18,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "overview",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 36.039114,
+        "censoredPercent": 12.059524,
+        "maxContours": 52,
+        "p50Contours": 4,
+        "p95Contours": 40,
+        "framesAbove": {
+          "32": 11,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "overview",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 96.764701,
+        "censoredPercent": 11.889648,
+        "maxContours": 79,
+        "p50Contours": 20,
+        "p95Contours": 75,
+        "framesAbove": {
+          "32": 21,
+          "64": 11,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "cardioid-cusp",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 9.799345,
+        "censoredPercent": 68.168605,
+        "maxContours": 14,
+        "p50Contours": 5,
+        "p95Contours": 14,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "cardioid-cusp",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 28.871097,
+        "censoredPercent": 68.595238,
+        "maxContours": 40,
+        "p50Contours": 14,
+        "p95Contours": 38,
+        "framesAbove": {
+          "32": 10,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "cardioid-cusp",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 70.093239,
+        "censoredPercent": 68.644206,
+        "maxContours": 74,
+        "p50Contours": 22,
+        "p95Contours": 68,
+        "framesAbove": {
+          "32": 28,
+          "64": 9,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-broad",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 13.315771,
+        "censoredPercent": 52.107558,
+        "maxContours": 27,
+        "p50Contours": 10,
+        "p95Contours": 25,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-broad",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 34.678843,
+        "censoredPercent": 51.77381,
+        "maxContours": 62,
+        "p50Contours": 31,
+        "p95Contours": 60,
+        "framesAbove": {
+          "32": 31,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-broad",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 99.509718,
+        "censoredPercent": 51.566569,
+        "maxContours": 147,
+        "p50Contours": 75,
+        "p95Contours": 144,
+        "framesAbove": {
+          "32": 43,
+          "64": 35,
+          "128": 10,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-archive",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 9.483747,
+        "censoredPercent": 62.281977,
+        "maxContours": 15,
+        "p50Contours": 5,
+        "p95Contours": 15,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-archive",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 33.184918,
+        "censoredPercent": 62.095238,
+        "maxContours": 35,
+        "p50Contours": 20,
+        "p95Contours": 33,
+        "framesAbove": {
+          "32": 4,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-archive",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 83.050483,
+        "censoredPercent": 62.019857,
+        "maxContours": 84,
+        "p50Contours": 39,
+        "p95Contours": 83,
+        "framesAbove": {
+          "32": 35,
+          "64": 18,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-close",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 20.543785,
+        "censoredPercent": 44.113372,
+        "maxContours": 49,
+        "p50Contours": 21,
+        "p95Contours": 47,
+        "framesAbove": {
+          "32": 22,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-close",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 51.772655,
+        "censoredPercent": 44.297619,
+        "maxContours": 125,
+        "p50Contours": 51,
+        "p95Contours": 122,
+        "framesAbove": {
+          "32": 39,
+          "64": 30,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "elephant-close",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 132.193928,
+        "censoredPercent": 44.392904,
+        "maxContours": 306,
+        "p50Contours": 129,
+        "p95Contours": 297,
+        "framesAbove": {
+          "32": 44,
+          "64": 41,
+          "128": 33,
+          "256": 16,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse-gallery",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 15.842504,
+        "censoredPercent": 47.601744,
+        "maxContours": 39,
+        "p50Contours": 10,
+        "p95Contours": 37,
+        "framesAbove": {
+          "32": 8,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse-gallery",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 43.61638,
+        "censoredPercent": 47.333333,
+        "maxContours": 93,
+        "p50Contours": 37,
+        "p95Contours": 92,
+        "framesAbove": {
+          "32": 34,
+          "64": 24,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse-gallery",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 100.296402,
+        "censoredPercent": 47.24528,
+        "maxContours": 230,
+        "p50Contours": 78,
+        "p95Contours": 225,
+        "framesAbove": {
+          "32": 41,
+          "64": 34,
+          "128": 26,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "double-spiral",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 26.692751,
+        "censoredPercent": 6.395349,
+        "maxContours": 99,
+        "p50Contours": 38,
+        "p95Contours": 94,
+        "framesAbove": {
+          "32": 34,
+          "64": 21,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "double-spiral",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 71.697542,
+        "censoredPercent": 6.357143,
+        "maxContours": 290,
+        "p50Contours": 97,
+        "p95Contours": 283,
+        "framesAbove": {
+          "32": 40,
+          "64": 36,
+          "128": 27,
+          "256": 11,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "double-spiral",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 214.727194,
+        "censoredPercent": 6.205241,
+        "maxContours": 726,
+        "p50Contours": 204,
+        "p95Contours": 712,
+        "framesAbove": {
+          "32": 44,
+          "64": 39,
+          "128": 35,
+          "256": 29,
+          "512": 17,
+          "1024": 0
+        }
+      },
+      {
+        "view": "spiral",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 17.321717,
+        "censoredPercent": 37.390988,
+        "maxContours": 44,
+        "p50Contours": 13,
+        "p95Contours": 43,
+        "framesAbove": {
+          "32": 12,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "spiral",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 45.423715,
+        "censoredPercent": 36.964286,
+        "maxContours": 109,
+        "p50Contours": 23,
+        "p95Contours": 103,
+        "framesAbove": {
+          "32": 32,
+          "64": 23,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "spiral",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 116.202806,
+        "censoredPercent": 36.987305,
+        "maxContours": 258,
+        "p50Contours": 57,
+        "p95Contours": 251,
+        "framesAbove": {
+          "32": 36,
+          "64": 32,
+          "128": 26,
+          "256": 1,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "triple-spiral",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 7.80037,
+        "censoredPercent": 81.213663,
+        "maxContours": 23,
+        "p50Contours": 9,
+        "p95Contours": 21,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "triple-spiral",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 27.35757,
+        "censoredPercent": 81.261905,
+        "maxContours": 56,
+        "p50Contours": 26,
+        "p95Contours": 55,
+        "framesAbove": {
+          "32": 27,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "triple-spiral",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 82.661702,
+        "censoredPercent": 81.266276,
+        "maxContours": 153,
+        "p50Contours": 71,
+        "p95Contours": 146,
+        "framesAbove": {
+          "32": 41,
+          "64": 34,
+          "128": 12,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "airplane",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 18.17399,
+        "censoredPercent": 3.125,
+        "maxContours": 15,
+        "p50Contours": 2,
+        "p95Contours": 14,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "airplane",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 43.694508,
+        "censoredPercent": 3.119048,
+        "maxContours": 31,
+        "p50Contours": 9,
+        "p95Contours": 27,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "airplane",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 121.487662,
+        "censoredPercent": 3.006999,
+        "maxContours": 72,
+        "p50Contours": 17,
+        "p95Contours": 62,
+        "framesAbove": {
+          "32": 21,
+          "64": 3,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 11.032236,
+        "censoredPercent": 77.180233,
+        "maxContours": 40,
+        "p50Contours": 14,
+        "p95Contours": 36,
+        "framesAbove": {
+          "32": 4,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 34.512386,
+        "censoredPercent": 77.690476,
+        "maxContours": 96,
+        "p50Contours": 32,
+        "p95Contours": 88,
+        "framesAbove": {
+          "32": 32,
+          "64": 19,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 85.044934,
+        "censoredPercent": 78.068034,
+        "maxContours": 212,
+        "p50Contours": 76,
+        "p95Contours": 204,
+        "framesAbove": {
+          "32": 45,
+          "64": 37,
+          "128": 18,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "needle",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 16.306346,
+        "censoredPercent": 42.623547,
+        "maxContours": 43,
+        "p50Contours": 8,
+        "p95Contours": 39,
+        "framesAbove": {
+          "32": 19,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "needle",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 38.554811,
+        "censoredPercent": 42.583333,
+        "maxContours": 79,
+        "p50Contours": 14,
+        "p95Contours": 74,
+        "framesAbove": {
+          "32": 24,
+          "64": 6,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "needle",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 96.731849,
+        "censoredPercent": 42.264811,
+        "maxContours": 210,
+        "p50Contours": 29,
+        "p95Contours": 186,
+        "framesAbove": {
+          "32": 31,
+          "64": 30,
+          "128": 19,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "period-three",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 18.917868,
+        "censoredPercent": 44.440407,
+        "maxContours": 54,
+        "p50Contours": 16,
+        "p95Contours": 53,
+        "framesAbove": {
+          "32": 21,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "period-three",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 46.872197,
+        "censoredPercent": 44.380952,
+        "maxContours": 119,
+        "p50Contours": 41,
+        "p95Contours": 115,
+        "framesAbove": {
+          "32": 38,
+          "64": 23,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "period-three",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 131.858919,
+        "censoredPercent": 44.429525,
+        "maxContours": 290,
+        "p50Contours": 129,
+        "p95Contours": 282,
+        "framesAbove": {
+          "32": 49,
+          "64": 42,
+          "128": 33,
+          "256": 11,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "dendrite-needle",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 17.186522,
+        "censoredPercent": 0,
+        "maxContours": 41,
+        "p50Contours": 0,
+        "p95Contours": 39,
+        "framesAbove": {
+          "32": 5,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "dendrite-needle",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 45.884141,
+        "censoredPercent": 0.02381,
+        "maxContours": 109,
+        "p50Contours": 0,
+        "p95Contours": 84,
+        "framesAbove": {
+          "32": 9,
+          "64": 5,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "dendrite-needle",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 129.4199,
+        "censoredPercent": 0.020345,
+        "maxContours": 229,
+        "p50Contours": 3,
+        "p95Contours": 191,
+        "framesAbove": {
+          "32": 12,
+          "64": 8,
+          "128": 5,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "island-field",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 13.655933,
+        "censoredPercent": 0.399709,
+        "maxContours": 19,
+        "p50Contours": 0,
+        "p95Contours": 13,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "island-field",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 42.397934,
+        "censoredPercent": 0.357143,
+        "maxContours": 39,
+        "p50Contours": 2,
+        "p95Contours": 32,
+        "framesAbove": {
+          "32": 3,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "island-field",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 118.547919,
+        "censoredPercent": 0.374349,
+        "maxContours": 73,
+        "p50Contours": 4,
+        "p95Contours": 66,
+        "framesAbove": {
+          "32": 10,
+          "64": 4,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna-filament",
+        "resolution": 64,
+        "aspect": 1.5,
+        "grid": [
+          64,
+          43
+        ],
+        "buildMs": 10.262037,
+        "censoredPercent": 52.87064,
+        "maxContours": 19,
+        "p50Contours": 2,
+        "p95Contours": 17,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna-filament",
+        "resolution": 112,
+        "aspect": 1.5,
+        "grid": [
+          112,
+          75
+        ],
+        "buildMs": 29.082884,
+        "censoredPercent": 52.607143,
+        "maxContours": 42,
+        "p50Contours": 6,
+        "p95Contours": 39,
+        "framesAbove": {
+          "32": 15,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "antenna-filament",
+        "resolution": 192,
+        "aspect": 1.5,
+        "grid": [
+          192,
+          128
+        ],
+        "buildMs": 81.263582,
+        "censoredPercent": 52.278646,
+        "maxContours": 91,
+        "p50Contours": 17,
+        "p95Contours": 87,
+        "framesAbove": {
+          "32": 28,
+          "64": 22,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 64,
+        "aspect": 0.6,
+        "grid": [
+          64,
+          107
+        ],
+        "buildMs": 46.054946,
+        "censoredPercent": 35.981308,
+        "maxContours": 125,
+        "p50Contours": 60,
+        "p95Contours": 125,
+        "framesAbove": {
+          "32": 38,
+          "64": 32,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 112,
+        "aspect": 0.6,
+        "grid": [
+          112,
+          144
+        ],
+        "buildMs": 100.78111,
+        "censoredPercent": 36.25372,
+        "maxContours": 278,
+        "p50Contours": 128,
+        "p95Contours": 269,
+        "framesAbove": {
+          "32": 44,
+          "64": 39,
+          "128": 32,
+          "256": 9,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 192,
+        "aspect": 0.6,
+        "grid": [
+          192,
+          144
+        ],
+        "buildMs": 160.290152,
+        "censoredPercent": 36.04239,
+        "maxContours": 444,
+        "p50Contours": 183,
+        "p95Contours": 436,
+        "framesAbove": {
+          "32": 47,
+          "64": 42,
+          "128": 38,
+          "256": 26,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 64,
+        "aspect": 2.5,
+        "grid": [
+          64,
+          26
+        ],
+        "buildMs": 10.499545,
+        "censoredPercent": 53.064904,
+        "maxContours": 26,
+        "p50Contours": 13,
+        "p95Contours": 26,
+        "framesAbove": {
+          "32": 0,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 112,
+        "aspect": 2.5,
+        "grid": [
+          112,
+          45
+        ],
+        "buildMs": 26.977106,
+        "censoredPercent": 52.678571,
+        "maxContours": 64,
+        "p50Contours": 29,
+        "p95Contours": 63,
+        "framesAbove": {
+          "32": 31,
+          "64": 0,
+          "128": 0,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      },
+      {
+        "view": "seahorse",
+        "resolution": 192,
+        "aspect": 2.5,
+        "grid": [
+          192,
+          77
+        ],
+        "buildMs": 68.089968,
+        "censoredPercent": 52.502706,
+        "maxContours": 167,
+        "p50Contours": 70,
+        "p95Contours": 164,
+        "framesAbove": {
+          "32": 40,
+          "64": 33,
+          "128": 18,
+          "256": 0,
+          "512": 0,
+          "1024": 0
+        }
+      }
+    ],
+    "measuredAt": "2026-10-15T18:42:07.638Z"
+  }
+}

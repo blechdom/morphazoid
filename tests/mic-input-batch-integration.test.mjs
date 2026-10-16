@@ -5,8 +5,9 @@ import test from 'node:test';
 import { restoreBlechSpigotRuntime } from './helpers/blech-spigot-runtime-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { micInputBatchSiteChanges, restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 
-const digest = source => createHash('sha256').update(source).digest('hex');
+const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 const root = new URL('../', import.meta.url);
 
 test('mic input rollout amendments restore the exact preceding main source and reject missing or duplicate additions', async () => {
@@ -14,12 +15,12 @@ test('mic input rollout amendments restore the exact preceding main source and r
   for (const change of micInputBatchSiteChanges.changes) {
     const source = restoreWipRolloutSite(restoreBlechSpigotRuntime(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true }), change.file);
     const restored = restoreMicInputBatchSite(source, change.file);
-    assert.equal(digest(restored), change.sha256, `${change.file}: pre-rollout source preserved`);
+    assert.equal(digest(restored, change.file), change.sha256, `${change.file}: pre-rollout source preserved`);
     assert.equal(restoreMicInputBatchSite(source, 'unrelated.js'), source);
     assert.equal(restoreMicInputBatchSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreMicInputBatchSite(restored, change.file), /exact mic input batch amendment/);
     assert.throws(() => restoreMicInputBatchSite(source + change.replacements[0].after, change.file), /exact mic input batch amendment/);
-    assert.notEqual(digest(restoreMicInputBatchSite(source + '\n// unrelated drift\n', change.file)), change.sha256);
+    assert.notEqual(digest(restoreMicInputBatchSite(source + '\n// unrelated drift\n', change.file), change.file), change.sha256);
   }
 });
 

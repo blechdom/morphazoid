@@ -7,12 +7,13 @@ import { restoreGraphonicCalculatorSite } from './helpers/graphonic-calculator-s
 import { restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-site-reference.mjs';
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
 import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 
 test('spigot runtime addition preserves the exact preceding manifest and historical guards', async () => {
   const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file), change.file);
   const previous = restore(source, change.file);
-  assert.equal(createHash('sha256').update(previous).digest('hex'), change.sha256);
+  assert.equal(createHash('sha256').update(restoreStaircaseSpiralRuntime(previous, change.file)).digest('hex'), change.sha256);
   assert.equal(restore(previous, change.file, { allowRestored: true }), previous);
   assert.equal(restoreGraphonicCalculatorSite(source, change.file), restoreGraphonicCalculatorSite(previous, change.file));
   const entries = parseRuntimeManifest(source).entries;

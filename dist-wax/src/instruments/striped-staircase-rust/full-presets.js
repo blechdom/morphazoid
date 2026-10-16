@@ -1,13 +1,25 @@
 import { CAMERA_SCALE_LIMITS, STRIPED_STAIRCASE_VIEWS, cameraFromView, viewById } from "../striped-staircase/striped-staircase.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { presetRandom } from "../../site/preset-random.js";
+import { SPIRAL_DEFAULTS, SPIRAL_RANGES } from "./spiral-studies.js";
 
 export const STUDIES_VIEW_IDS = Object.freeze(STRIPED_STAIRCASE_VIEWS.map(view => view.id));
 export const STUDIES_NUMBER_SPECS = Object.freeze({
   speed: [0.005, 0.5, 0.001], baseFrequency: [30, 440, 1], brightness: [0, 1, 0.01], body: [0, 1, 0.01],
   startIteration: [0, 100, 1], maxIterations: [32, 384, 1], steps: [4, 48, 1], stripePeriod: [1, 24, 0.1],
+  pitchSpan: [0, 6, 0.1], voiceLimit: [1, 512, 1],
+  ...Object.fromEntries(Object.entries(SPIRAL_RANGES).map(([key, range]) =>
+    [key, [...range, key === "accentRate" ? 0.25 : key.endsWith("Amount") ? 0.01 : 0.05]])),
 });
-export const STUDIES_PRESET_KEYS = Object.freeze(["viewId", "camera", "mode", "palette", ...Object.keys(STUDIES_NUMBER_SPECS)]);
+// Musical voice controls only. Display preferences and temporary path focus are
+// deliberately absent, as are depth, direction, Hold, Audio and output level.
+export const STUDIES_VOICE_KEYS = Object.freeze([
+  "pitchSource", "pitchMapping", "pitchSpan", "voiceLimit", "stripeGate", ...Object.keys(SPIRAL_DEFAULTS),
+]);
+export const STUDIES_PRESET_KEYS = Object.freeze([
+  "viewId", "camera", "mode", "palette", ...Object.keys(STUDIES_NUMBER_SPECS),
+  "pitchSource", "pitchMapping", "stripeGate", "endlessDirection",
+]);
 
 const snap = (key, value) => {
   const [min, max, step] = STUDIES_NUMBER_SPECS[key];
@@ -22,16 +34,22 @@ export function captureStudiesPreset(state) {
     speed: state.speed, baseFrequency: state.baseFrequency, brightness: state.brightness, body: state.body,
     startIteration: state.settings.startIteration, maxIterations: state.settings.maxIterations,
     steps: state.settings.steps, stripePeriod: state.settings.stripePeriod,
+    ...Object.fromEntries(STUDIES_VOICE_KEYS.map(key => [key, state[key]])),
   };
 }
 
 export function validateStudiesPreset(snapshot) {
   const bad = () => { throw new TypeError("Invalid complete Staircase Studies preset"); };
   presetStateKey(snapshot);
-  if (Object.keys(snapshot).length !== STUDIES_PRESET_KEYS.length) bad();
+  if (Object.keys(snapshot).length !== STUDIES_PRESET_KEYS.length
+    || STUDIES_PRESET_KEYS.some(key => !Object.hasOwn(snapshot, key))) bad();
   if (!STUDIES_VIEW_IDS.includes(snapshot.viewId)) bad();
   if (!Number.isInteger(snapshot.mode) || snapshot.mode < 0 || snapshot.mode > 3) bad();
   if (!Number.isInteger(snapshot.palette) || snapshot.palette < 0 || snapshot.palette > 3) bad();
+  if (![0, 1].includes(snapshot.pitchSource) || ![0, 1, 2].includes(snapshot.pitchMapping)) bad();
+  if (typeof snapshot.stripeGate !== "boolean" || ![-1, 1].includes(snapshot.endlessDirection)) bad();
+  if (!Number.isInteger(snapshot.voiceLimit)
+    || (snapshot.pitchSource === 1 && (snapshot.voiceLimit < 2 || snapshot.voiceLimit % 2 !== 0))) bad();
   for (const [key, [min, max]] of Object.entries(STUDIES_NUMBER_SPECS)) {
     if (typeof snapshot[key] !== "number" || snapshot[key] < min || snapshot[key] > max) bad();
   }
@@ -44,6 +62,7 @@ export function validateStudiesPreset(snapshot) {
 }
 
 const DEFAULTS = Object.freeze({
+  pitchSource: 1, pitchMapping: 1, pitchSpan: 3, voiceLimit: 256, stripeGate: true, ...SPIRAL_DEFAULTS,
   viewId: "seahorse", mode: 2, palette: 3, speed: 0.035, baseFrequency: 73, brightness: 0.55, body: 0.35,
   startIteration: 12, maxIterations: 260, steps: 24, stripePeriod: 7,
 });
@@ -82,6 +101,10 @@ export function randomizeStudiesPreset(current, random = Math.random) {
   const base = cameraFromView(viewById(viewId));
   const startIteration = snap("startIteration", rng.between(2, 40));
   const scale = Math.min(CAMERA_SCALE_LIMITS.maximum, Math.max(CAMERA_SCALE_LIMITS.minimum, base.scale * rng.between(0.6, 1.5)));
+  const pitchSource = rng.integer(0, 1);
+  const voiceUnits = Math.round(1 + rng.unit() ** 2 * (pitchSource === 1 ? 255 : 511));
+  const spiral = Object.fromEntries(Object.entries(SPIRAL_RANGES).map(([key, [min, max]]) =>
+    [key, snap(key, key.endsWith("Amount") && rng.unit() < 0.3 ? 0 : rng.between(min, max))]));
   return validateStudiesPreset({
     viewId,
     camera: {
@@ -94,5 +117,8 @@ export function randomizeStudiesPreset(current, random = Math.random) {
     brightness: snap("brightness", rng.unit()), body: snap("body", rng.unit()),
     startIteration, maxIterations: snap("maxIterations", rng.between(Math.max(120, startIteration + 8), 380)),
     steps: snap("steps", rng.between(6, 46)), stripePeriod: snap("stripePeriod", rng.between(1.2, 20)),
+    pitchSource, pitchMapping: rng.integer(0, 2), pitchSpan: snap("pitchSpan", rng.between(0, 6)),
+    voiceLimit: voiceUnits * (pitchSource === 1 ? 2 : 1), stripeGate: rng.unit() >= 0.5,
+    ...spiral, endlessDirection: rng.pick([-1, 1]),
   });
 }

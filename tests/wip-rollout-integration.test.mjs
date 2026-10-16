@@ -4,21 +4,23 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { restoreWobbliniSite } from './helpers/wobblini-site-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite, wipRolloutSiteChanges } from './helpers/wip-rollout-site-reference.mjs';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
+import { restoreStaircaseSpiralOwned } from './helpers/staircase-spiral-owned-reference.mjs';
 
-const digest = source => createHash('sha256').update(source).digest('hex');
+const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 const root = new URL('../', import.meta.url);
 
 test('work-in-progress rollout amendments restore the exact preceding main source and reject missing or duplicate additions', async () => {
   assert.ok(wipRolloutSiteChanges.changes.length > 100);
   for (const change of wipRolloutSiteChanges.changes) {
-    const source = restoreWobbliniSite(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true });
+    const source = restoreStaircaseSpiralOwned(restoreWobbliniSite(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true }), change.file);
     const restored = restoreWipRolloutSite(source, change.file);
-    assert.equal(digest(restored), change.sha256, `${change.file}: pre-rollout source preserved`);
+    assert.equal(digest(restored, change.file), change.sha256, `${change.file}: pre-rollout source preserved`);
     assert.equal(restoreWipRolloutSite(source, 'unrelated.js'), source);
     assert.equal(restoreWipRolloutSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreWipRolloutSite(restored, change.file), /exact wip rollout amendment/);
     assert.throws(() => restoreWipRolloutSite(source + change.replacements[0].after, change.file), /exact wip rollout amendment/);
-    assert.notEqual(digest(restoreWipRolloutSite(source + '\n// unrelated drift\n', change.file)), change.sha256);
+    assert.notEqual(digest(restoreWipRolloutSite(source + '\n// unrelated drift\n', change.file), change.file), change.sha256);
   }
 });
 

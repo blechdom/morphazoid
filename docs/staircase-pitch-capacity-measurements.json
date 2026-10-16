@@ -1,0 +1,2069 @@
+{
+  "measuredAt": "2026-10-15T18:57:16.477Z",
+  "sourceCommit": "2b6e76f34a7c63687850c702dd640da4e91ef75a",
+  "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+  "rustSourceSha256": "cda71171a437a36f8132cc30dae167b65ff0799b3138e75b12819f10da56ddaa",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "runtime": "v24.14.0",
+  "platform": "linux",
+  "arch": "x64",
+  "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+  "abi": 3,
+  "branchWidth": 6,
+  "sampleRate": 48000,
+  "blockSize": 128,
+  "deadlineMs": 2.6666666666666665,
+  "warmupBlocks": 2048,
+  "repeats": 5,
+  "blocksPerRepeat": 384,
+  "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+  "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations. This kernel also refreshes geometry on the exact white-onset sample.",
+  "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+  "rows": [
+    {
+      "capacity": 256,
+      "activeVoices": 256,
+      "mapping": 1,
+      "motion": "hold",
+      "wasmBytes": 80861,
+      "wasmSha256": "e6de335a7cb01a7016961d1339f9b8f6370449fd7c7468014da00ec1b12e0f2f",
+      "tableBytes": 532480,
+      "blocks": 1920,
+      "medianMs": 0.692542,
+      "p95Ms": 0.704725,
+      "p99Ms": 0.716036,
+      "maximumMs": 1.561004,
+      "p95DeadlinePercent": 26.427188,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.694116,
+          "p95Ms": 0.704418,
+          "p99Ms": 0.71683,
+          "maximumMs": 1.561004,
+          "p95DeadlinePercent": 26.415675,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.69411,
+          "p95Ms": 0.707598,
+          "p99Ms": 0.728993,
+          "maximumMs": 0.750265,
+          "p95DeadlinePercent": 26.534925,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.681713,
+          "p95Ms": 0.703793,
+          "p99Ms": 0.724904,
+          "maximumMs": 0.751066,
+          "p95DeadlinePercent": 26.392238,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.680127,
+          "p95Ms": 0.703198,
+          "p99Ms": 0.713138,
+          "maximumMs": 0.726149,
+          "p95DeadlinePercent": 26.369925,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.693835,
+          "p95Ms": 0.703458,
+          "p99Ms": 0.711833,
+          "maximumMs": 1.513973,
+          "p95DeadlinePercent": 26.379675,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.48047,
+        "p95Ms": 0.539927,
+        "p99Ms": 0.539927,
+        "maximumMs": 0.539927,
+        "p95DeadlinePercent": 20.247262,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 256,
+      "activeVoices": 256,
+      "mapping": 2,
+      "motion": "hold",
+      "wasmBytes": 80861,
+      "wasmSha256": "e6de335a7cb01a7016961d1339f9b8f6370449fd7c7468014da00ec1b12e0f2f",
+      "tableBytes": 532480,
+      "blocks": 1920,
+      "medianMs": 0.71226,
+      "p95Ms": 0.723545,
+      "p99Ms": 0.739488,
+      "maximumMs": 1.594189,
+      "p95DeadlinePercent": 27.132937,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 0.698507,
+          "p95Ms": 0.719937,
+          "p99Ms": 0.733779,
+          "maximumMs": 0.747928,
+          "p95DeadlinePercent": 26.997637,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.714051,
+          "p95Ms": 0.728454,
+          "p99Ms": 0.75311,
+          "maximumMs": 1.594189,
+          "p95DeadlinePercent": 27.317025,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.713763,
+          "p95Ms": 0.723493,
+          "p99Ms": 0.735883,
+          "maximumMs": 0.765461,
+          "p95DeadlinePercent": 27.130987,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.713028,
+          "p95Ms": 0.725968,
+          "p99Ms": 0.739994,
+          "maximumMs": 0.768918,
+          "p95DeadlinePercent": 27.2238,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.696,
+          "p95Ms": 0.710787,
+          "p99Ms": 0.735538,
+          "maximumMs": 1.160648,
+          "p95DeadlinePercent": 26.654512,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.492277,
+        "p95Ms": 0.522664,
+        "p99Ms": 0.522664,
+        "maximumMs": 0.522664,
+        "p95DeadlinePercent": 19.5999,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 512,
+      "activeVoices": 512,
+      "mapping": 1,
+      "motion": "hold",
+      "wasmBytes": 80862,
+      "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
+      "tableBytes": 925696,
+      "blocks": 1920,
+      "medianMs": 1.001897,
+      "p95Ms": 1.03535,
+      "p99Ms": 1.060813,
+      "maximumMs": 1.899114,
+      "p95DeadlinePercent": 38.825625,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 1.003128,
+          "p95Ms": 1.024545,
+          "p99Ms": 1.030755,
+          "maximumMs": 1.033093,
+          "p95DeadlinePercent": 38.420438,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.988127,
+          "p95Ms": 1.016735,
+          "p99Ms": 1.038125,
+          "maximumMs": 1.111747,
+          "p95DeadlinePercent": 38.127563,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.019028,
+          "p95Ms": 1.058988,
+          "p99Ms": 1.073247,
+          "maximumMs": 1.899114,
+          "p95DeadlinePercent": 39.71205,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 0.995212,
+          "p95Ms": 1.016341,
+          "p99Ms": 1.048978,
+          "maximumMs": 1.829964,
+          "p95DeadlinePercent": 38.112788,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.00326,
+          "p95Ms": 1.013667,
+          "p99Ms": 1.02554,
+          "maximumMs": 1.035779,
+          "p95DeadlinePercent": 38.012513,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.647334,
+        "p95Ms": 0.711686,
+        "p99Ms": 0.711686,
+        "maximumMs": 0.711686,
+        "p95DeadlinePercent": 26.688225,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 512,
+      "activeVoices": 512,
+      "mapping": 2,
+      "motion": "hold",
+      "wasmBytes": 80862,
+      "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
+      "tableBytes": 925696,
+      "blocks": 1920,
+      "medianMs": 1.474675,
+      "p95Ms": 1.656432,
+      "p99Ms": 1.694791,
+      "maximumMs": 2.091691,
+      "p95DeadlinePercent": 62.1162,
+      "deadlineOverruns": 0,
+      "rounds": [
+        {
+          "medianMs": 1.436416,
+          "p95Ms": 1.487115,
+          "p99Ms": 1.505457,
+          "maximumMs": 1.615468,
+          "p95DeadlinePercent": 55.766812,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.436243,
+          "p95Ms": 1.514378,
+          "p99Ms": 1.566904,
+          "maximumMs": 1.855775,
+          "p95DeadlinePercent": 56.789175,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.475369,
+          "p95Ms": 1.529271,
+          "p99Ms": 1.578905,
+          "maximumMs": 1.640454,
+          "p95DeadlinePercent": 57.347663,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.522195,
+          "p95Ms": 1.684395,
+          "p99Ms": 1.715297,
+          "maximumMs": 2.091691,
+          "p95DeadlinePercent": 63.164813,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.55552,
+          "p95Ms": 1.672887,
+          "p99Ms": 1.706265,
+          "maximumMs": 1.81924,
+          "p95DeadlinePercent": 62.733263,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 0.934193,
+        "p95Ms": 0.962525,
+        "p99Ms": 0.962525,
+        "maximumMs": 0.962525,
+        "p95DeadlinePercent": 36.094688,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 1024,
+      "activeVoices": 1024,
+      "mapping": 1,
+      "motion": "hold",
+      "wasmBytes": 80871,
+      "wasmSha256": "5889488044cf102d9a37956227f27e6ffe4f479f604c4eacebf6f80930c315ee",
+      "tableBytes": 1712128,
+      "blocks": 1920,
+      "medianMs": 2.026971,
+      "p95Ms": 2.566437,
+      "p99Ms": 2.754104,
+      "maximumMs": 2.825659,
+      "p95DeadlinePercent": 96.241388,
+      "deadlineOverruns": 80,
+      "rounds": [
+        {
+          "medianMs": 2.131989,
+          "p95Ms": 2.754104,
+          "p99Ms": 2.790942,
+          "maximumMs": 2.825659,
+          "p95DeadlinePercent": 103.2789,
+          "deadlineOverruns": 80
+        },
+        {
+          "medianMs": 2.021001,
+          "p95Ms": 2.155959,
+          "p99Ms": 2.18209,
+          "maximumMs": 2.617015,
+          "p95DeadlinePercent": 80.848463,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 2.065383,
+          "p95Ms": 2.18513,
+          "p99Ms": 2.233695,
+          "maximumMs": 2.248435,
+          "p95DeadlinePercent": 81.942375,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 2.050496,
+          "p95Ms": 2.207136,
+          "p99Ms": 2.245179,
+          "maximumMs": 2.513571,
+          "p95DeadlinePercent": 82.7676,
+          "deadlineOverruns": 0
+        },
+        {
+          "medianMs": 1.986524,
+          "p95Ms": 2.036334,
+          "p99Ms": 2.082596,
+          "maximumMs": 2.257497,
+          "p95DeadlinePercent": 76.362525,
+          "deadlineOverruns": 0
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 1.16842,
+        "p95Ms": 1.231476,
+        "p99Ms": 1.231476,
+        "maximumMs": 1.231476,
+        "p95DeadlinePercent": 46.18035,
+        "deadlineOverruns": 0
+      }
+    },
+    {
+      "capacity": 1024,
+      "activeVoices": 1024,
+      "mapping": 2,
+      "motion": "hold",
+      "wasmBytes": 80871,
+      "wasmSha256": "5889488044cf102d9a37956227f27e6ffe4f479f604c4eacebf6f80930c315ee",
+      "tableBytes": 1712128,
+      "blocks": 1920,
+      "medianMs": 2.935553,
+      "p95Ms": 3.101736,
+      "p99Ms": 3.134836,
+      "maximumMs": 3.554763,
+      "p95DeadlinePercent": 116.3151,
+      "deadlineOverruns": 1920,
+      "rounds": [
+        {
+          "medianMs": 2.900554,
+          "p95Ms": 2.950344,
+          "p99Ms": 2.977219,
+          "maximumMs": 3.324621,
+          "p95DeadlinePercent": 110.6379,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.941388,
+          "p95Ms": 3.010192,
+          "p99Ms": 3.024656,
+          "maximumMs": 3.098575,
+          "p95DeadlinePercent": 112.8822,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.932052,
+          "p95Ms": 3.009139,
+          "p99Ms": 3.028357,
+          "maximumMs": 3.434572,
+          "p95DeadlinePercent": 112.842713,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 2.957549,
+          "p95Ms": 3.103422,
+          "p99Ms": 3.130746,
+          "maximumMs": 3.182966,
+          "p95DeadlinePercent": 116.378325,
+          "deadlineOverruns": 384
+        },
+        {
+          "medianMs": 3.030122,
+          "p95Ms": 3.129473,
+          "p99Ms": 3.219341,
+          "maximumMs": 3.554763,
+          "p95DeadlinePercent": 117.355237,
+          "deadlineOverruns": 384
+        }
+      ],
+      "upload": {
+        "iterations": 11,
+        "medianMs": 1.728186,
+        "p95Ms": 1.752291,
+        "p99Ms": 1.752291,
+        "maximumMs": 1.752291,
+        "p95DeadlinePercent": 65.710913,
+        "deadlineOverruns": 0
+      }
+    }
+  ],
+  "executionAffinity": {
+    "method": "taskset -c 2",
+    "logicalCpu": 2,
+    "reportedMaximumMHz": 5500,
+    "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+  },
+  "measuredKernelCommit": "73ac0d5f10cdaee333f6a13362135e2c5bf1c22f",
+  "onsetStress": {
+    "measuredAt": "2026-10-15T18:57:39.335Z",
+    "sourceCommit": "2b6e76f34a7c63687850c702dd640da4e91ef75a",
+    "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+    "rustSourceSha256": "cda71171a437a36f8132cc30dae167b65ff0799b3138e75b12819f10da56ddaa",
+    "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "runtime": "v24.14.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+    "abi": 3,
+    "branchWidth": 6,
+    "sampleRate": 48000,
+    "blockSize": 128,
+    "deadlineMs": 2.6666666666666665,
+    "warmupBlocks": 2048,
+    "repeats": 5,
+    "blocksPerRepeat": 384,
+    "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+    "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Two-second journey through mu .25–383.75, stripe period 1; centroids rotate so Relative Turns computes real turns at successive onsets. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations. This kernel also refreshes geometry on the exact white-onset sample.",
+    "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+    "rows": [
+      {
+        "capacity": 512,
+        "activeVoices": 512,
+        "mapping": 2,
+        "motion": "onsets",
+        "wasmBytes": 80862,
+        "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
+        "tableBytes": 925696,
+        "blocks": 1920,
+        "medianMs": 1.585941,
+        "p95Ms": 1.668963,
+        "p99Ms": 1.708607,
+        "maximumMs": 2.091713,
+        "p95DeadlinePercent": 62.586113,
+        "deadlineOverruns": 0,
+        "rounds": [
+          {
+            "medianMs": 1.583886,
+            "p95Ms": 1.680786,
+            "p99Ms": 1.718485,
+            "maximumMs": 1.763195,
+            "p95DeadlinePercent": 63.029475,
+            "deadlineOverruns": 0
+          },
+          {
+            "medianMs": 1.605901,
+            "p95Ms": 1.681275,
+            "p99Ms": 1.720605,
+            "maximumMs": 1.794358,
+            "p95DeadlinePercent": 63.047812,
+            "deadlineOverruns": 0
+          },
+          {
+            "medianMs": 1.603506,
+            "p95Ms": 1.668963,
+            "p99Ms": 1.703865,
+            "maximumMs": 2.091713,
+            "p95DeadlinePercent": 62.586113,
+            "deadlineOverruns": 0
+          },
+          {
+            "medianMs": 1.577778,
+            "p95Ms": 1.660723,
+            "p99Ms": 1.692701,
+            "maximumMs": 1.760326,
+            "p95DeadlinePercent": 62.277112,
+            "deadlineOverruns": 0
+          },
+          {
+            "medianMs": 1.567188,
+            "p95Ms": 1.652367,
+            "p99Ms": 1.699898,
+            "maximumMs": 1.734898,
+            "p95DeadlinePercent": 61.963762,
+            "deadlineOverruns": 0
+          }
+        ],
+        "upload": {
+          "iterations": 11,
+          "medianMs": 0.94091,
+          "p95Ms": 0.976213,
+          "p99Ms": 0.976213,
+          "maximumMs": 0.976213,
+          "p95DeadlinePercent": 36.607987,
+          "deadlineOverruns": 0
+        }
+      }
+    ],
+    "executionAffinity": {
+      "method": "taskset -c 2",
+      "logicalCpu": 2,
+      "reportedMaximumMHz": 5500,
+      "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+    }
+  },
+  "preOnsetFix": {
+    "status": "Historical comparison only: measured before the white-onset geometry refresh fix. Its production validation applies to the earlier WASM bytes, not the current instrument.",
+    "report": {
+      "measuredAt": "2026-10-15T18:52:09.559Z",
+      "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+      "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+      "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+      "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+      "runtime": "v24.14.0",
+      "platform": "linux",
+      "arch": "x64",
+      "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+      "abi": 3,
+      "branchWidth": 6,
+      "sampleRate": 48000,
+      "blockSize": 128,
+      "deadlineMs": 2.6666666666666665,
+      "warmupBlocks": 2048,
+      "repeats": 5,
+      "blocksPerRepeat": 384,
+      "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+      "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+      "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+      "rows": [
+        {
+          "capacity": 256,
+          "activeVoices": 256,
+          "mapping": 0,
+          "motion": "hold",
+          "wasmBytes": 80789,
+          "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+          "tableBytes": 532480,
+          "blocks": 1920,
+          "medianMs": 0.713661,
+          "p95Ms": 0.748127,
+          "p99Ms": 0.766721,
+          "maximumMs": 0.815544,
+          "p95DeadlinePercent": 28.054762,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 0.715069,
+              "p95Ms": 0.760191,
+              "p99Ms": 0.784229,
+              "maximumMs": 0.815544,
+              "p95DeadlinePercent": 28.507162,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.713918,
+              "p95Ms": 0.745231,
+              "p99Ms": 0.767129,
+              "maximumMs": 0.775097,
+              "p95DeadlinePercent": 27.946162,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.71384,
+              "p95Ms": 0.751512,
+              "p99Ms": 0.764848,
+              "maximumMs": 0.772742,
+              "p95DeadlinePercent": 28.1817,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.712917,
+              "p95Ms": 0.740259,
+              "p99Ms": 0.755411,
+              "maximumMs": 0.774958,
+              "p95DeadlinePercent": 27.759713,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.695087,
+              "p95Ms": 0.735105,
+              "p99Ms": 0.749726,
+              "maximumMs": 0.768313,
+              "p95DeadlinePercent": 27.566438,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 0.482969,
+            "p95Ms": 0.541899,
+            "p99Ms": 0.541899,
+            "maximumMs": 0.541899,
+            "p95DeadlinePercent": 20.321212,
+            "deadlineOverruns": 0
+          }
+        },
+        {
+          "capacity": 256,
+          "activeVoices": 256,
+          "mapping": 1,
+          "motion": "hold",
+          "wasmBytes": 80789,
+          "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+          "tableBytes": 532480,
+          "blocks": 1920,
+          "medianMs": 0.532623,
+          "p95Ms": 0.779724,
+          "p99Ms": 0.787537,
+          "maximumMs": 0.857637,
+          "p95DeadlinePercent": 29.23965,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 0.775533,
+              "p95Ms": 0.787494,
+              "p99Ms": 0.798805,
+              "maximumMs": 0.8058,
+              "p95DeadlinePercent": 29.531025,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.618517,
+              "p95Ms": 0.695589,
+              "p99Ms": 0.723281,
+              "maximumMs": 0.857637,
+              "p95DeadlinePercent": 26.084587,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.532527,
+              "p95Ms": 0.560159,
+              "p99Ms": 0.572375,
+              "maximumMs": 0.590825,
+              "p95DeadlinePercent": 21.005963,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.501608,
+              "p95Ms": 0.515947,
+              "p99Ms": 0.532753,
+              "maximumMs": 0.631775,
+              "p95DeadlinePercent": 19.348013,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.500915,
+              "p95Ms": 0.518204,
+              "p99Ms": 0.527923,
+              "maximumMs": 0.533929,
+              "p95DeadlinePercent": 19.43265,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 0.34402,
+            "p95Ms": 0.404497,
+            "p99Ms": 0.404497,
+            "maximumMs": 0.404497,
+            "p95DeadlinePercent": 15.168638,
+            "deadlineOverruns": 0
+          }
+        },
+        {
+          "capacity": 256,
+          "activeVoices": 256,
+          "mapping": 2,
+          "motion": "hold",
+          "wasmBytes": 80789,
+          "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+          "tableBytes": 532480,
+          "blocks": 1920,
+          "medianMs": 0.502561,
+          "p95Ms": 0.518899,
+          "p99Ms": 0.534648,
+          "maximumMs": 1.241341,
+          "p95DeadlinePercent": 19.458713,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 0.502925,
+              "p95Ms": 0.519682,
+              "p99Ms": 0.530956,
+              "maximumMs": 0.540494,
+              "p95DeadlinePercent": 19.488075,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.502561,
+              "p95Ms": 0.518069,
+              "p99Ms": 0.544285,
+              "maximumMs": 0.602534,
+              "p95DeadlinePercent": 19.427587,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.501256,
+              "p95Ms": 0.514849,
+              "p99Ms": 0.527561,
+              "maximumMs": 0.543786,
+              "p95DeadlinePercent": 19.306838,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.502411,
+              "p95Ms": 0.520576,
+              "p99Ms": 0.554243,
+              "maximumMs": 1.241341,
+              "p95DeadlinePercent": 19.5216,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 0.50321,
+              "p95Ms": 0.517372,
+              "p99Ms": 0.530644,
+              "maximumMs": 0.550386,
+              "p95DeadlinePercent": 19.40145,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 0.344906,
+            "p95Ms": 0.408665,
+            "p99Ms": 0.408665,
+            "maximumMs": 0.408665,
+            "p95DeadlinePercent": 15.324937,
+            "deadlineOverruns": 0
+          }
+        },
+        {
+          "capacity": 512,
+          "activeVoices": 512,
+          "mapping": 0,
+          "motion": "hold",
+          "wasmBytes": 80790,
+          "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+          "tableBytes": 925696,
+          "blocks": 1920,
+          "medianMs": 1.394623,
+          "p95Ms": 1.425867,
+          "p99Ms": 1.452618,
+          "maximumMs": 2.232645,
+          "p95DeadlinePercent": 53.470012,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 1.38913,
+              "p95Ms": 1.418846,
+              "p99Ms": 1.450161,
+              "maximumMs": 1.47867,
+              "p95DeadlinePercent": 53.206725,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.397267,
+              "p95Ms": 1.436338,
+              "p99Ms": 1.464424,
+              "maximumMs": 1.480408,
+              "p95DeadlinePercent": 53.862675,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.398212,
+              "p95Ms": 1.44723,
+              "p99Ms": 1.463399,
+              "maximumMs": 2.232645,
+              "p95DeadlinePercent": 54.271125,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.389066,
+              "p95Ms": 1.414816,
+              "p99Ms": 1.424129,
+              "maximumMs": 1.45591,
+              "p95DeadlinePercent": 53.0556,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.38718,
+              "p95Ms": 1.418465,
+              "p99Ms": 1.437854,
+              "maximumMs": 1.467277,
+              "p95DeadlinePercent": 53.192438,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 0.817143,
+            "p95Ms": 0.896382,
+            "p99Ms": 0.896382,
+            "maximumMs": 0.896382,
+            "p95DeadlinePercent": 33.614325,
+            "deadlineOverruns": 0
+          }
+        },
+        {
+          "capacity": 512,
+          "activeVoices": 512,
+          "mapping": 1,
+          "motion": "hold",
+          "wasmBytes": 80790,
+          "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+          "tableBytes": 925696,
+          "blocks": 1920,
+          "medianMs": 1.024012,
+          "p95Ms": 1.049308,
+          "p99Ms": 1.054547,
+          "maximumMs": 1.125534,
+          "p95DeadlinePercent": 39.34905,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 1.026592,
+              "p95Ms": 1.053279,
+              "p99Ms": 1.057785,
+              "maximumMs": 1.098127,
+              "p95DeadlinePercent": 39.497962,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.023263,
+              "p95Ms": 1.046098,
+              "p99Ms": 1.052578,
+              "maximumMs": 1.075082,
+              "p95DeadlinePercent": 39.228675,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.003557,
+              "p95Ms": 1.026174,
+              "p99Ms": 1.029205,
+              "maximumMs": 1.125534,
+              "p95DeadlinePercent": 38.481525,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.023969,
+              "p95Ms": 1.029314,
+              "p99Ms": 1.039458,
+              "maximumMs": 1.099892,
+              "p95DeadlinePercent": 38.599275,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.041108,
+              "p95Ms": 1.051605,
+              "p99Ms": 1.054971,
+              "maximumMs": 1.057542,
+              "p95DeadlinePercent": 39.435188,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 0.64526,
+            "p95Ms": 0.696025,
+            "p99Ms": 0.696025,
+            "maximumMs": 0.696025,
+            "p95DeadlinePercent": 26.100938,
+            "deadlineOverruns": 0
+          }
+        },
+        {
+          "capacity": 512,
+          "activeVoices": 512,
+          "mapping": 2,
+          "motion": "hold",
+          "wasmBytes": 80790,
+          "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+          "tableBytes": 925696,
+          "blocks": 1920,
+          "medianMs": 1.783912,
+          "p95Ms": 1.93653,
+          "p99Ms": 1.985579,
+          "maximumMs": 2.021514,
+          "p95DeadlinePercent": 72.619875,
+          "deadlineOverruns": 0,
+          "rounds": [
+            {
+              "medianMs": 1.549486,
+              "p95Ms": 1.605858,
+              "p99Ms": 1.642209,
+              "maximumMs": 1.657588,
+              "p95DeadlinePercent": 60.219675,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.542906,
+              "p95Ms": 1.581591,
+              "p99Ms": 1.602968,
+              "maximumMs": 1.627948,
+              "p95DeadlinePercent": 59.309663,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.783912,
+              "p95Ms": 1.908589,
+              "p99Ms": 1.968311,
+              "maximumMs": 1.993315,
+              "p95DeadlinePercent": 71.572087,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.879791,
+              "p95Ms": 1.956314,
+              "p99Ms": 1.991483,
+              "maximumMs": 1.996436,
+              "p95DeadlinePercent": 73.361775,
+              "deadlineOverruns": 0
+            },
+            {
+              "medianMs": 1.879918,
+              "p95Ms": 1.960405,
+              "p99Ms": 2.001237,
+              "maximumMs": 2.021514,
+              "p95DeadlinePercent": 73.515188,
+              "deadlineOverruns": 0
+            }
+          ],
+          "upload": {
+            "iterations": 11,
+            "medianMs": 1.110155,
+            "p95Ms": 1.159095,
+            "p99Ms": 1.159095,
+            "maximumMs": 1.159095,
+            "p95DeadlinePercent": 43.466063,
+            "deadlineOverruns": 0
+          }
+        }
+      ],
+      "executionAffinity": {
+        "method": "taskset -c 2",
+        "logicalCpu": 2,
+        "reportedMaximumMHz": 5500,
+        "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+      },
+      "extendedCapacity": [
+        {
+          "measuredAt": "2026-10-15T18:52:52.108Z",
+          "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+          "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+          "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+          "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "runtime": "v24.14.0",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+          "abi": 3,
+          "branchWidth": 6,
+          "sampleRate": 48000,
+          "blockSize": 128,
+          "deadlineMs": 2.6666666666666665,
+          "warmupBlocks": 2048,
+          "repeats": 5,
+          "blocksPerRepeat": 384,
+          "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+          "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+          "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+          "rows": [
+            {
+              "capacity": 1024,
+              "activeVoices": 1024,
+              "mapping": 1,
+              "motion": "hold",
+              "wasmBytes": 80799,
+              "wasmSha256": "fd6ae9b5921038d39a7a78eb9b61afd2849561908f1148a4f257385e9472533d",
+              "tableBytes": 1712128,
+              "blocks": 1920,
+              "medianMs": 2.684638,
+              "p95Ms": 3.363822,
+              "p99Ms": 3.500232,
+              "maximumMs": 3.561994,
+              "p95DeadlinePercent": 126.143325,
+              "deadlineOverruns": 1029,
+              "rounds": [
+                {
+                  "medianMs": 2.551703,
+                  "p95Ms": 2.629282,
+                  "p99Ms": 2.682773,
+                  "maximumMs": 2.713276,
+                  "p95DeadlinePercent": 98.598075,
+                  "deadlineOverruns": 5
+                },
+                {
+                  "medianMs": 2.690258,
+                  "p95Ms": 2.743542,
+                  "p99Ms": 2.780603,
+                  "maximumMs": 2.795908,
+                  "p95DeadlinePercent": 102.882825,
+                  "deadlineOverruns": 327
+                },
+                {
+                  "medianMs": 2.771865,
+                  "p95Ms": 2.898825,
+                  "p99Ms": 2.952291,
+                  "maximumMs": 3.004364,
+                  "p95DeadlinePercent": 108.705938,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 3.168595,
+                  "p95Ms": 3.500232,
+                  "p99Ms": 3.547261,
+                  "maximumMs": 3.561994,
+                  "p95DeadlinePercent": 131.2587,
+                  "deadlineOverruns": 313
+                },
+                {
+                  "medianMs": 2.030601,
+                  "p95Ms": 2.31776,
+                  "p99Ms": 2.367205,
+                  "maximumMs": 2.423622,
+                  "p95DeadlinePercent": 86.916,
+                  "deadlineOverruns": 0
+                }
+              ],
+              "upload": {
+                "iterations": 11,
+                "medianMs": 1.23049,
+                "p95Ms": 1.335705,
+                "p99Ms": 1.335705,
+                "maximumMs": 1.335705,
+                "p95DeadlinePercent": 50.088937,
+                "deadlineOverruns": 0
+              }
+            },
+            {
+              "capacity": 1024,
+              "activeVoices": 1024,
+              "mapping": 2,
+              "motion": "hold",
+              "wasmBytes": 80799,
+              "wasmSha256": "fd6ae9b5921038d39a7a78eb9b61afd2849561908f1148a4f257385e9472533d",
+              "tableBytes": 1712128,
+              "blocks": 1920,
+              "medianMs": 3.160562,
+              "p95Ms": 3.343948,
+              "p99Ms": 3.414485,
+              "maximumMs": 3.507615,
+              "p95DeadlinePercent": 125.39805,
+              "deadlineOverruns": 1179,
+              "rounds": [
+                {
+                  "medianMs": 3.291427,
+                  "p95Ms": 3.414485,
+                  "p99Ms": 3.448554,
+                  "maximumMs": 3.507615,
+                  "p95DeadlinePercent": 128.043187,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 3.230085,
+                  "p95Ms": 3.334421,
+                  "p99Ms": 3.363485,
+                  "maximumMs": 3.385262,
+                  "p95DeadlinePercent": 125.040787,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 3.189532,
+                  "p95Ms": 3.312612,
+                  "p99Ms": 3.349051,
+                  "maximumMs": 3.359845,
+                  "p95DeadlinePercent": 124.22295,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 2.162897,
+                  "p95Ms": 2.704599,
+                  "p99Ms": 2.889294,
+                  "maximumMs": 2.945585,
+                  "p95DeadlinePercent": 101.422463,
+                  "deadlineOverruns": 27
+                },
+                {
+                  "medianMs": 2.084844,
+                  "p95Ms": 2.429314,
+                  "p99Ms": 2.457951,
+                  "maximumMs": 2.529147,
+                  "p95DeadlinePercent": 91.099275,
+                  "deadlineOverruns": 0
+                }
+              ],
+              "upload": {
+                "iterations": 11,
+                "medianMs": 1.452433,
+                "p95Ms": 1.476544,
+                "p99Ms": 1.476544,
+                "maximumMs": 1.476544,
+                "p95DeadlinePercent": 55.3704,
+                "deadlineOverruns": 0
+              }
+            }
+          ],
+          "executionAffinity": {
+            "method": "taskset -c 2",
+            "logicalCpu": 2,
+            "reportedMaximumMHz": 5500,
+            "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+          }
+        },
+        {
+          "measuredAt": "2026-10-15T18:53:52.588Z",
+          "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+          "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+          "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+          "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "runtime": "v24.14.0",
+          "platform": "linux",
+          "arch": "x64",
+          "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+          "abi": 3,
+          "branchWidth": 6,
+          "sampleRate": 48000,
+          "blockSize": 128,
+          "deadlineMs": 2.6666666666666665,
+          "warmupBlocks": 2048,
+          "repeats": 5,
+          "blocksPerRepeat": 384,
+          "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+          "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+          "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+          "rows": [
+            {
+              "capacity": 2048,
+              "activeVoices": 2048,
+              "mapping": 1,
+              "motion": "hold",
+              "wasmBytes": 80808,
+              "wasmSha256": "4f9f8cb11b6a7c20003b0a8083a4b4ffd541783753c292d5209f9e912f8d3ce3",
+              "tableBytes": 3284992,
+              "blocks": 1920,
+              "medianMs": 5.447802,
+              "p95Ms": 9.66425,
+              "p99Ms": 9.804862,
+              "maximumMs": 10.035737,
+              "p95DeadlinePercent": 362.409375,
+              "deadlineOverruns": 1920,
+              "rounds": [
+                {
+                  "medianMs": 9.175061,
+                  "p95Ms": 9.791499,
+                  "p99Ms": 9.927625,
+                  "maximumMs": 10.035737,
+                  "p95DeadlinePercent": 367.181212,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 4.772138,
+                  "p95Ms": 9.686861,
+                  "p99Ms": 9.812802,
+                  "maximumMs": 9.915063,
+                  "p95DeadlinePercent": 363.257288,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 4.890745,
+                  "p95Ms": 5.050309,
+                  "p99Ms": 5.082313,
+                  "maximumMs": 5.11622,
+                  "p95DeadlinePercent": 189.386587,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 5.841419,
+                  "p95Ms": 6.750485,
+                  "p99Ms": 6.80318,
+                  "maximumMs": 6.842587,
+                  "p95DeadlinePercent": 253.143188,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 5.57831,
+                  "p95Ms": 5.949248,
+                  "p99Ms": 6.149501,
+                  "maximumMs": 6.187659,
+                  "p95DeadlinePercent": 223.0968,
+                  "deadlineOverruns": 384
+                }
+              ],
+              "upload": {
+                "iterations": 11,
+                "medianMs": 3.054422,
+                "p95Ms": 3.21081,
+                "p99Ms": 3.21081,
+                "maximumMs": 3.21081,
+                "p95DeadlinePercent": 120.405375,
+                "deadlineOverruns": 11
+              }
+            },
+            {
+              "capacity": 2048,
+              "activeVoices": 2048,
+              "mapping": 2,
+              "motion": "hold",
+              "wasmBytes": 80808,
+              "wasmSha256": "4f9f8cb11b6a7c20003b0a8083a4b4ffd541783753c292d5209f9e912f8d3ce3",
+              "tableBytes": 3284992,
+              "blocks": 1920,
+              "medianMs": 5.360313,
+              "p95Ms": 6.554292,
+              "p99Ms": 6.771032,
+              "maximumMs": 6.839676,
+              "p95DeadlinePercent": 245.78595,
+              "deadlineOverruns": 1920,
+              "rounds": [
+                {
+                  "medianMs": 6.334058,
+                  "p95Ms": 6.771032,
+                  "p99Ms": 6.818798,
+                  "maximumMs": 6.839676,
+                  "p95DeadlinePercent": 253.9137,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 5.884355,
+                  "p95Ms": 6.220607,
+                  "p99Ms": 6.353676,
+                  "maximumMs": 6.444435,
+                  "p95DeadlinePercent": 233.272763,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 5.395583,
+                  "p95Ms": 5.80727,
+                  "p99Ms": 5.846597,
+                  "maximumMs": 6.634655,
+                  "p95DeadlinePercent": 217.772625,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 4.250327,
+                  "p95Ms": 5.790921,
+                  "p99Ms": 5.835996,
+                  "maximumMs": 5.850094,
+                  "p95DeadlinePercent": 217.159537,
+                  "deadlineOverruns": 384
+                },
+                {
+                  "medianMs": 3.928075,
+                  "p95Ms": 4.32502,
+                  "p99Ms": 4.379884,
+                  "maximumMs": 4.496463,
+                  "p95DeadlinePercent": 162.18825,
+                  "deadlineOverruns": 384
+                }
+              ],
+              "upload": {
+                "iterations": 11,
+                "medianMs": 2.343321,
+                "p95Ms": 2.495727,
+                "p99Ms": 2.495727,
+                "maximumMs": 2.495727,
+                "p95DeadlinePercent": 93.589763,
+                "deadlineOverruns": 0
+              }
+            }
+          ],
+          "executionAffinity": {
+            "method": "taskset -c 2",
+            "logicalCpu": 2,
+            "reportedMaximumMHz": 5500,
+            "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+          }
+        }
+      ],
+      "onsetStress": {
+        "measuredAt": "2026-10-15T18:54:03.565Z",
+        "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+        "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+        "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+        "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "runtime": "v24.14.0",
+        "platform": "linux",
+        "arch": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+        "abi": 3,
+        "branchWidth": 6,
+        "sampleRate": 48000,
+        "blockSize": 128,
+        "deadlineMs": 2.6666666666666665,
+        "warmupBlocks": 2048,
+        "repeats": 5,
+        "blocksPerRepeat": 384,
+        "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+        "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Two-second journey through mu .25–383.75, stripe period 1; centroids rotate so Relative Turns computes real turns at successive onsets. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+        "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+        "rows": [
+          {
+            "capacity": 512,
+            "activeVoices": 512,
+            "mapping": 2,
+            "motion": "onsets",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 1.026266,
+            "p95Ms": 1.349141,
+            "p99Ms": 1.382704,
+            "maximumMs": 1.568423,
+            "p95DeadlinePercent": 50.592787,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 1.327703,
+                "p95Ms": 1.38214,
+                "p99Ms": 1.398595,
+                "maximumMs": 1.423081,
+                "p95DeadlinePercent": 51.83025,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.066926,
+                "p95Ms": 1.231142,
+                "p99Ms": 1.27731,
+                "maximumMs": 1.351666,
+                "p95DeadlinePercent": 46.167825,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.002267,
+                "p95Ms": 1.059446,
+                "p99Ms": 1.100182,
+                "maximumMs": 1.13139,
+                "p95DeadlinePercent": 39.729225,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.021993,
+                "p95Ms": 1.068242,
+                "p99Ms": 1.104271,
+                "maximumMs": 1.568423,
+                "p95DeadlinePercent": 40.059075,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.997972,
+                "p95Ms": 1.034197,
+                "p99Ms": 1.047795,
+                "maximumMs": 1.064612,
+                "p95DeadlinePercent": 38.782387,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.609043,
+              "p95Ms": 0.64255,
+              "p99Ms": 0.64255,
+              "maximumMs": 0.64255,
+              "p95DeadlinePercent": 24.095625,
+              "deadlineOverruns": 0
+            }
+          }
+        ],
+        "executionAffinity": {
+          "method": "taskset -c 2",
+          "logicalCpu": 2,
+          "reportedMaximumMHz": 5500,
+          "note": "Only the benchmark process was pinned. The shared host remained under other workloads; affinity did not eliminate timing variation."
+        }
+      },
+      "sparseOccupancy": {
+        "measuredAt": "2026-10-15T18:51:09.116Z",
+        "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+        "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+        "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+        "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "runtime": "v24.14.0",
+        "platform": "linux",
+        "arch": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+        "abi": 3,
+        "branchWidth": 6,
+        "sampleRate": 48000,
+        "blockSize": 128,
+        "deadlineMs": 2.6666666666666665,
+        "warmupBlocks": 512,
+        "repeats": 5,
+        "blocksPerRepeat": 384,
+        "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+        "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+        "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+        "rows": [
+          {
+            "capacity": 512,
+            "activeVoices": 32,
+            "mapping": 0,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 0.357552,
+            "p95Ms": 0.369389,
+            "p99Ms": 0.37205,
+            "maximumMs": 0.774326,
+            "p95DeadlinePercent": 13.852088,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 0.367598,
+                "p95Ms": 0.371132,
+                "p99Ms": 0.374373,
+                "maximumMs": 0.405868,
+                "p95DeadlinePercent": 13.91745,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.357595,
+                "p95Ms": 0.362416,
+                "p99Ms": 0.371467,
+                "maximumMs": 0.774326,
+                "p95DeadlinePercent": 13.5906,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.357079,
+                "p95Ms": 0.361404,
+                "p99Ms": 0.370358,
+                "maximumMs": 0.404802,
+                "p95DeadlinePercent": 13.55265,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.357046,
+                "p95Ms": 0.359558,
+                "p99Ms": 0.360967,
+                "maximumMs": 0.372028,
+                "p95DeadlinePercent": 13.483425,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.357119,
+                "p95Ms": 0.360445,
+                "p99Ms": 0.370559,
+                "maximumMs": 0.403911,
+                "p95DeadlinePercent": 13.516687,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.924561,
+              "p95Ms": 0.954536,
+              "p99Ms": 0.954536,
+              "maximumMs": 0.954536,
+              "p95DeadlinePercent": 35.7951,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 512,
+            "activeVoices": 32,
+            "mapping": 1,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 0.367324,
+            "p95Ms": 0.370303,
+            "p99Ms": 0.375511,
+            "maximumMs": 0.439701,
+            "p95DeadlinePercent": 13.886363,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 0.357384,
+                "p95Ms": 0.363904,
+                "p99Ms": 0.374645,
+                "maximumMs": 0.393711,
+                "p95DeadlinePercent": 13.6464,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.35716,
+                "p95Ms": 0.360079,
+                "p99Ms": 0.372332,
+                "maximumMs": 0.376459,
+                "p95DeadlinePercent": 13.502962,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.368056,
+                "p95Ms": 0.371395,
+                "p99Ms": 0.377462,
+                "maximumMs": 0.439701,
+                "p95DeadlinePercent": 13.927312,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.367897,
+                "p95Ms": 0.370454,
+                "p99Ms": 0.378896,
+                "maximumMs": 0.408944,
+                "p95DeadlinePercent": 13.892025,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.367908,
+                "p95Ms": 0.370715,
+                "p99Ms": 0.37574,
+                "maximumMs": 0.413348,
+                "p95DeadlinePercent": 13.901813,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.947444,
+              "p95Ms": 1.012867,
+              "p99Ms": 1.012867,
+              "maximumMs": 1.012867,
+              "p95DeadlinePercent": 37.982512,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 512,
+            "activeVoices": 32,
+            "mapping": 2,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 0.358363,
+            "p95Ms": 0.370502,
+            "p99Ms": 0.376629,
+            "maximumMs": 0.40366,
+            "p95DeadlinePercent": 13.893825,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 0.358038,
+                "p95Ms": 0.361159,
+                "p99Ms": 0.376429,
+                "maximumMs": 0.40366,
+                "p95DeadlinePercent": 13.543463,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.357714,
+                "p95Ms": 0.360161,
+                "p99Ms": 0.373108,
+                "maximumMs": 0.398895,
+                "p95DeadlinePercent": 13.506038,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.358005,
+                "p95Ms": 0.362667,
+                "p99Ms": 0.373884,
+                "maximumMs": 0.395564,
+                "p95DeadlinePercent": 13.600012,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.358179,
+                "p95Ms": 0.361524,
+                "p99Ms": 0.382551,
+                "maximumMs": 0.388818,
+                "p95DeadlinePercent": 13.55715,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.368216,
+                "p95Ms": 0.371552,
+                "p99Ms": 0.383702,
+                "maximumMs": 0.390442,
+                "p95DeadlinePercent": 13.9332,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.939833,
+              "p95Ms": 1.008823,
+              "p99Ms": 1.008823,
+              "maximumMs": 1.008823,
+              "p95DeadlinePercent": 37.830863,
+              "deadlineOverruns": 0
+            }
+          }
+        ],
+        "executionAffinity": {
+          "method": "unrestricted",
+          "allowedLogicalCpus": "0-23",
+          "note": "Hybrid CPU; other workloads and dynamic frequency can affect wall timings."
+        }
+      },
+      "unrestrictedAffinityRun": {
+        "measuredAt": "2026-10-15T18:50:23.709Z",
+        "sourceCommit": "9452bd357595db6b66afa6226925aaf4b4b743c2",
+        "rustSource": "../morphazoid-staircase-pitch-dsp-20261015/src/instruments/striped-staircase-rust/rust/src/lib.rs",
+        "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+        "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "runtime": "v24.14.0",
+        "platform": "linux",
+        "arch": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 9 285HX",
+        "abi": 3,
+        "branchWidth": 6,
+        "sampleRate": 48000,
+        "blockSize": 128,
+        "deadlineMs": 2.6666666666666665,
+        "warmupBlocks": 512,
+        "repeats": 5,
+        "blocksPerRepeat": 384,
+        "percentileMethod": "Nearest rank across individually timed blocks; rounds are also retained. Timings include wall-clock scheduling interruptions.",
+        "scenario": "Synthetic components, mode 2, maximum Detail, 32-sample metadata refresh. Held white stripe. ABI 3 pitch span is 3 octaves; IDs form a binary parent tree. The complete existing callback is measured, without removing other mode calculations.",
+        "scope": "Warm Node/WASM kernel plus JS call/timer overhead. Excludes AudioWorklet routing, browser/UI/worker scheduling, audio output device, and power/thermal variation. Local timing does not establish a universal safe voice maximum.",
+        "rows": [
+          {
+            "capacity": 256,
+            "activeVoices": 256,
+            "mapping": 0,
+            "motion": "hold",
+            "wasmBytes": 80789,
+            "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+            "tableBytes": 532480,
+            "blocks": 1920,
+            "medianMs": 1.27186,
+            "p95Ms": 1.419462,
+            "p99Ms": 1.44843,
+            "maximumMs": 1.821449,
+            "p95DeadlinePercent": 53.229825,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 1.38852,
+                "p95Ms": 1.447979,
+                "p99Ms": 1.463816,
+                "maximumMs": 1.502046,
+                "p95DeadlinePercent": 54.299213,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.354655,
+                "p95Ms": 1.401241,
+                "p99Ms": 1.416914,
+                "maximumMs": 1.821449,
+                "p95DeadlinePercent": 52.546538,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.271323,
+                "p95Ms": 1.351936,
+                "p99Ms": 1.371444,
+                "maximumMs": 1.691375,
+                "p95DeadlinePercent": 50.6976,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.202064,
+                "p95Ms": 1.241753,
+                "p99Ms": 1.265169,
+                "maximumMs": 1.281349,
+                "p95DeadlinePercent": 46.565737,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.175685,
+                "p95Ms": 1.231326,
+                "p99Ms": 1.247658,
+                "maximumMs": 1.385208,
+                "p95DeadlinePercent": 46.174725,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.522942,
+              "p95Ms": 0.540975,
+              "p99Ms": 0.540975,
+              "maximumMs": 0.540975,
+              "p95DeadlinePercent": 20.286562,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 256,
+            "activeVoices": 256,
+            "mapping": 1,
+            "motion": "hold",
+            "wasmBytes": 80789,
+            "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+            "tableBytes": 532480,
+            "blocks": 1920,
+            "medianMs": 0.553941,
+            "p95Ms": 0.638092,
+            "p99Ms": 0.677791,
+            "maximumMs": 0.715874,
+            "p95DeadlinePercent": 23.92845,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 0.607037,
+                "p95Ms": 0.677791,
+                "p99Ms": 0.702719,
+                "maximumMs": 0.715874,
+                "p95DeadlinePercent": 25.417163,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.532933,
+                "p95Ms": 0.555419,
+                "p99Ms": 0.562115,
+                "maximumMs": 0.567751,
+                "p95DeadlinePercent": 20.828213,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.524078,
+                "p95Ms": 0.544387,
+                "p99Ms": 0.553429,
+                "maximumMs": 0.556521,
+                "p95DeadlinePercent": 20.414512,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.554103,
+                "p95Ms": 0.560999,
+                "p99Ms": 0.565844,
+                "maximumMs": 0.566849,
+                "p95DeadlinePercent": 21.037463,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.557523,
+                "p95Ms": 0.573616,
+                "p99Ms": 0.579113,
+                "maximumMs": 0.581124,
+                "p95DeadlinePercent": 21.5106,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.384538,
+              "p95Ms": 0.42066,
+              "p99Ms": 0.42066,
+              "maximumMs": 0.42066,
+              "p95DeadlinePercent": 15.77475,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 256,
+            "activeVoices": 256,
+            "mapping": 2,
+            "motion": "hold",
+            "wasmBytes": 80789,
+            "wasmSha256": "8e5468299ab3881cf44bcdffd878dc1237a787885780caaaa2b91ba405e9c124",
+            "tableBytes": 532480,
+            "blocks": 1920,
+            "medianMs": 0.557571,
+            "p95Ms": 0.642319,
+            "p99Ms": 0.668696,
+            "maximumMs": 0.701162,
+            "p95DeadlinePercent": 24.086962,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 0.535409,
+                "p95Ms": 0.554788,
+                "p99Ms": 0.565297,
+                "maximumMs": 0.580222,
+                "p95DeadlinePercent": 20.80455,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.613945,
+                "p95Ms": 0.667192,
+                "p99Ms": 0.691289,
+                "maximumMs": 0.701162,
+                "p95DeadlinePercent": 25.0197,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.597051,
+                "p95Ms": 0.646626,
+                "p99Ms": 0.670245,
+                "maximumMs": 0.688139,
+                "p95DeadlinePercent": 24.248475,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.544604,
+                "p95Ms": 0.56454,
+                "p99Ms": 0.604919,
+                "maximumMs": 0.618781,
+                "p95DeadlinePercent": 21.17025,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.555324,
+                "p95Ms": 0.565762,
+                "p99Ms": 0.575084,
+                "maximumMs": 0.603877,
+                "p95DeadlinePercent": 21.216075,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.383199,
+              "p95Ms": 0.41809,
+              "p99Ms": 0.41809,
+              "maximumMs": 0.41809,
+              "p95DeadlinePercent": 15.678375,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 512,
+            "activeVoices": 512,
+            "mapping": 0,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 1.434931,
+            "p95Ms": 1.678714,
+            "p99Ms": 1.70556,
+            "maximumMs": 1.85193,
+            "p95DeadlinePercent": 62.951775,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 1.047597,
+                "p95Ms": 1.095216,
+                "p99Ms": 1.11331,
+                "maximumMs": 1.120384,
+                "p95DeadlinePercent": 41.0706,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.214889,
+                "p95Ms": 1.331705,
+                "p99Ms": 1.3557,
+                "maximumMs": 1.376564,
+                "p95DeadlinePercent": 49.938937,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.434931,
+                "p95Ms": 1.481586,
+                "p99Ms": 1.522192,
+                "maximumMs": 1.716545,
+                "p95DeadlinePercent": 55.559475,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.473107,
+                "p95Ms": 1.623595,
+                "p99Ms": 1.686845,
+                "maximumMs": 1.711701,
+                "p95DeadlinePercent": 60.884813,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.655856,
+                "p95Ms": 1.703754,
+                "p99Ms": 1.734005,
+                "maximumMs": 1.85193,
+                "p95DeadlinePercent": 63.890775,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 1.010106,
+              "p95Ms": 1.063646,
+              "p99Ms": 1.063646,
+              "maximumMs": 1.063646,
+              "p95DeadlinePercent": 39.886725,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 512,
+            "activeVoices": 512,
+            "mapping": 1,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 1.473815,
+            "p95Ms": 1.526911,
+            "p99Ms": 1.53316,
+            "maximumMs": 1.569002,
+            "p95DeadlinePercent": 57.259162,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 1.473544,
+                "p95Ms": 1.517919,
+                "p99Ms": 1.530327,
+                "maximumMs": 1.537018,
+                "p95DeadlinePercent": 56.921962,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.431254,
+                "p95Ms": 1.444151,
+                "p99Ms": 1.475205,
+                "maximumMs": 1.501751,
+                "p95DeadlinePercent": 54.155662,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.477137,
+                "p95Ms": 1.527305,
+                "p99Ms": 1.533836,
+                "maximumMs": 1.549308,
+                "p95DeadlinePercent": 57.273938,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.479112,
+                "p95Ms": 1.528568,
+                "p99Ms": 1.536988,
+                "maximumMs": 1.538179,
+                "p95DeadlinePercent": 57.3213,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.489505,
+                "p95Ms": 1.531362,
+                "p99Ms": 1.545491,
+                "maximumMs": 1.569002,
+                "p95DeadlinePercent": 57.426075,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.93934,
+              "p95Ms": 0.991539,
+              "p99Ms": 0.991539,
+              "maximumMs": 0.991539,
+              "p95DeadlinePercent": 37.182713,
+              "deadlineOverruns": 0
+            }
+          },
+          {
+            "capacity": 512,
+            "activeVoices": 512,
+            "mapping": 2,
+            "motion": "hold",
+            "wasmBytes": 80790,
+            "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+            "tableBytes": 925696,
+            "blocks": 1920,
+            "medianMs": 1.004593,
+            "p95Ms": 1.114071,
+            "p99Ms": 1.148966,
+            "maximumMs": 1.650418,
+            "p95DeadlinePercent": 41.777662,
+            "deadlineOverruns": 0,
+            "rounds": [
+              {
+                "medianMs": 1.089502,
+                "p95Ms": 1.146926,
+                "p99Ms": 1.167029,
+                "maximumMs": 1.173191,
+                "p95DeadlinePercent": 43.009725,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 1.042566,
+                "p95Ms": 1.079861,
+                "p99Ms": 1.102293,
+                "maximumMs": 1.650418,
+                "p95DeadlinePercent": 40.494788,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.99847,
+                "p95Ms": 1.031898,
+                "p99Ms": 1.045119,
+                "maximumMs": 1.60632,
+                "p95DeadlinePercent": 38.696175,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.99284,
+                "p95Ms": 1.015034,
+                "p99Ms": 1.03565,
+                "maximumMs": 1.060864,
+                "p95DeadlinePercent": 38.063775,
+                "deadlineOverruns": 0
+              },
+              {
+                "medianMs": 0.986299,
+                "p95Ms": 1.013184,
+                "p99Ms": 1.02236,
+                "maximumMs": 1.032917,
+                "p95DeadlinePercent": 37.9944,
+                "deadlineOverruns": 0
+              }
+            ],
+            "upload": {
+              "iterations": 11,
+              "medianMs": 0.618202,
+              "p95Ms": 0.677592,
+              "p99Ms": 0.677592,
+              "maximumMs": 0.677592,
+              "p95DeadlinePercent": 25.4097,
+              "deadlineOverruns": 0
+            }
+          }
+        ],
+        "executionAffinity": {
+          "method": "unrestricted",
+          "allowedLogicalCpus": "0-23",
+          "note": "Hybrid CPU; other workloads and dynamic frequency can affect wall timings."
+        }
+      },
+      "interpretation": "512 is the current product ceiling, not an absolute Rust limit. Temporary 1024 and 2048 variants instantiate but exceed the 128-sample/48 kHz budget in these measurements. Use the 256-voice default for additional headroom; physical-browser/device acceptance remains separate. All measured deadline overruns and run variation are retained.",
+      "productionValidation": {
+        "validatedAt": "2026-10-15T18:54:45.563Z",
+        "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+        "bytes": 80790,
+        "rustSourceSha256": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f",
+        "scope": "The normalized Relative Turns Span production WASM exactly matches the measured 512-capacity variant."
+      }
+    }
+  },
+  "interpretation": "512 is a chosen product ceiling, not an absolute Rust limit. The final onset-fixed kernel had no deadline overruns in the held 256/512 measurements. The 1024 Frame XY variant had p95 just below the 2.667 ms budget but missed 80 of 1920 blocks; 1024 Relative Turns exceeded the budget in every measured block. The prior 2048 measurements are retained as historical pre-fix evidence and were not rerun. Use the 256-voice default for additional headroom; physical-browser/device acceptance remains separate.",
+  "productionValidation": {
+    "validatedAt": "2026-10-15T18:58:39.740Z",
+    "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
+    "bytes": 80862,
+    "rustSourceSha256": "cda71171a437a36f8132cc30dae167b65ff0799b3138e75b12819f10da56ddaa",
+    "scope": "The final white-onset geometry refresh production WASM exactly matches the measured 512-capacity variant."
+  }
+}

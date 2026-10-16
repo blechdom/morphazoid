@@ -7,8 +7,9 @@ import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wi
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
 import { graphonicCalculatorSiteChanges } from './helpers/graphonic-calculator-site-reference.mjs';
 import { headerPresetsBatchSiteChanges, restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-site-reference.mjs';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 
-const digest = source => createHash('sha256').update(source).digest('hex');
+const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 const root = new URL('../', import.meta.url);
 
 test('header preset rollout amendments restore the exact preceding main source and reject missing or duplicate additions', async () => {
@@ -17,13 +18,13 @@ test('header preset rollout amendments restore the exact preceding main source a
     const url = new URL(change.file, root);
     const source = restoreMicInputBatchSite(restoreWipRolloutSite(restoreBlechSpigotRuntime(await readFile(url, 'utf8'), change.file, { allowRestored: true }), change.file), change.file);
     const restored = restoreHeaderPresetsBatchSite(source, change.file);
-    assert.equal(digest(restored), change.sha256, `${change.file}: pre-rollout source preserved`);
+    assert.equal(digest(restored, change.file), change.sha256, `${change.file}: pre-rollout source preserved`);
     assert.equal(restoreHeaderPresetsBatchSite(source, 'unrelated.js'), source);
     assert.equal(restoreHeaderPresetsBatchSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreHeaderPresetsBatchSite(restored, change.file), /exact header presets batch amendment/);
     const { after } = change.replacements[0];
     assert.throws(() => restoreHeaderPresetsBatchSite(source + after, change.file), /exact header presets batch amendment/);
-    assert.notEqual(digest(restoreHeaderPresetsBatchSite(source + '\n// unrelated drift\n', change.file)), change.sha256);
+    assert.notEqual(digest(restoreHeaderPresetsBatchSite(source + '\n// unrelated drift\n', change.file), change.file), change.sha256);
   }
 });
 

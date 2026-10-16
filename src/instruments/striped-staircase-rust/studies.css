@@ -6,9 +6,12 @@
 .staircase-studies-page #stage:active { cursor: grabbing; }
 .staircase-studies-page #stage:focus-visible { outline: 2px solid #b9f5ce; outline-offset: -4px; }
 #contourOverlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.studies-heading { position: absolute; top: 24px; left: 24px; pointer-events: none; text-shadow: 0 2px 12px #000; }
+.studies-heading { position: absolute; top: 24px; left: 24px; right: 24px; pointer-events: none; text-shadow: 0 2px 12px #000; }
 .studies-heading h1 { margin: 0; font: 700 clamp(22px, 3.4vw, 48px)/1.05 var(--font-display, sans-serif); letter-spacing: -.04em; color: #e4ffee; }
 .studies-heading p { color: #b9f5ce; margin: 10px 0; font-size: 13px; }
+.studies-heading #tendrilReadout { font-size: 14px; }
+#tendrilCount { margin-left: 8px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: #e4ffee; }
+#stageLegend { position: absolute; bottom: 108px; left: 18px; right: 18px; width: fit-content; max-width: calc(100% - 36px); margin: 0; padding: 6px 8px; border-radius: 5px; font-size: 11px; line-height: 1.4; color: #dcece3; background: #080c12d9; pointer-events: none; }
 .view-actions { position: absolute; bottom: 50px; right: 14px; display: flex; gap: 5px; }
 .view-actions button { width: 40px; height: 40px; font-size: 20px; background: #0a121dda; }
 .field-readout { position: absolute; bottom: 14px; left: 18px; right: 18px; display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #c1d2d4; pointer-events: none; text-shadow: 0 1px 4px #000; }
@@ -28,6 +31,7 @@
 .staircase-studies-page .control output { color: #b9f5ce; font-variant-numeric: tabular-nums; }
 .staircase-studies-page .control input, .staircase-studies-page .control select { width: 100%; min-width: 0; }
 .study-knobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 6px; }
+.study-knobs--pitch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .study-knobs--depth { grid-template-columns: 104px minmax(0, 1fr); }
 .study-knobs--structure { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; }
 .staircase-studies-page .study-knob.mz-range-knob { width: 100%; min-width: 0; height: 88px; margin: 0; }
@@ -40,6 +44,20 @@
 .study-knobs .mz-tap-tempo { margin-top: 3px; }
 .study-section details { display: grid; gap: 12px; }
 .study-section summary { font-size: 12px; color: #b0c2c7; cursor: pointer; }
+.spiral-tuning { display: grid; gap: 18px; padding-top: 18px; }
+.spiral-tuning-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; align-items: center; }
+.spiral-tuning-row h3 { margin: 0 0 5px; color: #e4ffee; font-size: 12px; }
+.spiral-tuning-row button { margin-top: 7px; min-height: 32px; padding: 5px 10px; background: #13231d; border: 1px solid #30443d; border-radius: 6px; font-size: 11px; cursor: pointer; }
+.spiral-tuning-row button:hover, .spiral-tuning-row button[data-active="true"] { border-color: #b9f5ce; color: #e4ffee; }
+.spiral-tuning-row button:focus-visible { outline: 2px solid #b9f5ce; outline-offset: 3px; }
+.spiral-passage { min-height: 40px; padding: 8px 12px; border: 1px solid #30443d; border-radius: 7px; background: #13231d; color: #dcece3; font-size: 12px; cursor: pointer; }
+.spiral-passage:focus-visible { outline: 2px solid #b9f5ce; outline-offset: 3px; }
+.path-toggle { display: flex; align-items: center; gap: 9px; min-height: 36px; font-size: 12px; cursor: pointer; }
+.path-toggle input { width: 18px; height: 18px; accent-color: #b9f5ce; }
+.stripe-options { display: grid; gap: 4px; }
+#focusReadout, #pitchContribution { padding: 9px 11px; border-left: 2px solid #6b9c7c; background: #13231d; }
+.spiral-passage:disabled { opacity: .45; cursor: default; }
+.spiral-tuning-row .control > span { font-size: 11px; }
 #liveStatus, .playing-notes, .studies-panel > a { margin: 0; font-size: 11px; line-height: 1.5; color: #a8bdc4; }
 #liveStatus { min-height: 17px; }
 .studies-panel #resetAll { flex-shrink: 0; min-height: 44px; padding: 10px 14px; color: #dcece3; background: #13231d; border: 1px solid #30443d; border-radius: 7px; cursor: pointer; }
@@ -47,5 +65,5 @@
 #renderError { position: absolute; inset: 40% 10% auto; padding: 20px; background: #171318; color: #ffd4d4; }
 @media (max-width: 960px) { html:has(.staircase-studies-page) { height: auto; min-height: 100%; overflow: auto; } body.staircase-studies-page { height: auto; min-height: 100dvh; overflow: visible; } }
 @media (max-width: 800px) { .studies-shell { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: start; height: auto; min-height: 0; padding: 12px; gap: 20px; } #stageWrap { height: 52dvh; min-height: 260px; } .studies-panel { overflow: visible; padding: 0 4px 24px; } .studies-heading { top: 18px; left: 18px; } .field-readout { flex-direction: column; gap: 3px; } }
-@media (max-height: 500px) and (min-width: 700px) { .studies-shell { height: auto; min-height: 0; } #stageWrap { height: calc(100dvh - 110px); min-height: 240px; } .studies-stage { position: sticky; top: 12px; } .studies-panel { overflow: visible; } }
-@media (pointer: coarse) { .view-actions button, .study-modes button, #holdButton { min-width: 48px; min-height: 48px; } }
+@media (max-height: 500px) and (min-width: 700px) { .studies-shell { height: auto; min-height: 0; } #stageWrap { height: calc(100dvh - 110px); min-height: 280px; } .studies-stage { position: sticky; top: 12px; } .studies-panel { overflow: visible; } .studies-heading { top: 12px; left: 14px; right: 14px; } .studies-heading h1 { font-size: 22px; } .studies-heading p { margin: 5px 0; font-size: 11px; line-height: 1.3; } .studies-heading #modeHeading { display: none; } .studies-heading #tendrilReadout { font-size: 11px; } #tendrilCount { font-size: 18px; } #stageLegend { left: 14px; right: 14px; max-width: calc(100% - 28px); font-size: 10px; } }
+@media (pointer: coarse) { .view-actions button, .study-modes button, #holdButton, .spiral-tuning-row button, .spiral-passage { min-width: 48px; min-height: 48px; } }

@@ -13,8 +13,9 @@ import { restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-si
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { graphonicCalculatorSiteChanges, readGraphonicCalculatorSiteReference, restoreGraphonicCalculatorSite } from './helpers/graphonic-calculator-site-reference.mjs';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 
-const digest = source => createHash('sha256').update(source).digest('hex');
+const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 const root = new URL('../', import.meta.url);
 
 test('Graphonic Calculator is the Math instrument with conservative MIDI and explicit Audio arm', async () => {
@@ -60,11 +61,11 @@ test('Graphonic Calculator amendments restore the exact preceding main source an
     const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(url, 'utf8'), change.file), change.file), change.file);
     const restored = restoreGraphonicCalculatorSite(source, change.file);
     assert.equal(restoreGraphonicCalculatorSite(source, 'unrelated.js'), source);
-    assert.equal(digest(restored), change.sha256, `${change.file}: pre-Graphonic Calculator source preserved`);
+    assert.equal(digest(restored, change.file), change.sha256, `${change.file}: pre-Graphonic Calculator source preserved`);
     assert.equal(await readWipRolloutSiteReference(url, 'utf8'), restored);
     assert.deepEqual(await readWipRolloutSiteReference(url), await readFile(url), 'binary reads remain byte-for-byte');
     assert.equal(restoreGraphonicCalculatorSite(restored, change.file, { allowRestored: true }), restored);
-    assert.notEqual(digest(restoreGraphonicCalculatorSite(source + '\n// unrelated drift\n', change.file)), change.sha256);
+    assert.notEqual(digest(restoreGraphonicCalculatorSite(source + '\n// unrelated drift\n', change.file), change.file), change.sha256);
     assert.throws(() => restoreGraphonicCalculatorSite(restored, change.file), /exact Graphonic Calculator site amendment/);
     for (const { before, after } of change.replacements) {
       assert.match(after, /graphonic-calculator/);

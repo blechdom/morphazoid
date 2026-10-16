@@ -75,7 +75,7 @@
       "replacements": [
         {
           "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n",
-          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n\n# Staircase Studies\ncopy+require\tsrc/instruments/striped-staircase-rust/app.js\ncopy+require\tsrc/instruments/striped-staircase-rust/engine.js\ncopy+require\tsrc/instruments/striped-staircase-rust/processor.js\ncopy+require\tsrc/instruments/striped-staircase-rust/field.js\ncopy+require\tsrc/instruments/striped-staircase-rust/worker.js\ncopy+require\tsrc/instruments/striped-staircase-rust/studies.css\ncopy+require\tassets/wasm/staircase.wasm\ncopy+require\tassets/wasm/staircase-build.json\ncopy+require\tdocs/staircase-studies.md\n"
+          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n\n# Staircase Studies\ncopy+require\tsrc/instruments/striped-staircase-rust/app.js\ncopy+require\tsrc/instruments/striped-staircase-rust/engine.js\ncopy+require\tsrc/instruments/striped-staircase-rust/processor.js\ncopy+require\tsrc/instruments/striped-staircase-rust/field.js\ncopy+require\tsrc/instruments/striped-staircase-rust/worker.js\ncopy+require\tsrc/instruments/striped-staircase-rust/spiral-studies.js\ncopy+require\tsrc/instruments/striped-staircase-rust/contour-paths.js\ncopy+require\tsrc/instruments/striped-staircase-rust/renderer.js\ncopy+require\tsrc/instruments/striped-staircase-rust/studies.css\ncopy+require\tassets/wasm/staircase.wasm\ncopy+require\tassets/wasm/staircase-build.json\ncopy+require\tdocs/staircase-studies.md\n"
         }
       ]
     },

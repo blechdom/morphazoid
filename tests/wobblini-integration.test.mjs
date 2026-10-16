@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -12,7 +13,7 @@ import { restoreWobbliniSite, wobbliniSiteChanges } from './helpers/wobblini-sit
 import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
-const digest = source => createHash('sha256').update(source).digest('hex');
+const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 
 test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and conservative MIDI', () => {
   const item = instrumentById('wobblini');
@@ -79,7 +80,7 @@ test('Wobblini additions preserve preceding source bytes and reject missing, rep
   for (const change of wobbliniSiteChanges.changes) {
     const source = restoreWipRolloutSite(await readFile(new URL(change.file, root), 'utf8'), change.file);
     const restored = restoreWobbliniSite(source, change.file);
-    assert.equal(digest(restored), change.sha256, change.file);
+    assert.equal(digest(restored, change.file), change.sha256, change.file);
     assert.equal(restoreWobbliniSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreWobbliniSite(restored, change.file), /exact Wobblini site amendment/);
     for (const { before, after } of change.replacements) {
@@ -89,7 +90,7 @@ test('Wobblini additions preserve preceding source bytes and reject missing, rep
     }
     const drift = '\n// unrelated drift\n';
     assert.ok(restoreWobbliniSite(source + drift, change.file).endsWith(drift));
-    assert.notEqual(digest(restoreWobbliniSite(source + drift, change.file)), change.sha256);
+    assert.notEqual(digest(restoreWobbliniSite(source + drift, change.file), change.file), change.sha256);
   }
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreWobbliniSite(binary, 'src/pages/manifest.js'), binary);
