@@ -152,3 +152,45 @@ test("Wobblini PCM windows use bounded copyFromChannel reads and held file edges
   }
   assert.equal(requests.length, 0);
 });
+
+
+test("Wobblini a long main-thread stall stays silent and late PCM returns through a fade", () => {
+  const data = new Float32Array(rate * 30).fill(0.5), pending = [];
+  const source = { sampleRate: rate, length: data.length, numberOfChannels: 1, getChannelData: () => data };
+  const bounds = { duration: 30, loopEnabled: false, loopStart: 0, loopEnd: 30 };
+  const sampler = new WobbliniScratchSampler(rate, request => pending.push(request));
+  sampler.begin({ index: 0, generation: 1, sampleRate: rate, position: 10, ...bounds,
+    window: createScratchWindow(source, bounds, 10) });
+  sampler.move({ index: 0, generation: 1, position: 20 });
+  for (let i = 0; i < 32; i++) render(sampler, 0.016);
+  assert.equal(rms(render(sampler, 0.016)[0][0]), 0); assert.equal(sampler.lanes[0].position, 20);
+  const stale = pending.shift(); sampler.window({ ...stale, window: createScratchWindow(source, bounds, stale.position) });
+  sampler.move({ index: 0, generation: 1, position: 21 });
+  assert.equal(rms(render(sampler, 0.016)[0][0]), 0, "a stale window cannot sound the wrong source region");
+  assert.equal(sampler.lanes[0].gain, 0, "missing PCM never silently opens the envelope");
+  const fresh = pending.shift(); sampler.window({ ...fresh, window: createScratchWindow(source, bounds, fresh.position) });
+  const recovered = render(sampler, 0.016)[0][0];
+  assert.ok(recovered[0] > 0 && recovered[0] < 0.02, "refill enters through a fresh fade");
+  assert.ok(recovered.at(-1) > 0.4); assert.ok(sampler.lanes[0].position > 20);
+});
+
+test("Wobblini exhausted PCM windows fade and hold their last valid position until refill", () => {
+  const data = new Float32Array(rate * 30).fill(0.5), pending = [];
+  const source = { sampleRate: rate, length: data.length, numberOfChannels: 1, getChannelData: () => data };
+  const bounds = { duration: 30, loopEnabled: false, loopStart: 0, loopEnd: 30 };
+  const sampler = new WobbliniScratchSampler(rate, request => pending.push(request));
+  sampler.begin({ index: 0, generation: 1, sampleRate: rate, position: 10, ...bounds,
+    window: createScratchWindow(source, bounds, 10) });
+  let previous = 0, largestStep = 0;
+  for (let i = 0; i < 40; i++) {
+    sampler.move({ index: 0, generation: 1, position: 20 });
+    const output = render(sampler, 0.016)[0][0];
+    for (const sample of output) { largestStep = Math.max(largestStep, Math.abs(sample - previous)); previous = sample; }
+  }
+  assert.ok(largestStep < 0.02, "including window exhaustion, no hard step to zero");
+  assert.ok(sampler.lanes[0].position <= 11.001); assert.equal(sampler.lanes[0].gain, 0);
+  assert.equal(pending.length, 1, "a missing reply cannot flood requests");
+  const request = pending.shift(); sampler.window({ ...request, window: createScratchWindow(source, bounds, request.position) });
+  const recovered = render(sampler, 0.016)[0][0];
+  assert.ok(recovered[0] < 0.02); assert.ok(recovered.at(-1) > 0.4);
+});

@@ -74,7 +74,7 @@ export class WobbliniScratchSampler {
         !Number.isFinite(position)) return false;
     this.lanes[index] = { generation, channels, windows: window ? [window] : [], pendingWindow: false, sampleRate, duration, loopEnabled: Boolean(loopEnabled),
       loopStart: clamp(loopStart, 0, duration), loopEnd: clamp(loopEnd, 0, duration, duration),
-      position, target: position, velocity: 0, desiredVelocity: 0, gain: 0,
+      position, target: position, velocity: 0, desiredVelocity: 0, gain: 0, lastSamples: [0, 0],
       lastMove: this.time, lastHandTime: this.time, releasing: false };
     return true;
   }
@@ -121,7 +121,7 @@ export class WobbliniScratchSampler {
       const data = chunk.channels[channel] ?? chunk.channels[0], offset = frame - chunk.startFrame;
       if (offset >= 0 && offset < data.length) return data[offset];
     }
-    return 0;
+    return undefined;
   }
   _sample(lane, channel) {
     const length = Math.round(lane.duration * lane.sampleRate);
@@ -129,7 +129,9 @@ export class WobbliniScratchSampler {
     const index = Math.min(length - 1, Math.floor(offset)), fraction = offset - Math.floor(offset);
     const nextSeconds = scratchPosition((index + 1) / lane.sampleRate, lane);
     const next = Math.min(length - 1, Math.floor(nextSeconds * lane.sampleRate + 1e-8));
-    const value = this._value(lane, channel, index) * (1 - fraction) + this._value(lane, channel, next) * fraction;
+    const first = this._value(lane, channel, index), second = this._value(lane, channel, next);
+    if (first === undefined || second === undefined) return null;
+    const value = first * (1 - fraction) + second * fraction;
     return Number.isFinite(value) ? clamp(value, -1, 1) : 0;
   }
   process(outputs, frames = outputs[0]?.[0]?.length ?? 128) {
@@ -140,15 +142,25 @@ export class WobbliniScratchSampler {
         const stale = this.time + frame / this.sampleRate - lane.lastMove > SCRATCH_HOLD_SECONDS;
         const moving = !lane.releasing && !stale && Math.abs(lane.target - lane.position) > 1e-8;
         lane.velocity += ((moving ? lane.desiredVelocity : 0) - lane.velocity) * this.smoothing;
-        const remaining = lane.target - lane.position, step = lane.velocity / this.sampleRate;
+        const previousPosition = lane.position, remaining = lane.target - lane.position, step = lane.velocity / this.sampleRate;
         if (moving && Math.sign(step) === Math.sign(remaining)) {
           lane.position += Math.abs(step) >= Math.abs(remaining) ? remaining : step;
         }
-        const audible = moving && Math.abs(lane.velocity) > 0.002 && Math.sign(lane.velocity) === Math.sign(remaining);
-        lane.gain += ((audible ? 1 : 0) - lane.gain) * this.smoothing;
         const output = outputs[index];
+        let available = true;
+        if (output && (moving || lane.gain > 1e-6)) {
+          const left = this._sample(lane, 0), right = output.length > 1 ? this._sample(lane, 1) : left;
+          available = left !== null && right !== null;
+          if (available) { lane.lastSamples[0] = left; lane.lastSamples[1] = right; }
+          // A delayed refill must not turn silence into a full-level sample.
+          // Fade the last valid frame and hold traversal at the window edge;
+          // resumed PCM then continues from the adjacent source sample.
+          else lane.position = previousPosition;
+        }
+        const audible = available && moving && Math.abs(lane.velocity) > 0.002 && Math.sign(lane.velocity) === Math.sign(remaining);
+        lane.gain += ((audible ? 1 : 0) - lane.gain) * this.smoothing;
         if (output && lane.gain > 1e-6) for (let channel = 0; channel < output.length; channel++) {
-          output[channel][frame] = this._sample(lane, channel) * lane.gain;
+          output[channel][frame] = lane.lastSamples[channel] * lane.gain;
         }
         if (!audible && lane.gain < 1e-6) {
           lane.gain = 0; lane.velocity = 0;
