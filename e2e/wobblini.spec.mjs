@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { readFile } from "node:fs/promises";
 import { readAudioStatus, sampleAudioEnvelope } from "./helpers/audio-probe.mjs";
 
 const APP = "/src/instruments/wobblini/wobblini-app.js";
@@ -206,6 +207,39 @@ test("failed file decode preserves a playable track and teardown releases the ou
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false })));
   await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
   await silent(page);
+});
+
+test("the shared recorder downloads a nonempty stereo mix without changing deck transport", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(globalThis, "showSaveFilePicker", { configurable: true, value: undefined }));
+  await demos(page);
+  await expect(page.locator(".output-recording-button")).toBeDisabled();
+  expect((await state(page)).armed).toBe(false);
+  await page.locator("#playButton").click(); await arm(page);
+  await page.locator(".output-recording-button").click();
+  await expect(page.locator(".output-recording-button")).toHaveAccessibleName("Stop recording");
+  await audible(page, 550);
+  await page.locator(".output-recording-button").click();
+  await expect(page.locator(".output-recording-dialog")).toBeVisible();
+  expect((await state(page)).decks.every((deck) => deck.playing)).toBe(true);
+  await page.locator(".output-recording-name").fill("wobblini-eight-deck-qa");
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("wobblini-eight-deck-qa.wav");
+  const bytes = await readFile(await download.path());
+  expect(bytes.toString("ascii", 0, 4)).toBe("RIFF");
+  expect(bytes.toString("ascii", 8, 12)).toBe("WAVE");
+  let channels = 0, data = null;
+  for (let offset = 12; offset + 8 <= bytes.length;) {
+    const id = bytes.toString("ascii", offset, offset + 4), length = bytes.readUInt32LE(offset + 4);
+    if (id === "fmt ") channels = bytes.readUInt16LE(offset + 10);
+    if (id === "data") data = bytes.subarray(offset + 8, offset + 8 + length);
+    offset += 8 + length + length % 2;
+  }
+  expect(channels).toBe(2);
+  expect(data?.length).toBeGreaterThan(10000);
+  expect(data.some((byte) => byte !== 0)).toBe(true);
+  expect((await state(page)).armed).toBe(true);
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
