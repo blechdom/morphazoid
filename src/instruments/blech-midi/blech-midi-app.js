@@ -13,7 +13,7 @@ import { mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
 import { mountBlechDropStage } from './blech-midi-drop-stage.js';
-import { createBlechSpigotEngine } from './blech-midi-spigot-engine.js';
+import { createBlechSpigotEngine, blechStrokeScore } from './blech-midi-spigot-engine.js';
 import { mountBlechSpigots } from './blech-midi-spigots.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
@@ -37,7 +37,7 @@ function mountBlechMidi() {
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
   let masterPause = null;
-  let selectedSpigot = null;
+  let selectedSpigot = null, canvasStampId = 'heart', canvasStampPrepared = null;
   let dropStage, stampPicker, spigots, spigotView, frameMode = 'stamps', automataSignature = '';
   const prepared = new Map();
   let bankChooser, effectsSignature = '';
@@ -371,7 +371,18 @@ function mountBlechMidi() {
   spigotView = mountBlechSpigots($('blackMidiViewport'), {
     controlsHost: $('blechSpigotControls'),
     getLayers: () => spigots.getLayers(),
-    getPreparedScore: () => ({ score: dropStage.getSourceScore(), settings: dropStage.getSettings() }),
+    getPreparedScore: () => spigotView?.getMode() === 'stamp' && canvasStampPrepared
+      ? { score: canvasStampPrepared.score, settings: { ...canvasStampPrepared.options, ...dropStage.getSettings(), name: canvasStampPrepared.options.name, source: 'frames' } }
+      : ({ score: dropStage.getSourceScore(), settings: dropStage.getSettings() }),
+    getStampEntries: () => performanceView.getStamps(),
+    getSelectedStampId: () => canvasStampId,
+    onSelectStamp: async id => {
+      const score = await performanceView.prepareStamp(id);
+      if (!score || disposed) return false;
+      canvasStampId = id; canvasStampPrepared = performanceView.getPreparedDrop();
+      stampPicker?.select(id); stampPicker?.update(performanceView.getStamps());
+      return true;
+    },
     getTempo: () => engine.state.tempo,
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
     onCreate: (score, settings) => spigots.create(score, settings),
@@ -382,6 +393,14 @@ function mountBlechMidi() {
     onBrushStart: options => spigots.brushStart(options),
     onBrushMove: (id, point) => spigots.brushMove(id, point),
     onBrushEnd: (id, options) => spigots.brushEnd(id, options),
+    onLatch: ({ pitch, delayBeats, prepared: draft, replaceIds = [] }) => {
+      for (const id of replaceIds) spigots.remove(id);
+      const note = { note: pitch, beat: 0, duration: 1, channel: 0, velocity: 88 };
+      return spigots.create(blechStrokeScore([note], 1, 'Held note'), {
+        ...draft?.settings, source: 'frames', name: 'Held note', delayBeats,
+        transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, loop: false, hold: true,
+      })?.id ?? null;
+    },
     onModeChange: mode => dropStage.suspendInteractions(Boolean(selectedSpigot) || mode !== 'select'),
     onSelectionChange: id => { selectedSpigot = id; reflectLayerSelection(); dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
   });
