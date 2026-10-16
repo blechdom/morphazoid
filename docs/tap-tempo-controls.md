@@ -153,6 +153,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Wave Pool · Morphazoid](../wave-pool.html) | `#tempoBpm` |
 | [WebGPU 303](../webgpu-303.html) | `#timeScale`, `[role="slider"][data-param-key="timeScale"]` |
 | [WebGPU Chiptune](../webgpu-chiptune.html) | `#tempo`, `[role="slider"][data-param-key="tempo"]` |
+| [Wobblini](../wobblini.html) | `#master-bpm`, `.deck-bpm` (master tempo and each deck’s source BPM) |
 | [Yoyodyne](../yoyodyne.html) | `#tempo` |
 
 ## Shared implementation

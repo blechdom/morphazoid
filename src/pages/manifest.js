@@ -211,6 +211,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "webgpu-dsp-primitives.html",
   "webgpu-synths.html",
   "weierstrass.html",
+  "wobblini.html",
   "yoyodyne.html",
 ]);
 

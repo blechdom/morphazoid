@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 15 owner request: an eight-deck browser DJ MVP named Wobblini.
+  { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'app', label: 'App' }, { id: 'looper', label: 'Looper' }, { id: 'audio-effect', label: 'Audio Effect' }] },
   // October 14 owner request: Desmos-style graphing calculator with a sonified trace playhead.
   { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',

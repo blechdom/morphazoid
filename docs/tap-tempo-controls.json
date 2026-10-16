@@ -1,6 +1,20 @@
 {
   "confirmed": [
     {
+      "route": "wobblini",
+      "selector": "#master-bpm",
+      "mapping": { "unit": "bpm" },
+      "note": "Master tempo in BPM; transport and Audio remain independent.",
+      "source": "src/pages/wobblini.html"
+    },
+    {
+      "route": "wobblini",
+      "selector": ".deck-bpm",
+      "mapping": { "unit": "bpm" },
+      "note": "Source BPM metadata for each local deck; does not detect beats or arm Audio.",
+      "source": "src/instruments/wobblini/wobblini-app.js"
+    },
+    {
       "route": "fractal-delay",
       "selector": "#realMotionTempo",
       "mapping": { "unit": "bpm" },

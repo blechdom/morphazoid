@@ -1,6 +1,8 @@
 // Explicit owner units; labels alone cannot describe the speed curve.
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
+  {"route": "wobblini.html", "selector": "#master-bpm", "mapping": {"unit": "bpm"}, "title": "Tap master tempo"},
+  {"route": "wobblini.html", "selector": ".deck-bpm", "mapping": {"unit": "bpm"}, "title": "Tap deck source BPM"},
   {"route": "graphonic-calculator.html", "selector": "#sweepTempo", "mapping": {"unit": "bpm"}, "title": "Tap one complete sweep"},
   {"route": "trackazoid.html", "selector": "#aBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck A source BPM"},
   {"route": "trackazoid.html", "selector": "#bBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck B source BPM"},
