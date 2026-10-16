@@ -3,10 +3,13 @@
 Eight independent audio decks, built as a Morphazoid browser instrument.
 **Records** opens by default: eight circular scratchable records, each with a
 fixed needle above its rotating surface and a taller audio waveform wrapped
-around it. A dot tracks the position through the complete file; a thin arc
-marks the loop. Four triangular corner buttons provide Load (upper left),
-Edit (upper right), Cue (lower left) and Play/Pause (lower right). Edit opens
-that deck in the Tiny editor.
+around it. A dot tracks the position through the complete file. Play/Pause
+sits at the record's center, and one gear button opens a larger track-control
+popup. It contains Load, per-deck Sync, Speed with a **1×** reset, Volume,
+and the loop toggle and length selector. Active loops show their in/out
+markers and length on the record.
+Expand **Beat grid & cue** in the popup to edit source BPM, seek, save a cue,
+or return to it. Close the popup with its close button, Escape, or the backdrop.
 The compact master strip provides Play/Pause all, Stop, Master BPM, Sync and
 crossfading. Deck 1 is always the tempo master, marked by a crown.
 Deck editing controls and the detailed mixer remain hidden.
@@ -14,13 +17,20 @@ Turn Audio on in the header, then play a record. The view icons switch to
 **Full decks** for all controls or **Tiny decks** for miniature decks; Edit
 expands one tiny deck. Switching views keeps playback and the mix intact.
 Buttons use icons with accessible names and hover titles.
-Decks have no enclosing cards or visible track-name headers. A small number
-sits above each Records tile or beside each deck in the other views.
+Decks have no enclosing cards or visible track-name headers. A larger number
+identifies each record; the other views keep their small gutter numbers.
 File names remain in the platter's hover title and screen-reader description.
 In Full decks and the expanded Tiny editor, Load sits beside Edit.
 
 ## Playing
 
+- File loading starts locked. Use the global file-unlock control before
+  opening Load or dropping local audio onto a deck; lock it again when finished
+  loading. The lock also covers the Demo set and Load in Full/Tiny views.
+  Transport, scratching, mixing and Sync remain available while locked.
+- Drag the Speed and Volume knobs vertically; hold Shift for finer changes.
+  Keyboard arrows adjust the focused knob. **1×** resets speed to the file's
+  original rate. The popup displays each knob's current value.
 - Hold and rotate a record to scratch its samples forward or backward. One
   revolution traverses 1.8 seconds of source audio. Playing decks resume at
   the hand position; a synced follower realigns to Deck 1's beat phase when
@@ -35,7 +45,9 @@ In Full decks and the expanded Tiny editor, Load sits beside Edit.
   decks when focus is outside a control. Stop returns all playheads to zero.
 - The beat-loop menu starts a loop on the cue-relative beat grid, shifting it
   near the file boundary when needed to fit. Seeking outside its region exits
-  that loop. The demos begin with their whole 16-beat phrase looped.
+  that loop. The loop toggle uses the remembered beat length when re-enabled.
+  Choosing a new length also enables the loop.
+  The demos begin with their whole 16-beat phrase looped.
 - Set each file's **Source BPM** and cue manually. **Master BPM** changes
   Deck 1's playback speed; **Sync** makes the other decks follow its tempo
   and beat phase. Each deck's **Match BPM** performs a one-time speed match.
@@ -62,20 +74,24 @@ page session: reload clears them. It does not request microphone access.
 
 ## Sync
 
-**Sync** is a persistent setting for all seven followers, with Deck 1 always
-the master. Source BPM defines beat spacing and the cue defines beat zero.
+**Sync** is a persistent setting for each of the seven followers, with Deck 1
+always the master. A deck's Sync button selects whether it follows Deck 1;
+the master-strip Sync control enables all seven followers, or releases them
+when all are already selected. Source BPM
+defines beat spacing and the cue defines beat zero.
 The demos have prepared grids; imported tracks begin with an assumed 120 BPM
 and a zero cue. Enter their actual tempo and set a cue on a beat before syncing.
 This aligns beat phase, not musical downbeats or phrases.
 Moving the cue keeps an existing loop region; the next loop choice uses the
 new grid origin.
 
-When Deck 1 is playing and not being scratched, followers match its effective
+When Deck 1 is playing and not being scratched, selected followers match its effective
 tempo and align to the nearest matching beat phase. Changes to Deck 1's rate
-or source BPM propagate while Sync is enabled. A paused follower keeps Sync
+or source BPM propagate to those followers. A paused follower keeps Sync
 for its next launch. Starting, seeking, changing a loop or cue, editing source
-BPM, and releasing a scratch rejoin the master. Manually changing a follower's
-rate, including Match BPM, turns off global Sync.
+BPM, and releasing a scratch rejoin the master when that deck's Sync is enabled.
+Manually changing a follower's rate, including the **1×** reset or Match BPM,
+releases only that follower; other selected decks keep following Deck 1.
 
 Pausing or scratching Deck 1 suspends phase alignment: followers continue at
 the matched tempo, and rejoin when Deck 1 resumes or is released. Master status
