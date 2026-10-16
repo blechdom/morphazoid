@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 50,
-    "fullPresets": 2129,
+    "implemented": 51,
+    "fullPresets": 2141,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 131
@@ -289,6 +289,16 @@
       "scope": "regular",
       "presets": null,
       "status": "unmigrated"
+    },
+    {
+      "id": "esi-32",
+      "label": "ESI-32",
+      "href": "esi-32.html",
+      "category": "instrument",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "2026-10-16: 12 complete sound presets with preserved sample buffers, output and live transport; parameter randomizer. ESI-32 browser tests pass; human listening and physical MIDI/touch acceptance remain pending."
     },
     {
       "id": "object-forge",

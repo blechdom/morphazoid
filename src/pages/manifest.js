@@ -49,6 +49,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "enveloper.html",
   "escape-dust.html",
   "escher-tessellation.html",
+  "esi-32.html",
   "euclid.html",
   "exceptional.html",
   "falling-forms.html",

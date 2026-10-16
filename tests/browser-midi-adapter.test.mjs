@@ -150,6 +150,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     new Set(playableIds),
   );
   assert.deepEqual(NATIVE_INSTRUMENT_MIDI_IDS, [
+    "esi-32",
     "midiphoria",
     "shape-synth",
     "recursive-fm",
@@ -190,6 +191,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "esi-32",
     "wobblini",
     "striped-staircase-rust",
     "trackazoid",

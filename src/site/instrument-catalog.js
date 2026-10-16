@@ -818,6 +818,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Press and drag across the surface: each newly crossed area sounds once per gesture, while moving inside an area or holding still stays silent.",
     ["Built-in synth", "MIDI", "Pointer", "Computer keys"],
   ),
+  "esi-32": define(
+    "ESI-32-inspired digital sampler",
+    "Loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.",
+    "Enable Audio, hold a keyboard key or Audition, then drag waveform markers to trim or loop. Select a slot to load your own sound.",
+    ["Audio file", "Computer keys", "MIDI input", "Sampler", "Presets"],
+  ),
   "sample-drums": define(
     "Sample instrument",
     "Edits a sixteen-slot 808/909-style sample bank that can also replace the Lattice Drum Machine synth bank.",
