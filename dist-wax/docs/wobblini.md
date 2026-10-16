@@ -2,37 +2,57 @@
 
 Eight independent audio decks, built as a Morphazoid browser instrument.
 **Records** opens by default: eight circular scratchable records, each with a
-center Play/Pause icon and its audio waveform wrapped around the rim. A dot
-tracks the position through the complete file; a thin arc marks the loop.
-The compact master strip provides Play/Pause all, Stop, BPM, Match all and
-crossfading. Deck editing controls and the detailed mixer remain hidden.
+fixed needle above its rotating surface and a taller audio waveform wrapped
+around it. A dot tracks the position through the complete file. Play/Pause
+sits at the record's center, and one gear button opens a larger track-control
+popup. It contains Load, per-deck Sync, Speed with a **1×** reset, Volume,
+and the loop toggle and length selector. Active loops show their in/out
+markers and length on the record.
+Expand **Beat grid & cue** in the popup to edit source BPM, seek, save a cue,
+or return to it. Close the popup with its close button, Escape, or the backdrop.
+The compact master strip provides Play/Pause all, Stop, Master BPM, Sync and
+crossfading. Deck 1 is always the tempo master, marked by a crown.
+Deck editing controls and the detailed mixer remain hidden.
 Turn Audio on in the header, then play a record. The view icons switch to
 **Full decks** for all controls or **Tiny decks** for miniature decks; Edit
 expands one tiny deck. Switching views keeps playback and the mix intact.
 Buttons use icons with accessible names and hover titles.
-Decks have no enclosing cards or visible track-name headers. A small number
-sits in the existing gutter beside each deck, leaving the controls unobstructed.
+Decks have no enclosing cards or visible track-name headers. A larger number
+identifies each record; the other views keep their small gutter numbers.
 File names remain in the platter's hover title and screen-reader description.
 In Full decks and the expanded Tiny editor, Load sits beside Edit.
 
 ## Playing
 
+- File loading starts locked. Use the global file-unlock control before
+  opening Load or dropping local audio onto a deck; lock it again when finished
+  loading. The lock also covers the Demo set and Load in Full/Tiny views.
+  Transport, scratching, mixing and Sync remain available while locked.
+- Drag the Speed and Volume knobs vertically; hold Shift for finer changes.
+  Keyboard arrows adjust the focused knob. **1×** resets speed to the file's
+  original rate. The popup displays each knob's current value.
 - Hold and rotate a record to scratch its samples forward or backward. One
-  revolution traverses 1.8 seconds of source audio. Releasing resumes at the
-  hand position if the deck was playing; a paused deck stays paused. A held,
+  revolution traverses 1.8 seconds of source audio. Playing decks resume at
+  the hand position; a synced follower realigns to Deck 1's beat phase when
+  the master is playing. A paused deck stays paused. A held,
   stationary record is silent. Enabled loops wrap; files without loops stop
   at their bounds. Focus a record and use Left/Right arrows to scratch; Shift
   makes smaller movements. Pointer cancellation and lost focus release it.
 - Each deck has independent Play/Pause, waveform seeking, a keyboard-accessible
-  position slider, and a cue point. Set cue saves the current position; Cue
+  position slider, and a cue point. Set cue saves the current position as
+  the manual beat-grid origin; Cue
   returns to it and pauses. Space toggles all decks; keys 1–8 toggle individual
   decks when focus is outside a control. Stop returns all playheads to zero.
-- The beat-loop menu starts a loop at the current beat. Seeking outside its
-  region exits that loop. The demos begin with their whole 16-beat phrase looped.
-- Set a file's **Source BPM** manually, then use **Match BPM** or **Match all**
-  against the master tempo. Tap buttons measure your taps. Rate spans ½×–2×;
-  pitch follows playback speed. This MVP does not detect beats, align beat
-  phase, or preserve pitch. Changing master BPM alone does not change decks.
+- The beat-loop menu starts a loop on the cue-relative beat grid, shifting it
+  near the file boundary when needed to fit. Seeking outside its region exits
+  that loop. The loop toggle uses the remembered beat length when re-enabled.
+  Choosing a new length also enables the loop.
+  The demos begin with their whole 16-beat phrase looped.
+- Set each file's **Source BPM** and cue manually. **Master BPM** changes
+  Deck 1's playback speed; **Sync** makes the other decks follow its tempo
+  and beat phase. Each deck's **Match BPM** performs a one-time speed match.
+  Rate spans ½×–2× and pitch follows speed. This MVP does not detect beats
+  or preserve pitch. It has no Tap tempo or metronome control.
 - Each deck has level, mute, solo, stereo pan, three EQ bands and a filter.
   Negative filter values remove highs; positive values remove lows. Assign a
   deck to crossfader bus A or B, or Thru to bypass the crossfader. Multiple solo
@@ -52,6 +72,39 @@ header records the master mix. Local files are decoded in the browser and are
 not uploaded. This first version keeps files and mix state only for the current
 page session: reload clears them. It does not request microphone access.
 
+## Sync
+
+**Sync** is a persistent setting for each of the seven followers, with Deck 1
+always the master. A deck's Sync button selects whether it follows Deck 1;
+the master-strip Sync control enables all seven followers, or releases them
+when all are already selected. Source BPM
+defines beat spacing and the cue defines beat zero.
+The demos have prepared grids; imported tracks begin with an assumed 120 BPM
+and a zero cue. Enter their actual tempo and set a cue on a beat before syncing.
+This aligns beat phase, not musical downbeats or phrases.
+Moving the cue keeps an existing loop region; the next loop choice uses the
+new grid origin.
+
+When Deck 1 is playing and not being scratched, selected followers match its effective
+tempo and align to the nearest matching beat phase. Changes to Deck 1's rate
+or source BPM propagate to those followers. A paused follower keeps Sync
+for its next launch. Starting, seeking, changing a loop or cue, editing source
+BPM, and releasing a scratch rejoin the master when that deck's Sync is enabled.
+Manually changing a follower's rate, including the **1×** reset or Match BPM,
+releases only that follower; other selected decks keep following Deck 1.
+
+Pausing or scratching Deck 1 suspends phase alignment: followers continue at
+the matched tempo, and rejoin when Deck 1 resumes or is released. Master status
+does not transfer to another deck. Sync remains enabled while alignment is
+suspended. It never starts a paused deck or turns Audio on.
+
+Sync cannot match a follower outside its ½×–2× rate range. A loop clipped to
+the file boundary must span an exact multiple of half a beat to stay aligned;
+half-beat loops align on that subdivision. Incompatible tempo or loop bounds
+report a sync error rather than claim a lock. Source BPM metadata stays intact.
+All decks share one audio clock, and synchronized source changes are scheduled
+at the same audio-clock boundary.
+
 ## Contract and limits
 
 The causal chain is file/demo samples → hand-controlled record or transport
@@ -62,6 +115,10 @@ and device-pixel ratio 2 (20 fps and ratio 1 on touch/constrained devices);
 offscreen records and unchanged waveforms do not redraw. Circular waveform
 geometry is cached, and reduced-motion preferences stop automatic platter
 rotation while preserving direct scratching and the file-position indicator.
+The fixed needle does not rotate. Physical record rotation follows the
+1.8-seconds-per-turn scratch scale; the circular waveform and position dot
+describe the complete file. The taller waveform is a visual amplitude boost
+and does not change audio gain.
 Sample playback and modulation run in Web Audio,
 independently of animation frames. Scratching uses signed interpolated PCM
 in an AudioWorklet, with bounded velocity and release ramps; it requires
@@ -117,12 +174,16 @@ This is an original MVP inspired by the observable mixing workflow of
 The references motivate vinyl platters, decks, transport, cues, loops, EQ
 and crossfading;
 eight decks, the tiny view, and the wobble pad are Wobblini's own extension.
+The distinction between master tempo and beat-phase sync is informed by
+[Native Instruments' Traktor concepts](https://docs.native-instruments.com/online-guides/traktor-pro-manual/en/global-concepts.html).
+Wobblini uses a fixed Deck 1 master and manual grids; it does not implement
+Traktor's automatic master selection or full beatgrid workflow.
 No proprietary app binaries, code, sounds, graphics or branding are copied.
 The demo audio is synthesized by this repository's code; the catalogue artwork
 is an original procedural composition. Neither requires external media access.
 
-Streaming accounts, AI stem separation, adaptive beatgrids, automatic phase
-synchronization, independent headphone pre-cueing and pitch-locked stretching
+Streaming accounts, AI stem separation, automatic beat detection, adaptive
+beatgrids, independent headphone pre-cueing and pitch-locked stretching
 are outside this MVP. Cue here means return to the saved position, not a
 separate headphone output. Browser automation checks mechanical behavior,
 bounded output, control sensitivity, import, recording and responsive layout;
