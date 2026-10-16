@@ -12,6 +12,8 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/acoustic-manifold/acoustic-manifold.css" />
+    <link rel="stylesheet" href="src/recorded-input-player.css" />
+    <link rel="stylesheet" href="src/instruments/acoustic-manifold/acoustic-manifold-samples.css" />
   </head>
   <body class="manifold-page acoustic-manifold-page">
     <header class="masthead manifold-masthead">
@@ -188,6 +190,7 @@
               <button id="load-built-in" type="button">Load + analyze selected</button>
               <label class="manifold-button file-button" for="audio-file">Choose local audio</label>
             </div>
+            <div id="sample-input" aria-label="Bundled sample source" role="group" hidden></div>
 
             <label class="select-control source-select-control" for="analysis-profile">
               <span><b>2 · Analysis profile</b><small id="profile-note">silence-bounded songbird strophes</small></span>
