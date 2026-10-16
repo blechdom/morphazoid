@@ -78,7 +78,7 @@ function syncAudio() {
   $('audioState').textContent = state.audioOn ? 'on' : 'off';
   for (const id of ['sampleFile', 'bankFile', 'saveBank', 'exportSample']) $(id).disabled = !state.audioOn || fileOperation || recordingBusy() || applyingRecording;
   audio.setOutput(state.audioOn ? Number($('output').value) : 0);
-  $('lcdStatus').textContent = state.audioOn ? 'Ready · hold a key to play' : 'Enable Audio · play the keys';
+  $('lcdStatus').textContent = state.audioOn ? 'Ready' : 'Audio off';
   syncInput();
 }
 
@@ -89,11 +89,12 @@ function syncInput() {
   const waiting = ['starting','stopping'].includes(sampleRecorder?.state) || applyingRecording;
   $('recordSample').disabled = waiting || (!active && (!state.audioOn || !inputStream || fileOperation));
   $('recordSample').setAttribute('aria-pressed', String(active));
-  $('recordSample').textContent = active ? '■ Stop recording' : waiting ? 'Preparing sample…' : `Record into slot ${state.selectedSlot + 1}`;
+  $('recordSample').textContent = active ? '■ Stop' : waiting ? 'Preparing…' : '● Record';
+  $('recordSample').setAttribute('aria-label', active ? 'Stop recording' : `Record into slot ${state.selectedSlot + 1}`);
   $('inputDevice').disabled = inputPending || recordingBusy() || applyingRecording;
-  $('recordingStatus').textContent = active ? `Recording into slot ${recordingSlot + 1} · ${sampleRecorder.elapsed.toFixed(1)} s / 60 s`
-    : waiting ? 'Finishing the recorded sample…'
-    : inputMessage || (inputStream ? 'Input connected · ready to record' : 'Enable Audio and connect your mic or audio input.');
+  $('recordingStatus').textContent = active ? `Slot ${recordingSlot + 1} · ${sampleRecorder.elapsed.toFixed(1)} / 60 s`
+    : waiting ? 'Finishing…'
+    : inputMessage || (inputStream ? `Slot ${state.selectedSlot + 1} · ready` : 'Enable Audio, then connect input.');
   inputControl?.refresh();
 }
 
@@ -203,7 +204,7 @@ function play(note, id, velocity = 100) {
     catch (error) { held.delete(id); velocities.delete(id); report(error); }
   }
   syncKeys();
-  $('lcdStatus').textContent = state.audioOn ? `${noteName(note)} · velocity ${velocity}` : 'Audio off · enable Audio to listen';
+  $('lcdStatus').textContent = state.audioOn ? `${noteName(note)} · velocity ${velocity}` : 'Audio off';
   requestDraw();
 }
 
@@ -241,7 +242,7 @@ function refreshSlots() {
     button.addEventListener('click', () => selectSlot(slot));
     return button;
   }));
-  $('lcdBank').textContent = `0${state.selectedSlot + 1} / SAMPLE BANK`;
+  $('lcdBank').textContent = `SLOT 0${state.selectedSlot + 1}`;
   $('lcdSample').textContent = state.names[state.selectedSlot];
   syncInput();
 }
@@ -372,7 +373,7 @@ listen($('audioButton'), 'click', () => {
     importGeneration++; state.audioOn = false;
     const inputStopped = stopInput();
     const auditionWasOn = state.audition; panic();
-    if (auditionWasOn) { state.audition = true; held.set('audition',patch().rootNote); $('audition').setAttribute('aria-pressed','true'); $('audition').textContent = '■ Stop audition'; }
+    if (auditionWasOn) { state.audition = true; held.set('audition',patch().rootNote); $('audition').setAttribute('aria-pressed','true'); $('audition').textContent = '■ Stop'; }
     audio.setOutput(0); syncAudio();
     void inputStopped.finally(() => { if (!state.audioOn && generation === audioGeneration) void audio.stop(); });
   } else void enableAudio();
@@ -381,7 +382,7 @@ listen($('output'), 'input', () => { $('outputOut').textContent = percent(Number
 listen($('audition'), 'click', () => {
   state.audition = !state.audition;
   $('audition').setAttribute('aria-pressed', String(state.audition));
-  $('audition').textContent = state.audition ? '■ Stop audition' : '▶ Audition';
+  $('audition').textContent = state.audition ? '■ Stop' : '▶ Audition';
   if (state.audition) play(patch().rootNote, 'audition'); else release('audition');
 });
 listen($('panic'), 'click', panic);
