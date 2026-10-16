@@ -203,3 +203,29 @@ test('the real pinned SoundFont processor sounds and reports the same effected p
   host.handleMessage({ type: 'destroyWorklet' });
   assert.equal(processor.process([], []), false);
 });
+
+test('pinned sequencer clock messages distinguish initialization and seeks from every fast loop', async () => {
+  const processor = new MidiphoriaProcessor({ processorOptions: { eventsEnabled: true, oneOutput: false } });
+  const host = processor.core; await host.synthesizer.processorInitialized;
+  host.handleMessage({ type: 'setLogLevel', data: { enableInfo: false, enableWarning: false, enableGroup: false } });
+  const font = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
+  host.handleMessage({ type: 'soundBankManager', data: { type: 'addSoundBank', data: { soundBankBuffer: font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength), id: 'clock-test', bankOffset: 0 } } });
+  host.createNewSequencer();
+  const command = (type, data) => host.handleMessage({ type: 'sequencerSpecific', data: { id: 0, type, data } });
+  const times = () => processor.messages.filter(message => message.type === 'sequencerReturn' && message.data.type === 'timeChange');
+  const midi = new Uint8Array([77,84,104,100,0,0,0,6,0,0,0,1,0,96,77,84,114,107,0,0,0,13,0,144,60,100,96,128,60,0,0,255,47,0]);
+  command('loadNewSongList', [{ binary: midi.buffer, fileName: 'clock.mid' }]);
+  assert.equal(times().length, 1, 'native load emits one initial time acknowledgement');
+  command('setTime', 0); assert.equal(times().length, 2);
+  command('setPlaybackRate', 64); command('setLoopCount', Infinity); command('play');
+  assert.equal(times().length, 2, 'rate, loop toggle and ordinary Play are not clock jumps');
+  const output = Array.from({ length: 17 }, () => [new Float32Array(128), new Float32Array(128)]);
+  for (let block = 0; block < 120; block++) processor.process([], output);
+  assert.ok(times().length > 20, 'each actual cycle is reported even when no display reads it');
+  const afterLoops = times().length;
+  command('pause'); command('setPlaybackRate', 2); command('setLoopCount', 0);
+  assert.equal(times().length, afterLoops);
+  command('setTime', .2); command('setTime', 0);
+  assert.equal(times().length, afterLoops + 2, 'each explicit seek has exactly one acknowledgement');
+  host.handleMessage({ type: 'destroyWorklet' });
+});

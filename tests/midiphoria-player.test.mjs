@@ -799,3 +799,30 @@ test('BLECH opts into 64× file playback while the default player retains 8× an
   now = 2; assert.equal(visual.player.state.time, 65);
   visual.player.pause(); now = 3; assert.equal(visual.player.state.time, 65); await visual.player.dispose();
 });
+
+test('file cycle telemetry retains every fast loop and excludes explicit seek acknowledgements', async () => {
+  const h = harness({ maxPlaybackRate: 64 }); const seq = await ready(h);
+  // The pinned sequencer emits one initial seek for load and one for our reset.
+  seq.eventHandler.emit('timeChange', 0); seq.eventHandler.emit('timeChange', 0);
+  h.player.setLoop(true); h.player.setPlaybackRate(64); h.player.play();
+  for (let cycle = 0; cycle < 100; cycle++) seq.eventHandler.emit('timeChange', 0);
+  assert.equal(h.player.state.cycle, 100);
+  h.player.seek(3); h.player.seek(4);
+  seq.eventHandler.emit('timeChange', 3); seq.eventHandler.emit('timeChange', 4);
+  assert.equal(h.player.state.cycle, 0);
+  seq.eventHandler.emit('timeChange', 0); assert.equal(h.player.state.cycle, 1);
+  h.player.pause(); seq.eventHandler.emit('timeChange', 0); assert.equal(h.player.state.cycle, 1);
+  await h.player.dispose();
+});
+
+test('visual cycle telemetry counts all unseen cycles at 64x and pauses without counting idle time', async () => {
+  let now = 0; const h = harness({ clock: () => now, maxPlaybackRate: 64 });
+  await h.player.loadVisualTimeline(4, 'Dense artwork'); h.player.setLoop(true); h.player.setPlaybackRate(64);
+  h.player.play(); now = 1000;
+  assert.equal(h.player.state.cycle, 16000); assert.equal(h.player.state.time, 0);
+  h.player.pause(); now = 2000; assert.equal(h.player.state.cycle, 16000);
+  h.player.seek(2); assert.equal(h.player.state.cycle, 0);
+  h.player.play(); now = 2001; assert.equal(h.player.state.cycle, 16); assert.equal(h.player.state.time, 2);
+  h.player.stop(); assert.equal(h.player.state.cycle, 0); assert.equal(h.contexts.length, 0);
+  await h.player.dispose();
+});

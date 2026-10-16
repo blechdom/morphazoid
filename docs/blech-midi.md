@@ -75,7 +75,8 @@ These edits affect the running phrase immediately. Resizing retains its relative
 playback position; moving upward adds waiting time and moving downward brings
 notes forward without replaying past attacks. Other layers keep their clocks.
 Hover or focus the rectangle for its instrument, channel, volume and exact
-geometry controls. Its moving line shows the phrase position. Closing Loop lets
+geometry controls; its transport buttons keep that popup closed. Its moving line
+shows the phrase position. Closing Loop lets
 the current pass finish; Play can start the layer again. Pause freezes its
 transport. Removing a layer with **×**, or using **Stop all**, stops it immediately.
 
@@ -172,14 +173,16 @@ WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
 tools such as Wasabi; our browser GPU path is WebGL2. This is an original
 Piano From Above-style presentation, not a port of that application.
 
-The persistent title row shows **File played** (notes reached / total) and **Generated notes**.
-The file count follows its playhead, including seeks and each loop. Generated
-notes accumulate across layer loops, live Automata and keyboard attacks; stopping
-a layer keeps its count. The reset arrow clears only the generated counter and
-does not interrupt playback. Pending drops and held-note rejoins add no attacks.
+The persistent title row shows one **Notes played** total for files, generated
+layers, live Automata and keyboard attacks since Reset. Repeated loops add to
+the total; seeking, rewinding or selecting a file does not count skipped notes.
+Stopping keeps the total. The reset arrow clears it without interrupting
+playback. Pending drops and held-note rejoins add no attacks.
 These are source-note counts before MIDI effects and synthesizer voice limits;
-they do not depend on how many rectangles fit on screen. If a file exceeds the
-preview limit, its total remains visible but its passed count is unavailable.
+they do not depend on how many rectangles fit on screen. Full-file totals and
+playhead statistics remain available in the Visualizer's score details.
+Files beyond the 12 million-note preview limit have no parsed source timeline,
+so their unparsed decorative notes are not included in this total.
 
 A module worker parses the complete SMF into indexed typed arrays. Total notes
 count every positive-velocity Note On, including quiet/decorative channels.
@@ -211,10 +214,9 @@ Black MIDI displays the original source score before MIDI effects. Generated pad
 
 ## Independent layer transports
 
-The title row shows **File played** (notes reached / total notes in the selected
-file) and **Generated notes** (layer, live Automata and keyboard attacks since
-reset). The file count follows seeking and loops; the generated count accumulates
-repeated loops. Neither count is the number of notes sounding simultaneously.
+The title row's **Notes played** total combines file, layer, live Automata and
+keyboard attacks since reset. It counts repeated loops, not the number of notes
+sounding simultaneously.
 
 The circular master **Play/Pause** beside **Master BPM** and **Tap** pauses the
 running file, layers and live evolution together. Resume restores those sources
@@ -226,7 +228,8 @@ The file's own transport, volume, tempo, Link, Ratio, Speed, loop and position
 controls live only in **Files**. File playback and its visualizer keep running
 when you switch to another tab.
 
-The **Layers** rack stays with the visualizer. Each Drop creates a named layer
+The **Layers** rack sits at the top of the right control panel below its selectors
+on desktop, and below the visualizer on mobile. Each Drop creates a named layer
 with a distinct number, even when two drops use the same equation. **Pause**
 freezes only that layer's position and releases its notes; **Resume** continues
 from that position. **×** removes that layer immediately. Its saved snapshot

@@ -204,7 +204,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-midi-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(23px, 2.5vw, 34px); font-weight: 800; letter-spacing: -.04em; white-space: nowrap; }
 .blech-midi-heading h1 img { width: 76px; height: 44px; object-fit: contain; }
 .blech-note-counters { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; min-width: 0; padding: 3px 0; }
-.blech-note-counters > div { display: grid; gap: 1px; min-width: 0; }
+.blech-note-counters > div { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .blech-note-counters > div > span:first-child { font-size: 10px; color: #a1b4ae; }
 .blech-note-counters > div > span:last-child { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
 .blech-note-counters output { color: #96f4cc; font-size: 20px; line-height: 1.15; font-variant-numeric: tabular-nums; }
@@ -435,7 +435,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
   .blech-file-channel .blech-file-bpm input, .blech-file-channel .blech-file-ratio select { height: 32px; min-height: 32px; }
 }
 
-/* Preparation is separate from live output; active layers sit beneath the stage. */
+/* Layers follow the selectors on desktop and the visualizer on mobile. */
 .blech-section-label { font-size: 10px; color: #9bafa5; text-transform: uppercase; letter-spacing: .09em; margin: 4px 0; }
 .blech-settings-tabs { justify-content: flex-end; border-bottom: 0; margin: 4px 0; }
 .blech-settings-tabs [role="tab"] { font-size: 10px; min-height: 28px; padding: 4px 10px; }
@@ -445,6 +445,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-frame-tabs [role="tab"] { padding: 7px 9px; font-size: 10px; }
 .blech-info { border-top: 1px solid #293831; margin-top: 40px; padding: 14px 0 30px; }
 .blech-midi-stage > .blech-live-strip { max-height: 182px; border-bottom: 0; border-top: 1px solid #293831; margin-top: 5px; padding: 6px 0 0; }
+.blech-preparation > .blech-live-strip { max-height: 182px; margin: 8px 0 12px; }
 .blech-live-layer { grid-template-columns: minmax(100px, 1fr) minmax(50px, 90px) auto 54px 42px; gap: 8px; }
 .blech-layer-level { min-width: 0; width: 100%; }
 .blech-layer-timeline { position: relative; height: 12px; width: 100%; background: #15201b; overflow: hidden; }

@@ -10,6 +10,10 @@ async function open(page) {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\nconst observeCounter=MidiMixerEngine.prototype.setVolume;MidiMixerEngine.prototype.setVolume=function(...args){globalThis.__counterQA.engine=this;return observeCounter.apply(this,args);};` });
   });
+  await page.route('**/src/instruments/midiphoria/midiphoria-player.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}\nconst observeFileCounter=MidiphoriaPlayer.prototype.setVolume;MidiphoriaPlayer.prototype.setVolume=function(...args){globalThis.__counterQA.player=this;return observeFileCounter.apply(this,args);};` });
+  });
   await page.goto('/blech-midi.html');
   await expect(page.locator('#blechDropSend')).toBeAttached();
 }
@@ -30,36 +34,84 @@ for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
     expect(stage.height).toBeGreaterThan(100);
     await page.locator('#blechTab-text').click();
     await expect(page.locator('#blechNoteCounters')).toBeInViewport();
-    await expect(page.locator('#blechGeneratedNotes')).toHaveText('0');
+    await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   });
 }
 
-test('file counter advances above the stage, freezes on pause, follows seeks and keeps the complete total', async ({ page }) => {
+test('the combined file count starts on Play and survives pauses, seeks, stop and Reset without a separate total', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
+  await expect(page.locator('#blechNoteCounters')).toContainText('Notes played:');
+  await expect(page.locator('#blechFileNotes, #blechFileTotal, #blechGeneratedNotes')).toHaveCount(0);
   await page.locator('#blechTab-files').click();
   await page.locator('#blackMidiFile').setInputFiles({ name: 'counter.mid', mimeType: 'audio/midi', buffer: Buffer.from(score().buffer) });
-  await expect(page.locator('#blechFileTotal')).toHaveText('32');
+  await expect(page.locator('[data-total]')).toHaveText('32');
+  await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   await expect(page.locator('#blackPlayButton')).toBeEnabled();
   await page.locator('#blackPlayButton').click();
-  await expect.poll(() => count(page, 'blechFileNotes')).toBeGreaterThan(2);
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(2);
   await page.locator('#blackPlayButton').click();
   await page.waitForTimeout(200);
-  const paused = await count(page, 'blechFileNotes');
-  await page.waitForTimeout(300); expect(await count(page, 'blechFileNotes')).toBe(paused);
+  const paused = await count(page, 'blechNotesPlayed');
+  await page.waitForTimeout(300); expect(await count(page, 'blechNotesPlayed')).toBe(paused);
   await page.locator('#blackSongPosition').evaluate(node => { node.value = '4'; node.dispatchEvent(new Event('change', { bubbles: true })); });
-  await expect.poll(() => count(page, 'blechFileNotes')).toBe(17);
+  await page.waitForTimeout(150); expect(await count(page, 'blechNotesPlayed')).toBe(paused);
   await page.locator('#blackStopButton').click();
-  await expect.poll(() => count(page, 'blechFileNotes')).toBe(1); // Attack at score time zero.
-  await expect(page.locator('#blechFileTotal')).toHaveText('32');
+  await page.waitForTimeout(150); expect(await count(page, 'blechNotesPlayed')).toBe(paused);
+  await page.locator('#blackPlayButton').click();
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(paused);
+  await page.locator('#blackPlayButton').click();
+  await page.locator('#blechResetNoteCount').click();
+  await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
+  expect(await page.evaluate(() => __counterQA.player.state.playing)).toBe(false);
   await page.locator('#blechTab-visuals').click();
   await page.locator('[data-tracks]').locator('..').locator('summary').click();
   await page.locator('[data-tracks] input[type="checkbox"]').first().uncheck();
-  await expect(page.locator('#blechFileTotal')).toHaveText('32');
+  await expect(page.locator('[data-total]')).toHaveText('32');
   expect(errors).toEqual([]);
+});
+
+test('fast file loops count complete source notes and combine with independent generated layers', async ({ page }) => {
+  await open(page); await page.locator('#blechTab-files').click();
+  await page.locator('#blackMidiFile').setInputFiles({ name: 'loop-counter.mid', mimeType: 'audio/midi', buffer: Buffer.from(score().buffer) });
+  await expect(page.locator('[data-total]')).toHaveText('32');
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
+  await expect(page.locator('#blackPlayButton')).toBeEnabled();
+  await page.locator('#blackLoopSong').check();
+  await page.locator('#blackSpeedRatio').selectOption('64');
+  await page.locator('#blackPlayButton').click();
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(64);
+  await page.locator('#blackPlayButton').click();
+  await page.waitForTimeout(200);
+  const expected = await page.evaluate(async () => {
+    const { generateGridMidi } = await import('/src/instruments/midiphoria/midiphoria-text-midi.js');
+    const { parseBlackMidiScore, blackMidiStatistics } = await import('/src/instruments/blech-midi/blech-midi-black-score.js');
+    const bytes = generateGridMidi(Array.from({ length: 32 }, (_, row) => Array.from({ length: 16 }, (_, column) => column === row % 16)), { secondsPerRow: .25 }).buffer;
+    const state = __counterQA.player.state, score = parseBlackMidiScore(bytes);
+    return { cycle: state.cycle, count: state.cycle * 32 + blackMidiStatistics(score, state.time).passed };
+  });
+  expect(expected.cycle).toBeGreaterThan(0);
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBe(expected.count);
+  await page.evaluate(async () => {
+    const { generateGridMidi } = await import('/src/instruments/midiphoria/midiphoria-text-midi.js');
+    __counterQA.engine.triggerSample(generateGridMidi([[true], [false], [true]], { secondsPerRow: .125 }).buffer, { loop: false });
+  });
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBe(expected.count + 2);
+  await page.locator('#blackMidiFile').setInputFiles({ name: 'another-counter.mid', mimeType: 'audio/midi', buffer: Buffer.from(score().buffer) });
+  await expect(page.locator('[data-total]')).toHaveText('32');
+  await expect(page.locator('#blechNotesPlayed')).toHaveText(String(expected.count + 2));
+  await page.locator('#blackPlayButton').click();
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(expected.count + 2);
+  const reset = await page.evaluate(() => {
+    document.querySelector('#blechResetNoteCount').click();
+    return { count: document.querySelector('#blechNotesPlayed').value, playing: __counterQA.player.state.playing };
+  });
+  expect(reset).toEqual({ count: '0', playing: true });
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(0);
 });
 
 test('generated count ignores pending forecasts, survives stops and resets without stopping a loop', async ({ page }) => {
@@ -67,20 +119,20 @@ test('generated count ignores pending forecasts, survives stops and resets witho
   await page.locator('#blechTab-math').click();
   await page.locator('#blechDropDelay').evaluate(node => { node.value = '2'; node.dispatchEvent(new Event('change', { bubbles: true })); });
   await page.locator('#blechDropSend').click();
-  await expect(page.locator('#blechGeneratedNotes')).toHaveText('0');
-  await expect.poll(() => count(page, 'blechGeneratedNotes'), { timeout: 5000 }).toBeGreaterThan(0);
+  await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
+  await expect.poll(() => count(page, 'blechNotesPlayed'), { timeout: 5000 }).toBeGreaterThan(0);
   await page.locator('#creativeStop').click();
-  const stopped = await count(page, 'blechGeneratedNotes');
-  await page.waitForTimeout(250); expect(await count(page, 'blechGeneratedNotes')).toBe(stopped);
+  const stopped = await count(page, 'blechNotesPlayed');
+  await page.waitForTimeout(250); expect(await count(page, 'blechNotesPlayed')).toBe(stopped);
   await page.locator('#blechResetNoteCount').click();
-  await expect(page.locator('#blechGeneratedNotes')).toHaveText('0');
+  await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
   await page.evaluate(async () => {
     const { generateGridMidi } = await import('/src/instruments/midiphoria/midiphoria-text-midi.js');
     __counterQA.engine.triggerSample(generateGridMidi([[true], [false], [true]], { secondsPerRow: .125 }).buffer, { loop: true });
   });
-  await expect.poll(() => count(page, 'blechGeneratedNotes')).toBeGreaterThan(2);
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(2);
   await page.locator('#blechResetNoteCount').click();
   expect(await page.evaluate(() => __counterQA.engine.state.samples.length)).toBe(1);
-  await expect.poll(() => count(page, 'blechGeneratedNotes')).toBeGreaterThan(0);
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });

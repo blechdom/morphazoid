@@ -3,9 +3,9 @@
 .blech-spigot-controls button { min-height: 28px; padding: 3px 8px; color: #d8e6df; background: #101b16; border: 1px solid #394b3f; border-radius: 0; font: inherit; }
 .blech-spigot-controls button[aria-pressed="true"] { background: #c94420; color: #fff; border-color: #ee724b; }
 .blech-spigot-mode output { flex: 1; min-width: 0; color: #9eafa6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.blech-spigot-editor { position: absolute; z-index: 6; box-sizing: border-box; padding: 7px; background: #101b16f5; border: 1px solid #99553e; color: #e6eee9; font: 10px monospace; overflow: auto; opacity: 0; pointer-events: none; }
-.blech-spigot-selection[data-inspecting="true"] .blech-spigot-editor, .blech-spigot-selection:focus-within .blech-spigot-editor { opacity: 1; pointer-events: auto; }
-.blech-spigot-selection[data-dragging="true"] .blech-spigot-editor { opacity: 0; pointer-events: none; }
+.blech-spigot-editor { position: absolute; z-index: 6; box-sizing: border-box; padding: 7px; background: #101b16f5; border: 1px solid #99553e; color: #e6eee9; font: 10px monospace; overflow: auto; visibility: hidden; opacity: 0; pointer-events: none; }
+.blech-spigot-selection[data-inspecting="true"] .blech-spigot-editor { visibility: visible; opacity: 1; pointer-events: auto; }
+.blech-spigot-selection[data-dragging="true"] .blech-spigot-editor { visibility: hidden; opacity: 0; pointer-events: none; }
 .blech-spigot-fields { display: flex; align-items: end; gap: 5px; margin-top: 6px; }
 .blech-spigot-editor [data-spigot-details] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .blech-spigot-editor label { display: grid; flex: 1; gap: 2px; min-width: 0; color: #a8b9b0; white-space: nowrap; font-size: 9px; }

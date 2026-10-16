@@ -170,6 +170,59 @@ export function parseBlackMidiScore(buffer, { limits: requested = {} } = {}) {
   };
 }
 
+/** Count performed source attacks without retaining events or advancing Audio.
+ * The caller settles before transport discontinuities, then rebases the cursor;
+ * cycles come from the source clock, so hidden/fast loops remain exact.
+ */
+export class BlackMidiPlayedCounter {
+  constructor() { this.score = null; this.count = 0; this.previous = null; this.includeStart = true; }
+  prefix(time, inclusive = true) {
+    if (!this.score) return 0;
+    let count = 0;
+    for (const track of this.score.tracks) {
+      let low = track.start, high = track.end;
+      while (low < high) {
+        const middle = (low + high) >>> 1, start = this.score.starts[middle];
+        if (inclusive ? start <= time : start < time) low = middle + 1; else high = middle;
+      }
+      count += low - track.start;
+    }
+    return count;
+  }
+  setScore(score, state = {}) {
+    this.score = score; this.rebase(state, { includeStart: true });
+  }
+  rebase(state = {}, { includeStart = false } = {}) {
+    const time = Math.max(0, Number(state.time) || 0);
+    this.previous = { time, cycle: state.cycle ?? 0, passed: this.prefix(time), playing: Boolean(state.playing) };
+    this.includeStart = includeStart;
+  }
+  update(state = {}) {
+    if (!this.score) return this.count;
+    const time = Math.max(0, Number(state.time) || 0), cycle = state.cycle ?? 0;
+    const passed = this.prefix(time), previous = this.previous;
+    if (!previous) { this.rebase(state); return this.count; }
+    if (state.playing || previous.playing) {
+      if (this.includeStart) {
+        this.count += previous.passed - this.prefix(previous.time, false);
+        this.includeStart = false;
+      }
+      const cycles = Math.max(0, cycle - previous.cycle);
+      if (cycles) {
+        const start = this.prefix(state.loopStart ?? 0, false), end = this.prefix(state.loopEnd ?? state.duration ?? this.score.duration);
+        this.count += Math.max(0, end - previous.passed) + Math.max(0, cycles - 1) * Math.max(0, end - start) + Math.max(0, passed - start);
+      } else if (cycle === previous.cycle) this.count += Math.max(0, passed - previous.passed);
+      // Ignore lagging clock reports until they catch up; never recount notes.
+      if (!cycles && cycle === previous.cycle && passed < previous.passed) {
+        this.previous.playing = Boolean(state.playing); return this.count;
+      }
+    }
+    this.previous = { time, cycle, passed, playing: Boolean(state.playing) };
+    return this.count;
+  }
+  reset(state) { this.update(state); this.count = 0; return this.count; }
+}
+
 export function blackMidiStatistics(score, position, { lookAhead = 6, hiddenTracks = [] } = {}) {
   if (!score) return { total: 0, passed: 0, held: 0, notesPerSecond: 0, peakPolyphony: 0, candidateCount: 0 };
   const time = Math.max(0, Number(position) || 0), hidden = new Set(hiddenTracks.map(Number));
