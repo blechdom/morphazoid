@@ -168,7 +168,7 @@ test("a local WAV loads without Audio, and keyboard seek, cue, loop and tempo re
   const cued = (await state(page)).decks[0];
   expect(cued.playing).toBe(false); expect(cued.position).toBeCloseTo(cue, 3);
   await page.locator("#d0Edit").click();
-  const sourceTap = page.locator('.mz-tap-tempo[data-tap-control="#d0Bpm"]');
+  const sourceTap = page.locator('#d0Details .wb-source-tempo .mz-tap-tempo');
   await expect(sourceTap).toBeVisible();
   await sourceTap.evaluate((button) => {
     button.reset();
