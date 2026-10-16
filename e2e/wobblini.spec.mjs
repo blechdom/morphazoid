@@ -307,16 +307,25 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       expect((await state(page)).armed).toBe(false);
       await page.locator("#stopButton").click();
       expect((await state(page)).decks.every((deck) => !deck.playing)).toBe(true);
+      const captureView = async (view) => {
+        await page.evaluate(() => scrollTo(0, 0));
+        const path = testInfo.outputPath(`wobblini-${view}-${viewport.width}x${viewport.height}.png`);
+        await page.screenshot({ path, fullPage: true });
+        await testInfo.attach(`wobblini-${view}-${viewport.width}x${viewport.height}`, { path, contentType: "image/png" });
+      };
+      await captureView("full");
       await page.locator("#tinyView").click();
       await expect(page.locator(".wb-shell")).toHaveClass(/is-tiny/);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await captureView("tiny");
       await page.locator("#d7Edit").click();
       await expect(page.locator("#d7Rate")).toBeVisible();
+      await captureView("editor");
+      // Check actual page requests before Axe's separate stylesheet XHR audit:
+      // its nested relative @import fetches resolve against the document URL.
+      expect(errors).toEqual([]);
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       expect(axe.violations).toEqual([]);
-      await page.evaluate(() => scrollTo(0, 0));
-      await testInfo.attach(`wobblini-${viewport.width}x${viewport.height}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
-      expect(errors).toEqual([]);
     } finally { await context.close(); }
   });
 }
