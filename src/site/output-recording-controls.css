@@ -80,6 +80,7 @@
 }
 .output-recording-dialog {
   width: min(480px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
   overflow: auto;
   border: 1px solid var(--line-strong);
@@ -98,4 +99,38 @@
   .output-recording-button.mz-button { width: 48px; min-width: 48px; height: 48px; }
   .output-recording-dialog .mz-button,
   .output-recording-settings select { min-height: 48px; }
+}
+
+.output-recording-archive {
+  display: grid;
+  gap: 10px;
+  margin-block: 16px;
+  padding-block: 12px;
+  border-block: 1px solid var(--line-strong);
+  min-width: 0;
+}
+.output-recording-archive[hidden] { display: none; }
+.output-recording-archive h3 { margin: 0; }
+.output-recording-archive select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+}
+.output-recording-part-download {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+}
+.output-recording-part-download[hidden] { display: none; }
+.output-recording-archive .output-recording-summary { overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+  .output-recording-archive select,
+  .output-recording-part-download { min-height: 48px; }
 }

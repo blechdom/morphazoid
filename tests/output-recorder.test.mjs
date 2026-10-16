@@ -775,3 +775,108 @@ test("a disk write that never settles times out, aborts, and cannot leave the re
   assert.equal(graph.recorder.getStatus().state, "error", "late disk completion cannot report a saved take");
   await graph.recorder.destroy();
 });
+
+function storedWriter({ stall, failChunk, failFinish = false } = {}) {
+  return {
+    chunks: [], calls: 0, finishes: [], concurrent: 0, maxConcurrent: 0,
+    async create(metadata) { this.metadata = metadata; return { id: "recoverable-take" }; },
+    async append(id, buffer, frames) {
+      assert.equal(id, "recoverable-take");
+      this.concurrent += 1;
+      this.maxConcurrent = Math.max(this.maxConcurrent, this.concurrent);
+      try {
+        this.calls += 1;
+        if (this.calls === 1 && stall) await stall.promise;
+        if (this.calls === failChunk) throw new DOMException("Storage full", "QuotaExceededError");
+        this.chunks.push({ buffer, frames });
+      } finally { this.concurrent -= 1; }
+    },
+    async finish(id, result) {
+      this.finishes.push({ id, ...result });
+      if (failFinish) throw new Error("Storage unavailable during finalization");
+    },
+  };
+}
+
+test("continuous storage exceeds buffered/file caps without restarting capture and keeps no take-sized blob", async () => {
+  const storage = storedWriter();
+  const f = fixture({ recorder: { maxMemoryBytes: 100, maxFileBytes: 100 } });
+  await f.recorder.start({ filename: "speech.wav", storage });
+  for (let n = 0; n < 260; n += 1) { f.render(); await tick(); }
+  const status = await f.recorder.stop();
+  assert.equal(status.state, "ready");
+  assert.equal(status.mode, "storage");
+  assert.equal(status.storageId, "recoverable-take");
+  assert.equal(status.frames, 260 * 128);
+  assert.equal(status.maxBytes, null);
+  assert.equal(status.maxSeconds, null);
+  assert.equal(status.blob, null);
+  assert.equal(status.saved, true);
+  assert.equal(f.nodes.length, 1, "part rollover never rebuilds the capture graph");
+  assert.equal(storage.chunks.reduce((n, chunk) => n + chunk.frames, 0), status.frames);
+  assert.equal(storage.metadata.sampleRate, 48_000);
+  assert.deepEqual(f.recorder.take.chunks, []);
+  assert.equal(f.contexts[0].closeCalls, 0);
+  f.recorder.discard();
+  assert.equal(storage.chunks.length, 3, "New recording retains stored audio");
+});
+
+test("storage quota failure retains only the committed prefix and reports an explicit interruption", async () => {
+  const storage = storedWriter({ failChunk: 2, failFinish: true });
+  const f = fixture();
+  await f.recorder.start({ storage });
+  for (let n = 0; n < 260; n += 1) { f.render(); await tick(); }
+  const status = await f.recorder.stop();
+  assert.equal(status.state, "ready");
+  assert.equal(status.frames, 16_384);
+  assert.equal(status.persistedFrames, 16_384);
+  assert.equal(status.storageId, "recoverable-take");
+  assert.equal(status.saved, true);
+  assert.equal(status.blob, null);
+  assert.equal(storage.chunks.length, 1);
+  assert.equal(status.reason, "write-error");
+  assert.match(status.error, /Storage unavailable/);
+  assert.equal(f.manager.releases, 1);
+});
+
+test("slow browser storage is bounded by worklet credits and stops at a continuous prefix", async () => {
+  const stall = deferred();
+  const storage = storedWriter({ stall });
+  const f = fixture();
+  await f.recorder.start({ storage });
+  for (let n = 0; n < 1_200; n += 1) f.render();
+  await tick();
+  assert.equal(f.nodes[0].processor.frames, 8 * 16_384);
+  assert.equal(f.nodes[0].processor.finished, true);
+  assert.equal(storage.calls, 1);
+  assert.equal(storage.maxConcurrent, 1);
+  stall.resolve();
+  await tick();
+  const status = await f.recorder.stop();
+  assert.equal(status.reason, "backpressure");
+  assert.equal(status.frames, 8 * 16_384);
+  assert.equal(storage.chunks.length, 8);
+  assert.match(status.error, /could not keep up/);
+});
+
+test("continuous worklet may cross RIFF's total size while ordinary recording remains capped", () => {
+  const continuous = processor({ continuous: true, maxFrames: 1 });
+  continuous.frames = Math.floor(MAX_FILE_BYTES / BYTES_PER_FRAME);
+  assert.equal(processBlock(continuous), true);
+  assert.equal(continuous.finished, false);
+  const ordinary = processor({ maxFrames: 1 });
+  assert.equal(processBlock(ordinary), false);
+  assert.equal(ordinary.frames, 1);
+});
+
+test("a stored take removed elsewhere is not reported as saved", async () => {
+  const storage = storedWriter();
+  storage.finish = async () => { throw new DOMException("Recording was removed", "NotFoundError"); };
+  const f = fixture();
+  await f.recorder.start({ storage });
+  f.render();
+  const status = await f.recorder.stop();
+  assert.equal(status.state, "error");
+  assert.equal(status.saved, false);
+  assert.match(status.error, /removed/);
+});
