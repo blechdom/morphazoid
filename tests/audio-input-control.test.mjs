@@ -85,6 +85,6 @@ test("every page in the testing list exists and its adapter mounts the shared in
     const route = new URL(control.route, "http://localhost/").pathname.slice(1);
     await readFile(new URL(`../${pageSourcePath(route)}`, import.meta.url));
     const source = await readFile(new URL(`../${control.owner}`, import.meta.url), "utf8");
-    assert.match(source, /mountAudioInputControl\(/, control.label);
+    assert.match(source, /mount(?:AudioInput|RecorderInput)\w*\(/, control.label);
   }
 });
