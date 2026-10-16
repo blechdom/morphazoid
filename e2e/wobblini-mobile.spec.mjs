@@ -95,6 +95,27 @@ test("small phone gears open usable track controls while records retain center p
   }));
   await attachJSON(testInfo, "mobile-capabilities.json", capabilities);
   expect(capabilities.coarse).toBe(true); expect(capabilities.reducedMotion).toBe(true);
+  // A rotated square has its widest bounds at 45 degrees, even when its
+  // visible artwork is circular. Exercise that angle while transport is idle.
+  const rotated = await page.locator(".wb-record-surface").evaluateAll((surfaces) => {
+    const original = surfaces.map((node) => node.getAttribute("style"));
+    try {
+      for (const node of surfaces) {
+        // The shared reduced-motion rule still leaves a tiny transition.
+        node.style.setProperty("transition", "none", "important");
+        node.style.setProperty("--record-angle", "45deg");
+      }
+      return {
+        viewportWidth: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        cosines: surfaces.map((node) => new DOMMatrix(getComputedStyle(node).transform).a),
+      };
+    } finally {
+      surfaces.forEach((node, i) => original[i] === null ? node.removeAttribute("style") : node.setAttribute("style", original[i]));
+    }
+  });
+  expect(rotated.cosines).toHaveLength(8);
+  for (const cosine of rotated.cosines) expect(cosine).toBeCloseTo(Math.SQRT1_2, 3);
+  expect(rotated.scrollWidth, "rotating records must not widen the phone page").toBeLessThanOrEqual(rotated.viewportWidth);
   await expect(page.locator("#master-bpm")).toHaveAccessibleName("Master BPM");
   for (const selector of ["#audioButton", "#playButton"]) {
     const box = await page.locator(selector).boundingBox();
