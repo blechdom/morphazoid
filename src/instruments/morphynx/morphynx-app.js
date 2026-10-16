@@ -1,3 +1,4 @@
+import { mountRecordedInput } from "../../families/voice-input/recorded-input.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
@@ -1328,3 +1329,75 @@ setAudioPresentation("off");
 updateUi();
 resizeCanvas();
 animationFrame = requestAnimationFrame(animate);
+
+let recordedChain = null;
+
+function recordedVoiceChain() {
+  if (recordedChain?.context !== audioContext) {
+    const highpass = audioContext.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 52;
+    highpass.Q.value = 0.7;
+    const filters = [0, 1, 2].map((index) => {
+      const filter = audioContext.createBiquadFilter();
+      filter.type = "peaking";
+      filter.Q.value = 2.4 + index * 0.55;
+      filter.gain.value = 7 - index * 1.5;
+      return filter;
+    });
+    recordedChain = { context: audioContext, highpass, filters };
+  }
+  return recordedChain;
+}
+
+function connectRecordedVoice() {
+  if (!graph || !audioContext || audioContext.state === "closed") return;
+  const { highpass, filters } = recordedVoiceChain();
+  graph.micInputGain.connect(highpass);
+  highpass.connect(filters[0]);
+  filters[0].connect(filters[1]);
+  filters[1].connect(filters[2]);
+  filters[2].connect(graph.micGain);
+  graph.micHighpass = highpass;
+  graph.micFilters = filters;
+}
+
+function disconnectRecordedVoice() {
+  if (!recordedChain) return;
+  const { highpass, filters } = recordedChain;
+  for (const node of [highpass, ...filters]) { try { node.disconnect(); } catch { /* already detached */ } }
+  if (graph?.micHighpass === highpass) { graph.micHighpass = null; graph.micFilters = []; }
+  recordedChain = null;
+}
+
+let recordedChainTimer = 0;
+
+const recordedInput = mountRecordedInput({
+  control: audioInputControl,
+  host: { container: document.querySelector(".morphynx-panel"), before: document.querySelector(".morphynx-lab") },
+  prepare: async () => {
+    await ensureAudio({ armOutput: false });
+    if (!graph) throw new Error("Morphynx audio is not ready.");
+  },
+  getContext: () => audioContext,
+  getTarget: () => graph?.micInputGain,
+  isArmed: () => audioOn,
+  meterNode: () => graph?.micInputGain,
+  multiplier: () => 1,
+  channels: () => (graph?.micInputGain?.channelCount === 2 ? 2 : 1),
+  onSourceChange: (next) => {
+    if (next !== "mic") stopMicrophoneInput();
+    disconnectRecordedVoice();
+  },
+  onLiveChange: (live) => {
+    clearInterval(recordedChainTimer);
+    if (live) {
+      if (state.sourceMode === "internal") setSourceMode("hybrid", { requestMicrophone: false });
+      connectRecordedVoice();
+      recordedChainTimer = setInterval(() => { if (graph?.micFilters !== recordedChain?.filters) connectRecordedVoice(); }, 250);
+    } else disconnectRecordedVoice();
+    configureAudio(performance.now(), true);
+  },
+});
+
+globalThis.addEventListener("pagehide", () => clearInterval(recordedChainTimer), { once: true });

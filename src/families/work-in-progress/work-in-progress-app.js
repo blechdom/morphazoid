@@ -3,6 +3,7 @@ import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
 import { CORES } from "./cores.js";
 import { StartingAudio } from "./audio.js";
+import { createHollowphonicInput } from "./hollowphonic-input.js";
 import { COLORS, renderInstrument, WORLD, polar, angleAt, tapeCenters, soupCenters, habitNodes } from "./render.js";
 import { clamp } from "./common.js";
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
@@ -19,6 +20,7 @@ let params = { ...spec.defaults }, playing = false, pointer = null, renderId = 0
 let micPending = false, filePending = false, recordPending = false, lastUi = 0;
 let audioAttempt = 0;
 let micAttempt = 0, recordAttempt = 0;
+let recordedInput = null, recordedFile = null;
 let transform = { scale: 1, x: 0, y: 0, width: 1, height: 1 };
 const abort = new AbortController();
 const on = (node, event, fn) => node?.addEventListener(event, fn, { signal: abort.signal });
@@ -152,16 +154,38 @@ async function toggleMic() {
 }
 function addMic() {
   micButton = document.createElement("button"); micButton.id = "microphoneButton";
-  mountAudioInputControl({
+  let inputControl = null;
+  if (id === "hollowphonic") {
+    const container = document.createElement("div"); container.id = "recordedInput";
+    const fileInput = document.createElement("input"); fileInput.type = "file"; fileInput.accept = "audio/*"; fileInput.id = "inputFile";
+    $("instrumentTools").append(container);
+    recordedInput = createHollowphonicInput({
+      audio, snapshot, container, fileInput, onError: (e) => error(e), onChange: () => inputControl?.refresh(),
+      selectInput: () => { if (params.source !== 3) { setParams({ source: 3 }); sourceSelect.value = "3"; } },
+    });
+    recordedFile = fileInput;
+  }
+  const recorded = () => recordedInput && recordedInput.mode !== "mic";
+  inputControl = mountAudioInputControl({
     container: $("instrumentTools"), before: $("instrumentTools").firstElementChild, button: micButton,
-    onStart: toggleMic,
+    onStart: () => (recorded() ? recordedInput.start() : toggleMic()),
     onStop: () => {
       micAttempt++; micPending = false; recordPending = false; recordAttempt++;
+      recordedInput?.stop();
       audio.send({ type: "finish-record" }); audio.stopMic(); updateTools();
     },
-    onGainInput: (value) => audio.setInputGain(value),
-    getState: () => ({ active: Boolean(audio.stream), pending: micPending }),
-    getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),
+    onGainInput: (value) => { audio.setInputGain(value); recordedInput?.setGain(value); },
+    getState: () => (recorded()
+      ? { active: recordedInput.snapshot().playing, pending: recordedInput.snapshot().pending, source: recordedInput.mode }
+      : { active: Boolean(audio.stream), pending: micPending, source: recordedInput?.mode }),
+    getSignal: () => (recorded() ? { node: recordedInput.signal(), channels: 2 } : { node: audio.inputTrim, stream: audio.stream }),
+    ...(recordedInput ? {
+      sources: recordedInput.sources, sourceValue: "mic", fileInput: recordedFile,
+      onSourceChange: (value) => {
+        micAttempt++; micPending = false; recordPending = false; recordAttempt++;
+        audio.send({ type: "finish-record" }); audio.stopMic(); recordedInput.setMode(value); updateTools();
+      },
+    } : {}),
   });
   const label = document.createElement("label"); label.className = "check-control";
   const input = document.createElement("input"); input.type = "checkbox"; input.id = "monitor";
@@ -268,6 +292,7 @@ if (["tape-worm", "loop-soup", "habit-habitat"].includes(id)) {
 
 function updateTools() {
   if (disposed) return;
+  recordedInput?.refresh();
   for (const el of $("selectors").children) el.setAttribute("aria-pressed", String(Number(el.dataset.select) === selected));
   if (modeButton) {
     if (id === "tape-worm") { modeButton.textContent = params.splice > 0.5 ? "Splices on" : "Splices bypassed"; modeButton.setAttribute("aria-pressed", String(params.splice > 0.5)); }
@@ -299,7 +324,7 @@ function updateTools() {
   } else if (id === "hollowphonic") {
     $("actionStatus").textContent = params.source === 0
       ? "No continuous source. Tap a chamber or press Enter to strike."
-      : params.source === 3 && !audio.stream
+      : params.source === 3 && !audio.stream && !recordedInput?.snapshot().playing
         ? "Microphone source selected, but microphone is off. Enable microphone to hear it."
         : `Source: ${["silent", "noise", "drone", "microphone"][params.source]}${state.bypass ? " · wall bypassed" : " · through resonators"}.`;
   } else if (id === "habit-habitat") {
@@ -435,6 +460,6 @@ on(window, "pagehide", () => {
   if (disposed) return;
   disposed = true; cancelAnimationFrame(renderId); resizeObserver.disconnect();
   audioAttempt++;
-  abort.abort(); audioStrip.destroy(); void audio.close();
+  recordedInput?.destroy(); abort.abort(); audioStrip.destroy(); void audio.close();
 });
 syncControls(); updateTools(); renderId = requestAnimationFrame(frame);

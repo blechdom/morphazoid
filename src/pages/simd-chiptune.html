@@ -74,7 +74,6 @@
       <h1 class="sr-only" id="webgpuChiptuneTitle">SIMD Chiptune</h1>
 <div class="simd-live-deck" role="region" aria-label="Pinned live controls">
 <div class="simd-live-settings" role="region" aria-label="Preset, tempo, and global controls" tabindex="0">
-<div data-instrument-preset-host></div>
 <section class="simd-performance-controls" aria-label="Live performance controls">
   <div class="simd-tempo-transport" aria-label="Playback and tempo"><button
             class="play-button webgpu-303-play-button"
@@ -111,11 +110,7 @@
     <label class="simd-skin-picker" for="characterSkin"><span class="sr-only">Characters</span><select id="characterSkin"><option value="original">Original characters</option><option value="cubist">Fracture parade</option><option value="anime">Nightmare kaiju</option><option value="swirl">Cosmic worms</option></select></label>
   </div>
   </div>
-  <div class="simd-preset-controls" aria-label="Instrument preset" hidden>
-    <label class="simd-preset-fallback" for="simdPresetSelect"><span class="sr-only">Preset</span><select id="simdPresetSelect" aria-label="Preset"><option value="source">Source Tracker</option></select></label>
-    <button id="nextPreset" class="instrument-picker-next" type="button" aria-label="Next preset"><span aria-hidden="true">▶</span></button>
-    <button id="randomizePatch" class="instrument-picker-next" type="button" aria-label="Randomize patch" title="Randomize patch"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
-  </div>
+  <div class="simd-preset-host" data-instrument-preset-host></div>
 </section>
 <section class="simd-global-controls" id="simdGlobalControls" aria-label="Global sound controls">
   <div class="simd-global-tabs" id="simdGlobalTabs" role="group" aria-label="Global control group"></div>

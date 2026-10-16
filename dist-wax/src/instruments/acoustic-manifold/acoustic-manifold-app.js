@@ -34,6 +34,14 @@ import {
   assembleStropheRoute,
   buildStropheTraversal,
 } from "../nightingale-manifold/nightingale-manifold.js";
+import {
+  ACOUSTIC_INPUT_SOURCES,
+  createSampleLoader,
+  inputState,
+  mountAcousticInput,
+  normalizeInputMode,
+  sampleOriginId,
+} from "./acoustic-manifold-samples.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_FILE_BYTES = 32 * 1024 * 1024;
@@ -2309,10 +2317,16 @@ const micControl = mountAudioInputControl({
   container: document.querySelector(".live-source"),
   before: document.querySelector(".live-source").firstElementChild,
   button: $("start-live-input"),
-  onStart: startLiveInput,
-  onStop: stopOrCancelLive,
+  sources: ACOUSTIC_INPUT_SOURCES,
+  sourceValue: inputState.mode,
+  onSourceChange: switchInputMode,
+  fileInput: $("audio-file"),
+  onStart: startInputToggle,
+  onStop: stopInputToggle,
   onGainInput: (value) => liveCapture?.setInputGain(value),
-  getState: () => ({ active: Boolean(liveCapture?.isRecording), pending: liveStarting, error: liveInputError, supported: !busy || captureIsActive() }),
+  getState: () => (inputState.mode !== "mic"
+    ? { active: !routeAudio.paused, pending: inputState.pending || pendingPlayback, error: inputState.error, supported: true }
+    : { active: Boolean(liveCapture?.isRecording), pending: liveStarting, error: liveInputError, supported: !busy || captureIsActive() }),
   getSignal: () => ({ levels: { left: $("live-input-meter").value, right: 0 }, channels: 1 }),
   hide: [$("capture-live-input"), document.querySelector(".live-meter-row"), document.querySelector(".live-note"), document.querySelector(".live-source > header")],
 });
@@ -2443,6 +2457,128 @@ window.addEventListener("pageshow", (event) => {
   updateSelected();
   updateRouteRibbon();
   setStatus("Page restored. Microphone and playback remain off; the local map is ready.", "ready");
+});
+
+const sampleLoader = createSampleLoader({ toMono: strongestChannel });
+let acousticInput = null;
+let sampleLoadToken = 0;
+
+function sampleIsLoaded(id) {
+  return Boolean(sourceSamples) && sourceOrigin?.id === sampleOriginId(id);
+}
+
+function cancelSampleLoad() {
+  if (!inputState.pending) return;
+  sampleLoadToken += 1;
+  inputState.pending = false;
+  cancelSourceLoad();
+  taskVersion += 1;
+  setBusy(false);
+}
+
+async function loadSampleSource(id) {
+  if (busy || captureIsActive() || disposed) return false;
+  cancelSourceLoad();
+  stopPlayback(false, true);
+  const version = ++taskVersion;
+  const token = ++sampleLoadToken;
+  const controller = new AbortController();
+  sourceLoadController = controller;
+  inputState.pending = true;
+  inputState.error = "";
+  setBusy(true);
+  acousticInput?.refresh();
+  setStatus("Loading the bundled sample locally…");
+  try {
+    const loaded = await sampleLoader.load(id, { signal: controller.signal });
+    if (version !== taskVersion || token !== sampleLoadToken || inputState.mode !== "samples") return false;
+    sourceLoadController = null;
+    inputState.pending = false;
+    $("audio-file").value = "";
+    setLoadedSource(loaded);
+    await analyzeSource();
+    return analysisMatchesProfile();
+  } catch (error) {
+    if (controller.signal.aborted || error?.name === "AbortError" || token !== sampleLoadToken) return false;
+    sourceLoadController = null;
+    inputState.error = `Sample could not load: ${error?.message || "unknown audio error"}`;
+    setBusy(false);
+    setStatus(inputState.error, "error");
+    return false;
+  } finally {
+    if (token === sampleLoadToken) inputState.pending = false;
+    acousticInput?.refresh();
+  }
+}
+
+async function playLoadedSource() {
+  if (busy || captureIsActive() || disposed) return;
+  if (inputState.mode === "samples") {
+    const id = acousticInput.sampleId;
+    if (!sampleIsLoaded(id) && !(await loadSampleSource(id))) return;
+  }
+  if (!sourceSamples) return;
+  if (!analysisMatchesProfile()) await analyzeSource();
+  if (!analysisMatchesProfile() || !analysis.strophes.length) return;
+  if (!route.length) buildRoute();
+  if (route.length) await playIndices(route);
+}
+
+async function selectSample(id) {
+  if (inputState.mode !== "samples") return;
+  const wasPlaying = !routeAudio.paused || pendingPlayback;
+  cancelSampleLoad();
+  stopPlayback(false, true);
+  if (busy || sampleIsLoaded(id)) return;
+  if (await loadSampleSource(id) && wasPlaying) await playLoadedSource();
+}
+
+function startInputToggle() {
+  if (inputState.mode === "mic") return startLiveInput();
+  if (inputState.mode === "file" && sourceOrigin?.kind !== "upload") {
+    $("audio-file").click();
+    return undefined;
+  }
+  return playLoadedSource();
+}
+
+function stopInputToggle() {
+  if (inputState.mode === "mic") return stopOrCancelLive();
+  cancelSampleLoad();
+  stopPlayback(false, true);
+  return undefined;
+}
+
+function switchInputMode(value) {
+  const next = normalizeInputMode(value);
+  if (next === inputState.mode) return;
+  inputState.mode = next;
+  inputState.error = "";
+  cancelLiveCapture();
+  cancelSampleLoad();
+  stopPlayback(false, true);
+  setBusy(busy);
+  acousticInput?.refresh();
+}
+
+acousticInput = mountAcousticInput({
+  container: $("sample-input"),
+  liveControls: [$("live-input-device").closest("label"), $("live-window-seconds").closest("label")],
+  fileLabels: [document.querySelector(".source-actions .file-button")],
+  loopInput: $("loop-route"),
+  playbackEvents: routeAudio,
+  busyHost: $("acoustic-manifold-root"),
+  getMode: () => inputState.mode,
+  isPlaying: () => !routeAudio.paused,
+  isPending: () => inputState.pending || pendingPlayback,
+  onSelect: selectSample,
+  onPlay: () => playLoadedSource(),
+  onStop: () => stopInputToggle(),
+});
+
+window.addEventListener("pagehide", (event) => {
+  cancelSampleLoad();
+  if (!event.persisted) acousticInput.destroy();
 });
 
 if (!ACOUSTIC_BUILT_IN_SOURCES.every((entry) => ACOUSTIC_PROFILES[entry.profileId])) {

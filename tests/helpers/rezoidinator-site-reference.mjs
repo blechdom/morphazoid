@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -13,6 +14,7 @@ export const rezoidinatorSiteChanges = JSON.parse(readFileSync(
 /** Restore the display rename and spatial registration, retaining all prior evidence. */
 export function restoreRezoidinatorSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = rezoidinatorSiteChanges.changes.find(change => change.file === file);

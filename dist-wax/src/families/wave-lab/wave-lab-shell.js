@@ -5,6 +5,7 @@
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
+import { createWaveLabInputSources } from "./wave-lab-input-sources.js";
 
 const MAX_RECORD_SECONDS = 8;
 const MIN_RECORD_SECONDS = 0.12;
@@ -51,6 +52,9 @@ export function createWaveLabShell({
   let micPending = false;
   let micError = "";
   const outputGates = [];
+  let inputs = null;
+  let inputControl = null;
+  let inputError = "";
 
   const say = (text) => { if (statusEl) statusEl.textContent = text; };
   const fail = (text) => { if (errorEl) { errorEl.hidden = false; errorEl.textContent = text; } };
@@ -96,6 +100,7 @@ export function createWaveLabShell({
       for (const gate of outputGates) gate.gain.setTargetAtTime(1, state.context.currentTime, .02);
       onTransport(state.running);
       paintAudio();
+      inputs?.refresh();
       say(state.running ? "Audio on." : "Audio on — press Play, or hold Record and make a sound.");
       if (micSource && graphInput) routeMic();
     } catch (error) {
@@ -106,10 +111,12 @@ export function createWaveLabShell({
   function disarm() {
     state.armed = false;
     stopRecording();
+    inputs?.stop();
     releaseMic();
     for (const gate of outputGates) gate.gain.setTargetAtTime(0, state.context.currentTime, .02);
     onDisarm();
     paintAudio();
+    inputs?.refresh();
     say("Audio off — transport and recorded material are kept.");
   }
 
@@ -166,7 +173,11 @@ export function createWaveLabShell({
 
   async function startRecording() {
     if (!state.armed) { say("Turn Audio on before recording."); return; }
-    try { if (!(await enableMic())) return; } catch { return; }
+    if (inputs && inputs.mode !== "mic") {
+      if (!inputs.snapshot().playing) { say("Press Play on the file or sample first."); return; }
+    } else {
+      try { if (!(await enableMic())) return; } catch { return; }
+    }
     const ctx = state.context;
     chunks = [];
     recordStartedAt = ctx.currentTime;
@@ -224,14 +235,19 @@ export function createWaveLabShell({
     micPending = false;
     micError = "";
     try { micSource?.disconnect(); } catch { /* already */ }
-    try { micTrim?.disconnect(); } catch { /* already */ }
+    if (!inputs || inputs.mode === "mic") {
+      try { micTrim?.disconnect(); } catch { /* already */ }
+      micTrim = null;
+    }
     for (const track of micStream?.getTracks?.() ?? []) track.stop();
-    micStream = null; micSource = null; micTrim = null; state.micReady = false;
+    micStream = null; micSource = null; state.micReady = false;
     inputControl.refresh();
   }
 
   function teardown() {
     stopRecording();
+    inputs?.destroy();
+    inputs = null;
     releaseMic();
     onDisarm();
     try { state.context?.close(); } catch { /* already closed */ }
@@ -240,14 +256,57 @@ export function createWaveLabShell({
     inputControl.destroy();
   }
 
-  const inputControl = mountAudioInputControl({
-    container: recordButton?.closest(".group") ?? document.querySelector(".starting-controls"),
-    before: recordButton?.closest(".record-row"), gainValue: .9,
-    onStart: enableMic,
-    onStop() { stopRecording(); releaseMic(); },
-    getState: () => ({ active: state.micReady, pending: micPending, error: micError }),
-    getSignal: () => ({ node: micTrim, stream: micStream }),
+  function ensureInputTrim() {
+    if (!micTrim) {
+      micTrim = inputControl.createGain(state.context);
+      configureAudioInputNode(micTrim);
+    }
+    if (graphInput) { try { micTrim.disconnect(graphInput); } catch { /* fresh */ } micTrim.connect(graphInput); }
+    if (dryGain) { try { micTrim.disconnect(dryGain); } catch { /* fresh */ } micTrim.connect(dryGain); }
+    return micTrim;
+  }
+
+  async function startRecordedInput() {
+    if (!state.armed) { say("Turn Audio on, then press Play."); return; }
+    inputError = "";
+    await inputs.start();
+  }
+
+  function chooseSource(value) {
+    stopRecording();
+    inputError = "";
+    if (value !== "mic") releaseMic();
+    inputs.selectMode(value);
+    inputControl.refresh();
+  }
+
+  const recordedMode = () => Boolean(inputs) && inputs.mode !== "mic";
+  const controlContainer = recordButton?.closest(".group") ?? document.querySelector(".starting-controls");
+  const controlBefore = recordButton?.closest(".record-row");
+  inputs = createWaveLabInputSources({
+    container: controlContainer, before: controlBefore,
+    prepare: prepareGraph, getContext: () => state.context, getTarget: ensureInputTrim,
+    isArmed: () => state.armed,
+    onChange: (snapshot) => { if (snapshot.playing) inputError = ""; inputControl?.refresh(); },
+    onError: (error) => { inputError = error?.message || String(error); inputControl?.refresh(); },
   });
+  inputControl = mountAudioInputControl({
+    container: controlContainer,
+    before: controlBefore, gainValue: .9,
+    sources: inputs.sources, sourceValue: "mic", fileInput: inputs.fileInput,
+    onSourceChange: chooseSource,
+    onStart: () => (recordedMode() ? startRecordedInput() : enableMic()),
+    onStop() { if (recordedMode()) inputs.stop(); else { stopRecording(); releaseMic(); } },
+    getState() {
+      if (recordedMode()) {
+        const snapshot = inputs.snapshot();
+        return { source: inputs.mode, active: snapshot.playing, pending: snapshot.pending, error: inputError };
+      }
+      return { source: "mic", active: state.micReady, pending: micPending, error: micError };
+    },
+    getSignal: () => ({ node: micTrim, stream: recordedMode() ? null : micStream }),
+  });
+  if (controlBefore) controlContainer.insertBefore(inputs.panel, controlBefore);
 
   audioButton?.addEventListener("click", () => { if (state.armed) disarm(); else arm(); });
   playButton?.addEventListener("click", () => {

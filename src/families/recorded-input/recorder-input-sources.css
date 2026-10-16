@@ -1,0 +1,15 @@
+.recorder-input-panel { display: grid; gap: 8px; min-width: 0; margin: 8px 0; }
+.recorder-input-panel[hidden], .recorder-input-panel [hidden] { display: none; }
+.recorder-input-sample { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
+.recorder-input-choice { display: flex; gap: 6px; min-width: 0; }
+.recorder-input-choice select { width: 0; min-width: 0; flex: 1; min-height: 40px; }
+.recorder-input-choice button { flex: 0 0 40px; min-height: 40px; }
+.recorder-input-transport { display: flex; gap: 6px; min-width: 0; }
+.recorder-input-transport button { min-height: 40px; flex: 1 1 0; min-width: 0; }
+.recorder-input-panel button[aria-pressed="true"] { border-color: var(--mz-input-accent, #bc91fc); }
+.recorder-input-panel button:disabled { opacity: 0.55; }
+.recorder-input-panel p, .recorder-input-panel a { font-size: 11px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.recorder-input-panel a { color: var(--muted, #a4a6b5); }
+@media (pointer: coarse) {
+  .recorder-input-choice select, .recorder-input-choice button, .recorder-input-transport button { min-height: 48px; }
+}

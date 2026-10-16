@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -9,6 +10,7 @@ export const spartialRecordingRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only SPARTIAL's two reviewed recording modules before historical guards. */
 export function restoreSpartialRecordingRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = spartialRecordingRuntimeChanges;

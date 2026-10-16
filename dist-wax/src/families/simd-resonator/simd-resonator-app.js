@@ -376,6 +376,7 @@ function renderRecordedInput() {
   elements.inputSample.value = input.sampleId;
   elements.inputLoop.checked = input.loop;
   elements.inputPlay.textContent = input.pending ? "Cancel loading" : input.playing ? "Stop input" : "Play input";
+  elements.inputPlay.disabled = !MIC_ENGINES.has(state.engine);
   elements.inputPlay.setAttribute("aria-pressed", String(input.playing));
   elements.inputPlay.setAttribute("aria-busy", String(input.pending));
   elements.inputStatus.textContent = input.pending ? `Loading ${input.label}…`
@@ -707,7 +708,7 @@ async function startMicrophone() {
 const inputControl = mountAudioInputControl({
   container: elements.micButton.parentElement, before: elements.micButton.nextElementSibling,
   button: elements.micButton,
-  ...(!isLabSurface ? {
+  ...(elements.inputSource ? {
     sourceSelect: elements.inputSource, sources: [{ value: "mic" }, { value: "sample-file" }, { value: "file" }],
     sourceValue: "mic", fileInput: elements.inputFile,
     onSourceChange: value => {
@@ -719,7 +720,7 @@ const inputControl = mountAudioInputControl({
   onStop: () => !recordedInput || recordedInput.snapshot().mode === "mic" ? stopMicrophone() : recordedInput.stop(),
   getState: () => ({ active: inputIsLive(), pending: state.micStarting || Boolean(recordedInput?.snapshot().pending),
     supported: MIC_ENGINES.has(state.engine),
-    ...(!isLabSurface ? { source: recordedInput?.snapshot().mode === "samples" ? "sample-file" : recordedInput?.snapshot().mode ?? "mic" } : {}),
+    ...(elements.inputSource ? { source: recordedInput?.snapshot().mode === "samples" ? "sample-file" : recordedInput?.snapshot().mode ?? "mic" } : {}),
   }),
   getSignal: () => state.micStream ? { node: state.micGain, stream: state.micStream } : { node: state.recordedGain, channels: 2 },
 });
@@ -743,10 +744,10 @@ async function startRecordedInput() {
   if (!state.outputArmed) { showError("Turn on Audio first."); return; }
   await changeRecordedInput(() => recordedInput.start());
 }
-if (!isLabSurface) {
+if (elements.inputSource) {
   recordedInput = createInputSource({
     prepare: prepareRecordedInput, getContext: () => state.context, getTarget: () => state.recordedGain,
-    canPlay: () => state.outputArmed && state.audioReady && !state.disposed && !document.hidden,
+    canPlay: () => state.outputArmed && state.audioReady && !state.disposed && !document.hidden && MIC_ENGINES.has(state.engine),
     onChange: input => {
       if (input.playing && !state.inputWasPlaying) state.inputPlaybackRevision += 1;
       state.inputWasPlaying = input.playing;
@@ -757,6 +758,10 @@ if (!isLabSurface) {
   });
   elements.inputSample.replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample · /, ""), option.id)));
   elements.inputSample.addEventListener("change", () => void changeRecordedInput(() => recordedInput.selectSample(elements.inputSample.value), { start: true }));
+  document.querySelector("#inputSampleNext")?.addEventListener("click", () => {
+    const select = elements.inputSample; select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   elements.inputLoop.addEventListener("change", () => recordedInput.setLoop(elements.inputLoop.checked));
   elements.inputPlay.addEventListener("click", () => {
     const input = recordedInput.snapshot();
@@ -816,7 +821,7 @@ function chooseBackend(backend) {
 }
 function chooseEngine(engine) {
   if (!AVAILABLE_ENGINES.includes(engine) || engine === state.engine) return;
-  stopAudition(); setGate(false); if (!MIC_ENGINES.has(engine)) stopMicrophone({ announce: false });
+  stopAudition(); setGate(false); if (!MIC_ENGINES.has(engine)) { stopMicrophone({ announce: false }); recordedInput?.stop(); }
   state.engine = engine; state.pointerActive = false; state.pointerId = null; state.keyboardGate = false;
   state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null; state.peak = 0; state.rms = 0;
   state.kernelMicros = state.timings[engine][state.backend] || null;

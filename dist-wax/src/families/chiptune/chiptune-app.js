@@ -1652,7 +1652,7 @@ function syncPresetOutputs() {
     : positiveModulo(activeIndex - 1, presets.length)];
   const next = presets[activeIndex < 0 ? 0 : positiveModulo(activeIndex + 1, presets.length)];
   $("previousPreset").setAttribute("aria-label", "Previous preset: " + previous.label);
-  $("nextPreset").setAttribute("aria-label", "Next preset: " + next.label);
+  $("nextPreset")?.setAttribute("aria-label", "Next preset: " + next.label);
 }
 
 function syncParamOutputs() {
@@ -3230,8 +3230,10 @@ function initializeSimdWorkspace() {
     drums.append(knob.element); simdVolumeKnobs.set("drum:" + lane, knob);
   }
   document.querySelector('[data-character-voice="drums"] .simd-voice-footer').append(drums);
-  simdPresetPicker = createSimdPresetPicker($("simdPresetSelect"), presets, applyPreset);
-  simdPresetPicker.sync(state.presetId);
+  if ($("simdPresetSelect")) {
+    simdPresetPicker = createSimdPresetPicker($("simdPresetSelect"), presets, applyPreset);
+    simdPresetPicker.sync(state.presetId);
+  }
   $("characterSkin").replaceChildren(...SKINS.map(skin => {
     const option = document.createElement("option"); option.value = skin.id; option.textContent = skin.label; return option;
   }));
@@ -6271,7 +6273,7 @@ $("synthPlayButton").addEventListener("click", () => {
 $("previousPreset").addEventListener("click", () => {
   cyclePreset(-1);
 });
-$("nextPreset").addEventListener("click", () => {
+$("nextPreset")?.addEventListener("click", () => {
   cyclePreset(1);
 });
 for (const button of document.querySelectorAll("[data-character-mute]")) {
@@ -6317,7 +6319,7 @@ $("workgroupSize").addEventListener("change", () => {
   runtimeChanged();
   void restartAudio();
 });
-$("randomizePatch").addEventListener("click", randomizePatch);
+$("randomizePatch")?.addEventListener("click", randomizePatch);
 $("mutatePatch").addEventListener("click", mutatePatch);
 $("resetPatch").addEventListener("click", resetPatch);
 $("stage").addEventListener("dblclick", stageDoubleClick);

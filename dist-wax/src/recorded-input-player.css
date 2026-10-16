@@ -1,0 +1,19 @@
+.recorded-input { display: grid; gap: 8px; min-width: 0; margin: 8px 0; color: var(--text, #f3f0f8); font-size: 12px; }
+.recorded-input[hidden], .recorded-input [hidden] { display: none; }
+.recorded-input__choice { display: grid; gap: 4px; min-width: 0; }
+.recorded-input__choice > span { display: flex; gap: 6px; min-width: 0; }
+.recorded-input select { flex: 1; min-width: 0; width: 0; min-height: 36px; background: #121119; color: #f3f0f8; border: 1px solid #514c63; border-radius: 6px; padding: 0 8px; font: inherit; }
+.recorded-input button { min-height: 36px; background: #121119; color: #f3f0f8; border: 1px solid #514c63; border-radius: 6px; padding: 0 10px; cursor: pointer; }
+.recorded-input__choice button { flex: 0 0 40px; padding: 0; }
+.recorded-input button[aria-pressed="true"] { background: #322743; border-color: #bc91fc; color: #fff; }
+.recorded-input button:hover:not(:disabled) { background: #292137; }
+.recorded-input button:disabled { opacity: 0.55; cursor: default; }
+.recorded-input__transport { display: flex; gap: 6px; }
+.recorded-input__transport button:first-child { flex: 1; }
+.recorded-input p, .recorded-input a { font-size: 11px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.recorded-input a { color: var(--muted, #a4a6b5); }
+@media (pointer: coarse) {
+  .recorded-input button, .recorded-input select { min-height: 48px; min-width: 48px; }
+  .recorded-input select { font-size: 16px; }
+  .recorded-input__choice button { flex-basis: 48px; }
+}

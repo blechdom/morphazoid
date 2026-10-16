@@ -10,7 +10,7 @@ import {
 } from "./full-presets.js";
 import { clamp, levelToGain, unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { mountAudioInputControl } from "../../audio-input-control.js";
+import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
   addContourVertex,
@@ -165,13 +165,18 @@ let microphoneHeld = false;
 let microphonePending = false;
 let microphonePromise = null;
 let microphoneVersion = 0;
-const inputControl = mountAudioInputControl({
+const recorder = mountRecorderInput({
   container: $("lumberInput"),
   onStart: () => startMicrophone(),
   onStop: () => stopMicrophone(),
   getState: () => ({ active: Boolean(mediaStream), pending: microphonePending }),
   getSignal: () => ({ node: microphoneGain, stream: mediaStream }),
+}, {
+  getContext: () => audioContext, targets: () => [], prepare: ensureAudio,
+  onSourceLeave: previous => { if (previous !== "mic" && state.recording) void finishRecording({ playAfterCapture: false }); },
 });
+const inputControl = recorder.control;
+const recordingInput = () => (recorder.source === "mic" ? microphoneGain : recorder.bridge);
 let captureProcessor = null;
 let captureMute = null;
 let recordingChunks = [];
@@ -1224,7 +1229,7 @@ function releaseCapture({ releaseInput = !microphoneHeld } = {}) {
     try { node?.disconnect(); } catch { /* owner already disconnected */ }
   }
   if (captureProcessor) {
-    try { microphoneGain?.disconnect(captureProcessor); } catch { /* no capture connection */ }
+    try { microphoneGain?.disconnect(captureProcessor); recorder.bridge?.disconnect(captureProcessor); } catch { /* no capture connection */ }
   }
   captureProcessor = null;
   captureMute = null;
@@ -1232,6 +1237,7 @@ function releaseCapture({ releaseInput = !microphoneHeld } = {}) {
     for (const node of [microphoneSource, microphoneGain]) {
       try { node?.disconnect(); } catch { /* device already ended */ }
     }
+    recorder.releaseInput();
     stopStream(mediaStream);
     mediaStream = null;
     microphoneSource = null;
@@ -1375,8 +1381,8 @@ async function beginRecording({ replace = false } = {}) {
   try {
     const audio = await ensureAudio();
     if (generation !== captureGeneration || document.hidden) return;
-    await startMicrophone({ held: false });
-    if (generation !== captureGeneration || document.hidden || !mediaStream) return;
+    const acquired = await recorder.acquireInput(async () => { await startMicrophone({ held: false }); return true; });
+    if (!acquired || generation !== captureGeneration || document.hidden || !recordingInput()) return;
 
     if (state.backingDuringRecord && state.playing) {
       captureRingPhase(target);
@@ -1385,7 +1391,7 @@ async function beginRecording({ replace = false } = {}) {
       await setPlaying(false, false);
     }
 
-    if (generation !== captureGeneration || !microphoneGain) return;
+    if (generation !== captureGeneration || !recordingInput()) return;
     releaseCapture({ releaseInput: false });
     const createProcessor = audio.createScriptProcessor?.bind(audio)
       ?? audio.createJavaScriptNode?.bind(audio);
@@ -1426,7 +1432,7 @@ async function beginRecording({ replace = false } = {}) {
         });
       }
     };
-    microphoneGain.connect(captureProcessor);
+    recordingInput().connect(captureProcessor);
     captureProcessor.connect(captureMute);
     captureMute.connect(audio.destination);
     announce(`${replace ? "Replacing" : "Recording new"} ring ${ringOrdinal(target)}.`);

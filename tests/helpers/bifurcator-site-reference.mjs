@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreBlobsSite } from './blobs-site-reference.mjs';
@@ -8,6 +9,7 @@ export const bifurcatorSiteChanges = JSON.parse(readFileSync(new URL('../../docs
 
 // Peel only this instrument's exact additions before checking earlier evidence.
 export function restoreBifurcatorSite(source, file) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlobsSite(source, file);

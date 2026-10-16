@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -7,6 +8,7 @@ export const quadrupedAudioQueueRuntimeRow = 'copy+require\tsrc/instruments/quad
 
 /** Preserve historical manifest guards by peeling only this reviewed row. */
 export function restoreQuadrupedAudioQueueRuntime(source, relative, { allowRestored = false } = {}) {
+  source = restoreMicInputBatchSite(source, relative, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, relative, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, relative, { allowRestored: true });
   if (typeof source !== 'string' || relative !== file) return source;

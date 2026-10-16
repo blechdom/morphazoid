@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
@@ -10,6 +11,7 @@ export const recursivePresetAmendments = JSON.parse(readFileSync(
 // Peel only the reviewed preset UI and FM output-cleanup changes. Earlier
 // preservation hashes continue to describe the exact historical source bytes.
 export function restoreRecursivePresets(source, file, { allowRestored = false } = {}) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of recursivePresetAmendments.changes.filter(change => change.file === file)) {

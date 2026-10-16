@@ -104,6 +104,7 @@ test("Micromorph initializes one bounded render loop and does not request audio"
           hidden: false,
           getElementById(id) { return elements.get(id) ?? null; },
           querySelector(selector) {
+            if (selector === ".micromorph-privacy-card") return elements.get("privacyCard") ?? null;
             return selector === "[data-reset-all]" ? element("reset") : null;
           },
           createDocumentFragment() { return element("fragment"); },
@@ -139,7 +140,7 @@ test("Micromorph initializes one bounded render loop and does not request audio"
       },
       addEventListener: {
         configurable: true,
-        value(type, listener) { globalListeners.set(type, listener); },
+        value(type, listener) { globalListeners.set(type, [...(globalListeners.get(type) ?? []), listener]); },
       },
       removeEventListener: {
         configurable: true,
@@ -165,7 +166,20 @@ test("Micromorph initializes one bounded render loop and does not request audio"
     gain.append(elements.get("inputGain"), elements.get("inputGainOut"));
     for (const node of [...elements.values(), source, gain]) node.ownerDocument = document;
     const createElement = document.createElement;
-    document.createElement = (...args) => { const node = createElement(...args); node.ownerDocument = document; return node; };
+    document.createElement = (...args) => {
+      const node = createElement(...args);
+      const found = new Map();
+      node.ownerDocument = document;
+      node.querySelector = (selector) => {
+        if (!found.has(selector)) found.set(selector, createElement());
+        return found.get(selector);
+      };
+      return node;
+    };
+    const privacyCard = element("privacyCard");
+    elements.set("privacyCard", privacyCard);
+    source.append(privacyCard);
+    privacyCard.append(elements.get("privacyState"));
 
     await import(`../src/instruments/micromorph/micromorph-app.js?smoke=${Date.now()}`);
     assert.equal(microphoneRequests, 0);
@@ -177,7 +191,7 @@ test("Micromorph initializes one bounded render loop and does not request audio"
     for (let index = 0; index < 20; index += 1) derivationInput?.();
     assert.equal(animationRequests, 3, "control updates do not fan out additional RAF chains");
 
-    globalListeners.get("pagehide")?.();
+    for (const listener of globalListeners.get("pagehide") ?? []) listener({});
     assert.equal(documentListeners.has("visibilitychange"), false);
     assert.equal(documentListeners.has("keydown"), false);
   } finally {

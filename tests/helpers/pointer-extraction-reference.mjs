@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
@@ -9,6 +10,7 @@ export const pointerReference = JSON.parse(readFileSync(
 
 /** Reverse only this checked, behavior-equivalent extraction for older proofs. */
 export function restorePointerExtraction(source, file) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const entry = pointerReference.entries.find(entry => entry.file === file);
