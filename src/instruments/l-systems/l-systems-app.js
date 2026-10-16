@@ -29,6 +29,8 @@ import {
 import { micBranchPlaybackRate } from "../../families/mic-branch/mic-branch-dsp.js";
 import { LSystemsMicDelayAudio } from "./mic-delay-audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
+import { createRecordedInput, withRecordedInput } from "../../recorded-input-sources.js";
+import { attachRecordedEngineSource, detachRecordedEngineSource, onEngineDisable } from "./recorded-input.js";
 import { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from "./sound-engines.js";
 import { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from "./branch-parameters.js";
 import { L_SYSTEMS_FULL_PRESETS, L_SYSTEMS_MIC_PRESETS, captureLSystemsPreset, validateLSystemsPreset, randomizeLSystemsPreset } from "./full-presets.js";
@@ -1528,7 +1530,29 @@ function setupAmplitude() {
 
 function boot() {
   setupControls();
-  inputControl = mountAudioInputControl({
+  let recordedEntry = null;
+  const recordedInput = createRecordedInput({
+    prepare: async () => {
+      micEngine.setGeometryModel(state.geometryModel);
+      micEngine.setInputGain(state.mic.inputTrim);
+      await micEngine.initialize({ context: instrumentAudioContext() });
+      micEngine.setOutputEnabled(state.audio);
+      if (!recordedEntry || recordedEntry.context !== micEngine.context) recordedEntry = micEngine.context.createGain();
+    },
+    getContext: () => micEngine.context, getTarget: () => recordedEntry,
+    isArmed: () => state.audio, isAvailable: () => state.mode === "mic",
+    onActiveChange: active => {
+      if (active) attachRecordedEngineSource(micEngine, recordedEntry);
+      else detachRecordedEngineSource(micEngine, recordedEntry);
+      applyGlobalLevel(); scheduleFrame();
+    },
+    onChange: () => inputControl?.refresh(),
+    onError: error => { micInputError = error?.message || String(error); inputControl?.refresh(); },
+  });
+  onEngineDisable(micEngine, () => recordedInput.stop());
+  recordedInput.mountBefore($("micBank").querySelector(".l-systems-grid"));
+  window.addEventListener("pagehide", event => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });
+  inputControl = mountAudioInputControl(withRecordedInput({
     container: $("micBank"), before: $("micBank").querySelector(".l-systems-grid"),
     gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
     gainFormat: formatPercent,
@@ -1547,7 +1571,7 @@ function boot() {
     },
     onStop: () => { micInputGeneration++; micInputError = ""; micEngine.stopMicrophone(); scheduleFrame(); },
     hide: [$("inputTrim").closest("label"), $("micDescription")],
-  });
+  }, recordedInput));
   setupAmplitude();
   setupPresetBank();
   updateIterationLimit();

@@ -40,6 +40,8 @@ import {
 } from "../../families/graph/graph-synth-audio.js";
 import { GraphDelayAudio } from "../graph-delay/graph-delay-audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
+import { createRecordedInput, withRecordedInput } from "../../recorded-input-sources.js";
+import { attachRecordedGraphSource, detachRecordedGraphSource } from "./recorded-input.js";
 import { graphDistanceRatioFromTimeScale, graphsModeFor } from "./graphs-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -2845,7 +2847,27 @@ export function initializeGraphs({
   const ResizeObserverConstructor = runtime.ResizeObserver ?? globalThis.ResizeObserver;
   if (ResizeObserverConstructor) new ResizeObserverConstructor(resizeCanvas).observe(stageWrap);
   else resizeCanvas();
-  inputControl = mountAudioInputControl({
+  let recordedEntry = null;
+  const recordedInput = createRecordedInput({
+    prepare: async () => {
+      engines.mic.setOutputEnabled(state.audio);
+      await engines.mic.initialize(micConfiguration());
+      if (!recordedEntry || recordedEntry.context !== engines.mic.context) recordedEntry = engines.mic.context.createGain();
+    },
+    getContext: () => engines.mic.context, getTarget: () => recordedEntry,
+    isArmed: () => state.audio, isAvailable: () => instrumentMode === "mic" && !disposed,
+    onActiveChange: (active) => {
+      if (active) attachRecordedGraphSource(engines.mic, recordedEntry);
+      else detachRecordedGraphSource(engines.mic, recordedEntry);
+      scheduleFrame();
+    },
+    onChange: () => inputControl?.refresh(),
+    onError: showError,
+    doc: documentObject,
+  });
+  recordedInput.mountBefore($("micBank").querySelector(".graphs-grid"));
+  runtime.addEventListener?.("pagehide", (event) => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });
+  inputControl = mountAudioInputControl(withRecordedInput({
     container: $("micBank"), before: $("micBank").querySelector(".graphs-grid"),
     gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
     gainFormat: (value) => `${Math.round(clamp(value, 0, 1.5, 0) * 100)}%`,
@@ -2862,7 +2884,7 @@ export function initializeGraphs({
     },
     onStop: () => { micInputGeneration++; engines.mic.stopMicrophone(); scheduleFrame(); },
     hide: [$("inputTrim").closest("label"), $("inputMeter")?.closest(".graphs-mic-monitor"), $("micBank").querySelector(".graphs-safety")],
-  });
+  }, recordedInput));
   syncControls();
   if (instrumentMode === "drums") renderDrumMap();
   updateModeUi();
