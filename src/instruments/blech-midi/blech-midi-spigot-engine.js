@@ -125,7 +125,7 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
   function configure(id, patch) {
     const record = sources.get(id); if (!record || disposed) return false;
     record.settings = { ...record.settings, ...patch };
-    const sample = sampleFor(record); if (sample) engine.configureSample(sample.id, patch);
+    const sample = sampleFor(record); if (sample) engine.configureSample(sample.id, { ...patch, ...(patch.program === 'original' ? { program: null } : {}) });
     if (patch.channel !== undefined) record.score = transformBlechSpigot(record.sourceScore, record.settings);
     notify(); return true;
   }

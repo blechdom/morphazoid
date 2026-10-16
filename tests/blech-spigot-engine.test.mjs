@@ -246,3 +246,19 @@ test('replaying an adopted source restores mixer settings even when the saved-pa
   assert.deepEqual(replay.midi, before.midi); assert.equal(replay.positionBeats, 0); assert.equal(replay.paused, false);
   assert.equal(q.contexts(), 0); sources.dispose(); await q.engine.dispose();
 });
+
+test('layer instrument changes and Original restore the current voice and replay without disturbing its sibling', async () => {
+  const q = setup(), first = q.sources.create(score(), { loop: true }), other = q.sources.create(score(), { loop: true, program: 19 });
+  q.at(.25); const position = q.engine.state.samples[0].positionBeats, sibling = q.engine.state.samples[1];
+  q.sources.configure(first.id, { program: 40, midi: { program: 40, controllers: { 74: 45 } } });
+  let sample = q.engine.state.samples[0];
+  assert.equal(sample.program, 40); assert.equal(sample.midi.program, 40); assert.equal(sample.positionBeats, position);
+  q.sources.configure(first.id, { program: 'original', midi: { ...sample.midi, program: null } });
+  sample = q.engine.state.samples[0];
+  assert.equal(sample.program, null); assert.equal(sample.midi.program, null); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(q.sources.getLayers()[0].settings.program, 'original'); assert.deepEqual(q.engine.state.samples[1], sibling);
+  q.engine.stopSample(first.sampleId); q.sources.togglePlay(first.id);
+  sample = q.engine.state.samples.find(item => item.id !== other.sampleId);
+  assert.equal(sample.program, null); assert.equal(sample.midi.program, null); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(q.contexts(), 0); await q.engine.dispose();
+});
