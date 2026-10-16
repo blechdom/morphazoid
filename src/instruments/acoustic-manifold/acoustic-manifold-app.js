@@ -2496,6 +2496,10 @@ async function loadSampleSource(id) {
     inputState.pending = false;
     $("audio-file").value = "";
     setLoadedSource(loaded);
+    if ($("analysis-profile").value === "songbird") {
+      $("analysis-profile").value = "general";
+      updateProfilePresentation();
+    }
     await analyzeSource();
     return analysisMatchesProfile();
   } catch (error) {
