@@ -1,3 +1,4 @@
+import { createMicmicRecordedInput } from "./input-sources.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { DEFAULT_MICMIC_STATE as DEFAULT_STATE, MICMIC_FULL_PRESETS, captureMicmicPreset, validateMicmicPreset, randomizeMicmicPreset } from "../../families/branch-presets/full-presets.js";
@@ -57,6 +58,7 @@ let audioContext = null;
 let graph = null;
 let mediaStream = null;
 let microphoneSource = null;
+let recordedInput = null;
 let microphoneGeneration = 0;
 let audioChanging = false;
 let inputWave = new Float32Array(1024);
@@ -1117,6 +1119,10 @@ function applyAudioParameters(immediate = false) {
 }
 
 async function startMicrophone() {
+  if (recordedInput?.isRecorded()) {
+    try { await recordedInput.start(); } catch (error) { showError(error.message); }
+    return;
+  }
   if (state.mic || state.starting || audioChanging) return;
   const generation = ++microphoneGeneration;
   audioChanging = true;
@@ -1172,6 +1178,7 @@ async function startMicrophone() {
 }
 
 function stopMicrophone(message = "L-system Delay microphone off.", shouldAnnounce = true) {
+  recordedInput?.stop();
   ++microphoneGeneration;
   state.starting = false;
   state.mic = false;
@@ -1788,6 +1795,7 @@ function updateUi() {
     voice.gain * state.wet > 0.00001
   )).length ?? 0;
   canvas.setAttribute("aria-label", `Live fitted L-system tree for L-system Delay. ${live ? state.frozen ? "Input paused; recursive tail live" : "Microphone live" : "Microphone off"}.`);
+  recordedInput?.refresh();
   $("treeDescription").textContent = `${systemLabel} with ${label} growth. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;
 }
 
@@ -1945,4 +1953,31 @@ registerHeaderPresets({
     applyAudioParameters();
     updateUi();
   },
+});
+recordedInput = createMicmicRecordedInput({
+  ensureGraph: async () => {
+    if (audioChanging || pitchDetailChanging) throw new Error("Audio is changing. Try again in a moment.");
+    await ensureAudioGraph();
+    configureAudioInputNode(graph.input);
+  },
+  getContext: () => audioContext, getInputNode: () => graph?.input, isArmed: () => audioOutputEnabled,
+  onSourceChange: () => stopMicrophone("Input source changed.", false),
+  onPlaybackChange: (playing) => {
+    if (playing) {
+      state.mic = true;
+      state.frozen = false;
+      clearEnvelopeHistory();
+      applyAudioParameters();
+      clearError();
+      announce("L-system Delay audio input on. Recorded input.");
+    } else if (state.mic && recordedInput.isRecorded()) {
+      state.mic = false;
+      state.frozen = false;
+      applyAudioParameters(true);
+      hotSince = 0;
+      clearEnvelopeHistory();
+    }
+    updateUi();
+  },
+  onError: (error) => showError(error?.message || "Input could not load."),
 });
