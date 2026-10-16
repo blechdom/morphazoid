@@ -52,11 +52,10 @@
 .blech-spigot-stamp-grid .blech-stamp-choice-copy { min-width: 0; overflow: hidden; font: 10px/1.2 monospace; text-align: center; }
 .blech-spigot-stamp-grid .blech-stamp-choice-copy small { display: none; }
 .blech-spigot-stamp-grid .instrument-picker-empty { grid-column: 1 / -1; }
-.blech-spigot-overlay[data-mode="draw"] .blech-spigot-move,
-.blech-spigot-overlay[data-mode="stamp"] .blech-spigot-move,
-.blech-spigot-overlay[data-mode="erase"] .blech-spigot-move,
-.blech-spigot-overlay[data-mode="erase"] .blech-spigot-grip,
-.blech-spigot-overlay[data-mode="erase"] .blech-spigot-rotate { pointer-events: none; }
+.blech-spigot-overlay:not([data-mode="select"]) .blech-spigot-move { pointer-events: none; }
+.blech-spigot-overlay:not([data-mode="select"]) .blech-spigot-grip,
+.blech-spigot-overlay:not([data-mode="select"]) .blech-spigot-rotate,
+.blech-spigot-overlay:not([data-mode="select"]) .blech-spigot-valves { visibility: hidden; pointer-events: none; }
 .blech-spigot-overlay[data-mode="erase"] .blech-spigot-paint { cursor: cell; }
 @media (pointer: coarse) {
   .blech-spigot-controls .blech-spigot-mode > button, .blech-spigot-stamp-picker > summary { width: 48px; min-width: 48px; height: 48px; min-height: 48px; }

@@ -246,7 +246,7 @@ function mountBlechMidi() {
       field(pause, sample.paused ? '▶' : 'Ⅱ'); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
       pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
       pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
-      const stateLabel = sample.closed ? 'Valve closed' : sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.loop ? 'Looping' : 'One shot';
+      const stateLabel = sample.closed ? 'Valve closed' : sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.hold ? 'Held' : sample.loop ? 'Looping' : 'One shot';
       const channel = sample.channel == null ? 'Original channels' : `Ch ${sample.channel + 1}`;
       const program = Number.isInteger(sample.midi?.program) && sample.midi.program >= 0 ? GM_PROGRAM_NAMES[sample.midi.program] : 'Original instruments';
       field(node.querySelector('[data-layer-status]'), `${stateLabel} · ${channel} · ${program}`);

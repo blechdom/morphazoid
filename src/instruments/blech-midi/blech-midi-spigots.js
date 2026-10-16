@@ -141,7 +141,7 @@ export function mountBlechSpigots(viewport, {
     overlay.dataset.mode = mode; surface.style.height = `${Math.max(0, g.present - 2)}px`; surface.tabIndex = mode === 'select' ? -1 : 0;
     for (const button of controlsHost.querySelectorAll('[data-spigot-mode]')) button.setAttribute('aria-pressed', String(button.dataset.spigotMode === mode));
     c$('[data-spigot-mode="erase"]').disabled = !selected();
-    for (const control of selection.querySelectorAll('.blech-spigot-move, .blech-spigot-grip, .blech-spigot-rotate')) control.tabIndex = mode === 'erase' ? -1 : 0;
+    for (const control of selection.querySelectorAll('button')) control.tabIndex = mode === 'select' ? 0 : -1;
     const current = sources(), ids = new Set(current.map(source => source.id));
     if (selectedId && !ids.has(selectedId)) { selectedId = null; onSelectionChange?.(null); }
     const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = Math.round(g.width * dpr); canvas.height = Math.round(g.height * dpr); context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -149,7 +149,7 @@ export function mountBlechSpigots(viewport, {
     if (!source) return;
     selection.dataset.spigotId = source.id;
     const settings = source.settings ?? source, d = spigotDimensions(source);
-    const state = source.paused ? 'Paused' : source.playing ? settings.loop ? 'Looping' : 'Playing' : 'Stopped';
+    const state = source.paused ? 'Paused' : source.playing ? settings.hold ? 'Held' : settings.loop ? 'Looping' : 'Playing' : 'Stopped';
     label.textContent = `${source.name || 'Layer'} · ${state}`;
     move.setAttribute('aria-label', `Move ${source.name || 'layer'}; arrows change pitch and delay`);
     const low = g.layout[Math.round(clamp(d.low, 0, 127))], high = g.layout[Math.round(clamp(d.high, 0, 127))];
