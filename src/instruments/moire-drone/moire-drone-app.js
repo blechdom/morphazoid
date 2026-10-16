@@ -1,3 +1,4 @@
+import { installRecordedInput } from "./input-sources.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import {
   FABRIC_IMPACT_BODIES,
@@ -2566,3 +2567,4 @@ void refreshInputDevices();
 updateInterface({ drawNow: false });
 resizeCanvas();
 animationFrame = requestAnimationFrame(animate);
+installRecordedInput({ audio, isAudioOn: () => state.audioOn });

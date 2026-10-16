@@ -10,6 +10,7 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
+    <link rel="stylesheet" href="src/recorded-input-panel.css" />
   </head>
   <body class="micmic-page">
     <header class="masthead">
@@ -131,6 +132,18 @@
               <p class="audio-error" id="audioError" role="alert" hidden></p>
             </div>
           </details>
+          <div class="micmic-recorded-input">
+            <label class="control" for="inputSourceKind">
+              <span><b>Input source</b></span>
+              <select id="inputSourceKind" aria-label="Input source">
+                <option value="mic">Mic</option>
+                <option value="file">File</option>
+                <option value="samples">Samples</option>
+              </select>
+            </label>
+            <div id="recordedInputPanel"></div>
+            <input id="recordedInputFile" type="file" accept="audio/*" hidden />
+          </div>
         </div>
         <details class="group control-section" id="presetSection" data-section="presets">
           <summary class="group-summary">
