@@ -23,36 +23,34 @@
   <main class="esi-shell">
     <section class="esi-instrument" aria-label="Sampler performance surface">
       <div class="esi-faceplate">
-        <div class="esi-title"><p>MORPHAZOID / DIGITAL SAMPLER</p><h1>ESI-32</h1><span>Inspired by the E-mu ESI-32</span></div>
-        <div class="esi-lcd" role="status" aria-live="polite"><span id="lcdBank">01 / ORIGINAL DEMO BANK</span><strong id="lcdSample">Preparing samples</strong><span id="lcdStatus">Enable Audio · play the keys</span></div>
-        <div class="esi-actions"><button id="audition" type="button" data-primary-transport aria-pressed="false">▶ Audition</button><button id="panic" type="button">All notes off</button></div>
+        <div class="esi-title"><h1>ESI-32</h1></div>
+        <div class="esi-lcd" role="status" aria-live="polite"><span id="lcdBank">SLOT 01</span><strong id="lcdSample">Preparing samples</strong><span id="lcdStatus">Audio off</span></div>
+        <div class="esi-actions"><button class="esi-button" id="audition" type="button" data-primary-transport aria-pressed="false">▶ Audition</button><button class="esi-button" id="panic" type="button" aria-label="Silence all notes">Silence</button></div>
       </div>
       <div class="esi-wave-section">
         <div class="esi-section-label"><span>SAMPLE EDIT</span><output id="sampleInfo">Original demo</output></div>
         <canvas id="waveform" tabindex="0" role="slider" data-interactive-track aria-label="Sample trim start" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="waveHelp">Sample waveform. Use the labelled trim and loop controls to edit the sample boundaries.</canvas>
-        <p id="waveHelp" class="esi-hint">Drag a marker to trim or loop. Arrow keys move the start; Shift + arrows move the end.</p>
-        <div class="esi-wave-tools"><label class="esi-file-button">Load sample<input id="sampleFile" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg" disabled /></label><button id="exportSample" type="button" disabled>Export cut WAV</button><label class="esi-check"><input id="reverse" type="checkbox" /> Reverse</label><label class="esi-check"><input id="loopEnabled" type="checkbox" /> Loop</label></div>
+        <p id="waveHelp" class="sr-only">Drag a marker to trim or loop. Arrow keys move the start; Shift + arrows move the end.</p>
+        <div class="esi-wave-tools"><label class="esi-file-button">Load sample<input id="sampleFile" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg" disabled /></label><button class="esi-button" id="exportSample" type="button" disabled>Export WAV</button><label class="esi-check"><input id="reverse" type="checkbox" /> Reverse</label><label class="esi-check"><input id="loopEnabled" type="checkbox" /> Loop</label></div>
         <div id="trimControls" class="esi-trim-controls"></div>
       </div>
-      <div class="esi-bank-section"><div class="esi-section-label"><span>SAMPLE BANK</span><span>SELECT A SLOT</span></div><div id="sampleSlots" class="esi-slots" role="group" aria-label="Sample slots"></div></div>
-      <div class="esi-key-section"><div class="esi-section-label"><span>KEYBOARD</span><div class="esi-octaves"><button id="octaveDown" type="button" aria-label="Lower keyboard octave">−</button><output id="octaveLabel">C3–B4</output><button id="octaveUp" type="button" aria-label="Raise keyboard octave">+</button></div></div><div id="keyboard" class="esi-keyboard" role="group" aria-label="Two octave sample keyboard"></div><p class="esi-hint">Hold a key to play · release to fade · computer keys work with Audio on · MIDI in Settings</p></div>
+      <div class="esi-bank-section"><div class="esi-section-label"><span>SAMPLES</span></div><div id="sampleSlots" class="esi-slots" role="group" aria-label="Sample slots"></div></div>
+      <div class="esi-key-section"><div class="esi-section-label"><span>KEYBOARD</span><div class="esi-octaves"><button class="esi-button" id="octaveDown" type="button" aria-label="Lower keyboard octave">−</button><output id="octaveLabel">C3–B4</output><button class="esi-button" id="octaveUp" type="button" aria-label="Raise keyboard octave">+</button></div></div><div id="keyboard" class="esi-keyboard" role="group" aria-label="Two octave sample keyboard"></div></div>
     </section>
     <aside class="esi-panel" data-instrument-preset-host aria-label="Sampler controls">
       <section class="esi-recording" aria-label="Sample recording">
-        <h2>AUDIO INPUT</h2>
+        <h2>INPUT</h2>
         <div id="sampleInputControls"></div>
-        <label class="esi-device"><span>Audio input device</span><select id="inputDevice"><option value="">Default audio input</option></select></label>
-        <div class="esi-recording-actions"><button id="recordSample" type="button" aria-pressed="false" disabled>Record into slot 1</button></div>
-        <p id="recordingStatus" class="esi-hint" role="status">Enable Audio and connect your mic or audio input.</p>
-        <p class="esi-hint">Up to 60 seconds into the selected slot. Use the input meter to set gain, then record. Playback starts when you play the keys.</p>
+        <label class="esi-device"><span class="sr-only">Audio input device</span><select id="inputDevice"><option value="">Default audio input</option></select></label>
+        <div class="esi-recording-actions"><button class="esi-button" id="recordSample" type="button" aria-pressed="false" disabled aria-label="Record into slot 1">● Record</button></div>
+        <p id="recordingStatus" class="esi-hint" role="status">Enable Audio, then connect input.</p>
       </section>
-      <details class="esi-control-section" open><summary>Tuning &amp; output</summary><div id="tuningControls" class="esi-controls"></div></details>
-      <details class="esi-control-section" open><summary>Resonant lowpass</summary><div id="filterControls" class="esi-controls"></div></details>
-      <details class="esi-control-section" open><summary>Amplitude envelope</summary><div id="envelopeControls" class="esi-controls"></div></details>
+      <details class="esi-control-section" open><summary>Tuning</summary><div id="tuningControls" class="esi-controls"></div></details>
+      <details class="esi-control-section" open><summary>Filter</summary><div id="filterControls" class="esi-controls"></div></details>
+      <details class="esi-control-section" open><summary>Envelope</summary><div id="envelopeControls" class="esi-controls"></div></details>
       <details class="esi-control-section"><summary>Pitch LFO</summary><div id="lfoControls" class="esi-controls"></div></details>
-      <div class="esi-bank-tools"><button id="saveBank" type="button" disabled>Save bank</button><label class="esi-file-button">Open bank<input id="bankFile" type="file" accept="application/json,.json" disabled /></label><button id="resetPatch" type="button" data-reset-control>Reset sound</button></div>
-      <p class="esi-hint">Files stay in your browser. Enable Audio to load or save samples. Save bank includes your samples and sound settings.</p>
-      <a class="esi-notes" href="docs/esi-32.md">Controls, original hardware &amp; model limits ↗</a>
+      <div class="esi-bank-tools"><button class="esi-button" id="saveBank" type="button" disabled>Save bank</button><label class="esi-file-button">Open bank<input id="bankFile" type="file" accept="application/json,.json" disabled /></label><button class="esi-button" id="resetPatch" type="button" data-reset-control>Reset</button></div>
+      <a class="esi-notes" href="docs/esi-32.md">Help ↗</a>
       <p id="audioError" class="esi-error" role="alert" hidden></p>
     </aside>
   </main>

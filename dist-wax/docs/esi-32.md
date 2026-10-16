@@ -4,7 +4,7 @@
 
 Enable **Audio**, select a sample slot, and hold the on-screen or labelled
 computer keys. Both keyboard rows play chromatically; octave buttons move the
-range. **Audition** plays the selected sound, and **All notes off** releases
+range. **Audition** plays the selected sound, and **Silence** releases
 the instrument. MIDI input is enabled in Settings. Note velocity, sustain
 (CC64), pitch bend, cutoff (CC74), resonance (CC71), attack (CC73), release
 (CC72), output (CC7), and all-notes-off messages are supported.
@@ -19,7 +19,7 @@ To record a microphone or audio interface, enable **Audio**, then click the
 violet input toggle beside the input gain and meter. Allow microphone access
 and choose **Audio input device** if you use an external interface. The input
 meter follows the input gain; capture does not feed live input to the speakers.
-Click **Record into slot**, then **Stop recording**. The captured sound replaces
+Click **Record**, then **Stop**. The captured sound replaces
 the slot selected when recording began and appears in the waveform editor.
 Play the keys to hear it, then trim, loop, filter, export or save the bank as usual.
 Recording stops at 60 seconds. Audio off, disconnecting input, or hiding the page
@@ -42,10 +42,10 @@ Cutoff, resonance, pan, level and LFO edits update held notes. Trim, reverse,
 coarse/fine tuning and envelope edits take effect on the next attack. MIDI
 macros 1–8 map to cutoff, resonance, transpose, attack, release, pan, LFO depth
 and sample level, respectively.
-The preset menu, next-preset button, dice and Reset sound provide recoverable
+The preset menu, next-preset button, dice and Reset provide recoverable
 starting points. Presets change sound settings and keep imported samples.
 
-**Export cut WAV** writes the selected trim and reverse as mono/stereo 16-bit
+**Export WAV** writes the selected trim and reverse as mono/stereo 16-bit
 PCM at the decoded sample rate. It exports the source sample, without filter,
 envelope, tuning, LFO or output processing. **Save bank** embeds all eight full
 samples as 16-bit WAV alongside the sound settings, names, selected slot and

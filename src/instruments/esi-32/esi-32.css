@@ -6,17 +6,16 @@
 .esi-shell { display: grid; grid-template-columns: minmax(0, 1fr) 300px; max-width: 1600px; margin: 0 auto; min-height: calc(100dvh - 72px); }
 .esi-instrument { min-width: 0; padding: 28px 32px; }
 .esi-faceplate { display: grid; grid-template-columns: 1fr 1.25fr auto; align-items: center; gap: 24px; padding: 4px 0 30px; }
-.esi-title p { font: 10px/1.5 monospace; letter-spacing: .16em; color: var(--esi-muted); margin: 0; }
-.esi-title h1 { font: 700 clamp(36px, 4vw, 60px)/1.15 monospace; letter-spacing: -.06em; color: var(--esi-violet); margin: 8px 0; }
-.esi-title > span { font-size: 11px; color: var(--esi-muted); }
-.esi-lcd { min-width: 0; padding: 18px 20px; color: #201a3a; background: var(--esi-lilac); box-shadow: inset 0 2px 8px #0004; border-radius: 3px; display: flex; flex-direction: column; gap: 10px; font: 11px/1.35 monospace; }
+.esi-title h1 { font: 700 clamp(36px, 3.5vw, 48px)/1.15 monospace; letter-spacing: -.06em; color: var(--esi-violet); margin: 8px 0; }
+.esi-lcd { min-width: 0; padding: 12px 16px; color: #201a3a; background: var(--esi-lilac); box-shadow: inset 0 2px 8px #0004; border-radius: 3px; display: flex; flex-direction: column; gap: 6px; font: 11px/1.35 monospace; }
 .esi-lcd strong { font-size: 19px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-weight: 500; }
-.esi-actions { display: flex; flex-direction: column; gap: 12px; }
-.esi-page button, .esi-file-button { border: 1px solid #4c4c78; color: #eeeaff; border-radius: 4px; background: #202342; padding: 10px 12px; cursor: pointer; font: inherit; font-size: 12px; }
-.esi-page button:hover, .esi-file-button:hover { background: #333459; }
+.esi-actions { display: flex; flex-direction: column; gap: 6px; }
+.esi-button { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; }
+.esi-page :is(.esi-button, .esi-slot, .esi-key, .esi-file-button) { border: 1px solid #4c4c78; color: #eeeaff; border-radius: 4px; background: #202342; padding: 6px 8px; cursor: pointer; font: inherit; font-size: 11px; line-height: 1.2; }
+.esi-page :is(.esi-button, .esi-slot, .esi-key, .esi-file-button):hover { background: #333459; }
 .esi-page button:focus-visible, .esi-file-button:focus-within, .esi-page input:focus-visible, #waveform:focus-visible { outline: 2px solid var(--esi-lilac); outline-offset: 3px; }
-.esi-page button:disabled, .esi-file-button:has(input:disabled) { opacity: .45; cursor: default; }
-.esi-page #audition { min-height: 48px; color: var(--esi-violet); border-color: #ba9cff; }
+.esi-page :is(.esi-button, .esi-slot, .esi-key):disabled, .esi-file-button:has(input:disabled) { opacity: .45; cursor: default; }
+.esi-page #audition { min-height: 32px; color: var(--esi-violet); border-color: #ba9cff; }
 .esi-page #audition[aria-pressed='true'] { background: #ba9cff; color: #17112c; }
 .esi-section-label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; color: var(--esi-muted); font: 10px/1.5 monospace; letter-spacing: .12em; }
 .esi-section-label output { letter-spacing: 0; text-align: right; }
@@ -32,7 +31,7 @@
 .esi-bank-section { margin: 30px 0; }
 .esi-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .esi-page .esi-slot { text-align: left; min-height: 60px; min-width: 0; border-color: #353756; padding: 12px; }
-.esi-slot span { display: block; font: 10px monospace; color: var(--esi-muted); margin-bottom: 7px; }
+.esi-slot span { display: block; font: 10px monospace; color: var(--esi-muted); margin-bottom: 4px; }
 .esi-slot strong { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .esi-page .esi-slot[aria-pressed=true] { border-color: var(--esi-violet); color: var(--esi-violet); background: #30274f; }
 .esi-keyboard { display: grid; gap: 8px; }
@@ -44,23 +43,24 @@
 .esi-page .esi-key.is-held { background: var(--esi-violet); color: #17112c; border-color: var(--esi-violet); transform: translateY(2px); }
 .esi-octaves { display: flex; align-items: center; gap: 12px; letter-spacing: 0; }
 .esi-page .esi-octaves button { padding: 5px 12px; font-size: 16px; }
-.esi-panel { min-width: 0; padding: 24px; background: #111931; border-left: 1px solid #353756; }
-.esi-control-section { border-bottom: 1px solid #353756; padding: 18px 0; }
+.esi-panel { min-width: 0; padding: 16px; background: #111931; border-left: 1px solid #353756; }
+.esi-control-section { border-bottom: 1px solid #353756; padding: 12px 0; }
 .esi-control-section summary { font-size: 12px; font-weight: 600; cursor: pointer; color: var(--esi-violet); }
-.esi-controls { display: grid; gap: 16px; padding-top: 18px; }
+.esi-controls { display: grid; gap: 10px; padding-top: 12px; }
 .esi-field { display: block; min-width: 0; font-size: 11px; }
 .esi-field > span { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-bottom: 6px; }
 .esi-field b { font-weight: 400; color: #d4d1e8; }
 .esi-field output { color: var(--esi-violet); font: 10px monospace; white-space: nowrap; }
 .esi-field input[type=range] { display: block; width: 100%; accent-color: var(--esi-violet); margin: 0; min-height: 22px; }
-.esi-bank-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
-.esi-notes { display: block; color: var(--esi-violet); font-size: 11px; line-height: 1.6; margin-top: 20px; }
+.esi-bank-tools { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+.esi-notes { display: block; color: var(--esi-violet); font-size: 11px; line-height: 1.6; margin-top: 12px; }
 .esi-error { color: #ffb0ae; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.esi-panel .header-preset-controls { margin-bottom: 6px; }
+.esi-page .esi-panel .instrument-preset-controls { padding: 0; margin: 0; border: 0; background: #111931; }
+.esi-page .esi-panel > .instrument-preset-controls { padding-bottom: 8px; }
 @media (max-width: 1100px) { .esi-faceplate { grid-template-columns: 1fr 1.2fr; gap: 16px; } .esi-actions { grid-column: 1 / -1; flex-direction: row; } .esi-instrument { padding: 24px; } .esi-shell { grid-template-columns: minmax(0, 1fr) 280px; } }
-@media (max-width: 760px) { .esi-shell { display: block; } .esi-instrument { padding: 18px; } .esi-panel { border-left: 0; border-top: 1px solid #353756; padding: 20px; } .esi-faceplate { gap: 16px 12px; padding-bottom: 20px; } .esi-title h1 { font-size: 42px; } .esi-title p { font-size: 8px; letter-spacing: .07em; } .esi-title > span { font-size: 9px; } .esi-lcd { padding: 14px 10px; font-size: 9px; gap: 8px; } .esi-lcd strong { font-size: 14px; } .esi-trim-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } .esi-slots { gap: 7px; } .esi-page .esi-slot { padding: 8px; } .esi-slot strong { font-size: 10px; } .esi-page .esi-key { height: 60px; } .esi-key small { font-size: 8px; } .esi-wave-tools { gap: 10px; } }
+@media (max-width: 760px) { .esi-shell { display: block; } .esi-instrument { padding: 18px; } .esi-panel { border-left: 0; border-top: 1px solid #353756; padding: 20px; } .esi-faceplate { gap: 16px 12px; padding-bottom: 20px; } .esi-title h1 { font-size: 42px; } .esi-lcd { padding: 14px 10px; font-size: 9px; gap: 8px; } .esi-lcd strong { font-size: 14px; } .esi-trim-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } .esi-slots { gap: 7px; } .esi-page .esi-slot { padding: 8px; } .esi-slot strong { font-size: 10px; } .esi-page .esi-key { height: 60px; } .esi-key small { font-size: 8px; } .esi-wave-tools { gap: 10px; } }
 @media (max-height: 500px) and (min-width: 761px) { .esi-shell { grid-template-columns: minmax(0,1fr) 260px; } .esi-instrument { padding: 16px; } .esi-title h1 { font-size: 36px; } #waveform { height: 140px; } }
-@media (pointer: coarse) { .esi-page #audition, .esi-page .audio-button { min-width: 48px; min-height: 48px; } .esi-page button, .esi-file-button { min-height: 44px; } .esi-field input[type=range] { min-height: 32px; } }
+@media (pointer: coarse) { .esi-page #audition, .esi-page .audio-button { min-width: 48px; min-height: 48px; } .esi-page :is(.esi-button, .esi-slot, .esi-key, .esi-file-button) { min-height: 44px; } .esi-field input[type=range] { min-height: 32px; } }
 
 /* Own the stage and control rail; global pages otherwise use a narrow main. */
 .esi-shell { width: 100%; height: calc(100dvh - 58px); min-height: 0; }
@@ -71,11 +71,11 @@
 #waveform { height: clamp(130px, 18vh, 180px); }
 .esi-field { margin: 0; }
 .esi-field input[type=range] { height: 24px; }
-.esi-controls { gap: 12px; }
+.esi-controls { gap: 8px; }
 .esi-wave-tools { margin: 12px 0; }
 .esi-bank-section { margin: 20px 0; }
-.esi-page .esi-slot { min-height: 52px; padding: 9px 12px; }
-.esi-page .esi-key { height: 56px; }
+.esi-page .esi-slot { min-height: 44px; padding: 7px 9px; }
+.esi-page .esi-key { height: 48px; padding: 6px 1px; }
 .esi-section-label { margin-bottom: 10px; }
 @media (max-width: 760px) {
   .esi-shell { height: auto; }
@@ -96,17 +96,17 @@
   body.esi-page { display: block; height: auto; min-height: 100dvh; overflow: visible; }
 }
 
-.esi-recording { padding: 18px 0; border-bottom: 1px solid #353756; }
+.esi-recording { padding: 12px 0; border-bottom: 1px solid #353756; }
 .esi-recording h2 { margin: 0 0 10px; color: var(--esi-lilac); font: 11px monospace; letter-spacing: .1em; }
 .esi-recording-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.esi-recording-actions button { flex: 1 1 auto; min-height: 44px; }
+.esi-recording-actions button { min-height: 32px; }
 
 .esi-recording #recordSample[aria-pressed='true'] { color: #17112c; background: var(--esi-violet); }
 .esi-device { display: block; color: var(--esi-muted); font-size: 11px; }
 .esi-device span { display: block; margin: 12px 0 7px; }
 .esi-device select { width: 100%; min-height: 36px; color: #eeeaff; border: 1px solid #4c4c78; border-radius: 4px; background: #202342; }
 /* The narrow control rail needs a full row for each playable control group. */
-.esi-page .esi-panel > .mz-input-preset-row { flex-wrap: wrap; gap: 10px; padding: 10px 0; background: #111931; }
+.esi-page .esi-panel > .mz-input-preset-row { flex-wrap: wrap; gap: 6px; padding: 0 0 8px; background: #111931; }
 .esi-page .esi-panel .mz-input-preset-row > .instrument-preset-controls { flex: 1 0 100%; width: 100%; }
 @media (pointer: coarse) {
   .esi-page .masthead .audio-button { min-width: 48px; min-height: 48px; }
