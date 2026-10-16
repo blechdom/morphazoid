@@ -28,10 +28,9 @@
       <section class="blech-midi-stage" id="creativeStage" aria-labelledby="blechMidiTitle">
         <div class="blech-midi-heading">
           <h1 id="blechMidiTitle"><img src="assets/blech-midi/blech-mark.svg" width="86" height="50" alt="" aria-hidden="true">BLECH MIDI</h1>
-          <div id="blechNoteCounters" class="blech-note-counters" aria-label="Live note counts" aria-live="off">
-            <div title="Notes reached / total notes in the selected MIDI file. Follows the playhead, so seeking or looping changes the count."><span>File played</span><span><output id="blechFileNotes" aria-label="File notes passed">0</output><small> / <output id="blechFileTotal" aria-label="Total file notes">—</output></small></span></div>
-            <div title="Generated layer, live Automata and keyboard note attacks since reset. Includes repeated loops; counts source notes before effects and voice limits."><span>Generated notes</span><output id="blechGeneratedNotes" aria-label="Generated notes passed">0</output></div>
-            <button id="blechResetNoteCount" type="button" class="mini-action" aria-label="Reset generated note count" title="Reset the generated count without stopping playback">↺</button>
+          <div id="blechNoteCounters" class="blech-note-counters" aria-label="Notes played" aria-live="off">
+            <div title="File, layer, live Automata and keyboard note attacks since reset. Includes repeated loops; counts source notes before effects and voice limits."><span>Notes played:</span><output id="blechNotesPlayed" aria-label="Notes played">0</output></div>
+            <button id="blechResetNoteCount" type="button" class="mini-action" aria-label="Reset notes played" title="Reset the note count without stopping playback">↺</button>
           </div>
           <div class="blech-midi-transport">
             <button id="blechMasterPlay" data-primary-transport class="play-button" type="button" aria-pressed="false" aria-label="Play BLECH MIDI" title="Play or pause the performance"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
@@ -43,7 +42,7 @@
         </div>
         <div id="blechSpigotControls" aria-label="Play on the falling-note canvas"></div>
         <div id="blackMidiPlayer" class="blech-file-player"></div>
-        <section class="blech-live-strip" aria-labelledby="blechLayersHeading">
+        <section id="blechLayers" class="blech-live-strip" aria-labelledby="blechLayersHeading">
           <div class="blech-layers-heading"><h2 id="blechLayersHeading">Layers</h2><output id="creativePlaybackStatus" aria-live="off">Ready</output></div>
           <p id="blechLayersEmpty">Drop patterns here to mix their layers.</p>
           <div id="blechLiveLayers"></div>

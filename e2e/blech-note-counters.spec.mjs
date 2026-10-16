@@ -104,6 +104,14 @@ test('fast file loops count complete source notes and combine with independent g
   await page.locator('#blackMidiFile').setInputFiles({ name: 'another-counter.mid', mimeType: 'audio/midi', buffer: Buffer.from(score().buffer) });
   await expect(page.locator('[data-total]')).toHaveText('32');
   await expect(page.locator('#blechNotesPlayed')).toHaveText(String(expected.count + 2));
+  await page.locator('#blackPlayButton').click();
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(expected.count + 2);
+  const reset = await page.evaluate(() => {
+    document.querySelector('#blechResetNoteCount').click();
+    return { count: document.querySelector('#blechNotesPlayed').value, playing: __counterQA.player.state.playing };
+  });
+  expect(reset).toEqual({ count: '0', playing: true });
+  await expect.poll(() => count(page, 'blechNotesPlayed')).toBeGreaterThan(0);
 });
 
 test('generated count ignores pending forecasts, survives stops and resets without stopping a loop', async ({ page }) => {

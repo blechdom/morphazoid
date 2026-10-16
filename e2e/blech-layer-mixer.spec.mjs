@@ -30,6 +30,17 @@ async function mixPair(page) {
 async function setRange(locator, value) {
   await locator.evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 }
+async function expectLayerPlacement(page, mobile) {
+  const rack = page.locator('#blechLayers');
+  await expect(rack).toHaveCount(1);
+  expect(await rack.evaluate(node => Boolean(node.closest('#creativeStage')))).toBe(mobile);
+  const [layers, stage] = await Promise.all([rack.boundingBox(), page.locator('#blackMidiViewport').boundingBox()]);
+  if (mobile) expect(layers.y).toBeGreaterThanOrEqual(stage.y + stage.height);
+  else {
+    expect(layers.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    expect(await rack.evaluate(node => node.nextElementSibling?.id)).toBe('blechDropControls');
+  }
+}
 
 test('Math opens first and mixed-generator layers share independent mute, solo, route and tiny knobs', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -63,6 +74,14 @@ test('Math opens first and mixed-generator layers share independent mute, solo, 
   await mathRow.locator('[data-layer-channel]').selectOption({ value: '4' });
   expect((await snapshot(page))[0]).toMatchObject({ gain: .27, pan: -.6, channel: 4, channels: [4] });
   expect((await snapshot(page))[1]).toMatchObject({ gain: stamp.gain, pan: 0, channel: stamp.channel });
+  // Moving the live rack at the responsive breakpoint retains its controls and transport.
+  const beforeResize = await snapshot(page);
+  await page.setViewportSize({ width: 390, height: 844 }); await expectLayerPlacement(page, true);
+  await expect(mathRow).toHaveAttribute('data-spigot-id', mathSource);
+  expect((await snapshot(page)).map(({ id, muted, solo, gain, pan, channel, paused }) => ({ id, muted, solo, gain, pan, channel, paused })))
+    .toEqual(beforeResize.map(({ id, muted, solo, gain, pan, channel, paused }) => ({ id, muted, solo, gain, pan, channel, paused })));
+  await expect.poll(async () => (await snapshot(page))[1].position).toBeGreaterThan(beforeResize[1].position);
+  await page.setViewportSize({ width: 1440, height: 900 }); await expectLayerPlacement(page, false);
   await page.locator('#blechTab-text').click(); await expect(mathRow).toBeVisible(); await expect(stampRow).toBeVisible();
   await mathRow.locator('[data-layer-stop]').click();
   await expect(mathRow).toHaveCount(0);
@@ -78,6 +97,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   test(`layer strips fit and remain reachable at ${viewport.width} × ${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport); await open(page);
     const pair = await mixPair(page);
+    await expectLayerPlacement(page, viewport.width === 390);
     for (const source of ['math', 'frames', 'sound']) {
       await page.locator(`#blechTab-${source}`).click();
       for (const sample of pair) {
@@ -111,6 +131,7 @@ test.describe('coarse-pointer layer strips', () => {
       test.setTimeout(60_000);
       await page.setViewportSize(viewport); await open(page);
       const pair = await mixPair(page);
+      await expectLayerPlacement(page, true);
       for (const sample of pair) {
         const strip = row(page, sample.id);
         expect((await strip.boundingBox()).height).toBeLessThanOrEqual(54);
