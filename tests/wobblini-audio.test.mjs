@@ -873,3 +873,42 @@ test("Wobblini loop waveforms cache bounded bins from the selected stereo PCM re
   engine.loadDemo(0); assert.notEqual(engine.getDeckState(0).loopPeaks, full); assert.equal(engine.decks[0].loopPeakCache, null);
   await engine.dispose(); assert.equal(engine.decks[0].loopPeakCache, null);
 });
+
+test("Wobblini cached loop peaks read only selected stereo bins after native PCM acquisition", async () => {
+  const pcm = buffer(120), channels = [pcm.getChannelData(0), pcm.getChannelData(1)], reads = [];
+  channels[0].fill(0); channels[1].fill(0);
+  channels[0][Math.round(4.1 * pcm.sampleRate)] = 0.7;
+  channels[1][Math.round(4.3 * pcm.sampleRate)] = -0.9;
+  channels[1][Math.round(40.3 * pcm.sampleRate)] = 0.8;
+  let acquired = false;
+  pcm.getChannelData = index => {
+    assert.equal(acquired, false, "loop display must not materialize full PCM after native playback starts");
+    return channels[index];
+  };
+  pcm.copyFromChannel = (destination, channel, offset) => {
+    reads.push({ length: destination.length, channel, offset });
+    destination.set(channels[channel].subarray(offset, offset + destination.length));
+  };
+  const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => pcm }) }), { engine } = h;
+  await engine.loadFile(0, file()); await engine.arm(); engine.play(0); acquired = true;
+  engine.seek(0, 4.1); engine.setLoop(0, 1);
+  const selected = engine.getDeckState(0).loopPeaks;
+  assert.equal(selected.length, 256); assert.ok(selected[51] > 0.69); assert.ok(selected[153] > 0.89);
+  assert.equal(reads.length, 512); assert.deepEqual([...new Set(reads.map(read => read.channel))], [0, 1]);
+  const first = 4 * pcm.sampleRate, last = 4.5 * pcm.sampleRate;
+  assert.ok(reads.every(read => read.offset >= first && read.offset + read.length <= last));
+  assert.ok(reads.every(read => read.length <= Math.ceil((last - first) / 256) + 1));
+  for (let i = 0; i < 20; i++) assert.equal(engine.getDeckState(0).loopPeaks, selected);
+  assert.equal(reads.length, 512, "unchanged loop snapshots reuse the cached display bins");
+  engine.setLoop(0, null); assert.equal(engine.getDeckState(0).loopPeaks, engine.getDeckState(0).peaks);
+  assert.equal(reads.length, 512, "whole-track display reuses the import waveform");
+  engine.setDeck(0, { bpm: 40 }); engine.seek(0, 9.1); engine.setLoop(0, 32);
+  const longest = engine.getDeckState(0), longReads = reads.slice(512);
+  near(longest.loopEnd - longest.loopStart, 48);
+  assert.equal(longReads.length, 512); assert.ok(longest.loopPeaks.every(Number.isFinite));
+  assert.ok(Math.max(...longest.loopPeaks) > 0.79);
+  assert.ok(longReads.every(read => read.length <= Math.ceil(48 * pcm.sampleRate / 256) + 1));
+  assert.ok(longReads.every(read => read.length < 65536 && read.offset >= 9 * pcm.sampleRate &&
+    read.offset + read.length <= 57 * pcm.sampleRate));
+  await engine.dispose();
+});

@@ -139,11 +139,34 @@ export class WobbliniAudio {
     if (state.loopStart === 0 && state.loopEnd === state.duration) return peaks;
     const cache = deck.loopPeakCache;
     if (cache?.source === peaks && cache.start === state.loopStart && cache.end === state.loopEnd) return cache.peaks;
-    const first = Math.floor(state.loopStart * deck.sampleRate), last = Math.ceil(state.loopEnd * deck.sampleRate);
-    const channels = deck.buffer ? Array.from({ length: deck.buffer.numberOfChannels },
-      (_, index) => deck.buffer.getChannelData(index).subarray(first, last))
-      : deck.samples ? [deck.samples.subarray(first, last)] : [];
-    const selected = waveformPeaks(channels);
+    const length = deck.buffer?.length ?? deck.samples?.length ?? 0;
+    const first = Math.min(length, Math.floor(state.loopStart * deck.sampleRate));
+    const last = Math.min(length, Math.ceil(state.loopEnd * deck.sampleRate));
+    let selected;
+    if (deck.buffer?.copyFromChannel) {
+      selected = new Float32Array(256);
+      // Native source playback can acquire an AudioBuffer's channel contents.
+      // Read one display bin at a time instead of materializing the full file
+      // with getChannelData, or allocating another copy of the entire loop.
+      const frames = last - first, scratch = new Float32Array(Math.ceil(frames / selected.length) + 1);
+      for (let channel = 0; channel < deck.buffer.numberOfChannels; channel++) {
+        for (let bin = 0; bin < selected.length; bin++) {
+          const from = first + Math.floor(bin * frames / selected.length);
+          const to = first + Math.ceil((bin + 1) * frames / selected.length);
+          if (to <= from) continue;
+          const samples = scratch.subarray(0, to - from);
+          deck.buffer.copyFromChannel(samples, channel, from);
+          for (const value of samples) if (Number.isFinite(value)) {
+            selected[bin] = Math.max(selected[bin], Math.min(1, Math.abs(value)));
+          }
+        }
+      }
+    } else {
+      const channels = deck.buffer ? Array.from({ length: deck.buffer.numberOfChannels },
+        (_, index) => deck.buffer.getChannelData(index).subarray(first, last))
+        : deck.samples ? [deck.samples.subarray(first, last)] : [];
+      selected = waveformPeaks(channels);
+    }
     // Cache only the bounded display bins, never a view retaining old decoded PCM.
     deck.loopPeakCache = { source: peaks, start: state.loopStart, end: state.loopEnd, peaks: selected };
     return selected;
