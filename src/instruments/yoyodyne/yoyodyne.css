@@ -67,3 +67,5 @@
 @media(max-width:760px) { .yd-shell { grid-template-columns:minmax(0,1fr); padding:10px; } .yd-panel { max-height:none; overflow:visible; } #stageWrap { height:430px; } .yd-transport { gap:6px; } .yd-transport button { padding:0 11px; } .yd-transport kbd { display:none; } .yd-tempo { width:100%; margin:4px 0 0; } .yd-stage-title { top:18px; left:17px; } .yd-stage-title p { font-size:8px; } .yd-state { top:24px; right:13px; font-size:8px; } .yd-stage-title h1 { font-size:31px; } .yd-telemetry { padding:12px 4px; } .yd-telemetry>div { padding-left:9px; } .yd-telemetry output { font-size:11px; } .yd-telemetry span { font-size:8px; } .yd-stage-hint { left:16px; font-size:8px; } }
 @media(pointer:coarse) { .yoyodyne-page .audio-button,.yd-transport button { min-width:48px; min-height:48px; } .yd-panel input[type=range],.yd-tempo input[type=range] { min-height:30px; } .yd-details summary { min-height:30px; } }
 @media(max-height:500px) and (min-width:761px) { #stageWrap { height:360px; } .yd-panel { max-height:none; overflow:visible; } }
+
+.yd-panel > .instrument-preset-controls { margin-bottom: 14px; }
