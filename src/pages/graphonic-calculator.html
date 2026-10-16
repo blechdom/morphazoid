@@ -56,6 +56,11 @@
             <div class="head-layout-track has-head-options" id="headLayoutTrack" role="group" aria-label="Relative playhead spacing"></div>
             <p class="control-note" id="headOptionsNote">Drag a numbered marker to offset that playhead. The small toggle above each line turns it 90°; above a point or ray it reverses it.</p>
           </div>
+          <div class="graphing-region" id="regionControl">
+            <div class="head-layout-heading"><span class="field-label">Play region</span><output id="regionOut" aria-live="off">follows the view</output></div>
+            <div class="graphing-layout-actions"><button class="mini-action" id="regionUseView" type="button">Use view</button><button class="mini-action" id="regionFit" type="button">Fit curves</button><button class="mini-action" id="regionFollow" type="button" disabled>Follow view</button></div>
+            <p class="control-note">Lines loop across the box, the radar turns about its centre and only curves inside it sound; the space outside is greyed as unplayed. Drag the box's corners, edges or centre mark on the graph.</p>
+          </div>
         </div>
       </details>
       <p id="sessionStatus" class="graphing-status" role="status">Type an expression such as y = x^2, or choose a preset.</p>

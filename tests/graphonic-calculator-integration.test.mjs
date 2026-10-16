@@ -17,12 +17,12 @@ import { graphonicCalculatorSiteChanges, readGraphonicCalculatorSiteReference, r
 const digest = source => createHash('sha256').update(source).digest('hex');
 const root = new URL('../', import.meta.url);
 
-test('Graphonic Calculator is a Work in Progress instrument with conservative MIDI and explicit Audio arm', async () => {
+test('Graphonic Calculator is the Math instrument with conservative MIDI and explicit Audio arm', async () => {
   const item = instrumentById('graphonic-calculator');
   assert.equal(item.href, 'graphonic-calculator.html');
   assert.equal(item.imageHref, 'assets/instruments/graphonic-calculator.webp');
-  assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['wip']);
-  assert.deepEqual(item.tags.map(tag => tag.id), ['wip', '2d', 'sonification', 'graphic-ui', 'faves']);
+  assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['math']);
+  assert.deepEqual(item.tags.map(tag => tag.id), ['math', '2d', 'sonification', 'graphic-ui', 'faves']);
   assert.equal(FAVE_TOOL_IDS.at(-1), 'graphonic-calculator');
   assert.equal(FAVE_TOOL_IDS.filter(id => id === 'graphonic-calculator').length, 1);
   assert.match(item.description, /implicit relations.*polar and parametric.*playhead/i);
@@ -76,4 +76,23 @@ test('Graphonic Calculator amendments restore the exact preceding main source an
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreGraphonicCalculatorSite(binary, 'src/pages/manifest.js'), binary);
   assert.equal(restoreGraphonicCalculatorSite('untouched', 'unrelated.js'), 'untouched');
+});
+
+test('the Math category amendment restores the exact preceding main bytes and peels before every older guard', async () => {
+  const { graphonicCalculatorMathSiteChanges: math, restoreGraphonicCalculatorMathSite: restoreMath, readGraphonicCalculatorMathSiteReference } = await import('./helpers/graphonic-calculator-math-site-reference.mjs');
+  assert.match(math.baseCommit, /^[0-9a-f]{40}$/);
+  assert.deepEqual(math.changes.map(change => change.file), ['src/site/instrument-registry.js', 'src/site/catalogue-taxonomy.js', 'style.css', 'README.md', 'src/pages/graphonic-calculator.html']);
+  for (const change of math.changes) {
+    const url = new URL(change.file, root);
+    const source = await readFile(url, 'utf8');
+    const restored = restoreMath(source, change.file);
+    assert.equal(digest(restored), change.sha256, `${change.file}: pre-Math source preserved`);
+    assert.equal(await readGraphonicCalculatorMathSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreMath(restored, change.file, { allowRestored: true }), restored);
+    assert.throws(() => restoreMath(restored, change.file), /exact Graphonic Calculator Math site amendment/);
+    for (const { after } of change.replacements) assert.match(after, /math|Math|region/);
+  }
+  const registry = await readFile(new URL('src/site/instrument-registry.js', root), 'utf8');
+  assert.match(restoreMath(registry, 'src/site/instrument-registry.js'), /freezeGroup\("wip", "Work in Progress", \[\n    \{ id: "wobblini"[^\n]*\n    \{ id: "graphonic-calculator"/, 'the WIP row returns so the older Graphonic Calculator and Wobblini guards still match');
+  assert.equal(TOOL_GROUPS.findIndex(group => group.id === 'math'), TOOL_GROUPS.findIndex(group => group.id === 'wip') - 1, 'Math sits directly before Work in Progress');
 });

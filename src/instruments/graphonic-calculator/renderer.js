@@ -8,6 +8,9 @@ export const PALETTE = Object.freeze({
   label: "#9fb5bd",
   labelShadow: "rgba(7, 11, 14, 0.85)",
   guide: "rgba(214, 228, 233, 0.55)",
+  unplayed: "rgba(7, 11, 14, 0.58)",
+  region: "rgba(255, 209, 102, 0.85)",
+  regionHandle: "#ffd166",
   hover: "#ffffff",
   font: "11px ui-monospace, SFMono-Regular, Menlo, monospace",
   labelFont: "12px ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -16,6 +19,12 @@ export const PALETTE = Object.freeze({
 export const HEAD_TINTS = Object.freeze(["rgba(238, 246, 248, 0.85)", "rgba(184, 199, 205, 0.7)", "rgba(143, 163, 171, 0.6)", "rgba(107, 127, 136, 0.55)"]);
 const TAU = Math.PI * 2;
 const PIXEL_LIMIT = 1e5;
+/** Eight resize handles: corners then edge midpoints, in pixel space. */
+export function regionHandlePixels({ left, top, right, bottom }) {
+  const mx = (left + right) / 2, my = (top + bottom) / 2;
+  return [[left, top], [right, top], [left, bottom], [right, bottom], [mx, top], [mx, bottom], [left, my], [right, my]];
+}
+
 const clampPixel = (value) => (Number.isFinite(value) ? Math.max(-PIXEL_LIMIT, Math.min(PIXEL_LIMIT, value)) : NaN);
 
 export class GraphRenderer {
@@ -40,7 +49,7 @@ export class GraphRenderer {
     return createCamera(view, this.width, this.height);
   }
 
-  draw({ view, geometry = [], grid = true, labels = true, reading = null, hover = null, selectedId = null }) {
+  draw({ view, geometry = [], grid = true, labels = true, reading = null, hover = null, selectedId = null, region = null }) {
     const context = this.context;
     if (!context) return;
     const camera = this.camera(view);
@@ -52,8 +61,61 @@ export class GraphRenderer {
     this.drawCurves(context, camera, geometry, selectedId);
     this.drawPoints(context, camera, geometry, selectedId);
     if (labels) this.drawAxisLabels(context, camera, view, ticks);
+    if (region?.active) this.drawUnplayed(context, camera, region.rect);
     if (reading) this.drawReading(context, camera, reading);
+    if (region) this.drawRegion(context, camera, region);
     if (hover) this.drawHover(context, camera, hover);
+  }
+
+  regionCorners(camera, rect) {
+    const [left, top] = camera.toPixel(rect.xMin, rect.yMax);
+    const [right, bottom] = camera.toPixel(rect.xMax, rect.yMin);
+    return { left: clampPixel(left), top: clampPixel(top), right: clampPixel(right), bottom: clampPixel(bottom) };
+  }
+
+  /** Grey out only what lies outside the play region; the box itself keeps the plain graph. */
+  drawUnplayed(context, camera, rect) {
+    const { left, top, right, bottom } = this.regionCorners(camera, rect);
+    if (![left, top, right, bottom].every(Number.isFinite)) return;
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, this.width, this.height);
+    context.rect(left, top, Math.max(0, right - left), Math.max(0, bottom - top));
+    context.fillStyle = PALETTE.unplayed;
+    context.fill("evenodd");
+    context.restore();
+  }
+
+  drawRegion(context, camera, region) {
+    const { left, top, right, bottom } = this.regionCorners(camera, region.rect);
+    if (![left, top, right, bottom].every(Number.isFinite)) return;
+    const [cx, cy] = camera.toPixel(region.center.x, region.center.y);
+    context.save();
+    if (region.active) {
+      context.strokeStyle = PALETTE.region;
+      context.lineWidth = 1.25;
+      context.setLineDash([6, 4]);
+      context.strokeRect(Math.round(left) + 0.5, Math.round(top) + 0.5, Math.round(right - left), Math.round(bottom - top));
+      context.setLineDash([]);
+      context.fillStyle = PALETTE.regionHandle;
+      context.strokeStyle = PALETTE.background;
+      for (const [hx, hy] of regionHandlePixels({ left, top, right, bottom })) {
+        context.beginPath();
+        context.rect(hx - 4, hy - 4, 8, 8);
+        context.fill();
+        context.stroke();
+      }
+    }
+    if (Number.isFinite(cx) && Number.isFinite(cy)) {
+      context.strokeStyle = PALETTE.region;
+      context.lineWidth = 1.25;
+      context.beginPath();
+      context.arc(cx, cy, 7, 0, TAU);
+      context.moveTo(cx - 11, cy); context.lineTo(cx + 11, cy);
+      context.moveTo(cx, cy - 11); context.lineTo(cx, cy + 11);
+      context.stroke();
+    }
+    context.restore();
   }
 
   drawGrid(context, camera, view, grid) {
@@ -204,16 +266,19 @@ export class GraphRenderer {
       context.setLineDash(head.index === 0 ? [] : [4, 4]);
       if (head.guide.kind === "line") {
         context.beginPath();
+        const [spanStart, spanEnd] = head.guide.span ?? [];
         if (head.guide.axis === "vertical") {
-          const [px] = camera.toPixel(head.guide.coordinate, 0);
+          const [px, pyEnd] = camera.toPixel(head.guide.coordinate, spanStart);
+          const [, pyStart] = camera.toPixel(head.guide.coordinate, spanEnd);
           if (!Number.isFinite(px)) continue;
-          context.moveTo(Math.round(px) + 0.5, 0);
-          context.lineTo(Math.round(px) + 0.5, this.height);
+          context.moveTo(Math.round(px) + 0.5, clampPixel(Number.isFinite(pyStart) ? pyStart : 0));
+          context.lineTo(Math.round(px) + 0.5, clampPixel(Number.isFinite(pyEnd) ? pyEnd : this.height));
         } else {
-          const [, py] = camera.toPixel(0, head.guide.coordinate);
+          const [pxStart, py] = camera.toPixel(spanStart, head.guide.coordinate);
+          const [pxEnd] = camera.toPixel(spanEnd, head.guide.coordinate);
           if (!Number.isFinite(py)) continue;
-          context.moveTo(0, Math.round(py) + 0.5);
-          context.lineTo(this.width, Math.round(py) + 0.5);
+          context.moveTo(clampPixel(Number.isFinite(pxStart) ? pxStart : 0), Math.round(py) + 0.5);
+          context.lineTo(clampPixel(Number.isFinite(pxEnd) ? pxEnd : this.width), Math.round(py) + 0.5);
         }
         context.stroke();
       } else if (head.guide.kind === "ray") {

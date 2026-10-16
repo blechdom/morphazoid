@@ -1,7 +1,7 @@
 # Graphonic Calculator — expressions, sliders and a sonified playhead
 
 Open `/graphonic-calculator.html`. The instrument is a Desmos-style graphing
-calculator built as a Morphazoid work in progress: an expression list beside a
+calculator, the first instrument in Morphazoid's Math group: an expression list beside a
 pannable, zoomable plane, with a trace playhead that reads every visible curve
 as sound. Audio starts off; **Play** sweeps the playhead silently until you
 enable **Audio**. Audio and transport stay separate.
@@ -73,6 +73,14 @@ reader vocabulary follows Shape's playheads:
 - **Points**: heads travel along every connected branch of every visible curve at
   the same pace, one lap per cycle, so a hyperbola carries one point per branch per
   head; each head sounds where it is.
+
+**Play region.** By default the readers sweep the whole view and the radar turns about
+the origin when it is on screen. **Use view** or **Fit curves** materialises a play region:
+a dashed box whose edges are the loop points for Line sweeps, whose centre is the radar's
+pivot (so an all-positive curve is no longer three quarters silence) and outside which
+nothing sounds; Points heads travel only the parts of each branch inside it. The space
+outside the box is greyed as unplayed. Drag its corners or edges to resize, its centre
+mark to move it, and **Follow view** to drop it. Presets own the region.
 
 **Playheads** (1–12) start equidistant in phase. Drag a numbered marker on the
 spacing track, or focus it and use the arrow keys (Shift for 5% steps, Home and

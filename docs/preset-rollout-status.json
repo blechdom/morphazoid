@@ -6,7 +6,7 @@
   "counts": {
     "implemented": 50,
     "fullPresets": 2129,
-    "favesImplemented": 17,
+    "favesImplemented": 18,
     "activeRemaining": 60,
     "regularRemaining": 131
   },
@@ -966,6 +966,15 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "graphonic-calculator",
+      "label": "Graphonic Calculator",
+      "href": "graphonic-calculator.html",
+      "category": "math",
+      "scope": "fave",
+      "presets": 130,
+      "status": "implemented-verification-pending"
+    },
+    {
       "id": "wobblini",
       "label": "Wobblini",
       "href": "wobblini.html",
@@ -973,15 +982,6 @@
       "scope": "deferred-wip",
       "presets": null,
       "status": "deferred"
-    },
-    {
-      "id": "graphonic-calculator",
-      "label": "Graphonic Calculator",
-      "href": "graphonic-calculator.html",
-      "category": "wip",
-      "scope": "deferred-wip",
-      "presets": 130,
-      "status": "implemented-verification-pending"
     },
     {
       "id": "striped-staircase-rust",
@@ -1881,7 +1881,6 @@
       "midiphoria",
       "blech-midi",
       "wobblini",
-      "graphonic-calculator",
       "striped-staircase-rust",
       "vector-fractals",
       "room-lobby",
