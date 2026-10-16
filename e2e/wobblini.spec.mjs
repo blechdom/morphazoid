@@ -223,7 +223,7 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
   expect(errors).toEqual([]);
 });
 
-test("two real touch contacts retain separate platter ownership until cancellation", async ({ browser, baseURL }) => {
+test("two real touch contacts retain separate platter ownership and release on cancellation or master Stop", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   try {
@@ -231,7 +231,7 @@ test("two real touch contacts retain separate platter ownership until cancellati
     await ready(page, { view: "records" });
     const first = await ring(page, 0), second = await ring(page, 1);
     for (const { platter } of [first, second]) await platter.evaluate((node) => {
-      node.addEventListener("pointerdown", (event) => { node.dataset.testPointer = String(event.pointerId); }, { once: true });
+      node.addEventListener("pointerdown", (event) => { node.dataset.testPointer = String(event.pointerId); });
     });
     const session = await context.newCDPSession(page);
     const contact = (ring, angle, id) => ({ ...ring.point(angle), id });
@@ -251,6 +251,30 @@ test("two real touch contacts retain separate platter ownership until cancellati
     expect((await state(page)).armed).toBe(false);
     expect((await state(page)).decks.some((deck) => deck.playing)).toBe(false);
     expect((await readAudioStatus(page)).connectionCount).toBe(0);
+    await page.locator("#playButton").click();
+    await arm(page);
+    await audible(page, 200);
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [contact(first, 0, 1), contact(second, 0, 2)] });
+    expect((await state(page)).decks.slice(0, 2).map((deck) => deck.scratching)).toEqual([true, true]);
+    // Activate the same master button with the keyboard while both physical
+    // touch contacts remain down; moving focus must not itself release them.
+    await page.locator("#stopButton").focus();
+    expect((await state(page)).decks.slice(0, 2).map((deck) => deck.scratching)).toEqual([true, true]);
+    await page.keyboard.press("Enter");
+    const stopped = await state(page);
+    expect(stopped.decks.every((deck) => !deck.playing && !deck.scratching && deck.position === 0)).toBe(true);
+    for (const { platter } of [first, second]) expect(await platter.evaluate((node) => node.hasPointerCapture(Number(node.dataset.testPointer)))).toBe(false);
+    await silent(page);
+    const visuals = () => page.locator(".wb-disc-needle").evaluateAll((nodes) => nodes.map((node) => node.style.getPropertyValue("--disc-angle")));
+    const stoppedVisuals = await visuals();
+    expect(stoppedVisuals.every((angle) => angle.endsWith("deg"))).toBe(true);
+    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [contact(first, Math.PI / 2, 1), contact(second, -Math.PI / 2, 2)] });
+    await page.waitForTimeout(100);
+    expect((await state(page)).decks.every((deck) => !deck.playing && !deck.scratching && deck.position === 0)).toBe(true);
+    expect(await visuals()).toEqual(stoppedVisuals);
+    await silent(page);
+    expect((await state(page)).armed).toBe(true);
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     expect(errors).toEqual([]);
     await session.detach();
   } finally { await context.close(); }
