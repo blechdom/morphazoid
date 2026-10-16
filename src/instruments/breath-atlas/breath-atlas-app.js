@@ -836,3 +836,25 @@ updatePresentation();
 resizeCanvas();
 globalThis.addEventListener("resize", resizeCanvas);
 requestAnimationFrame(tick);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  BREATH_ATLAS_FULL_PRESETS, captureBreathAtlasPreset, randomizeBreathAtlasPreset, validateBreathAtlasPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "breath-atlas", presets: BREATH_ATLAS_FULL_PRESETS,
+  capture: () => captureBreathAtlasPreset(state),
+  apply: (snapshot) => {
+    validateBreathAtlasPreset(snapshot);
+    state = sanitizeBreathAtlasState({ ...snapshot, outputLevel: state.outputLevel }, state);
+    manualBreathDirection = 0;
+    commandedBreathFlow = 0;
+    endGesture();
+    graph?.sourceNode?.port.postMessage({ type: "silence" });
+    resetCoupledClock();
+    postConfiguration();
+    updatePresentation();
+  },
+  randomize: randomizeBreathAtlasPreset,
+});
