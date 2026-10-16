@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -14,6 +15,7 @@ export const micInputBatchSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed Mic/File/Samples input wiring, page links and runtime manifest rows. */
 export function restoreMicInputBatchSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWobbliniSite(source, file, { allowRestored: true });
   for (const change of micInputBatchSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {

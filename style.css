@@ -345,6 +345,10 @@ a {
   --group-accent: #70d8e7;
 }
 
+.tools-menu-group[data-tool-group="math"] {
+  --group-accent: #ffd166;
+}
+
 .tools-menu-group[data-tool-group="wip"] {
   --group-accent: #e883ee;
 }

@@ -1,6 +1,6 @@
-import { GraphRenderer } from "./renderer.js";
+import { GraphRenderer, regionHandlePixels } from "./renderer.js";
 import { buildGeometry, nearestPoint } from "./geometry.js";
-import { MAX_HEADS, collectContacts, crossedAxes, headOffsets, headPhase } from "./readers.js";
+import { MAX_HEADS, collectContacts, crossedAxes, fitRegion, headOffsets, headPhase, readerRegion, regionCenter } from "./readers.js";
 import { updateHeadOffset } from "../../playheads.js";
 import { rebaseContinuousPosition, rebasePingPongPosition } from "../../articulation.js";
 import { formatCoordinate, homeView, panView, squareView, zoomView } from "./camera.js";
@@ -22,7 +22,7 @@ const clamp01 = (value) => Math.min(0.9999, Math.max(0, Number(value) || 0));
 const PLAYBACK_NOTES = Object.freeze({
   points: "Heads travel along every curve at the same pace and sound where they are.",
   line: "A line sweeps the view; every curve it crosses sounds.",
-  radar: "A ray turns about the origin; every curve it crosses sounds.",
+  radar: "A ray turns about the play region's centre (the origin when following the view); every curve it crosses sounds.",
 });
 const KIND_LABELS = Object.freeze({
   "explicit-y": "y as a function of x", "explicit-x": "x as a function of y", implicit: "implicit curve", polar: "polar curve",
@@ -149,6 +149,45 @@ function syncPosition(travel) {
   $("positionOut").value = formatPosition(phase);
 }
 
+function regionOverlay() {
+  return { rect: readerRegion(state.settings, state.view), center: regionCenter(state.settings, state.view), active: Boolean(state.settings.region) };
+}
+
+const REGION_HANDLES = Object.freeze([
+  { x: "min", y: "max" }, { x: "max", y: "max" }, { x: "min", y: "min" }, { x: "max", y: "min" },
+  { x: null, y: "max" }, { x: null, y: "min" }, { x: "min", y: null }, { x: "max", y: null },
+]);
+
+/** The region handle (resize edges or the move centre) under a pixel, or null. */
+function regionHandleAt(px, py, radius = 11) {
+  if (!state.settings.region) return null;
+  const camera = renderer.camera(state.view);
+  const rect = state.settings.region;
+  const [left, top] = camera.toPixel(rect.xMin, rect.yMax);
+  const [right, bottom] = camera.toPixel(rect.xMax, rect.yMin);
+  const handles = regionHandlePixels({ left, top, right, bottom });
+  let best = null;
+  handles.forEach(([hx, hy], index) => {
+    const distance = Math.hypot(hx - px, hy - py);
+    if (distance <= radius && (!best || distance < best.distance)) best = { distance, edges: REGION_HANDLES[index] };
+  });
+  if (best) return { kind: "resize", edges: best.edges };
+  const center = regionCenter(state.settings, state.view);
+  const [cx, cy] = camera.toPixel(center.x, center.y);
+  if (Math.hypot(cx - px, cy - py) <= radius + 2) return { kind: "move" };
+  return null;
+}
+
+function setRegion(region) {
+  setSettings({ region });
+}
+
+function regionLabel(settings) {
+  if (!settings.region) return "follows the view";
+  const { xMin, xMax, yMin, yMax } = settings.region;
+  return `x ${formatCoordinate(xMin)} to ${formatCoordinate(xMax)} · y ${formatCoordinate(yMin)} to ${formatCoordinate(yMax)}`;
+}
+
 function setHeads(count) {
   const heads = Math.min(MAX_HEADS, Math.max(1, Math.round(count)));
   if (heads === state.settings.heads) return;
@@ -233,8 +272,8 @@ function frame(timestamp) {
   const travel = currentTravel(clockNow());
   reading = collectContacts(geometry, state.settings, state.view, travel);
   syncPosition(travel);
-  if (armed && playing) audio.update(traceVoiceTargets(reading.contacts, { view: state.view, octaves: state.settings.traceOctaves, source: state.settings.pitchSource }));
-  renderer.draw({ view: state.view, geometry, grid: display.grid, labels: display.labels, reading, hover, selectedId });
+  if (armed && playing) audio.update(traceVoiceTargets(reading.contacts, { view: reading.region, center: reading.center, octaves: state.settings.traceOctaves, source: state.settings.pitchSource }));
+  renderer.draw({ view: state.view, geometry, grid: display.grid, labels: display.labels, reading, hover, selectedId, region: regionOverlay() });
   ready = true;
   canvas.dataset.ready = "true";
   if (playing || animating) requestFrame();
@@ -425,6 +464,8 @@ function syncSettings() {
   $("glideOut").textContent = `${Math.round(settings.glide * 1000)} ms`;
   $("soundSummary").textContent = `${VOICE_LABELS[settings.voice]} · ${settings.pitchSource}`;
   audio.setTimbre({ voice: settings.voice, timbre: settings.timbre, glide: settings.glide });
+  $("regionOut").value = regionLabel(settings);
+  $("regionFollow").disabled = !settings.region;
   $("playbackNote").textContent = PLAYBACK_NOTES[settings.playback];
   $("playbackSummary").textContent = `${PLAYBACK_LABELS[settings.playback]} · ${settings.heads} ${settings.heads === 1 ? "head" : "heads"}`;
   $("showGrid").checked = display.grid;
@@ -631,6 +672,9 @@ listen($("headLayoutTrack"), "keydown", (event) => {
   setHeadOffset(index, ((next % 1) + 1) % 1);
   announce(`Playhead ${index + 1} spacing ${Math.round(headOffsets(state.settings)[index] * 100)} percent.`);
 });
+listen($("regionUseView"), "click", () => setRegion({ ...state.view }));
+listen($("regionFit"), "click", () => { const fitted = fitRegion(geometry, state.view); setRegion(fitted ?? { ...state.view }); status(fitted ? "Play region fitted to the visible curves." : "Nothing is drawn to fit; the play region now matches the view."); });
+listen($("regionFollow"), "click", () => setRegion(null));
 listen($("voice"), "change", (event) => setSettings({ voice: event.target.value }));
 listen($("timbre"), "input", (event) => setSettings({ timbre: Number(event.target.value) }));
 listen($("glide"), "input", (event) => setSettings({ glide: Number(event.target.value) }));
@@ -671,8 +715,13 @@ listen(canvas, "pointerdown", (event) => {
   }
   const camera = renderer.camera(state.view);
   const near = nearestPoint(geometry, camera, px, py, 16);
+  const handle = near?.draggable?.some(Boolean) ? null : regionHandleAt(px, py);
   if (near?.draggable?.some(Boolean)) {
     drag = { kind: "point", id: near.id, draggable: near.draggable };
+    canvas.classList.add("is-pointing");
+  } else if (handle) {
+    const [wx, wy] = camera.toWorld(px, py);
+    drag = { kind: "region", handle, x: wx, y: wy, start: { ...state.settings.region } };
     canvas.classList.add("is-pointing");
   } else {
     drag = { kind: "pan", x: px, y: py };
@@ -701,6 +750,23 @@ listen(canvas, "pointermove", (event) => {
     drag = { kind: "pan", x: px, y: py };
     return;
   }
+  if (drag?.kind === "region") {
+    const [x, y] = renderer.camera(state.view).toWorld(px, py);
+    const { start, handle } = drag;
+    const minSpan = { x: (state.view.xMax - state.view.xMin) * 0.01, y: (state.view.yMax - state.view.yMin) * 0.01 };
+    if (handle.kind === "move") {
+      const dx = x - drag.x, dy = y - drag.y;
+      setRegion({ xMin: start.xMin + dx, xMax: start.xMax + dx, yMin: start.yMin + dy, yMax: start.yMax + dy });
+    } else {
+      const next = { ...start };
+      if (handle.edges.x === "min") next.xMin = Math.min(x, start.xMax - minSpan.x);
+      if (handle.edges.x === "max") next.xMax = Math.max(x, start.xMin + minSpan.x);
+      if (handle.edges.y === "min") next.yMin = Math.min(y, start.yMax - minSpan.y);
+      if (handle.edges.y === "max") next.yMax = Math.max(y, start.yMin + minSpan.y);
+      setRegion(next);
+    }
+    return;
+  }
   if (drag?.kind === "point") {
     const [x, y] = renderer.camera(state.view).toWorld(px, py);
     let next = state;
@@ -714,7 +780,7 @@ listen(canvas, "pointermove", (event) => {
   const near = nearestPoint(geometry, camera, px, py, 14);
   const changed = (near?.id !== hover?.id) || (near && (near.x !== hover?.x || near.y !== hover?.y)) || (!near && hover);
   hover = near ? { id: near.id, color: near.color, x: near.x, y: near.y, label: near.label } : null;
-  canvas.classList.toggle("is-pointing", Boolean(near?.draggable?.some(Boolean)));
+  canvas.classList.toggle("is-pointing", Boolean(near?.draggable?.some(Boolean)) || Boolean(regionHandleAt(px, py)));
   if (changed) {
     $("hoverReadout").value = near ? `${near.label} · (${formatCoordinate(near.x)}, ${formatCoordinate(near.y)})` : "";
     requestFrame();
@@ -769,7 +835,7 @@ export function diagnosticSnapshot() {
     ready, disposed, playing, armed, starting,
     audioTime: audio.currentTime,
     travel: currentTravel(sweepAnchor.source === "audio" && audio.currentTime !== null ? audio.currentTime : performance.now() / 1000),
-    reading: reading ? { mode: state.settings.playback, heads: reading.heads.map((head) => ({ index: head.index, phase: head.phase, kind: head.guide.kind, axis: head.guide.axis ?? null })), contacts: reading.contacts.length, branches: new Set(reading.contacts.map((contact) => `${contact.id}:${contact.branch ?? "p"}`)).size, sample: reading.contacts.slice(0, 24).map((contact) => ({ id: contact.id, head: contact.head, branch: contact.branch ?? null, x: contact.x, y: contact.y })) } : null,
+    reading: reading ? { mode: state.settings.playback, heads: reading.heads.map((head) => ({ index: head.index, phase: head.phase, kind: head.guide.kind, axis: head.guide.axis ?? null })), contacts: reading.contacts.length, region: reading.region, center: reading.center, branches: new Set(reading.contacts.map((contact) => `${contact.id}:${contact.branch ?? "p"}`)).size, sample: reading.contacts.slice(0, 24).map((contact) => ({ id: contact.id, head: contact.head, branch: contact.branch ?? null, x: contact.x, y: contact.y })) } : null,
     timbre: { ...audio.timbreSettings },
     view: { ...state.view },
     settings: { ...state.settings },

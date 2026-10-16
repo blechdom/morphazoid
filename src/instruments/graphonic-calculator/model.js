@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   angle: "radians", sweepSeconds: SWEEP_SECONDS.default, traceOctaves: TRACE_OCTAVES.default,
   playback: "line", motion: "loop", direction: 1, heads: 1, headOffsets: Object.freeze([0]),
   headAxes: Object.freeze(Array(MAX_HEADS).fill("vertical")), headDirections: Object.freeze(Array(MAX_HEADS).fill(1)),
-  pitchSource: "height", voice: "sine", timbre: 0.5, glide: GLIDE.default,
+  pitchSource: "height", voice: "sine", timbre: 0.5, glide: GLIDE.default, region: null,
 });
 export const DEFAULT_VIEW = Object.freeze({ xMin: -10, xMax: 10, yMin: -7, yMax: 7 });
 export const VIEW_SPAN_LIMITS = Object.freeze({ min: 1e-9, max: 1e15 });
@@ -103,7 +103,19 @@ export function sanitizeSettings(settings) {
     voice: VOICES.includes(source.voice) ? source.voice : DEFAULT_SETTINGS.voice,
     timbre: clamp(finite(Number(source.timbre), DEFAULT_SETTINGS.timbre), 0, 1),
     glide: clamp(finite(Number(source.glide), GLIDE.default), GLIDE.min, GLIDE.max),
+    region: sanitizeRegion(source.region),
   }, source);
+}
+
+/** The play region is a world-space box; null means the reader follows the view. */
+export function sanitizeRegion(region) {
+  if (!region || typeof region !== "object") return null;
+  const values = ["xMin", "xMax", "yMin", "yMax"].map((key) => Number(region[key]));
+  if (!values.every(Number.isFinite)) return null;
+  const [xMin, xMax, yMin, yMax] = values;
+  const xSpan = xMax - xMin, ySpan = yMax - yMin;
+  if (!(xSpan >= VIEW_SPAN_LIMITS.min && xSpan <= VIEW_SPAN_LIMITS.max && ySpan >= VIEW_SPAN_LIMITS.min && ySpan <= VIEW_SPAN_LIMITS.max)) return null;
+  return { xMin, xMax, yMin, yMax };
 }
 
 function withHeadOffsets(settings, source) {
