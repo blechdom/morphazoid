@@ -6,7 +6,7 @@ const state = (page) => page.locator("#loopini").evaluate((el) => JSON.parse(el.
 async function ready(page) {
   await page.goto("/loopini.html");
   await expect(page.locator("#loopini")).toHaveAttribute("data-state", /"slots"/);
-  await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", "loopini");
+  await expect(page.locator(".instrument-picker[data-active-tool-id]")).toHaveAttribute("data-active-tool-id", "loopini");
 }
 async function arm(page) {
   await page.locator("#audioButton").click();

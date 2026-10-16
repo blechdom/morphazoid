@@ -1401,3 +1401,51 @@ const recordedInput = mountRecordedInput({
 });
 
 globalThis.addEventListener("pagehide", () => clearInterval(recordedChainTimer), { once: true });
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  MORPHYNX_FULL_PRESETS,
+  captureMorphynxPreset,
+  randomizeMorphynxPreset,
+  validateMorphynxPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "morphynx", presets: MORPHYNX_FULL_PRESETS,
+  capture: () => captureMorphynxPreset(state),
+  apply: snapshot => {
+    validateMorphynxPreset(snapshot);
+    state.animalId = snapshot.animalId;
+    state.callId = snapshot.callId;
+    state.animal = animalState(snapshot.animalId, {
+      ...snapshot.animal,
+      biologicalLock: false,
+      callId: snapshot.callId,
+      level: state.level,
+      loop: snapshot.loop,
+      gestureRate: snapshot.gestureRate,
+      loopGapMs: snapshot.loopGapMs,
+    });
+    state.voicePreset = snapshot.voicePreset;
+    state.anatomyId = snapshot.anatomyId;
+    state.phoneme = snapshot.phoneme;
+    state.morph = snapshot.morph;
+    state.anatomy = { ...snapshot.anatomy };
+    state.motionEnabled = snapshot.motionEnabled;
+    state.motionDepth = snapshot.motionDepth;
+    state.loop = snapshot.loop;
+    state.gestureRate = snapshot.gestureRate;
+    state.loopGapMs = snapshot.loopGapMs;
+    resetBranchLevelMatch();
+    populateCallOptions();
+    syncAnimalInputs();
+    syncAnatomyInputs();
+    $("gestureRate").value = String(state.gestureRate);
+    $("loopGap").value = String(state.loopGapMs);
+    $("motionDepth").value = String(state.motionDepth);
+    if (gesturePlaying) gestureStartTime = performance.now();
+    updateUi();
+    configureAudio(performance.now(), true);
+  },
+  randomize: randomizeMorphynxPreset,
+});

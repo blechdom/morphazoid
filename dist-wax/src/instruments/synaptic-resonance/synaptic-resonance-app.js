@@ -296,3 +296,30 @@ globalThis.addEventListener("pagehide", (event) => {
 globalThis.addEventListener("resize", resize);
 resize();
 tick();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SYNAPTIC_FULL_PRESETS, captureSynapticPreset, randomizeSynapticPreset, validateSynapticPreset,
+} from "./full-presets.js";
+
+const SYNAPTIC_READOUTS = {
+  rate: v => `${v.toFixed(2)} /s`, facil: v => v.toFixed(2), deplete: v => v.toFixed(2),
+  inhibition: v => (v > 0.9 ? "winner-take-all" : v < 0.1 ? "all branches" : v.toFixed(2)), decay: v => `${v.toFixed(2)} s`,
+};
+
+registerHeaderPresets({
+  id: "synaptic-resonance", presets: SYNAPTIC_FULL_PRESETS,
+  capture: () => captureSynapticPreset({ params, seedNode }),
+  apply: snapshot => {
+    validateSynapticPreset(snapshot);
+    for (const [key, format] of Object.entries(SYNAPTIC_READOUTS)) {
+      params[key] = snapshot[key];
+      $(key).value = String(snapshot[key]);
+      $(`${key}Out`).textContent = format(snapshot[key]);
+    }
+    params.autoPulse = snapshot.autoPulse;
+    $("autoPulse").checked = snapshot.autoPulse;
+    seedNode = snapshot.seedNode;
+  },
+  randomize: randomizeSynapticPreset,
+});

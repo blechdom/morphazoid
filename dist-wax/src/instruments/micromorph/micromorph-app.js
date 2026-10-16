@@ -888,3 +888,32 @@ const recordedInput = mountRecordedInput({
     } else stopMicrophone("Recorded input stopped.").catch(showAudioError);
   },
 });
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  MICROMORPH_FULL_PRESETS,
+  captureMicromorphPreset,
+  randomizeMicromorphPreset,
+  validateMicromorphPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "micromorph", presets: MICROMORPH_FULL_PRESETS,
+  capture: () => captureMicromorphPreset(state),
+  apply: snapshot => {
+    validateMicromorphPreset(snapshot);
+    state.parameters = {
+      ...sanitizeMicromorphParams({
+        ...state.parameters, ...snapshot.parameters,
+      }),
+    };
+    state.anchors = { ...snapshot.anchors };
+    const known = MICROMORPH_FULL_PRESETS.find(entry => JSON.stringify(entry.snapshot) === JSON.stringify(snapshot));
+    state.preset = MICROMORPH_PRESETS.some(({ id }) => id === known?.id) ? known.id : null;
+    state.engineMessage = "";
+    updateInterface();
+    scheduleModelCondition();
+    saveLocalState();
+  },
+  randomize: randomizeMicromorphPreset,
+});

@@ -152,7 +152,7 @@
           </section>
         </div>
 
-        <aside class="wave-pool-console" aria-label="Wave Pool controls">
+        <aside class="wave-pool-console" data-instrument-preset-host aria-label="Wave Pool controls">
           <section class="wave-pool-transport" aria-label="Pool transport and manual events">
             <button id="playButton" class="wave-pool-play" type="button" aria-pressed="false" data-primary-transport>
               <span aria-hidden="true">▶</span>
@@ -166,22 +166,9 @@
             </div>
           </section>
 
-          <section class="wave-pool-preset-card" aria-labelledby="presetTitle">
-            <div class="wave-pool-section-heading">
-              <p>01 / BASIN STATES</p>
-              <h2 id="presetTitle">Choose the machine and water regime</h2>
-            </div>
-            <label class="wave-pool-select" for="presetSelect">
-              <span>Pool preset</span>
-              <select id="presetSelect" aria-label="Wave Pool preset"></select>
-            </label>
-            <div class="wave-pool-preset-buttons" id="presetButtons" role="group" aria-label="Wave Pool presets"></div>
-            <p id="presetDescription" class="wave-pool-description"></p>
-          </section>
-
           <details class="wave-pool-control-group" open>
             <summary>
-              <span><small>02 / GENERATOR + GRAVITY WAVE</small><b>Drive the basin</b></span>
+              <span><small>01 / GENERATOR + GRAVITY WAVE</small><b>Drive the basin</b></span>
               <output id="generatorSummary">Hydraulic piston bank · 72 BPM</output>
             </summary>
             <div class="wave-pool-control-body">
@@ -245,7 +232,7 @@
 
           <details class="wave-pool-control-group" open>
             <summary>
-              <span><small>03 / BREAKING + ENTRAINED AIR</small><b>Make foam and spray</b></span>
+              <span><small>02 / BREAKING + ENTRAINED AIR</small><b>Make foam and spray</b></span>
               <output id="waterSummary">moderate break</output>
             </summary>
             <div class="wave-pool-control-body">
@@ -281,7 +268,7 @@
 
           <details class="wave-pool-control-group">
             <summary>
-              <span><small>04 / WET BOUNDARY SYSTEM</small><b>Water against material</b></span>
+              <span><small>03 / WET BOUNDARY SYSTEM</small><b>Water against material</b></span>
               <output id="boundarySummary">concrete wall</output>
             </summary>
             <div class="wave-pool-control-body">
@@ -311,7 +298,7 @@
 
           <details class="wave-pool-control-group">
             <summary>
-              <span><small>05 / RECEIVER</small><b>Where the listener is</b></span>
+              <span><small>04 / RECEIVER</small><b>Where the listener is</b></span>
               <output id="receiverSummary">waterline</output>
             </summary>
             <div class="wave-pool-control-body">
@@ -325,7 +312,7 @@
 
           <section class="wave-pool-evidence-card" aria-labelledby="modelBoundaryTitle">
             <div class="wave-pool-section-heading">
-              <p>06 / MODEL BOUNDARY</p>
+              <p>05 / MODEL BOUNDARY</p>
               <h2 id="modelBoundaryTitle">Measured relationships, playable basin</h2>
             </div>
             <p>

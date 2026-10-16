@@ -29,7 +29,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="src/families/work-in-progress/work-in-progress.css" />
-  <link rel="stylesheet" href="src/recorded-input-player.css" />
+  <link rel="stylesheet" href="src/families/recorded-input/recorded-input-core.css" />
 </head>
 <body class="starting-instrument" data-starting-instrument="hollowphonic" style="--accent:#c9b0ed">
   <header class="masthead">
@@ -45,6 +45,7 @@
       <p class="starting-hint" id="canvasInstructions">Drag a chamber vertically to change its depth and resonance. Tap it to excite the same resonator. <a href="#howItWorks">How to play / keys</a></p>
     </section>
     <aside class="starting-controls" aria-label="Hollowphonic controls">
+      <div data-instrument-preset-host></div>
       <section class="group">
         <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
         <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>

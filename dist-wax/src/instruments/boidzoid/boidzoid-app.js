@@ -515,3 +515,17 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => { void audio.close(); }, { once: true });
 if (manualMode) draw();
 else scheduledFrame = requestAnimationFrame(animate);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { BOIDZOID_FULL_PRESETS, applyBoidzoidPreset, captureBoidzoidPreset, randomizeBoidzoidPreset } from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "boidzoid", presets: BOIDZOID_FULL_PRESETS,
+  capture: () => captureBoidzoidPreset(state),
+  apply: snapshot => {
+    if (applyBoidzoidPreset(state, snapshot)) resetFlock();
+    paintControls();
+    for (const button of document.querySelectorAll("[data-temperament]")) button.setAttribute("aria-pressed", "false");
+  },
+  randomize: randomizeBoidzoidPreset,
+});

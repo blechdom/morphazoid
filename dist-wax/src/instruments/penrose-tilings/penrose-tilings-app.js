@@ -1494,3 +1494,48 @@ syncAudioUi();
 syncSoundEngineUi();
 resizeCanvas();
 scheduleFrame();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PENROSE_FULL_PRESETS, PENROSE_PRESET_TOGGLES, applyPenrosePreset, capturePenrosePreset, randomizePenrosePreset,
+} from "./full-presets.js";
+
+function syncPresetControls() {
+  for (const id of [
+    "generation", "presentation", "variation", "orientation", "angleWarp", "palette", "colorEnergy", "coverage", "speed",
+    "pitchSource", "soundEngine", "baseFrequency", "pitchRange", "decay", "pathLevel", "pathVoiceCap", "fmRatio", "fmIndex",
+  ]) $(id).value = String(state[id]);
+  for (const id of PENROSE_PRESET_TOGGLES) $(id).checked = state[id];
+  $("baseFrequencyOut").textContent = `${state.baseFrequency.toFixed(1)} Hz`;
+  $("pitchRangeOut").textContent = `${state.pitchRange} semitones`;
+  $("decayOut").textContent = `${state.decay} ms`;
+  $("pathLevelOut").textContent = `${Math.round(state.pathLevel * 100)}%`;
+  $("pathVoiceCapOut").textContent = `${state.pathVoiceCap} ${plural(state.pathVoiceCap, "voice", "voices")}`;
+  $("fmRatioOut").textContent = `${state.fmRatio.toFixed(2)}×`;
+  $("fmIndexOut").textContent = state.fmIndex.toFixed(1);
+  syncSoundEngineUi();
+  updateUi();
+}
+
+registerHeaderPresets({
+  id: "penrose-tilings", presets: PENROSE_FULL_PRESETS,
+  capture: () => capturePenrosePreset(state),
+  apply: snapshot => {
+    const previousEngine = state.soundEngine;
+    const { geometryChanged } = applyPenrosePreset(state, snapshot);
+    if (state.coverage === "infinite") state.zoom = Math.max(minimumZoom(), state.zoom);
+    if (isSeamlessMode()) state.position = 0.5;
+    if (geometryChanged) {
+      selectedTile = null;
+      geometryDirty = true;
+    }
+    contactBaselineReady = false;
+    if (previousEngine !== state.soundEngine) {
+      if (state.soundEngine === "sine") silenceFmStrikes();
+      else pool.setVoices([]);
+    }
+    syncPresetControls();
+    scheduleFrame();
+  },
+  randomize: randomizePenrosePreset,
+});

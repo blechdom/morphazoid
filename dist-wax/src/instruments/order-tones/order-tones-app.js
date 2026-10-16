@@ -9,6 +9,13 @@ import {
   recoverFactorsFromMeasurement,
   simulateOrderFindingShots,
 } from "./order-tones.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ORDER_TONES_FULL_PRESETS,
+  captureOrderTonesPreset,
+  randomizeOrderTonesPreset,
+  validateOrderTonesPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -982,3 +989,15 @@ populateBaseSelect(state.base);
 rebuildExperiment();
 paintAudioState();
 markDirty();
+
+registerHeaderPresets({
+  id: "order-tones", presets: ORDER_TONES_FULL_PRESETS,
+  capture: () => captureOrderTonesPreset(state),
+  apply: snapshot => {
+    validateOrderTonesPreset(snapshot);
+    Object.assign(state, snapshot);
+    populateBaseSelect(snapshot.base);
+    rebuildExperiment({ preserveBin: true });
+  },
+  randomize: randomizeOrderTonesPreset,
+});

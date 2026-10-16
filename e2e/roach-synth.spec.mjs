@@ -98,7 +98,7 @@ test('index chooser opens the compact instrument with a held neutral body and Au
   const failures = []; page.on('pageerror', error => failures.push(error.message));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('index.html');
-  const chooser = page.locator('.instrument-picker');
+  const chooser = page.locator('.instrument-picker[data-active-tool-id]');
   await chooser.locator('.instrument-picker-trigger').click();
   await chooser.getByRole('searchbox', { name: 'Filter instruments' }).fill('Roach');
   await chooser.locator('.instrument-picker-link[data-tool-id="roach-synth"]').first().click();

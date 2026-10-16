@@ -45,10 +45,9 @@
       <p class="starting-hint" id="canvasInstructions">● record · ▶/Ⅱ play/pause · M mute · S solo. Drag a letter to move its loop. The bent-arrow icon attaches an audio feed; scroll to reach other loops. <a href="#howItWorks">How to play / keys</a></p>
     </section>
     <aside class="starting-controls" aria-label="Loop Soup controls">
+      <div data-instrument-preset-host></div>
       <section class="group">
         <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
-        <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
-        <p id="presetHint" class="starting-note">Moderate retention, low route level and demo input.</p>
         <div id="modelStatus" role="status">Ready · Audio off</div>
         <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
         <p id="actionStatus" class="starting-note">Temporary audio: leaving or reloading this page discards it.</p>

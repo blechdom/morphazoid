@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readMicInputBatchSiteReference as readFile } from './helpers/mic-input-batch-site-reference.mjs';
+import { readWipRolloutSiteReference as readFile } from './helpers/wip-rollout-site-reference.mjs';
 import { quadrupedAudioQueueRuntimeRow, restoreQuadrupedAudioQueueRuntime } from './helpers/quadruped-audio-queue-runtime-reference.mjs';
 import { QUADRUPED_AUDIO_COHORT_SECONDS, quadrupedAudioBucket, quadrupedAudioCutover, quadrupedAudioHorizon, groupQuadrupedContactOnsets } from '../src/instruments/quadruped/quadruped-audio-queue.js';
 

@@ -11,6 +11,13 @@ import {
   timeLensDiagnostics,
 } from "./quantum-square-dance.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SQUARE_DANCE_FULL_PRESETS,
+  captureSquareDancePreset,
+  randomizeSquareDancePreset,
+  validateSquareDancePreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1414,3 +1421,15 @@ updateAudioInterface();
 updateReadouts();
 resizeCanvas();
 requestAnimationFrame(() => publishTransportPreview());
+
+registerHeaderPresets({
+  id: "quantum-square-dance", presets: SQUARE_DANCE_FULL_PRESETS,
+  capture: () => captureSquareDancePreset(state),
+  apply: snapshot => {
+    validateSquareDancePreset(snapshot);
+    Object.assign(state, snapshot, { clockTurns: snapshot.phaseDegrees / 360 });
+    lastStepSerial = Math.floor(state.clockTurns * state.phraseDensity);
+    refreshSimulation();
+  },
+  randomize: randomizeSquareDancePreset,
+});

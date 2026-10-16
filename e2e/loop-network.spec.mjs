@@ -6,7 +6,7 @@ const node = (p, label) => p.locator(".network-loop").filter({ has: p.getByRole(
 async function ready(p, id) {
   await p.goto(`/${id}.html`);
   await expect(p.locator("#stage")).toHaveAttribute("data-state", /"networkVersion":1/);
-  await expect(p.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", id);
+  await expect(p.locator(".instrument-picker[data-active-tool-id]")).toHaveAttribute("data-active-tool-id", id);
 }
 async function arm(p) {
   await p.locator("#audioButton").click();
@@ -56,7 +56,7 @@ for (const id of ["tape-worm", "loop-soup"]) {
     await arm(page);
     expect((await sampleAudioEnvelope(page, { durationMs: 1100 })).summary.maxRms).toBeGreaterThan(0.001);
     const before = (await state(page)).time;
-    await page.locator("#preset").selectOption({ index: 2 });
+    await chooseSharedPreset(page, 2);
     await expect.poll(async () => (await state(page)).time).toBeGreaterThan(before);
     await node(page, "A").getByRole("button", { name: "Mute loop A", exact: true }).click();
     await expect.poll(async () => (await state(page)).loops[0].muted).toBe(true);
@@ -204,6 +204,12 @@ for (const id of ["tape-worm", "loop-soup"]) {
     });
   }
 }
+async function chooseSharedPreset(page, target) {
+  const entries = page.locator(".header-preset-picker [data-preset-id]");
+  await page.locator(".header-preset-picker > summary").click();
+  await (typeof target === "number" ? entries.nth(target) : entries.filter({ hasText: target }).first()).click();
+}
+
 test("Tape routes: independent exit/entry/crossfade controls and movable gates", async ({ page }) => {
   await ready(page, "tape-worm");
   await range(page, "routeDeparture", 0.3); await range(page, "routeLanding", 0.25); await range(page, "routeFade", 0.09);
@@ -224,7 +230,7 @@ test("Tape routes: independent exit/entry/crossfade controls and movable gates",
 });
 test("Soup: letter labels, live gain/tone route edits, Hold and connection by center buttons", async ({ page }) => {
   await ready(page, "loop-soup");
-  expect(await page.locator("#preset option:not([disabled])").allTextContents()).toEqual(["A", "B", "C", "D"]);
+  expect((await page.locator(".header-preset-picker [data-preset-id]").allTextContents()).slice(0, 4)).toEqual(["Moderate pool", "Deep soup", "Thin broth", "Frozen pantry"]);
   await page.locator("#addLoop").click(); await expect(page.locator(".network-loop")).toHaveCount(4);
   await node(page, "A").getByRole("button", { name: "Connect from loop A", exact: true }).click();
   await node(page, "D").getByRole("button", { name: "Move or select loop D", exact: true }).click();

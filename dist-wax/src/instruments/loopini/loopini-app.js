@@ -1,3 +1,6 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { settleOnCapture } from "../../families/work-in-progress/preset-settle.js";
+import { LOOPINI_FULL_PRESETS, captureLoopiniWithHeld, randomizeLoopiniPreset, validateLoopiniPreset } from "./full-presets.js";
 import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { Loopini, clamp } from "./loopini.js";
 import { LoopiniAudio } from "./loopini-audio.js";
@@ -304,3 +307,18 @@ on(window, "pagehide", (event) => {
   disposed = true; strip.destroy(); abort.abort(); void audio.close();
 });
 render();
+
+let recalledPreset = null;
+const capturePreset = () => captureLoopiniWithHeld(speedValue, state.slots, recalledPreset);
+registerHeaderPresets({
+  id: "loopini", presets: LOOPINI_FULL_PRESETS, capture: capturePreset,
+  apply: (snapshot) => {
+    validateLoopiniPreset(snapshot);
+    if (pending !== null || state.recording || session && !session.seen) throw new Error("Finish or cancel the current take first");
+    recalledPreset = snapshot;
+    setSpeed(snapshot.speed);
+    state.slots.forEach((slot, id) => { if (slot.filled && slot.on !== snapshot.slots[id].on) audio.send({ type: "toggle", id }); });
+    return settleOnCapture(capturePreset, snapshot);
+  },
+  randomize: randomizeLoopiniPreset,
+});

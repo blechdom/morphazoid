@@ -1450,3 +1450,20 @@ function boot() {
 }
 
 boot();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  MAZE_FULL_PRESETS, captureMazePreset, randomizeMazePreset, validateMazePreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "algorithmic-mazes", presets: MAZE_FULL_PRESETS,
+  capture: () => captureMazePreset(state),
+  apply: (snapshot) => {
+    validateMazePreset(snapshot);
+    Object.assign(state, snapshot);
+    lastHeadSegments = new Map();
+    regenerate({ resetTime: false, announceChange: false });
+  },
+  randomize: randomizeMazePreset,
+});
