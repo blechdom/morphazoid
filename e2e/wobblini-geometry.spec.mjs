@@ -125,11 +125,11 @@ test("shape gestures and native transforms have stable undo and preserve transpo
 });
 
 test("geometric pan and volume change genuine stereo output while eight synced decks keep their phase", async ({ page }) => {
-  await ready(page); await page.locator("#fileAccess").click();
+  await ready(page);
   await page.locator("#d0File").setInputFiles(stereoWave());
   await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
   await page.locator("#fullView").click();
-  await page.locator("#d0Loop").selectOption("4"); await page.locator("#d0Assign").selectOption("THRU");
+  await page.locator("#d0Loop").selectOption("4");
   await page.locator("#d0Solo").click(); await page.locator("#playButton").click(); await page.locator("#syncAll").click();
   await page.locator("#audioButton").click();
   await expect.poll(async () => (await state(page)).decks.slice(1).every(deck => deck.syncActive)).toBe(true);
