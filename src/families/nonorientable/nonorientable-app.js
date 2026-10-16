@@ -1699,3 +1699,34 @@ syncControls();
 paintAudio();
 paintTarget();
 scheduleFrame();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  KLEIN_FULL_PRESETS, MOEBIUS_FULL_PRESETS, captureNonorientablePreset, randomizeNonorientablePreset, validateNonorientablePreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: KIND === "klein" ? "klein-bottle-synth" : "moebius-synth",
+  presets: KIND === "klein" ? KLEIN_FULL_PRESETS : MOEBIUS_FULL_PRESETS,
+  capture: () => captureNonorientablePreset(KIND, state),
+  apply: (snapshot) => {
+    validateNonorientablePreset(KIND, snapshot);
+    if (KIND === "moebius" && snapshot.playMode !== state.playMode) setPlayMode(snapshot.playMode);
+    const sequencePhase = sequenceModeActive() && state.playing ? sequencePositionAt() : state.continuousPosition;
+    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
+    Object.assign(state, snapshot);
+    state.presetId = "";
+    meshCacheKey = "";
+    componentTracks = [];
+    if (sequenceModeActive()) setSequenceTransportAnchor(sequencePhase);
+    syncControls();
+    if (sequenceModeActive()) {
+      armSequenceAtCurrent();
+      wakeManualSound(320);
+      startSequenceScheduler();
+    } else {
+      wakeManualSound(320);
+    }
+  },
+  randomize: (current, random) => randomizeNonorientablePreset(KIND, current, random),
+});

@@ -1588,3 +1588,40 @@ document.addEventListener("visibilitychange", () => {
   disableAudio({ announceChange: false });
 });
 window.addEventListener("pagehide", () => teardown({ close: true }));
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PAINT_FULL_PRESETS, capturePaintPreset, randomizePaintPreset, validatePaintPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "playhead-paint", presets: PAINT_FULL_PRESETS,
+  capture: () => capturePaintPreset(state),
+  apply: (snapshot) => {
+    validatePaintPreset(snapshot);
+    const marks = snapshot.marks.map((mark) => sanitizeMark(mark, { fallbackId: mark.id }));
+    preservePlaybackPosition(() => {
+      if (state.marks.length) pushHistory();
+      state.marks = marks;
+      state.layers = state.layers.map((layer, index) => ({
+        ...layer,
+        waveform: snapshot.layers[index].waveform,
+        envelope: copyEnvelope(snapshot.layers[index].envelope),
+      }));
+      state.axes = [...snapshot.axes];
+      state.mapping = safeMapping(snapshot.mapping);
+      state.sceneTransform = copyTransform(snapshot.sceneTransform);
+      state.playbackMode = snapshot.playbackMode;
+      state.playbackRate = snapshot.playbackRate;
+      state.steadySpeed = snapshot.steadySpeed;
+      state.loopGapMs = snapshot.loopGapMs;
+      state.selectedMarkId = null;
+      state.lastCaptureEndedAt = 0;
+      state.timelineEndMs = marks.reduce((end, mark) => Math.max(end, mark.startOffsetMs + mark.durationMs), 0);
+    });
+    renderPalette();
+    updateInspector();
+    scheduleFrame();
+  },
+  randomize: randomizePaintPreset,
+});
