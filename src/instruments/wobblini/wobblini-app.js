@@ -63,7 +63,7 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   const deck = document.createElement("section");
   deck.className = "wb-deck"; deck.id = `deck${i}`; deck.dataset.deck = i;
   deck.style.setProperty("--deck-color", colors[i]); deck.style.setProperty("--accent", colors[i]); deck.setAttribute("aria-label", `Deck ${i + 1}`);
-  deck.innerHTML = `<div class="wb-deck-identity"><div class="wb-deck-heading"><span class="wb-deck-number" aria-hidden="true">${i + 1}</span><button id="d${i}Master" class="wb-master-select" type="button" aria-label="Make deck ${i + 1} the tempo master" aria-pressed="${i === 0}" title="Make deck ${i + 1} the tempo master">${icon("crown")}</button></div><button id="d${i}Sync" class="wb-track-sync" type="button" aria-label="Sync deck ${i + 1} to the master" aria-pressed="false">SYNC</button></div><span id="d${i}SyncStatus" class="sr-only"></span><span id="d${i}Name" class="wb-source-name">Demo source</span><span id="d${i}Kind" class="sr-only">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
+  deck.innerHTML = `<div class="wb-deck-identity"><div class="wb-deck-heading"><span class="wb-deck-number" aria-hidden="true">${i + 1}</span><button id="d${i}Master" class="wb-master-select" type="button" aria-label="Make deck ${i + 1} the tempo master" aria-pressed="${i === 0}" title="Make deck ${i + 1} the tempo master">${icon("crown")}</button></div><button id="d${i}Sync" class="wb-track-sync" type="button" aria-label="Sync deck ${i + 1} to the master" aria-pressed="false">SYNC</button></div><span id="d${i}SyncStatus" class="sr-only"></span><span id="d${i}Name" class="wb-source-name">Demo source</span><span id="d${i}Kind" class="wb-source-status">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
     <div class="wb-visual"><div id="d${i}Platter" class="wb-disc" role="slider" tabindex="0" aria-label="Scratch deck ${i + 1}" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-describedby="scratchHelp d${i}Name d${i}Kind d${i}SyncStatus"><div class="wb-record-clip"><div class="wb-record-surface"><canvas id="d${i}RecordWave" class="wb-record-wave" aria-hidden="true"></canvas></div></div><i class="wb-disc-needle" aria-hidden="true"></i></div><div class="wb-wave-wrap"><canvas id="d${i}Wave" class="wb-wave" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-label="Scratch deck ${i + 1} waveform" aria-describedby="scratchHelp">Audio waveform.</canvas><div class="wb-time"><output id="d${i}Time">0:00.0</output><output id="d${i}Duration">0:08</output></div></div></div>
     <input id="d${i}Seek" class="wb-seek" type="range" min="0" max="8" step="0.01" value="0" aria-label="Deck ${i + 1} position in seconds" />
     <div class="wb-deck-transport"><button id="d${i}Play" class="wb-deck-play" type="button" aria-label="Play deck ${i + 1}" aria-pressed="false" title="Play deck ${i + 1}">${icon("play")}</button><button id="d${i}Cue" class="wb-cue" type="button" aria-label="Return to cue on deck ${i + 1}" title="Return to cue">${icon("cue")}</button><button id="d${i}SetCue" class="wb-set-cue" type="button" aria-label="Set cue on deck ${i + 1}" title="Set cue">${icon("setcue")}</button></div>
@@ -318,7 +318,7 @@ function setView(next) {
   text("viewName", { classic: "Classic", pro: "Pro", prepare: "Prepare", records: "Eight decks" }[view]);
   for (const [i, card] of cards.entries()) {
     card.root.hidden = view !== "records" && i !== leftDeck && (view === "prepare" || i !== rightDeck);
-    card.root.style.order = String(i === leftDeck ? 0 : 1);
+    card.root.style.order = String(view === "records" ? i : i === leftDeck ? 0 : 1);
     card.placeControls(isRecordView()); $(`d${i}Details`).open = view === "prepare" && i === leftDeck;
   }
   render();
@@ -534,7 +534,8 @@ function render() {
     $(`d${i}Sync`).title = syncLabel;
     $(`d${i}Sync`).setAttribute("aria-label", isMaster ? `Deck ${i + 1} is the tempo master` : `${d.syncEnabled ? "Release" : "Sync"} deck ${i + 1}${d.syncEnabled ? " from sync" : ` to deck ${state.masterDeck + 1}`}`);
     text(`d${i}Name`, d.name); cards[i].platter.title = d.name;
-    text(`d${i}Kind`, d.loading ? "Loading…" : d.kind === "file" ? `Local file · ${d.analysisStatus === "ready" ? "Tempo analyzed" : d.analysisStatus === "analyzing" ? "Analyzing" : "Editable tempo"}` : "Original demo source");
+    const analysisLabel = d.analysisStatus === "analyzing" ? "Analyzing tempo…" : d.analysisStatus === "fallback" ? "Tempo uncertain · Edit source BPM" : "";
+    text(`d${i}Kind`, d.loading ? "Loading…" : [analysisLabel, d.pitchStatus === "preparing" ? "Preparing pitch…" : d.pitchError || ""].filter(Boolean).join(" · "));
     $("d" + i + "Load").setAttribute("aria-busy", String(d.loading));
     setIcon($("d" + i + "Load"), "load", "Load audio into deck " + (i + 1));
     $(`d${i}Play`).setAttribute("aria-pressed", String(d.playing && !d.cuePreviewing));

@@ -313,7 +313,8 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-shell.is-prepare .wb-eq { grid-column: 1 / -1; }
 .wb-shell.is-pro .wb-detail { display: none; }
 .wb-source-name { display: block; min-height: 2em; overflow-wrap: anywhere; color: #cbd8e1; font: 12px/1.5 var(--font-ui, system-ui, sans-serif); margin-bottom: 8px; }
-.is-records .wb-source-name { display: none; }
+.wb-source-status { display: block; color: #efc987; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; margin-bottom: 6px; }
+.wb-source-status:empty, .is-records :is(.wb-source-name, .wb-source-status) { display: none; }
 .wb-field { display: flex; gap: 8px; align-items: center; justify-content: space-between; color: #b5c5d0; font-size: 11px; min-width: 0; }
 .wb-deck-options { display: flex; gap: 6px; align-items: center; }
 .wb-auto-gain { display: flex; align-items: center; gap: 6px; color: #b5c5d0; font-size: 11px; }
