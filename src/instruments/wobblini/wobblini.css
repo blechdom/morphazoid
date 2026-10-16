@@ -285,10 +285,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-settings-knobs label { font-size: 11px; }
 @media (max-width: 479px) {
   .wb-shell:not(.is-records) .wb-decks { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-
-
-
-
   .wb-shell .wb-toolbar .wb-master-tempo { flex: 0 0 auto; }
   .wb-shell.is-records .wb-toolbar .wb-master-tempo { margin-left: 0; }
   .is-records #syncAll { margin-left: auto; }
@@ -302,7 +298,8 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-crossfade { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 12px auto; color: #c5f078; font: 650 11px ui-monospace, monospace; }
 .wb-crossfade input[type="range"] { height: 40px; flex: 1; }
 .wb-crossfade button { flex: 0 0 32px; }
-.wb-sync-options { position: relative; }
+.wb-toolbar { position: relative; }
+.wb-sync-options { margin-left: auto; }
 .wb-sync-options summary { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; cursor: pointer; list-style: none; }
 .wb-sync-options summary::-webkit-details-marker { display: none; }
 .wb-sync-options > div { position: absolute; right: 0; top: 100%; z-index: 20; width: 218px; padding: 14px; border: 1px solid #4e6273; border-radius: 6px; background: #18232d; box-shadow: 0 10px 30px #0008; }

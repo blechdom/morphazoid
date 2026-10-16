@@ -248,7 +248,7 @@ function bindCue(button, deckIndex) {
     // activation without a press/release sequence still gets a normal cue jump.
     if (event.detail === 0 && held === null) { const index = deckIndex(); if (index !== null) act(() => engine.cue(index)); }
   });
-  on(button, "blur", release); on(window, "blur", release);
+  on(button, "blur", () => { if (pointer === null) release(); }); on(window, "blur", release);
   on(document, "visibilitychange", () => { if (document.hidden) release(); });
   cueReleases.add(release);
   return release;
@@ -656,11 +656,11 @@ function animate(now) {
       const d = state.decks[i], card = cards[i];
       if (card.root.hidden || !visible.has(card.root)) continue;
       const size = canvasSize(isRecordView() ? card.recordWave : card.wave);
-      const key = [view, d.position, d.playing, d.loopEnabled, d.loopStart, d.loopEnd, d.cuePoint, d.duration].join("|");
-      if (card.drawKey !== key || card.drawSize !== size || card.drawPeaks !== d.peaks || card.drawLoopPeaks !== d.loopPeaks) {
+      const key = [view, d.position, d.playing, d.cuePoint, d.duration].join("|");
+      if (card.drawKey !== key || card.drawSize !== size || card.drawPeaks !== d.peaks) {
         card.updateRecord(d);
         if (!isRecordView()) drawWave(card, d, colors[i]); else drawRecordWave(card, d, colors[i]);
-        card.drawKey = key; card.drawSize = size; card.drawPeaks = d.peaks; card.drawLoopPeaks = d.loopPeaks;
+        card.drawKey = key; card.drawSize = size; card.drawPeaks = d.peaks;
       }
       if (!readout) continue;
       for (const surface of [card.platter, card.wave]) {
