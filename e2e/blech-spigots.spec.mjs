@@ -22,6 +22,7 @@ async function open(page) {
 }
 
 async function number(page, selector, value) {
+  if (selector.startsWith('[data-spigot-field')) await page.locator('.blech-spigot-move').focus();
   await page.locator(selector).fill(String(value)); await page.locator(selector).press('Tab');
 }
 const sources = page => page.evaluate(() => __spigotQA.layers().map(layer => ({
@@ -147,6 +148,47 @@ test('layer selection reveals one rectangle and pointer gestures reshape the liv
   expect(await page.evaluate(() => __spigotQA.contexts)).toBe(0);
 });
 
+
+test('only the rectangle opens its editor; transport hover and focus stay clear', async ({ page }) => {
+  await open(page);
+  await number(page, '#blechDropWidth', 40); await number(page, '#blechDropHeight', 8); await number(page, '#blechDropDelay', 1);
+  await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
+  const move = page.locator('.blech-spigot-move'), editor = page.locator('.blech-spigot-editor');
+  await expect(editor).toBeHidden();
+  for (const control of ['play', 'loop', 'remove', 'deselect']) {
+    const button = page.locator(`[data-spigot-${control}]`);
+    await button.hover(); await expect(editor).toBeHidden();
+    await button.focus(); await expect(editor).toBeHidden();
+  }
+  for (const control of ['play', 'loop']) {
+    await move.hover(); await expect(editor).toBeVisible();
+    await page.locator(`[data-spigot-${control}]`).hover(); await expect(editor).toBeHidden();
+    await page.locator(`[data-spigot-${control}]`).click(); await expect(editor).toBeHidden();
+  }
+  await move.hover(); await expect(editor).toBeVisible();
+  await editor.hover(); await page.waitForTimeout(260); await expect(editor).toBeVisible();
+  await page.locator('[data-spigot-field="transpose"]').fill('3');
+  await page.locator('[data-spigot-field="transpose"]').press('Tab');
+  expect((await sources(page))[0].settings.transpose).toBe(3);
+  // A short floating shape still has a direct mouse route into the popup;
+  // the route must not cross transport buttons and dismiss the editor.
+  await number(page, '[data-spigot-field="heightBeats"]', 1);
+  await number(page, '[data-spigot-field="delayBeats"]', 6);
+  await page.locator('[data-spigot-play]').focus();
+  await move.hover(); await expect(editor).toBeVisible();
+  const popup = await editor.boundingBox();
+  await page.mouse.move(popup.x + popup.width / 2, popup.y + popup.height / 2, { steps: 8 });
+  await page.waitForTimeout(260); await expect(editor).toBeVisible();
+  // Keyboard users enter the same editor from the rectangle, without crossing
+  // transport buttons or tabbing through invisible fields.
+  await move.focus();
+  await page.locator('[data-spigot-play]').focus(); await expect(editor).toBeHidden();
+  await move.focus(); await expect(editor).toBeVisible();
+  await page.keyboard.press('Tab'); await expect(page.locator('[data-spigot-field="transpose"]')).toBeFocused();
+  await page.locator('[data-spigot-play]').focus(); await expect(editor).toBeHidden();
+  expect(await page.evaluate(() => __spigotQA.contexts)).toBe(0);
+});
+
 test('a replayed saved drop becomes an editable layer without restarting or duplicating it', async ({ page }) => {
   test.setTimeout(60000); await open(page);
   await number(page, '#blechDropWidth', 30); await number(page, '#blechDropHeight', 64); await number(page, '#blechDropDelay', 0);
@@ -181,6 +223,26 @@ test('drawing sounds with explicit Audio and pointer cancellation stops new emis
   await expect.poll(async () => (await readAudioStatus(page)).rms).toBeLessThan(.0001);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
   await expect(page.locator('.blech-spigot-overlay')).toHaveCount(0);
+});
+
+test.describe('touch inspector', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  test('tapping the square keeps its fields available and transport dismisses them', async ({ page }) => {
+    await open(page);
+    await number(page, '#blechDropWidth', 40); await number(page, '#blechDropHeight', 8); await number(page, '#blechDropDelay', 1);
+    await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
+    await page.locator('.blech-spigot-move').scrollIntoViewIfNeeded();
+    const square = await page.locator('.blech-spigot-move').boundingBox();
+    await page.touchscreen.tap(square.x + 20, square.y + 5);
+    await page.waitForTimeout(300);
+    await expect(page.locator('.blech-spigot-editor')).toBeVisible();
+    await page.locator('[data-spigot-field="transpose"]').fill('4');
+    await page.locator('[data-spigot-field="transpose"]').press('Tab');
+    expect((await sources(page))[0].settings.transpose).toBe(4);
+    await page.locator('[data-spigot-play]').tap();
+    await expect(page.locator('.blech-spigot-editor')).toBeHidden();
+    expect(await page.evaluate(() => __spigotQA.contexts)).toBe(0);
+  });
 });
 
 for (const [name, width, height] of [['phone', 390, 844], ['landscape', 844, 390]]) {
