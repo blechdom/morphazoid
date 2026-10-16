@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WOBBLINI_DECK_COUNT, WOBBLINI_DEMOS, createDeckState, sanitizeDeckPatch,
   sanitizeMasterPatch, crossfadeGains, deckPosition, beatLoop, createDemoSamples,
-  waveformPeaks } from "../src/instruments/wobblini/wobblini-model.js";
+  waveformPeaks, wobbleAt } from "../src/instruments/wobblini/wobblini-model.js";
 
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`);
 
@@ -64,4 +64,11 @@ test("Wobblini procedural demos are deterministic, distinct, audible and bounded
 test("Wobblini waveform bins retain transients from either stereo channel", () => {
   assert.deepEqual(Array.from(waveformPeaks([new Float32Array([0, 0.8, 0, NaN]), new Float32Array([0, 0, -0.9, Infinity])], 2)),
     [Math.fround(0.8), Math.fround(0.9)]);
+});
+
+test("Wobblini wobble integrates a frequency ramp without phase jumps", () => {
+  const clock = { time: 10, phase: 0.2, frequency: 2, targetFrequency: 6, endTime: 10.1 };
+  near(wobbleAt(clock, 10).phase, 0.2);
+  near(wobbleAt(clock, 10.05).phase, 0.35); near(wobbleAt(clock, 10.05).frequency, 4);
+  near(wobbleAt(clock, 10.1).phase, 0.6); near(wobbleAt(clock, 10.2).phase, 0.2);
 });

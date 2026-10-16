@@ -76,6 +76,18 @@ export function beatLoop(position, beats, bpm, duration) {
   return { loopStart: start, loopEnd: Math.min(duration, start + length) };
 }
 
+/** Integrate a linear frequency ramp so visual wobble follows oscillator phase. */
+export function wobbleAt(clock, time) {
+  const elapsed = Math.max(0, time - clock.time), duration = Math.max(0, clock.endTime - clock.time);
+  const rampTime = Math.min(elapsed, duration);
+  const slope = duration > 0 ? (clock.targetFrequency - clock.frequency) / duration : 0;
+  const cycles = clock.phase + clock.frequency * rampTime + slope * rampTime * rampTime / 2
+    + clock.targetFrequency * Math.max(0, elapsed - duration);
+  const phase = ((cycles % 1) + 1) % 1;
+  return { phase, value: Math.sin(phase * Math.PI * 2),
+    frequency: elapsed >= duration ? clock.targetFrequency : clock.frequency + slope * rampTime };
+}
+
 export function waveformPeaks(channels, bins = 256) {
   const length = channels[0]?.length ?? 0;
   const peaks = new Float32Array(Math.max(1, Math.min(1024, Math.trunc(bins))));

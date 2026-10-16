@@ -1,7 +1,7 @@
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { WOBBLINI_DECK_COUNT, WOBBLINI_DEMOS, WOBBLINI_LOOP_BEATS, createDeckState,
   sanitizeDeckPatch, sanitizeMasterPatch, crossfadeGains, deckPosition, beatLoop,
-  createDemoSamples, waveformPeaks, clamp } from "./wobblini-model.js";
+  createDemoSamples, waveformPeaks, wobbleAt, clamp } from "./wobblini-model.js";
 
 const FADE = 0.008;
 export const WOBBLINI_FILE_LIMIT = 64 * 1024 * 1024;
@@ -37,7 +37,7 @@ export class WobbliniAudio {
     this.contextFactory = contextFactory; this.decodeContextFactory = decodeContextFactory; this.outputConnector = outputConnector;
     this.context = null; this.graph = null; this.release = null; this.armed = false;
     this.requestedAudio = false; this.disposed = false; this.generation = 0; this.armPromise = null;
-    this.decodeQueue = Promise.resolve();
+    this.decodeQueue = Promise.resolve(); this.wobbleClock = null;
     this.master = { gain: 0.65, crossfader: 0, wobbleAmount: 0, wobbleRate: 2 };
     this.decks = Array.from({ length: WOBBLINI_DECK_COUNT }, (_, id) => {
       const demo = createDemoSamples(id);
@@ -63,13 +63,16 @@ export class WobbliniAudio {
   _error(error) { try { this.onError(error); } catch { /* Observers do not own transport. */ } }
   _capture(deck, time = this._now()) {
     const state = deck.state;
-    state.position = deckPosition(state, time); state.anchorTime = time;
+    state.position = deckPosition(state, time);
+    state.anchorTime = state.playing ? Math.max(state.anchorTime, time) : time;
     if (!state.loopEnabled && state.position >= state.duration) state.playing = false;
     return state;
   }
   _switchClock(audio) {
     const previous = this._now(), next = audio ? this.context.currentTime : this.wallTime();
-    for (const deck of this.decks) { this._capture(deck, previous); deck.state.anchorTime = next; }
+    for (const deck of this.decks) {
+      this._capture(deck, previous); deck.state.anchorTime = next + Math.max(0, deck.state.anchorTime - previous);
+    }
     this.armed = audio;
   }
   getDeckState(index) {
@@ -80,6 +83,10 @@ export class WobbliniAudio {
       effectiveBpm: state.bpm * state.rate, peaks: deck.peaks };
   }
   getState() { return { armed: this.armed, master: { ...this.master }, decks: this.decks.map((_, id) => this.getDeckState(id)) }; }
+  getWobbleState() {
+    return this.wobbleClock && this.context ? wobbleAt(this.wobbleClock, this.context.currentTime)
+      : { phase: 0, value: 0, frequency: this.master.wobbleRate };
+  }
 
   _gain(value = 1) { const gain = this.context.createGain(); gain.gain.value = value; return gain; }
   _createGraph() {
@@ -105,7 +112,11 @@ export class WobbliniAudio {
       deck.graph = { low, mid, high, highpass, lowpass, wobble, wobbleDepth, pan, gain };
       this._applyDeck(deck);
     }
-    this._applyMaster(); lfo.start();
+    const startTime = context.currentTime;
+    lfo.frequency.value = this.master.wobbleRate;
+    this.wobbleClock = { time: startTime, phase: 0, frequency: this.master.wobbleRate,
+      targetFrequency: this.master.wobbleRate, endTime: startTime };
+    this._applyMaster(); lfo.start(startTime);
   }
   _applyDeck(deck) {
     if (!deck.graph) return;
@@ -123,7 +134,12 @@ export class WobbliniAudio {
     if (!this.graph) return;
     const time = this.context.currentTime, { wobbleAmount, wobbleRate, gain } = this.master;
     smooth(this.graph.master.gain, gain * 0.38, time);
-    smooth(this.graph.lfo.frequency, wobbleRate, time);
+    if (this.wobbleClock.targetFrequency !== wobbleRate) {
+      const current = this.getWobbleState();
+      this.wobbleClock = { time, phase: current.phase, frequency: current.frequency,
+        targetFrequency: wobbleRate, endTime: time + FADE };
+      smooth(this.graph.lfo.frequency, wobbleRate, time);
+    }
     for (const deck of this.decks) {
       smooth(deck.graph.wobble.frequency, Math.min(19000, this.context.sampleRate * 0.43) * 0.065 ** wobbleAmount, time);
       smooth(deck.graph.wobbleDepth.gain, wobbleAmount * 2400, time);
@@ -155,12 +171,13 @@ export class WobbliniAudio {
       try { old.source.stop(time); } catch { /* Ended. */ } this._releaseSource(deck, old);
     }
   }
-  _render(deck) {
+  _render(deck, when = this._now()) {
     this._stopSource(deck);
     if (!this.armed || !deck.graph || this.disposed) return;
-    const state = this._capture(deck), buffer = this._buffer(deck);
+    when = Math.max(when, deck.state.playing ? deck.state.anchorTime : when);
+    const state = this._capture(deck, when), buffer = this._buffer(deck);
     if (!state.playing || !buffer) return;
-    const time = this.context.currentTime, source = this.context.createBufferSource(), gain = this._gain(0);
+    const time = Math.max(when, this.context.currentTime), source = this.context.createBufferSource(), gain = this._gain(0);
     source.buffer = buffer; source.playbackRate.value = state.rate;
     source.loop = state.loopEnabled; source.loopStart = state.loopStart; source.loopEnd = state.loopEnd;
     source.connect(gain).connect(deck.graph.low); smooth(gain.gain, 1, time);
@@ -224,6 +241,26 @@ export class WobbliniAudio {
     if (state.playing) return true;
     if (state.position >= state.duration) state.position = state.loopEnabled ? state.loopStart : 0;
     state.playing = true; state.anchorTime = this._now(); this._render(deck); this._notify(); return true;
+  }
+  playAll() {
+    if (this.disposed) return false;
+    // Prepare first, then choose one launch boundary. Neither DOM observer work
+    // nor eight separate buffer copies can stagger the eight source starts.
+    if (this.armed) for (const deck of this.decks) this._buffer(deck);
+    const now = this._now(), when = now + (this.armed ? 0.016 : 0);
+    for (const deck of this.decks) {
+      const state = this._capture(deck, now);
+      if (state.playing) continue;
+      if (state.position >= state.duration) state.position = state.loopEnabled ? state.loopStart : 0;
+      state.playing = true; state.anchorTime = when; this._render(deck, when);
+    }
+    this._notify(); return true;
+  }
+  pauseAll() {
+    if (this.disposed) return;
+    const now = this._now();
+    for (const deck of this.decks) { this._capture(deck, now).playing = false; this._stopSource(deck); }
+    this._notify();
   }
   pause(index) {
     if (this.disposed) return;

@@ -105,6 +105,33 @@ test("Wobblini wobble is a shared audio oscillator connected to every deck filte
   const lfo = engine.graph.lfo; await engine.dispose(); assert.equal(lfo.stopped, true);
 });
 
+test("Wobblini Play all launches once on a common boundary before notifying observers", async () => {
+  let changes = 0;
+  const h = harness({ onChange: () => changes++ }), { engine, context } = h;
+  await engine.arm(); changes = 0; engine.playAll();
+  assert.equal(changes, 1); assert.equal(h.sources.length, 8);
+  assert.equal(new Set(h.sources.map(source => source.startTime)).size, 1);
+  near(h.sources[0].startTime, context.currentTime + 0.016);
+  engine.setDeck(0, { gain: 0.3 });
+  engine.setLoop(1, 8);
+  context.currentTime += 1.016;
+  for (let id = 0; id < 8; id++) near(engine.getDeckState(id).position, 1);
+  changes = 0; engine.pauseAll(); assert.equal(changes, 1);
+  assert.ok(engine.getState().decks.every(deck => !deck.playing)); await engine.dispose();
+});
+
+test("Wobblini visual wobble phase tracks native rate ramps and unrelated edits preserve phase", async () => {
+  const h = harness(), { engine, context } = h;
+  await engine.arm(); near(engine.getWobbleState().phase, 0);
+  context.currentTime += 0.125; near(engine.getWobbleState().phase, 0.25);
+  engine.setMaster({ wobbleRate: 6 }); context.currentTime += 0.004;
+  near(engine.getWobbleState().phase, 0.262); near(engine.getWobbleState().frequency, 4);
+  engine.setMaster({ gain: 0.5, wobbleAmount: 0.8 }); context.currentTime += 0.004;
+  near(engine.getWobbleState().phase, 0.282); near(engine.getWobbleState().frequency, 6);
+  const phase = engine.getWobbleState().phase; await engine.setAudioEnabled(false); h.setWall(9999);
+  near(engine.getWobbleState().phase, phase); await engine.dispose();
+});
+
 test("Wobblini local files decode with Audio off and failed replacements preserve playback", async () => {
   const h = harness(), { engine } = h;
   await engine.loadFile(2, file());
