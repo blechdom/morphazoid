@@ -255,10 +255,10 @@ test('layer instrument changes and Original restore the current voice and replay
   assert.equal(sample.program, 40); assert.equal(sample.midi.program, 40); assert.equal(sample.positionBeats, position);
   q.sources.configure(first.id, { program: 'original', midi: { ...sample.midi, program: null } });
   sample = q.engine.state.samples[0];
-  assert.equal(sample.program, null); assert.equal(sample.midi.program, null); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(sample.program, null); assert.equal(Object.hasOwn(sample.midi, 'program'), false); assert.equal(sample.midi.controllers[74], 45);
   assert.equal(q.sources.getLayers()[0].settings.program, 'original'); assert.deepEqual(q.engine.state.samples[1], sibling);
   q.engine.stopSample(first.sampleId); q.sources.togglePlay(first.id);
   sample = q.engine.state.samples.find(item => item.id !== other.sampleId);
-  assert.equal(sample.program, null); assert.equal(sample.midi.program, null); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(sample.program, null); assert.equal(Object.hasOwn(sample.midi, 'program'), false); assert.equal(sample.midi.controllers[74], 45);
   assert.equal(q.contexts(), 0); await q.engine.dispose();
 });
