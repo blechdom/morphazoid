@@ -1845,3 +1845,28 @@ paintAudioAndTransportState();
 paintTimeline(0, denseMoment());
 paintRail(denseMoment());
 scheduleFrame();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  RECURSION_FULL_PRESETS,
+  captureRecursionPreset,
+  randomizeRecursionPreset,
+  validateRecursionPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "recursion", presets: RECURSION_FULL_PRESETS,
+  capture: () => captureRecursionPreset({ ...currentSettings(), accumulate: state.accumulate, live: currentLiveAxes() }),
+  apply: (snapshot) => {
+    validateRecursionPreset(snapshot);
+    const { depth, pace, transform, intensity, accumulate, live } = snapshot;
+    settings[state.studyId] = { depth, pace, transform, intensity };
+    liveSettings[state.studyId] = { ...live };
+    state.accumulate = accumulate;
+    paintStudyControls();
+    updatePlan();
+    audio.setLiveAxes(state.studyId, effectiveLiveAxes());
+    if (state.audio) queuePreparedRestart();
+  },
+  randomize: randomizeRecursionPreset,
+});

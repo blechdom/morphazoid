@@ -709,7 +709,7 @@ function gridPointParameters(cell, point) {
     y: hasRenderedBounds
       ? clamp((point.y * stageBounds.height - (cellBounds.top - stageBounds.top)) / cellBounds.height, 0, 1)
       : clamp(point.y * 3 - row, 0, 1),
-    baseFrequency: 82.4069 * 2 ** (index / 12),
+    baseFrequency: 82.4069 * 2 ** ((livePadSemitones[index] ?? index) / 12),
   };
 }
 
@@ -1687,3 +1687,52 @@ if (elements.colorToleranceOutput && elements.colorTolerance) {
 updateStatus();
 requestAnimationFrame(renderFrame);
 requestAnimationFrame(analysisLoop);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  GESTURAMA_DEFAULT_PAD_SEMITONES,
+  GESTURAMA_FULL_PRESETS,
+  captureGesturamaPreset,
+  gesturamaNoteName,
+  randomizeGesturamaPreset,
+  validateGesturamaPreset,
+} from "./full-presets.js";
+
+const livePadSemitones = [...GESTURAMA_DEFAULT_PAD_SEMITONES];
+const GRID_LABELS = Object.freeze({ kick: "KICK", snare: "SNARE", hat: "HAT", clap: "CLAP" });
+const harpStrings = () => [...(elements.harpStrings?.querySelectorAll("[data-harp-string]") ?? [])];
+
+registerHeaderPresets({
+  id: "gesturama", presets: GESTURAMA_FULL_PRESETS,
+  capture: () => captureGesturamaPreset({
+    mode: state.preset,
+    sensitivity: Number(elements.sensitivity.value),
+    grid: elements.gridCells.map((cell) => cell.dataset.instrument),
+    harp: harpStrings().map((string) => Number(string.dataset.note)),
+    padSemitones: livePadSemitones,
+    zones: state.zones,
+  }),
+  apply: (snapshot) => {
+    validateGesturamaPreset(snapshot);
+    elements.gridCells.forEach((cell, index) => {
+      cell.dataset.instrument = snapshot.grid[index];
+      const label = cell.querySelector("b");
+      if (label) label.textContent = GRID_LABELS[snapshot.grid[index]];
+      gridZones[index].instrument = snapshot.grid[index];
+    });
+    harpStrings().forEach((string, index) => {
+      string.dataset.note = String(snapshot.harp[index]);
+      const label = string.querySelector("b");
+      if (label) label.textContent = gesturamaNoteName(snapshot.harp[index]);
+    });
+    snapshot.padSemitones.forEach((semitones, index) => { livePadSemitones[index] = semitones; });
+    elements.sensitivity.value = String(snapshot.sensitivity);
+    saveHistory();
+    state.zones = cloneZones(snapshot.zones).map((zone) => ({ ...zone, id: state.nextZoneId++ }));
+    state.hasPainted = state.hasPainted || state.zones.length > 0;
+    setPreset(snapshot.mode, false);
+    rebuildOwnershipMap();
+    updateStatus();
+  },
+  randomize: randomizeGesturamaPreset,
+});
