@@ -10,7 +10,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-shell button, .wb-shell select, .wb-shell input, .wb-dialog button { font: inherit; }
 .wb-shell button, .wb-shell select, .wb-dialog button { min-height: 32px; padding: 6px 9px; border: 1px solid #3c4854; border-radius: 5px; color: #dce6ed; background: #18222c; font-size: 11px; cursor: pointer; font-weight: 600; }
 .wb-shell button:hover, .wb-shell select:hover, .wb-dialog button:hover { border-color: #8d9eac; background: #263541; }
-.wb-shell button:disabled { cursor: default; opacity: .45; }
+.wb-shell button:disabled, .wb-dialog button:disabled { cursor: default; opacity: .45; }
 .wb-shell button[aria-pressed="true"] { background: var(--deck-color, #c5f078); border-color: var(--deck-color, #c5f078); color: #10191b; }
 .wb-shell :is(button, input, select, summary, canvas, a):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .wb-shell input[type="range"] { display: block; accent-color: var(--deck-color, #c5f078); width: 100%; min-width: 0; height: 22px; margin: 0; cursor: ew-resize; }
@@ -165,16 +165,16 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-disc * { pointer-events: none; }
 .is-scratching .wb-disc { cursor: grabbing; }
 .is-scratching .wb-disc-needle::after { background: #fff; }
-/* Records share touching square corners, leaving a clear air gap around each
-   circular scratch surface. Only the record rotates; the stylus stays fixed. */
+/* Only the record rotates; the stylus and center transport stay fixed.
+   One corner gear opens the larger track controls. */
 .wb-record-corners { display: none; }
 .wb-shell.is-records { max-width: 1320px; padding-top: 10px; }
 .is-records .wb-workspace { display: block; }
 .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; max-width: 1160px; margin: 18px auto 0; }
-.wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail, .wb-deck-transport) { display: none; }
+.wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail) { display: none; }
 .is-records .wb-deck { aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.is-records .wb-deck-number { top: 1px; left: 50%; width: auto; display: flex; gap: 3px; align-items: center; transform: translateX(-50%); }
-.is-records .wb-deck-number svg { position: static; width: 10px; height: 10px; }
+.is-records .wb-deck-number { top: 5px; left: 5px; width: auto; display: flex; gap: 4px; align-items: center; font-size: 18px; }
+.is-records .wb-deck-number svg { position: static; width: 12px; height: 12px; }
 .is-records .wb-deck.is-synced .wb-deck-number { color: #efffff; }
 .is-records .wb-deck.has-sync-warning .wb-deck-number { color: #ffbc69; }
 .wb-shell #syncAll.has-sync-warning { border-color: #ffbc69; background: #69481e; color: #fff0ce; }
@@ -192,21 +192,15 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .is-records .wb-record-corners button {
   position: absolute; z-index: 3; width: 34%; height: 34%; min-width: 48px; min-height: 48px !important;
   max-width: 86px; max-height: 86px; padding: 0 !important; border: 0; border-radius: 0;
-  background: #172731 !important; color: var(--deck-color) !important; pointer-events: auto;
+  background: #172731 !important; color: var(--deck-color) !important; pointer-events: auto; -webkit-tap-highlight-color: transparent;
 }
 .is-records .wb-record-corners button:hover { background: #2c424c !important; }
 .is-records .wb-record-corners button[aria-pressed="true"] { background: var(--deck-color) !important; color: #10191b !important; }
 .is-records .wb-record-corners button:focus-visible { background: #47616c !important; outline: 0; }
 .is-records .wb-record-corners button:focus-visible svg { filter: drop-shadow(0 0 2px #fff); }
 .is-records .wb-record-corners button svg { position: absolute; width: 17px; height: 17px; transform: translate(-50%, -50%); pointer-events: none; }
-.is-records .wb-corner-load { top: 0; left: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
-.is-records .wb-corner-load svg { left: 30%; top: 30%; }
 .is-records .wb-corner-edit { top: 0; right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
 .is-records .wb-corner-edit svg { left: 70%; top: 30%; }
-.is-records .wb-corner-cue { bottom: 0; left: 0; clip-path: polygon(0 0, 100% 100%, 0 100%); }
-.is-records .wb-corner-cue svg { left: 30%; top: 70%; }
-.is-records .wb-corner-play { bottom: 0; right: 0; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
-.is-records .wb-corner-play svg { left: 70%; top: 70%; }
 @media (max-width: 759px) {
   .wb-heading { flex-wrap: nowrap; gap: 6px; }
   .wb-title h1 { font-size: 25px; }
@@ -257,3 +251,40 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .wobblini-page { --accent-soft: #c5f0788c; --accent-glow: #c5f07838; }
   .wobblini-page .instrument-info-popover { background: #0a1016; }
 }
+
+/* Center transport never intercepts the scratch ring. */
+.is-records .wb-deck-transport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; pointer-events: none; }
+.is-records .wb-deck-transport :is(.wb-cue, .wb-set-cue) { display: none; }
+.is-records .wb-deck-play { width: 48px; height: 48px; min-width: 48px; min-height: 48px; border-radius: 50%; border: 1px solid var(--deck-color); background: #0c141ce6; pointer-events: auto; }
+.wb-loop-marker, .wb-loop-length { display: none; }
+.is-records .wb-loop-marker, .is-records .wb-loop-length { display: block; position: absolute; z-index: 2; color: var(--deck-color); background: #081018df; border-radius: 2px; padding: 2px 3px; font: 600 8px/1.1 ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
+.is-records .wb-loop-marker { transform: translate(-50%, -50%); }
+.is-records .wb-loop-length { left: 50%; bottom: 21%; transform: translateX(-50%); }
+/* A single shared dialog keeps eight decks light on older phones. */
+.wb-deck-settings { width: min(360px, calc(100vw - 28px)); max-width: none; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); margin: auto; padding: 16px; overflow: auto; overscroll-behavior: contain; }
+.wb-deck-settings header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wb-deck-settings h2 { margin: 0; font-size: 20px; color: var(--deck-color); }
+.wb-deck-settings button { width: 48px; height: 48px; min-height: 48px; flex-shrink: 0; }
+.wb-deck-settings button[aria-pressed="true"] { color: #10191b; background: var(--deck-color); border-color: var(--deck-color); }
+.wb-deck-settings :is(button, input, select, summary):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.wb-settings-source { display: flex; align-items: center; gap: 12px; margin: 8px 0 16px; }
+.wb-settings-source p { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; color: #c1ced8; }
+.wb-settings-knobs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.wb-settings-knobs section { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wb-settings-knobs label { color: #c1ced8; }
+.wb-settings-knob.mz-range-knob { width: 88px; min-width: 88px; height: 88px; }
+.wb-settings-knob .mz-range-knob__dial { width: 68px; height: 68px; top: 10px; background: #0c141c; border-width: 2px; }
+.wb-settings-knob .mz-range-knob__dial i { inset: 5px; }
+.wb-settings-knob .mz-range-knob__dial i::before { height: 16px; }
+.wb-deck-settings output { font: 12px/1.5 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.wb-settings-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.wb-settings-loop { display: grid; grid-template-columns: 1fr 48px minmax(0, 1.5fr); align-items: center; gap: 8px; margin-top: 20px; }
+.wb-deck-settings select, .wb-deck-settings input[type="number"] { min-width: 0; min-height: 48px; font: 16px system-ui, sans-serif; border: 1px solid #3c4854; border-radius: 5px; padding: 6px; background: #0c141c; color: #edf3f6; }
+.wb-settings-loop output { grid-column: 1 / -1; color: #c1ced8; }
+.wb-settings-grid { margin-top: 12px; }
+.wb-settings-grid summary { cursor: pointer; padding-block: 12px; color: #c1ced8; }
+.wb-settings-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wb-settings-grid input[type="number"] { width: 92px; }
+.wb-settings-grid input[type="range"] { display: block; width: 100%; height: 40px; margin: 12px 0 0; accent-color: var(--deck-color); }
+.wb-settings-grid output { margin-right: auto; }
+#settingsStatus { min-height: 1.6em; margin: 12px 0 0; color: var(--deck-color); font-size: 11px; }
