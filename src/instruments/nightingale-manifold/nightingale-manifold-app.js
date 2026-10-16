@@ -749,3 +749,39 @@ updateRangeOutputs();
 setAudioEnabled(false);
 setBusy(false);
 requestAnimationFrame(loadDemo);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  NIGHTINGALE_FULL_PRESETS, captureNightingalePreset, randomizeNightingalePreset, validateNightingalePreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "nightingale-manifold", presets: NIGHTINGALE_FULL_PRESETS,
+  capture: () => captureNightingalePreset({
+    walkRule: $("walk-rule").value, routeLength: Number($("route-length").value), surprise: Number($("surprise").value),
+    listenMode: $("listen-mode").value, loopRoute: $("loop-route").checked,
+    showSimilarity: $("show-similarity").checked, showSequence: $("show-sequence").checked,
+    showTrajectories: $("show-trajectories").checked, autoRotate: $("auto-rotate").checked,
+  }),
+  apply: snapshot => {
+    validateNightingalePreset(snapshot);
+    $("walk-rule").value = snapshot.walkRule;
+    $("route-length").value = String(snapshot.routeLength);
+    $("surprise").value = String(snapshot.surprise);
+    updateRangeOutputs();
+    $("listen-mode").value = snapshot.listenMode;
+    $("play-route").querySelector("small").textContent = snapshot.listenMode === "physical" ? "physical model" : "source slices";
+    $("loop-route").checked = snapshot.loopRoute;
+    routeAudio.loop = snapshot.loopRoute;
+    $("show-similarity").checked = snapshot.showSimilarity;
+    $("show-sequence").checked = snapshot.showSequence;
+    $("show-trajectories").checked = snapshot.showTrajectories;
+    $("auto-rotate").checked = snapshot.autoRotate;
+    renderer.setOptions({
+      showSimilarity: snapshot.showSimilarity, showSequence: snapshot.showSequence,
+      showTrajectories: snapshot.showTrajectories, autoRotate: snapshot.autoRotate,
+    });
+    if (snapshot.walkRule !== "manual" && analysis?.strophes.length && !busy && routeAudio.paused && !pendingPlayback) buildRoute();
+  },
+  randomize: randomizeNightingalePreset,
+});

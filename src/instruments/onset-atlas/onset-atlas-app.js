@@ -327,3 +327,30 @@ globalThis.addEventListener("pagehide", (event) => {
 });
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ONSET_ATLAS_FULL_PRESETS, captureOnsetAtlasPreset, randomizeOnsetAtlasPreset, validateOnsetAtlasPreset,
+} from "./full-presets.js";
+
+const ONSET_ATLAS_READOUTS = { sensitivity: v => v.toFixed(2), minSeg: v => `${(v * 1000).toFixed(0)} ms`, similarity: v => v.toFixed(2), speed: v => `${v.toFixed(2)}×` };
+
+registerHeaderPresets({
+  id: "onset-atlas", presets: ONSET_ATLAS_FULL_PRESETS,
+  capture: () => captureOnsetAtlasPreset({ params, accepted }),
+  apply: snapshot => {
+    validateOnsetAtlasPreset(snapshot);
+    for (const [key, format] of Object.entries(ONSET_ATLAS_READOUTS)) {
+      params[key] = snapshot[key];
+      $(key).value = String(snapshot[key]);
+      $(`${key}Out`).textContent = format(snapshot[key]);
+    }
+    accepted = snapshot.accepted;
+    $("acceptButton").textContent = accepted ? "Reject graph" : "Accept graph";
+    analyse();
+    rotor = new Map();
+    walkNode = segments[0]?.family ?? 0;
+    refresh();
+  },
+  randomize: randomizeOnsetAtlasPreset,
+});
