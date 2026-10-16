@@ -10,6 +10,10 @@ Turn Audio on in the header, then play a record. The view icons switch to
 **Full decks** for all controls or **Tiny decks** for miniature decks; Edit
 expands one tiny deck. Switching views keeps playback and the mix intact.
 Buttons use icons with accessible names and hover titles.
+Decks have no enclosing cards or visible track-name headers. A small number
+sits in the existing gutter beside each deck, leaving the controls unobstructed.
+File names remain in the platter's hover title and screen-reader description.
+In Full decks and the expanded Tiny editor, Load sits beside Edit.
 
 ## Playing
 

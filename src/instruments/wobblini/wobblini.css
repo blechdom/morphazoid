@@ -37,19 +37,15 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-master-tempo input { font-size: 16px !important; width: 78px !important; }
 .wb-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 20px; align-items: start; }
 .wb-decks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; min-width: 0; }
-.wb-deck { --deck-color: #c5f078; background: #131d27; border-top: 2px solid var(--deck-color); border-radius: 6px; min-width: 0; padding: 12px; transition: background .15s; }
-.wb-deck.is-playing { background: #192531; }
+.wb-deck { --deck-color: #c5f078; position: relative; min-width: 0; }
 .wb-deck.is-muted { opacity: .68; }
 .wb-deck.is-dragover { outline: 2px dashed var(--deck-color); outline-offset: -5px; background: #283b43; }
-.wb-deck.is-selected { box-shadow: 0 0 0 1px #92a9b8; }
-.wb-deck-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.wb-deck-number { color: var(--deck-color); font: 650 21px/1 ui-monospace, monospace; }
-.wb-track { flex: 1; min-width: 0; }
-.wb-track h2 { font-size: 12px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-track span { display: block; color: #acbac5; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Deck IDs use the existing gutter, without reserving a header or control space. */
+.wb-deck-number { position: absolute; top: 0; left: -8px; width: 6px; color: var(--deck-color); font: 600 9px/1 ui-monospace, monospace; text-align: center; pointer-events: none; user-select: none; }
 .wb-deck .wb-load { min-height: 29px; padding: 4px 6px; font-size: 10px; background: transparent; }
-.wb-visual { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
-.wb-disc { width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; position: relative; background: repeating-radial-gradient(circle, #1a2834 0 1px, #0b121a 2px 4px); box-shadow: 0 0 0 1px #354550; }
+.wb-load[aria-busy="true"] { opacity: .5; }
+.wb-visual { display: flex; gap: 10px; align-items: center; }
+.wb-disc { width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; position: relative; background: repeating-radial-gradient(circle, #1a2834 0 1px, #0b121a 2px 4px); }
 .wb-disc::before { content: ''; position: absolute; inset: 20px; background: var(--deck-color); border-radius: 50%; opacity: .85; }
 .wb-disc::after { content: ''; position: absolute; width: 4px; height: 4px; top: 29px; left: 29px; border-radius: 50%; background: #09131c; }
 .wb-disc-needle { position: absolute; inset: 4px; border-radius: 50%; border-top: 2px solid var(--deck-color); transform: rotate(var(--disc-angle, 0deg)); }
@@ -71,6 +67,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-level-row label > span { display: flex; justify-content: space-between; color: #aebfcb; font-size: 9px; }
 .wb-level-row button { font-size: 10px; padding: 4px; }
 .wb-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; }
+.wb-footer-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .wb-footer label { color: #aebfcb; font-size: 9px; display: flex; align-items: center; gap: 5px; }
 .wb-footer select { font-size: 10px; padding: 2px 4px; min-height: 26px; }
 .wb-edit { font-size: 10px !important; min-height: 26px !important; padding: 3px 6px !important; background: transparent !important; color: #bacbd7 !important; }
@@ -114,9 +111,8 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 /* Tiny decks retain live transport/level controls. The selected deck expands in
    place, preserving the same DOM, file picker, focus, and audio state. */
 .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.wb-shell.is-tiny .wb-deck { padding: 10px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) :is(.wb-loop-row, .wb-detail, .wb-cue, .wb-set-cue, .wb-load, .wb-seek, .wb-track-kind) { display: none; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-visual { margin-top: 8px; gap: 7px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) :is(.wb-loop-row, .wb-detail, .wb-cue, .wb-set-cue, .wb-load, .wb-seek) { display: none; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-visual { gap: 7px; }
 .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { width: 42px; height: 42px; }
 .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc::before { inset: 13px; }
 .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc::after { left: 19px; top: 19px; }
@@ -129,7 +125,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 @media (min-width: 1200px) {
   .wb-shell.is-tiny .wb-workspace { grid-template-columns: 1fr; }
   .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
-  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-track h2 { font-size: 10px; }
   .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: minmax(0, 1fr) 25px 25px; gap: 3px; }
   .wb-shell.is-tiny .wb-mixer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, .8fr); gap: 28px; padding: 20px; }
   .wb-shell.is-tiny .wb-mixer-section + .wb-mixer-section { border-top: 0; padding-top: 0; margin-top: 0; }
@@ -141,12 +136,11 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .wb-shell.is-tiny .wb-session-info { padding-top: 8px; }
   .wb-shell.is-tiny #errorMessage { grid-column: 1 / -1; }
 }
-@media (min-width: 1500px) { .wb-deck { padding: 16px; } .wb-visual { margin-top: 18px; } .wb-disc { width: 76px; height: 76px; } .wb-disc::before { inset: 24px; } .wb-disc::after { left: 36px; top: 36px; } .wb-wave { height: 70px; } }
+@media (min-width: 1500px) { .wb-disc { width: 76px; height: 76px; } .wb-disc::before { inset: 24px; } .wb-disc::after { left: 36px; top: 36px; } .wb-wave { height: 70px; } }
 @media (max-width: 1199px) { .wb-workspace { grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; } .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; } .wb-deck { padding: 10px; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-track h2 { font-size: 10px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-footer label { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: 1fr 27px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: none; } }
+@media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-footer label { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: 1fr 27px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: none; } }
 @media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-deck.is-selected { grid-column: 1 / -1; grid-row: auto; } .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #matchAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; } .wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected .wb-eq, .wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo { grid-column: auto; } }
 @media (pointer: coarse) { .wb-shell button, .wb-shell select { min-height: 40px; } .wb-shell :is(#playButton, .wb-deck-play) { min-height: 48px !important; min-width: 48px; } .wobblini-page #audioButton { min-width: 48px; min-height: 48px; } .wb-shell input[type="range"] { height: 32px; } .wb-shell .wb-seek { height: 24px !important; } .wb-detail summary { padding-block: 13px; } }
-@media (prefers-reduced-motion: reduce) { .wb-deck { transition: none; } }
 
 /* Compact, icon-only controls share accessible labels and hover titles. */
 .wb-shell button, .wb-dialog button { display: inline-flex; align-items: center; justify-content: center; gap: 0; }
@@ -162,15 +156,13 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-detail summary { justify-content: flex-start; padding: 5px 0; }
 .wb-toolbar { gap: 6px; padding-bottom: 12px; }
 .wb-toolbar .wb-play-all { min-width: 40px; min-height: 34px; }
-.wb-deck { padding: 10px; }
 .wb-deck-transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .wb-deck-transport button { padding: 4px; }
-.wb-deck-header { gap: 6px; }
 .wb-disc { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .wb-disc:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
 .wb-disc * { pointer-events: none; }
-.wb-record-label { display: none; }
-.is-scratching .wb-disc { cursor: grabbing; box-shadow: 0 0 0 2px var(--deck-color), 0 0 25px #ffffff0a; }
+.is-scratching .wb-disc { cursor: grabbing; }
+.is-scratching .wb-disc-needle::after { background: #fff; }
 .wb-shell .mz-tap-tempo { padding: 4px !important; min-width: 26px; }
 .wb-shell .mz-tap-tempo svg { width: 15px; height: 15px; }
 /* Records is a performance surface. Hidden controls remain in the same DOM so
@@ -178,28 +170,22 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-shell.is-records { max-width: 1320px; padding-top: 10px; }
 .is-records .wb-workspace { display: block; }
 .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(18px, 3vw, 42px); max-width: 1160px; margin: 18px auto 0; }
-.wb-shell.is-records :is(.wb-mixer, .wb-deck-header, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail, .wb-cue, .wb-set-cue) { display: none; }
+.wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail, .wb-cue, .wb-set-cue) { display: none; }
 .is-records .wb-deck { position: relative; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; }
 .is-records .wb-deck.is-dragover { outline-offset: 8px; }
 .is-records .wb-visual { display: block; margin: 0; }
 .is-records .wb-disc {
-  width: 100%; height: auto; aspect-ratio: 1; border: 5px solid #263039;
+  width: 100%; height: auto; aspect-ratio: 1; border: 0;
   background: conic-gradient(from 30deg, #ffffff00, #ffffff0e 15%, #ffffff00 26%, #ffffff00 50%, #ffffff0b 63%, #ffffff00 76%), repeating-radial-gradient(circle, #10151b 0 1px, #1b232a 1px 2px, #0c1116 2px 4px);
-  box-shadow: 0 0 0 1px #57616a, inset 0 0 0 2px #080b10, 0 8px 24px #0006;
 }
-.is-records .wb-disc::before { inset: 30%; opacity: 1; background: linear-gradient(#11192299, #111922dd), var(--deck-color); border: 1px solid #ffffff1a; }
+.is-records .wb-disc::before { inset: 30%; opacity: 1; background: linear-gradient(#11192299, #111922dd), var(--deck-color); }
 .is-records .wb-disc::after { display: none; }
 .is-records .wb-disc-needle { inset: 7px; border: 0; }
 .is-records .wb-disc-needle::after { top: 0; left: calc(50% - 1px); width: 2px; height: 22%; background: linear-gradient(var(--deck-color), var(--deck-color) 72%, transparent); }
-.is-records .wb-record-label { position: absolute; inset: 31%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 3px; text-align: center; overflow: hidden; color: #e9f1f3; }
-.is-records .wb-record-label > :first-child { font: 600 clamp(9px, 1.1vw, 14px)/1 ui-monospace, monospace; letter-spacing: .16em; }
-.is-records .wb-record-label > :last-child { font: 500 clamp(6px, .65vw, 9px)/1.2 var(--font-ui, sans-serif); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .is-records .wb-deck-transport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; pointer-events: none; }
 .is-records .wb-deck-play { pointer-events: auto; border: 0; border-radius: 50%; width: 38px; height: 38px; min-height: 38px; padding: 10px; color: #eff7fa; background: #0c141abb; }
 .is-records .wb-deck-play[aria-pressed="true"] { background: #0c141abb; color: var(--deck-color); }
 .is-records .wb-deck-play:hover { background: #060a0fee; color: #fff; }
-.is-records .is-playing .wb-disc { border-color: #35434c; box-shadow: 0 0 0 1px var(--deck-color), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
-.is-records .is-scratching .wb-disc { box-shadow: 0 0 0 2px var(--deck-color), inset 0 0 0 2px #080b10, 0 0 30px #ffffff12; }
 @media (max-width: 759px) {
   .wb-heading { flex-wrap: nowrap; gap: 6px; }
   .wb-title h1 { font-size: 25px; }
@@ -208,14 +194,10 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .wb-help { margin-left: 0; }
   .wb-shell.is-records { padding-inline: 14px; }
   .is-records .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; margin-top: 10px; }
-  .is-records .wb-record-label { inset: 22%; padding: 8px 3px; }
   .is-records .wb-disc::before { inset: 22%; }
-  .is-records .wb-record-label > :first-child { font-size: 9px; }
-  .is-records .wb-record-label > :last-child { font-size: 7px; }
 }
 @media (max-height: 500px) and (min-width: 600px) {
   .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: 8px; }
-  .is-records .wb-record-label { inset: 22%; padding: 8px 3px; }
   .is-records .wb-disc::before { inset: 22%; }
 }
 @media (pointer: coarse) { .is-records .wb-deck-play { width: 48px; height: 48px; } }
@@ -229,6 +211,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .is-records .wb-record-wave { display: block; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
 .is-records .wb-disc-needle { inset: 22%; }
 .is-records .wb-disc-needle::after { height: 14%; }
+.is-records .is-scratching .wb-disc-needle::after { background: #fff; }
 @media (max-width: 479px) {
   .is-records .wb-toolbar { gap: 6px; }
   .is-records .wb-toolbar > button { flex: 0; }
@@ -238,7 +221,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .is-records .wb-record-crossfade { width: 100%; margin-left: 0; gap: 14px; }
 }
 @media (max-width: 340px) {
-  .is-records .wb-record-label { inset: 16%; }
   .is-records .wb-disc::before { inset: 18%; }
   .is-records .wb-master-tempo > span { display: none; }
 }
@@ -256,7 +238,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 
 @supports (color: color-mix(in srgb, white, black)) {
   .is-records .wb-disc::before { background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--deck-color) 46%, #29303a), color-mix(in srgb, var(--deck-color) 22%, #111922)); }
-  .is-records .is-playing .wb-disc { box-shadow: 0 0 0 1px color-mix(in srgb, var(--deck-color) 65%, #57616a), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
 }
 @supports not (color: color-mix(in srgb, white, black)) {
   .wobblini-page { --accent-soft: #c5f0788c; --accent-glow: #c5f07838; }
