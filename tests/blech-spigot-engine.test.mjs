@@ -226,3 +226,23 @@ test('adoption rejects finished or missing samples and preserves file-program pl
   q.sources.dispose(); assert.equal(q.sources.adoptSample(q.engine.state.samples[0].id), null);
   await q.engine.dispose();
 });
+
+
+test('replaying an adopted source restores mixer settings even when the saved-pad sender omits them', async () => {
+  const q = setup(); let launches = 0;
+  const sources = createBlechSpigotEngine({ engine: q.engine, sendScore: (score, settings) => {
+    launches++;
+    const sample = q.engine.triggerSample(score.buffer, { name: settings.name, channel: settings.channel, gain: settings.gain,
+      program: settings.program === 'original' ? null : settings.program, loop: settings.loop });
+    return { ...score, sampleId: sample.id };
+  } });
+  const sample = q.engine.triggerSample(score().buffer, { loop: true, gain: .28, channel: 4, pan: .65, muted: true, solo: true, sync: false,
+    midi: { program: 21, controllers: { 74: 45 }, gain: .5 } });
+  const before = q.engine.state.samples[0], layer = sources.adoptSample(sample.id);
+  assert.equal(launches, 0, 'selection never invokes the score sender');
+  q.engine.stopSample(sample.id); sources.togglePlay(layer.id);
+  const replay = q.engine.state.samples[0]; assert.equal(launches, 1); assert.equal(q.engine.state.samples.length, 1);
+  for (const key of ['gain', 'channel', 'pan', 'muted', 'solo', 'sync', 'loop']) assert.equal(replay[key], before[key], key);
+  assert.deepEqual(replay.midi, before.midi); assert.equal(replay.positionBeats, 0); assert.equal(replay.paused, false);
+  assert.equal(q.contexts(), 0); sources.dispose(); await q.engine.dispose();
+});

@@ -46,6 +46,10 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     // existing Text editor's authored-layout resize contract.
     const sent = sendScore(record.score, { ...settings, name: record.name, source: record.source, transpose: 0, authoredTranspose: settings.transpose, sourceRotationDegrees: settings.rotationDegrees, channel: settings.channel, quantize: false });
     if (!sent?.sampleId) return null;
+    // The saved-pad sender owns score/patch/gain, but its compact API does not
+    // forward every layer mixer option. Restore those on this same new sample.
+    const mix = Object.fromEntries(['pan', 'muted', 'solo', 'midi', 'sync'].filter(key => settings[key] !== undefined).map(key => [key, settings[key]]));
+    if (Object.keys(mix).length) engine.configureSample(sent.sampleId, mix);
     record.sampleId = sent.sampleId; record.lastSample = sampleFor(record); record.pendingEdit = false; return sent;
   }
   function create(sourceScore, settings = {}) {
