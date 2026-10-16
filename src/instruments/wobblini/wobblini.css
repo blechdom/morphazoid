@@ -237,6 +237,11 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .is-records .wb-toolbar .wb-play-all { flex: 0; }
   .is-records .wb-record-crossfade { width: 100%; margin-left: 0; gap: 14px; }
 }
+@media (max-width: 340px) {
+  .is-records .wb-record-label { inset: 16%; }
+  .is-records .wb-disc::before { inset: 18%; }
+  .is-records .wb-master-tempo > span { display: none; }
+}
 /* Keep the records clear of notches/home indicators. Native form text at 16px
    prevents iOS from zooming the page when editing a deck's tempo or loop. */
 @media (pointer: coarse) {

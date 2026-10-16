@@ -54,7 +54,11 @@ The causal chain is file/demo samples → hand-controlled record or transport
 position → signed sample playback/rate/loop → EQ/filter/wobble → level/pan/solo → crossfader → master output.
 The instrument has eight decks, bounded source replacement fades, smoothed
 parameters, and protected master output. Graphics run at a maximum of 30 fps
-and device-pixel ratio 2; sample playback and modulation run in Web Audio,
+and device-pixel ratio 2 (20 fps and ratio 1 on touch/constrained devices);
+offscreen records and unchanged waveforms do not redraw. Circular waveform
+geometry is cached, and reduced-motion preferences stop automatic platter
+rotation while preserving direct scratching and the file-position indicator.
+Sample playback and modulation run in Web Audio,
 independently of animation frames. Scratching uses signed interpolated PCM
 in an AudioWorklet, with bounded velocity and release ramps; it requires
 AudioWorklet support in a secure context (HTTPS or localhost). Normal playback
@@ -63,10 +67,45 @@ output connection, pointer/event handlers and animation loop.
 
 Files must be supported by the browser's audio decoder. Import bounds are
 64 MB encoded per file, ten minutes, one or two channels, 64 MB decoded per
-deck and 192 MB decoded across the session. A failed import keeps the previous
+deck and 192 MB decoded across the session on the standard profile. A failed import keeps the previous
 deck. Source BPM is an editable assumption (120 initially), not an analysis.
 The shared MIDI controls expose general parameter/transport integration;
 dedicated DJ controller mappings and MIDI Learn are not implemented.
+
+## iPhone and older phones
+
+The compatibility target is **iOS/iPadOS 15.4 or later in Safari**, over HTTPS.
+Safari introduced AudioWorklet in [iOS 14.5](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/);
+the shared controls also use features such as native dialogs supported in
+[iOS 15.4](https://webkit.org/blog/12445/new-webkit-features-in-safari-15-4/).
+This is an API compatibility target, not a measured guarantee for every device.
+Current Linux WebKit automation is separate from testing Safari on an actual
+older iPhone. Native Safari does not provide Web MIDI.
+
+Coarse-pointer devices, devices reporting at most 4 GB RAM, and devices reporting
+at most four logical processors automatically use a constrained profile. It
+keeps all eight decks, decodes imports at 32 kHz, limits encoded files and decoded
+tracks to 16 MiB each, and gives loaded-track PCM a 64 MiB budget across the
+session. Use short clips or mono files to fit more audio. Scratch windows and
+replacement fades add bounded storage, and the browser decoder can temporarily
+allocate more before a decoded file's size is known. The standard profile uses
+48 kHz and the larger limits above.
+
+Before mobile decoding, a metadata-only reader checks that the duration could
+fit even as mono PCM (at most about 131 seconds with an empty track slot).
+An unreadable duration or overlong clip is rejected before native decoding;
+the previous track stays playable. Actual decoded channel and byte limits
+still apply, so stereo clips may need to be shorter. Replacing an import or
+leaving the page cancels metadata inspection and releases its temporary URL.
+
+Scratching transfers only two seconds of PCM at a time, retaining at most two
+windows per held deck, instead of copying an entire track at each touch.
+Native playback remains independent of main-thread drawing. Scratch refills
+still need the main thread; long browser stalls can exhaust the available
+window. After a phone call, backgrounding or another audio interruption, return
+to the page and explicitly tap Audio to resume. Touch transport targets remain
+48 px, tempo fields avoid Safari's automatic input zoom, and the layout accounts
+for safe-area insets. The compact Records view is the lightest performance view.
 
 This is an original MVP inspired by the observable mixing workflow of
 [Algoriddim djay for iOS](https://www.algoriddim.com/djay-ios) and its
