@@ -13,6 +13,45 @@ export const WOBBLINI_RESOURCE_LIMITS = Object.freeze({
   constrained: Object.freeze({ fileBytes: 16 * 1024 * 1024, deckBytes: 16 * 1024 * 1024,
     bufferBytes: 64 * 1024 * 1024, decodeSampleRate: 32000 }),
 });
+const DURATION_ERROR = "Could not inspect this file's duration. Try a shorter WAV, MP3 or M4A clip.";
+
+/** Metadata only: never plays media or creates an audible audio context. */
+export function readWobbliniFileDuration(file, { signal, timeoutMs = 10000,
+  document = globalThis.document, url = globalThis.URL } = {}) {
+  return new Promise((resolve, reject) => {
+    const cancelled = () => new DOMException("Audio file inspection cancelled.", "AbortError");
+    if (signal?.aborted) { reject(cancelled()); return; }
+    let audio, objectUrl, timer, settled = false;
+    const finish = (error, duration) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      if (audio) {
+        audio.removeEventListener("loadedmetadata", loaded);
+        audio.removeEventListener("error", failed);
+        audio.removeAttribute("src");
+        try { audio.load(); } catch { /* Release a failed metadata reader. */ }
+      }
+      if (objectUrl) url.revokeObjectURL(objectUrl);
+      if (error) reject(error); else resolve(duration);
+    };
+    const abort = () => finish(cancelled());
+    const failed = () => finish(new Error(DURATION_ERROR));
+    const loaded = () => {
+      const duration = audio.duration;
+      if (!Number.isFinite(duration) || duration <= 0) failed(); else finish(null, duration);
+    };
+    try {
+      audio = document.createElement("audio"); audio.preload = "metadata";
+      audio.addEventListener("loadedmetadata", loaded);
+      audio.addEventListener("error", failed);
+      signal?.addEventListener("abort", abort, { once: true });
+      timer = setTimeout(failed, timeoutMs);
+      objectUrl = url.createObjectURL(file); audio.src = objectUrl; audio.load();
+    } catch { failed(); }
+  });
+}
+
 const SAFETY_CURVE = Float32Array.from({ length: 4097 }, (_, index) => {
   const sample = index / 2048 - 1, level = Math.abs(sample);
   return Math.sign(sample) * (level <= 0.8 ? level : 0.8 + 0.17 * (1 - Math.exp(-(level - 0.8) / 0.17)));
@@ -38,7 +77,7 @@ export class WobbliniAudio {
       const Constructor = globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext;
       if (!Constructor) throw new Error("This browser cannot decode local audio files.");
       return new Constructor(2, 1, sampleRate);
-    }, outputConnector = connectAudioOutput,
+    }, metadataReader = readWobbliniFileDuration, outputConnector = connectAudioOutput,
     scratchFactory = async context => {
       if (!context.audioWorklet || !globalThis.AudioWorkletNode) return null;
       await context.audioWorklet.addModule(new URL("./wobblini-scratch-processor.js", import.meta.url));
@@ -50,7 +89,7 @@ export class WobbliniAudio {
     this.onChange = onChange; this.onError = onError; this.wallTime = now;
     this.resourceProfile = resourceProfile === "constrained" ? "constrained" : "standard";
     this.limits = WOBBLINI_RESOURCE_LIMITS[this.resourceProfile];
-    this.contextFactory = contextFactory; this.decodeContextFactory = decodeContextFactory; this.outputConnector = outputConnector;
+    this.contextFactory = contextFactory; this.decodeContextFactory = decodeContextFactory; this.metadataReader = metadataReader; this.outputConnector = outputConnector;
     this.context = null; this.graph = null; this.release = null; this.armed = false;
     this.requestedAudio = false; this.disposed = false; this.generation = 0; this.armPromise = null;
     this.decodeQueue = Promise.resolve(); this.wobbleClock = null;
@@ -61,7 +100,7 @@ export class WobbliniAudio {
       return { state: { ...createDeckState(id), anchorTime: this.wallTime() },
         samples: demo.samples, sampleRate: demo.sampleRate, buffer: null,
         peaks: waveformPeaks([demo.samples]), graph: null, source: null, retiring: new Set(), generation: 0,
-        scratch: null, scratchGeneration: 0 };
+        scratch: null, scratchGeneration: 0, importAbort: null };
     });
     this.handleContextState = () => {
       if (!this.armed || this.disposed || this.context?.state === "running") return;
@@ -425,14 +464,30 @@ export class WobbliniAudio {
   loadDemo(index) {
     if (this.disposed) return false;
     const deck = this._deck(index); ++deck.generation;
+    deck.importAbort?.abort(); deck.importAbort = null;
     const data = createDemoSamples(index), demo = WOBBLINI_DEMOS[index];
     this._replace(deck, { ...data, name: demo.name, kind: "demo", peaks: waveformPeaks([data.samples]) }); return true;
   }
-  _decodeFile(file, valid) {
+  _otherBufferBytes(deck) {
+    return this.decks.reduce((total, item) => total + (item === deck ? 0 : item.buffer
+      ? item.buffer.length * item.buffer.numberOfChannels * 4 : item.samples?.byteLength ?? 0), 0);
+  }
+  _decodeFile(file, valid, deck, signal) {
     // One decode at a time bounds temporary memory; stale queued requests never
     // read their files. Native decode itself cannot be cancelled once started.
     const pending = this.decodeQueue.then(async () => {
       if (!valid()) return null;
+      if (this.resourceProfile === "constrained") {
+        const duration = await this.metadataReader(file, { signal });
+        if (!valid()) return null;
+        if (!Number.isFinite(duration) || duration <= 0) throw new Error(DURATION_ERROR);
+        // Mono is the least PCM a supported file can require. Do not reject a
+        // valid longer mono clip using a stereo estimate; actual bytes/channels
+        // are still checked after decode. This is not a native peak-memory cap.
+        const available = Math.max(0, Math.min(this.limits.deckBytes, this.limits.bufferBytes - this._otherBufferBytes(deck)));
+        const maxSeconds = Math.min(600, available / (this.limits.decodeSampleRate * 4));
+        if (duration > maxSeconds) throw new Error(`This file is too long for the current import budget. Choose a clip under ${Math.floor(maxSeconds)} seconds or free another deck; stereo clips may need to be shorter.`);
+      }
       const data = await file.arrayBuffer();
       if (!valid()) return null;
       const decoder = this.decodeContextFactory(this.limits.decodeSampleRate);
@@ -444,18 +499,20 @@ export class WobbliniAudio {
   async loadFile(index, file) {
     if (this.disposed) return false;
     const deck = this._deck(index), attempt = ++deck.generation;
+    deck.importAbort?.abort(); deck.importAbort = null;
     if (!file?.arrayBuffer || !Number.isFinite(file.size) || file.size <= 0 || file.size > this.limits.fileBytes) {
       deck.state.loading = false; this._notify();
       throw new Error(`Choose an audio file smaller than ${this.limits.fileBytes / 1024 / 1024} MB.`);
     }
+    const inspection = this.resourceProfile === "constrained" ? new AbortController() : null;
+    deck.importAbort = inspection;
     deck.state.loading = true; this._notify();
     try {
       // Offline decoding never creates/resumes the audible context.
-      const buffer = await this._decodeFile(file, () => !this.disposed && attempt === deck.generation);
+      const buffer = await this._decodeFile(file, () => !this.disposed && attempt === deck.generation, deck, inspection?.signal);
       if (this.disposed || attempt !== deck.generation) return false;
       const bytes = buffer.length * buffer.numberOfChannels * 4;
-      const otherBytes = this.decks.reduce((total, item) => total + (item === deck ? 0 : item.buffer
-        ? item.buffer.length * item.buffer.numberOfChannels * 4 : item.samples?.byteLength ?? 0), 0);
+      const otherBytes = this._otherBufferBytes(deck);
       if (!Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 600 ||
           !Number.isFinite(bytes) || bytes > this.limits.deckBytes || otherBytes + bytes > this.limits.bufferBytes ||
           buffer.numberOfChannels < 1 || buffer.numberOfChannels > 2) {
@@ -473,6 +530,7 @@ export class WobbliniAudio {
       if (this.disposed || attempt !== deck.generation) return false;
       throw new Error(error?.message || "This browser could not decode that audio file.");
     } finally {
+      if (deck.importAbort === inspection) deck.importAbort = null;
       if (!this.disposed && attempt === deck.generation) { deck.state.loading = false; this._notify(); }
     }
   }
@@ -492,6 +550,7 @@ export class WobbliniAudio {
     for (const deck of this.decks) {
       this._cancelScratch(deck);
       ++deck.generation; deck.state.playing = false; deck.state.loading = false;
+      deck.importAbort?.abort(); deck.importAbort = null;
       this._stopSource(deck, true);
       for (const record of [...deck.retiring]) { try { record.source.stop(); } catch { /* Ended. */ } this._releaseSource(deck, record); }
       for (const node of Object.values(deck.graph ?? {})) disconnect(node);

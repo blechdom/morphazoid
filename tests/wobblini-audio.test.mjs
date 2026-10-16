@@ -41,6 +41,7 @@ function harness(options = {}) {
     decodeContextFactory: () => { decodes++; return { decodeAudioData: async () => buffer() }; },
     scratchFactory: async () => add({ port: { messages: [], closed: false,
       postMessage(message) { this.messages.push(message); }, close() { this.closed = true; } } }),
+    metadataReader: async () => 8,
     outputConnector: (...args) => { outputs.push(args); return () => releases++; },
     now: () => wall, onError: error => errors.push(error), ...options });
   return { engine, context, sources, nodes, errors, outputs, setWall(value) { wall = value; },
@@ -340,4 +341,53 @@ test("Wobblini cannot claim Audio is armed when a browser remains interrupted af
   assert.equal(h.engine.armed, false); assert.equal(h.outputs.length, 0);
   h.context.resume = async () => { h.context.state = "running"; };
   assert.equal(await h.engine.arm(), true); await h.engine.dispose();
+});
+
+
+test("Wobblini constrained preflight rejects long compressed imports before reading or decoding PCM", async () => {
+  let reads = 0, decodes = 0, inspections = 0;
+  const h = harness({ resourceProfile: "constrained", metadataReader: async () => { inspections++; return 600; },
+    decodeContextFactory: () => { decodes++; return { decodeAudioData: async () => buffer() }; } });
+  await assert.rejects(h.engine.loadFile(0, { ...file(), arrayBuffer: async () => { reads++; return new ArrayBuffer(10); } }), /under 131 seconds/);
+  assert.equal(inspections, 1); assert.equal(reads, 0); assert.equal(decodes, 0); assert.equal(h.creates, 0);
+  assert.equal(h.engine.getDeckState(0).kind, "demo"); assert.equal(h.engine.getDeckState(0).loading, false);
+  h.engine.metadataReader = async () => { throw new Error("Could not inspect duration; choose a shorter clip."); };
+  await assert.rejects(h.engine.loadFile(0, file()), /shorter clip/);
+  assert.equal(decodes, 0); await h.engine.dispose();
+});
+
+test("Wobblini constrained preflight admits longer mono clips and uses remaining session memory", async () => {
+  let duration = 100, decodes = 0;
+  const h = harness({ resourceProfile: "constrained", metadataReader: async () => duration,
+    decodeContextFactory: sampleRate => ({ decodeAudioData: async () => { decodes++; return buffer(duration, sampleRate, 1); } }) });
+  await h.engine.loadFile(0, file("Long mono.wav")); assert.equal(h.engine.getDeckState(0).duration, 100);
+  for (const index of [1, 2, 3]) await h.engine.loadFile(index, file());
+  duration = 120;
+  await assert.rejects(h.engine.loadFile(4, file()), /under 106 seconds/);
+  assert.equal(decodes, 4, "remaining memory rejects before native decode");
+  assert.equal(h.engine.getDeckState(4).kind, "demo");
+  await h.engine.dispose();
+});
+
+test("Wobblini new imports, demo replacement and disposal cancel stale metadata readers", async () => {
+  const signals = [], h = harness({ resourceProfile: "constrained", metadataReader: (_file, { signal }) => {
+    signals.push(signal);
+    return new Promise((resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true }));
+  } });
+  const first = h.engine.loadFile(0, file()); await new Promise(resolve => setImmediate(resolve));
+  h.engine.metadataReader = async () => 8;
+  const replacement = h.engine.loadFile(0, file("Replacement.wav"));
+  assert.equal(await first, false); assert.equal(signals[0].aborted, true); assert.equal(await replacement, true);
+  assert.equal(h.engine.getDeckState(0).name, "Replacement.wav");
+  h.engine.metadataReader = (_file, { signal }) => { signals.push(signal); return new Promise((resolve, reject) => signal.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true })); };
+  const second = h.engine.loadFile(1, file()); await new Promise(resolve => setImmediate(resolve));
+  h.engine.loadDemo(1); assert.equal(await second, false); assert.equal(signals[1].aborted, true);
+  const third = h.engine.loadFile(2, file()); await new Promise(resolve => setImmediate(resolve));
+  await h.engine.dispose(); assert.equal(await third, false); assert.equal(signals[2].aborted, true);
+  assert.equal(h.creates, 0);
+});
+
+test("Wobblini standard imports skip metadata preflight entirely", async () => {
+  const h = harness({ metadataReader: () => { throw new Error("Unexpected metadata request"); } });
+  assert.equal(await h.engine.loadFile(0, file()), true); assert.equal(h.decodes, 1); await h.engine.dispose();
 });
