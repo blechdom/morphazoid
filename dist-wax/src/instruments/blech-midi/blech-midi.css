@@ -583,7 +583,8 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 
 @media (max-width: 700px) {
   .blech-midi-stage { overflow-y: auto; overscroll-behavior: contain; }
-  .blech-midi-stage > .blech-file-player { flex: 1 0 240px; min-height: 240px; }
+  .blech-midi-stage > .blech-file-player { flex: 1 1 120px; min-height: 120px; }
+  .blech-midi-stage > .blech-live-strip { flex: 0 1 auto; min-height: 82px; }
 }
 @media (pointer: coarse) {
   .blech-midi-workspace .blech-drop-overlay .blech-drop-resize { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
