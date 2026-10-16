@@ -550,6 +550,21 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-live-layer .blech-layer-dial .mixer-range-knob > .mz-range-knob__dial { top: 2px; width: 24px; height: 24px; }
 .blech-live-layer .blech-layer-dial .mixer-range-knob > input { min-height: 0; }
 .blech-live-layer .blech-layer-channel select { width: 46px; min-width: 0; height: 28px; min-height: 28px; padding: 2px; background: #111916; color: #d5e1df; border: 1px solid #34493c; border-radius: 0; font-size: 10px; }
+.blech-live-layer > [data-layer-settings][aria-expanded="true"] { color: #07110b; background: #96f4cc; }
+.blech-layer-editor { position: sticky; left: 0; display: grid; flex: 0 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px 8px; width: 100%; min-width: 0; padding: 6px; box-sizing: border-box; background: #16241d; }
+.blech-layer-editor[hidden] { display: none; }
+.blech-preparation > .blech-live-strip:has(.blech-layer-editor:not([hidden])) { max-height: min(320px, 45dvh); }
+.blech-layer-editor-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.blech-layer-editor-heading strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c9ffe6; font-size: 10px; }
+.blech-layer-editor-heading button { flex: 0 0 24px; min-width: 24px; width: 24px; height: 24px; min-height: 24px; padding: 0; font-size: 18px; }
+.blech-layer-editor > label { display: grid; gap: 3px; min-width: 0; margin: 0; color: #a7bdb2; font-size: 10px; }
+.blech-layer-editor input[type="number"], .blech-layer-editor select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 28px; height: 28px; padding: 3px; border: 1px solid #34493c; border-radius: 0; background: #101a14; color: #e1f0e8; font-size: 11px; }
+.blech-layer-editor > output { grid-column: 1 / -1; color: #f0ae94; font-size: 10px; }
+.blech-layer-editor > output:empty { display: none; }
+@media (pointer: coarse) {
+  .blech-layer-editor input[type="number"], .blech-layer-editor select, .blech-layer-editor-heading button { min-height: 48px; height: 48px; }
+  .blech-layer-editor-heading button { flex-basis: 48px; min-width: 48px; width: 48px; }
+}
 #blechSavedDrops { margin-bottom: 16px; font-size: 11px; }
 #blechSavedDrops > summary { cursor: pointer; padding: 8px 0; }
 #blechSavedDrops .mixer-saved-bank { display: grid; gap: 5px; grid-template-columns: 1fr; margin-top: 8px; }
@@ -584,7 +599,10 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 @media (max-width: 700px) {
   .blech-midi-stage { overflow-y: auto; overscroll-behavior: contain; }
   .blech-midi-stage > .blech-file-player { flex: 1 1 120px; min-height: 120px; }
-  .blech-midi-stage > .blech-live-strip { flex: 0 1 auto; min-height: 82px; }
+  /* New layers scroll in place; adding one must not move the drawing keyboard
+     between the first and second click of a sustained-note gesture. */
+  .blech-midi-stage > .blech-live-strip { flex: 0 0 88px; min-height: 88px; max-height: 88px; }
+  .blech-midi-stage > .blech-live-strip:has(.blech-layer-editor:not([hidden])) { flex-basis: 148px; min-height: 148px; max-height: 148px; }
 }
 @media (pointer: coarse) {
   .blech-midi-workspace .blech-drop-overlay .blech-drop-resize { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }

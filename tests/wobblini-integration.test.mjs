@@ -11,6 +11,7 @@ import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { restoreWobbliniSite, wobbliniSiteChanges } from './helpers/wobblini-site-reference.mjs';
 import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
+import { restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
@@ -70,6 +71,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
     'assets/instruments/wobblini.webp', 'docs/wobblini.md',
     'src/instruments/wobblini/wobblini-app.js', 'src/instruments/wobblini/wobblini.css',
     'src/instruments/wobblini/wobblini-audio.js', 'src/instruments/wobblini/wobblini-model.js',
+    'src/instruments/wobblini/wobblini-geometry-model.js', 'src/instruments/wobblini/wobblini-mixer.js',
     'src/instruments/wobblini/wobblini-scratch-model.js', 'src/instruments/wobblini/wobblini-scratch-processor.js',
   ]) assert.deepEqual(entries.filter(entry => entry.path === file).map(entry => entry.policy), ['copy+require'], file);
   assert.equal(entries.some(entry => entry.path === 'src/pages/wobblini.html'), false, 'canonical pages use the page manifest');
@@ -78,7 +80,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
 test('Wobblini additions preserve preceding source bytes and reject missing, repeated or altered amendments', async () => {
   assert.match(wobbliniSiteChanges.baseCommit, /^876f074b[0-9a-f]{32}$/);
   for (const change of wobbliniSiteChanges.changes) {
-    const source = restoreWipRolloutSite(await readFile(new URL(change.file, root), 'utf8'), change.file);
+    const source = restoreEsi32Site(restoreWipRolloutSite(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file, { allowRestored: true });
     const restored = restoreWobbliniSite(source, change.file);
     assert.equal(digest(restored, change.file), change.sha256, change.file);
     assert.equal(restoreWobbliniSite(restored, change.file, { allowRestored: true }), restored);

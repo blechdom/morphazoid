@@ -9,6 +9,7 @@ import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { FAVE_TOOL_IDS } from '../src/site/instrument-registry.js';
 import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
+import { restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-site-reference.mjs';
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
@@ -85,10 +86,13 @@ test('the Math category amendment restores the exact preceding main bytes and pe
   assert.deepEqual(math.changes.map(change => change.file), ['src/site/instrument-registry.js', 'src/site/catalogue-taxonomy.js', 'style.css', 'README.md', 'src/pages/graphonic-calculator.html']);
   for (const change of math.changes) {
     const url = new URL(change.file, root);
-    const source = await readFile(url, 'utf8');
+    // The parallel ESI-32 addition is proved against the same independent baseline.
+    const source = restoreEsi32Site(await readFile(url, 'utf8'), change.file, { allowRestored: true });
     const restored = restoreMath(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-Math source preserved`);
-    assert.equal(await readGraphonicCalculatorMathSiteReference(url, 'utf8'), restored);
+    const mathOnly = await readGraphonicCalculatorMathSiteReference(url, 'utf8');
+    assert.equal(mathOnly, restoreMath(await readFile(url, 'utf8'), change.file), 'the Math reader preserves parallel feature additions');
+    assert.equal(restoreEsi32Site(mathOnly, change.file, { allowRestored: true }), restored);
     assert.equal(restoreMath(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreMath(restored, change.file), /exact Graphonic Calculator Math site amendment/);
     for (const { after } of change.replacements) assert.match(after, /math|Math|region/);

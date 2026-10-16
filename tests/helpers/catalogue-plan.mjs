@@ -9,6 +9,7 @@ export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.cate
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
   // October 15 owner request: an eight-deck browser DJ MVP named Wobblini.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',

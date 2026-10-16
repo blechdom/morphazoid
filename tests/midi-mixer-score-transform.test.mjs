@@ -102,3 +102,23 @@ test('drop routing uses zero-based MIDI channels including percussion and the fi
     assert.equal(result.analysis.channels[0].drums, channel === 9);
   }
 });
+
+
+test('erasing paired notes preserves remaining gates, controllers, ports, tempo and metadata', () => {
+  const original = midi([
+    [[0, 255, 3, 4, 84, 101, 115, 116], [0, 240, 3, 1, 2, 247], [0, 255, 81, 3, 7, 161, 32], [0, 255, 33, 1, 2],
+      [0, 192, 48], [0, 176, 64, 127], [0, 144, 60, 40], [1, 144, 60, 70], [2, 224, 10, 65],
+      [3, 128, 60, 21], [4, 128, 60, 33], [5, 176, 64, 0]],
+    [[0, 153, 36, 99], [2, 137, 36, 4]],
+  ]);
+  const before = parseMidi(original), removed = before.notes.find(note => note.velocity === 40);
+  const result = transformMidiStamp(original, { removeNoteIds: [removed.id] }), after = result.analysis;
+  assert.equal(result.removedNoteCount, 1); assert.equal(after.noteCount, before.noteCount - 1);
+  const shape = ({ channel, note, beat, duration, velocity }) => ({ channel, note, beat, duration, velocity });
+  assert.deepEqual(after.notes.map(shape), before.notes.filter(note => note.id !== removed.id).map(shape));
+  assert.deepEqual(controls(after), controls(before)); assert.deepEqual(after.tempoMap, before.tempoMap);
+  assert.equal(after.durationBeats, before.durationBeats);
+  const output = Buffer.from(result.buffer);
+  assert.ok(output.includes(Buffer.from([255, 3, 4, 84, 101, 115, 116])));
+  assert.ok(output.includes(Buffer.from([240, 3, 1, 2, 247])));
+});

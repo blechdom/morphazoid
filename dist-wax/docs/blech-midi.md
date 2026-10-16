@@ -51,18 +51,35 @@ None of these actions arms Audio: use the masthead Audio control explicitly.
 
 ## Spigots and the playable falling canvas
 
-The stage has three gesture modes: **Select**, **Stamp** and **Draw**. Select
-keeps preparation and layer editing available. Stamp places the current
-prepared pattern directly above the keyboard. Draw makes a stream of notes as
-you hold and move the pointer; holding still repeats the same pitch. These
-gestures start a source without a second Drop action. A higher placement gives
-notes more time to fall before sounding. The keyboard remains a separate
-playable surface.
+The stage toolbar has **Pencil**, **Eraser** and a **Stamp** thumbnail picker.
+There is no separate Select button: click a layer's name or activity map to edit
+its floating rectangle. The keyboard remains a separate playable surface.
 
-A gesture occupies one live layer. Repeating brushes retain up to 4,096 notes;
-dense, full-length or multiport patterns place one intact copy instead of
-repeating. Releasing normally honors Loop; cancelling the gesture finishes its
-committed notes once without starting a loop.
+**Pencil** turns each press-and-drag gesture into its own looping layer without a
+second Drop action. A quick click makes a 1/16-beat loop. Holding still for one
+master beat makes one sustained note in a one-beat loop; holding longer makes a
+longer note and loop. Moving across pitches records a timed sequence, including
+crossed pitches, rather than sounding every pitch as a chord. Vertical movement
+also changes note timing. Releasing finishes the capture and starts its loop,
+independently of the next Drop's **1 / Loop** setting. A higher starting position
+gives notes more time to fall before sounding.
+
+Double-click with Pencil to latch a single **Held note**. Its gate stays open
+without repeated attacks; an instrument such as piano may still decay naturally.
+Pause releases the note, and Resume rejoins it without another counted attack.
+Remove the layer with **×**, use Frames **Stop**, or use **Stop all** to end it.
+Turning Loop off does not release a held note.
+
+The **Stamp** icon opens a searchable thumbnail gallery. Choose a shape, then
+click above the keyboard to place it. Holding the pointer repeats the stamp into
+one longer phrase. Stamp gestures follow the prepared **1 / Loop** setting.
+Dense, full-length or multiport patterns place one intact copy instead of
+repeating. Pencil and repeating stamp captures retain up to 4,096 notes;
+cancelling a capture lets committed notes finish once without starting a loop.
+
+**Eraser** affects only the selected layer. Drag across its notes to remove the
+notes you touch; other layers keep playing. Erasing its last note removes the
+layer. Select another layer from the rack before erasing that layer.
 
 Each layer has one compact, single-line strip. Select its name or activity map
 to show that layer's floating **spigot** rectangle. Only the selected rectangle
@@ -74,15 +91,20 @@ span and phrase length, or turn its rotation handle to change the actual MIDI.
 These edits affect the running phrase immediately. Resizing retains its relative
 playback position; moving upward adds waiting time and moving downward brings
 notes forward without replaying past attacks. Other layers keep their clocks.
-Hover or focus the rectangle for its instrument, channel, volume and exact
-geometry controls; its transport buttons keep that popup closed. Its moving line
-shows the phrase position. Closing Loop lets
-the current pass finish; Play can start the layer again. Pause freezes its
-transport. Removing a layer with **×**, or using **Stop all**, stops it immediately.
+Its moving line shows the phrase position.
 
-Spigots retain their original source score, so repeated edits do not repeatedly
-round or distort the previous result. Instrument, channel, gain and pan remain
-per-layer controls. The shared tempo and explicit Audio control still apply.
+Open the layer strip's **gear** for exact pitch, delay in beats, width in notes,
+height in beats, rotation and instrument controls. The editor opens below that
+row inside the Layers rack; channel, volume and pan stay inline. Close it with
+its close button, Escape or a click outside. Hovering the canvas never opens a
+popup. Geometry and instrument edits affect the selected layer while the others
+continue independently.
+
+For repeating phrases, turning Loop off lets the current pass finish; Play can
+start the layer again. Pause freezes its transport. Removing a layer with **×**,
+or using **Stop all**, stops it immediately. Spigots retain their original source
+score, so repeated geometry edits do not repeatedly round or distort the previous
+result. The shared tempo and explicit Audio control still apply.
 
 **Frames** contains **Stamps**, **Drawing**, **Images**, **Scripts** and
 **Sequence**. Stamps uses a searchable thumbnail pulldown showing one selected
@@ -237,16 +259,19 @@ remains under **Saved drops** at the bottom of the page. Other layers, the
 full-file player and live Automata keep their own transport states.
 
 Each short channel strip contains **M** (mute), **S** (solo among dropped
-layers), **↻** (loop), a volume knob, a MIDI channel menu and a pan knob. Mute
-and solo silence layers while their timing keeps running; unmuting rejoins
+layers), **↻** (loop), a volume knob, a MIDI channel menu, a pan knob and a
+**gear** for geometry and instrument. Mute and solo silence layers while their
+timing keeps running; unmuting rejoins
 their current position. Multiple solo layers can play together. MIDI channel
 changes reroute that layer's notes and controllers without restarting it. Pan
 moves its sound left or right relative to the source MIDI pan. The tiny
 note-activity map tracks progress; muted strips turn grey.
 
-Each active layer has a **Loop** switch: switching it off finishes the current
+Each repeating layer has a **Loop** switch: switching it off finishes the current
 pass. **1 / Loop** in Send Drop sets the next copy's playback without changing
-existing layers. Stop ends a loop immediately.
+existing layers. Pencil captures start their own loops; a double-clicked Held
+note instead needs Pause, removal or Stop to release it. Stop ends a loop
+immediately.
 
 The rack holds four active, queued or paused layers. A fifth Drop replaces the
 oldest playing layer; paused layers are retained. If all four are paused, stop

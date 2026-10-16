@@ -65,6 +65,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "gesturama",
   ]),
   pitched: Object.freeze([
+    "esi-32",
     "bifurcator",
     "blobs",
     "synthesis",
@@ -196,6 +197,7 @@ const NOTE_MODE_IDS = Object.freeze({
 });
 
 export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
+  "esi-32",
   "midiphoria",
   "shape-synth",
   "recursive-fm",
@@ -209,6 +211,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "esi-32",
   "wobblini",
   "striped-staircase-rust",
   "trackazoid",
@@ -304,6 +307,7 @@ const processorAudioIds = new Set([
   "loopini",
 ]);
 const audioInputIds = new Set([
+  "esi-32",
   "fractal-delay",
   "l-systems",
   "moire-drone",

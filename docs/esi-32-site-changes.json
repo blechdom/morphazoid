@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "958ff9aeda623b8580be0d041476d8e37c943309",
+  "baseline": "Independent git show bytes from commit 958ff9aeda623b8580be0d041476d8e37c943309, captured before ESI-32 integration. Only the exact sampler catalogue, navigation, taxonomy, native MIDI, route, runtime, README and WAX additions are reversed; all prior reference hashes remain unchanged.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "e165408ba8a6e4830a22f19e711429e4073bbee9c83d3192cd34338c3089c2d9",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"sample-drums\", label: \"Sample Drums\", href: \"sample-drums.html\" },\n",
+          "after": "    { id: \"sample-drums\", label: \"Sample Drums\", href: \"sample-drums.html\" },\n    { id: \"esi-32\", label: \"ESI-32\", href: \"esi-32.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "36a1c316c773d78ff9f32bce117509b22c21fbfa341c60ca58f23dfdae1b68d4",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"sample-drums\": define(\n",
+          "after": "  \"esi-32\": define(\n    \"ESI-32-inspired digital sampler\",\n    \"Records microphone or audio-interface input and loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.\",\n    \"Enable Audio, hold a keyboard key or Audition, then drag waveform markers to trim or loop. Select a slot to load your own sound.\",\n    [\"Audio input\", \"Recording\", \"Audio file\", \"Computer keys\", \"MIDI input\", \"Sampler\", \"Presets\"],\n  ),\n  \"sample-drums\": define(\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "5d4cea0a1e2f81afe8b85961b3323e33139fb225b02ec801120ffd738ac477f2",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"sample-drums\": [\n",
+          "after": "  \"esi-32\": [\"synthesizer\"],\n  \"sample-drums\": [\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "9f2536b9b644f8fcfd0ce8022df42ab2ff39b6414cf44c86659987e6cf8a752b",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  pitched: Object.freeze([\n",
+          "after": "  pitched: Object.freeze([\n    \"esi-32\",\n"
+        },
+        {
+          "before": "export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([\n",
+          "after": "export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([\n  \"esi-32\",\n"
+        },
+        {
+          "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
+          "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"esi-32\",\n"
+        },
+        {
+          "before": "const audioInputIds = new Set([\n",
+          "after": "const audioInputIds = new Set([\n  \"esi-32\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  \"escher-tessellation.html\",\n",
+          "after": "  \"escher-tessellation.html\",\n  \"esi-32.html\",\n"
+        }
+      ],
+      "sha256": "bd0af4973078f1ec26cb73bd352d854a2a1c34b3fcf95f4945ad963744d5d670"
+    },
+    {
+      "file": "scripts/wax/wax-universal-adapter.js",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const EXISTING_MIDI_CLIENTS = new Set([\n",
+          "after": "const EXISTING_MIDI_CLIENTS = new Set([\n  \"esi-32\",\n"
+        }
+      ],
+      "sha256": "6e5e7de87c5a036236cc534a48911c5eb8fd00a98746f1937f52dce3d569becf"
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n",
+          "after": "copy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n\n# ESI-32-inspired sampler\ncopy+require\tesi-32.html\ncopy+require\tsrc/instruments/esi-32/esi-32-app.js\ncopy+require\tsrc/instruments/esi-32/esi-32-audio.js\ncopy+require\tsrc/instruments/esi-32/esi-32-model.js\ncopy+require\tsrc/instruments/esi-32/esi-32-files.js\ncopy+require\tsrc/instruments/esi-32/esi-32-recorder.js\ncopy+require\tsrc/instruments/esi-32/esi-32.css\ncopy+require\tassets/instruments/esi-32.webp\ncopy+require\tdocs/esi-32.md\n"
+        }
+      ],
+      "sha256": "199dd0cc37572cd5779e5d39d1c1745a90cb10d9deb623a47b18f9209d116ab0"
+    },
+    {
+      "file": "README.md",
+      "sha256": "36c136bb67421a34ab85d324a14c5a46d246c3b664587c41fa128383ff78d377",
+      "regressionTests": [
+        "tests/esi-32.test.mjs",
+        "e2e/esi-32.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "# Morphazoid\n\n",
+          "after": "# Morphazoid\n\n**[ESI-32](esi-32.html)** is an E-mu ESI-32-inspired sampler with eight sample slots, original demo sounds, local audio import, waveform trimming, forward loops, reverse, a resonant lowpass and envelopes. Play the two-row keyboard or MIDI and save complete banks with their audio. Audio starts off. [Controls and emulation limits](docs/esi-32.md).\n\n"
+        }
+      ]
+    }
+  ]
+}

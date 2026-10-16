@@ -1,5 +1,6 @@
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
+import { mountGeometricMixer } from "./wobblini-mixer.js";
 import { WobbliniAudio } from "./wobblini-audio.js";
 
 const $ = (id) => document.getElementById(id);
@@ -42,6 +43,12 @@ const icons = {
   dry: '<path d="M3 12h18M5 5l14 14"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   check: '<path d="m4 12 5 5L20 6"/>',
+  expand: '<path d="M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6"/>',
+  move: '<path d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4"/>',
+  rotate: '<path d="M20 8A9 9 0 1 0 21 15M20 2v6h-6"/>',
+  stretch: '<path d="M3 9V3h6m6 0h6v6M3 15v6h6m6 0h6v-6M3 3l6 6m6 6 6 6M21 3l-6 6M9 15l-6 6"/>',
+  polygon: '<path d="m8 3 8 0 5 5v8l-5 5H8l-5-5V8Z"/><circle cx="12" cy="12" r="2"/>',
+  undo: '<path d="m7 3-5 5 5 5M2 8h10a7 7 0 0 1 0 14"/>',
   crown: '<path d="m3 6 4 4 5-6 5 6 4-4-2 12H5ZM5 21h14"/>',
   lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
   gear: '<path d="m10 3-.6 3-2 .9-2.7-1-2 3.5 2.2 2v2.2l-2.2 2 2 3.5 2.7-1 2 .9.6 3h4l.6-3 2-.9 2.7 1 2-3.5-2.2-2v-2.2l2.2-2-2-3.5-2.7 1-2-.9L14 3Z"/><circle cx="12" cy="12" r="3"/>',
@@ -232,6 +239,7 @@ function editDeck(i) {
   if (tiny && selected === i) cards[i].root.scrollIntoView({ block: "nearest" });
 }
 function setView(next) {
+  geometry.close();
   if ($("deckSettings").open) $("deckSettings").close();
   for (const card of cards) card.release();
   view = next; tiny = next === "tiny"; selected = null;
@@ -349,6 +357,10 @@ on($("settingsSeek"), "input", (event) => { if (settingsDeck !== null) engine.se
 on($("settingsCue"), "click", () => { if (settingsDeck !== null) engine.cue(settingsDeck); });
 on($("settingsSetCue"), "click", () => { if (settingsDeck !== null) engine.setCue(settingsDeck); });
 
+const geometry = mountGeometricMixer({
+  root: $("geometryMixer"), dialog: $("geometryDialog"), launcher: $("geometryOpen"),
+  getState: () => engine.getState(), setMix: patches => engine.setDeckMix(patches), colors, icon, constrained,
+});
 const pad = $("wobble-pad"), padContext = pad.getContext("2d");
 function padMove(event) {
   const r = pad.getBoundingClientRect();
@@ -374,6 +386,7 @@ function render() {
   setIcon($("fileAccess"), filesUnlocked ? "lock" : "load", filesUnlocked ? "Lock file loading" : "Unlock file loading");
   $("loadDemos").disabled = !filesUnlocked;
   renderDeckSettings();
+  geometry.update(state.decks);
   $("playButton").setAttribute("aria-pressed", String(count > 0)); setIcon($("playButton"), count ? "pause" : "play", count ? "Pause all" : "Play all");
   $("syncAll").setAttribute("aria-pressed", String(!!state.syncAllEnabled));
   const syncErrors = state.decks.filter((d) => d.syncError);
@@ -585,6 +598,7 @@ function animate(now) {
 async function dispose() {
   if (disposed) return; disposed = true; audioAttempt++; abort.abort(); cancelAnimationFrame(frame); confirmation?.(false); confirmation = null;
   for (const knob of settingsKnobs) knob.destroy();
+  geometry.destroy();
   resizeObserver.disconnect(); visibilityObserver.disconnect(); strip.destroy?.(); await engine.dispose();
 }
 on(window, "pagehide", (event) => {

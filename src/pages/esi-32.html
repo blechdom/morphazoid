@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090e24" />
+  <meta name="description" content="An ESI-32-inspired sample instrument. Load, trim, loop and play local sounds with envelopes, resonant filtering and MIDI." />
+  <title>ESI-32 Sampler — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/esi-32/esi-32.css" />
+</head>
+<body class="esi-page">
+  <header class="masthead" data-audio-output-meter>
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="sample-drums.html">Sample Drums</a><a class="tab active" href="esi-32.html" aria-current="page">ESI-32</a><a class="tab" href="karplus-strong.html">Karplus Strong</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="sample-drums.html">Sample Drums</option><option value="esi-32.html" selected>ESI-32</option><option value="karplus-strong.html">Karplus Strong</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◖</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="output"><span><b>Output</b><output id="outputOut" for="output">60%</output></span><input id="output" aria-label="Output level" type="range" min="0" max="1" step=".01" value=".6" /></label>
+    </div>
+  </header>
+  <main class="esi-shell">
+    <section class="esi-instrument" aria-label="Sampler performance surface">
+      <div class="esi-faceplate">
+        <div class="esi-title"><p>MORPHAZOID / DIGITAL SAMPLER</p><h1>ESI-32</h1><span>Inspired by the E-mu ESI-32</span></div>
+        <div class="esi-lcd" role="status" aria-live="polite"><span id="lcdBank">01 / ORIGINAL DEMO BANK</span><strong id="lcdSample">Preparing samples</strong><span id="lcdStatus">Enable Audio · play the keys</span></div>
+        <div class="esi-actions"><button id="audition" type="button" data-primary-transport aria-pressed="false">▶ Audition</button><button id="panic" type="button">All notes off</button></div>
+      </div>
+      <div class="esi-wave-section">
+        <div class="esi-section-label"><span>SAMPLE EDIT</span><output id="sampleInfo">Original demo</output></div>
+        <canvas id="waveform" tabindex="0" role="slider" data-interactive-track aria-label="Sample trim start" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-describedby="waveHelp">Sample waveform. Use the labelled trim and loop controls to edit the sample boundaries.</canvas>
+        <p id="waveHelp" class="esi-hint">Drag a marker to trim or loop. Arrow keys move the start; Shift + arrows move the end.</p>
+        <div class="esi-wave-tools"><label class="esi-file-button">Load sample<input id="sampleFile" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg" disabled /></label><button id="exportSample" type="button" disabled>Export cut WAV</button><label class="esi-check"><input id="reverse" type="checkbox" /> Reverse</label><label class="esi-check"><input id="loopEnabled" type="checkbox" /> Loop</label></div>
+        <div id="trimControls" class="esi-trim-controls"></div>
+      </div>
+      <div class="esi-bank-section"><div class="esi-section-label"><span>SAMPLE BANK</span><span>SELECT A SLOT</span></div><div id="sampleSlots" class="esi-slots" role="group" aria-label="Sample slots"></div></div>
+      <div class="esi-key-section"><div class="esi-section-label"><span>KEYBOARD</span><div class="esi-octaves"><button id="octaveDown" type="button" aria-label="Lower keyboard octave">−</button><output id="octaveLabel">C3–B4</output><button id="octaveUp" type="button" aria-label="Raise keyboard octave">+</button></div></div><div id="keyboard" class="esi-keyboard" role="group" aria-label="Two octave sample keyboard"></div><p class="esi-hint">Hold a key to play · release to fade · computer keys work with Audio on · MIDI in Settings</p></div>
+    </section>
+    <aside class="esi-panel" data-instrument-preset-host aria-label="Sampler controls">
+      <section class="esi-recording" aria-label="Sample recording">
+        <h2>AUDIO INPUT</h2>
+        <div id="sampleInputControls"></div>
+        <label class="esi-device"><span>Audio input device</span><select id="inputDevice"><option value="">Default audio input</option></select></label>
+        <div class="esi-recording-actions"><button id="recordSample" type="button" aria-pressed="false" disabled>Record into slot 1</button></div>
+        <p id="recordingStatus" class="esi-hint" role="status">Enable Audio and connect your mic or audio input.</p>
+        <p class="esi-hint">Up to 60 seconds into the selected slot. Use the input meter to set gain, then record. Playback starts when you play the keys.</p>
+      </section>
+      <details class="esi-control-section" open><summary>Tuning &amp; output</summary><div id="tuningControls" class="esi-controls"></div></details>
+      <details class="esi-control-section" open><summary>Resonant lowpass</summary><div id="filterControls" class="esi-controls"></div></details>
+      <details class="esi-control-section" open><summary>Amplitude envelope</summary><div id="envelopeControls" class="esi-controls"></div></details>
+      <details class="esi-control-section"><summary>Pitch LFO</summary><div id="lfoControls" class="esi-controls"></div></details>
+      <div class="esi-bank-tools"><button id="saveBank" type="button" disabled>Save bank</button><label class="esi-file-button">Open bank<input id="bankFile" type="file" accept="application/json,.json" disabled /></label><button id="resetPatch" type="button" data-reset-control>Reset sound</button></div>
+      <p class="esi-hint">Files stay in your browser. Enable Audio to load or save samples. Save bank includes your samples and sound settings.</p>
+      <a class="esi-notes" href="docs/esi-32.md">Controls, original hardware &amp; model limits ↗</a>
+      <p id="audioError" class="esi-error" role="alert" hidden></p>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/esi-32/esi-32-app.js"></script>
+</body>
+</html>
