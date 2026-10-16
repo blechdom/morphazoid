@@ -22,7 +22,8 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
   assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['wip']);
   assert.deepEqual(item.tags.map(tag => tag.id), ['wip', 'app', 'looper', 'audio-effect']);
   assert.equal(FAVE_TOOL_IDS.includes(item.id), false);
-  assert.match(item.description, /eight local audio decks.*shared filter wobble/i);
+  assert.match(item.description, /eight local audio decks.*records forward and backward to scratch.*shared filter wobble/i);
+  assert.ok(item.features.includes('Scratching'));
   assert.doesNotMatch(item.description, /streaming|stem separation|time.stretch|automatic BPM/i);
   assert.match(item.start, /enable Audio/);
   assert.equal(CANONICAL_PAGE_ROUTES.filter(route => route === item.href).length, 1);
@@ -54,6 +55,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
     'assets/instruments/wobblini.webp', 'docs/wobblini.md',
     'src/instruments/wobblini/wobblini-app.js', 'src/instruments/wobblini/wobblini.css',
     'src/instruments/wobblini/wobblini-audio.js', 'src/instruments/wobblini/wobblini-model.js',
+    'src/instruments/wobblini/wobblini-scratch-model.js', 'src/instruments/wobblini/wobblini-scratch-processor.js',
   ]) assert.deepEqual(entries.filter(entry => entry.path === file).map(entry => entry.policy), ['copy+require'], file);
   assert.equal(entries.some(entry => entry.path === 'src/pages/wobblini.html'), false, 'canonical pages use the page manifest');
 });
