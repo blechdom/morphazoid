@@ -34,6 +34,7 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
   assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href).map(({ selector, mapping }) => ({ selector, mapping })), [
     { selector: '#master-bpm', mapping: { unit: 'bpm' } },
     { selector: '.deck-bpm', mapping: { unit: 'bpm' } },
+    ...Array.from({ length: 8 }, (_, index) => ({ selector: `#d${index}Rate`, mapping: { unit: 'multiplier', referenceSelector: `#d${index}Bpm` } })),
   ]);
 });
 
