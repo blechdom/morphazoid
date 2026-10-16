@@ -40,8 +40,8 @@ not request an external MIDI device.
 
 After Drop, the prepared overlay hides and the new layer appears in **Layers**,
 queued until its delay expires. The falling forecast then reaches the keyboard
-when its notes sound. A finished one-shot keeps its closed spigot and layer
-controls for replay; a loop continues until closed or stopped. Edit another
+when its notes sound. A finished one-shot keeps its layer controls for replay;
+a loop continues until closed or stopped. Edit another
 draft while that snapshot plays. The floating Loop
 and Drop controls perform the same actions as the strip. **Stop** in Send Drop
 ends that generator's layers; Frames includes all its subviews. Files Stop also
@@ -64,12 +64,20 @@ dense, full-length or multiport patterns place one intact copy instead of
 repeating. Releasing normally honors Loop; cancelling the gesture finishes its
 committed notes once without starting a loop.
 
-Each source has a persistent **spigot** on the stage. Select one to move its
-pitch and delay, resize its pitch span and phrase length, or rotate its actual
-MIDI. Multiple spigots can share the same stage. A loop edit takes effect on the
-next pass, preserving the current pass. Closing Loop lets that pass finish;
-Play can start the source again. Pause freezes its transport. Removing a
-source with **×**, or using **Stop all**, stops it immediately.
+Each layer has one compact, single-line strip. Select its name or activity map
+to show that layer's floating **spigot** rectangle. Only the selected rectangle
+is shown; the other layers keep playing. New drops select themselves. Choose a
+generator tab or the rectangle's checkmark to return to preparation.
+
+Drag the rectangle to change pitch and timing, resize its edges to change pitch
+span and phrase length, or turn its rotation handle to change the actual MIDI.
+These edits affect the running phrase immediately. Resizing retains its relative
+playback position; moving upward adds waiting time and moving downward brings
+notes forward without replaying past attacks. Other layers keep their clocks.
+Hover or focus the rectangle for its instrument, channel, volume and exact
+geometry controls. Its moving line shows the phrase position. Closing Loop lets
+the current pass finish; Play can start the layer again. Pause freezes its
+transport. Removing a layer with **×**, or using **Stop all**, stops it immediately.
 
 Spigots retain their original source score, so repeated edits do not repeatedly
 round or distort the previous result. Instrument, channel, gain and pan remain

@@ -34,9 +34,9 @@ export function transformBlechSpigot(score, settings = {}) {
 }
 
 /** Persistent emitter identity is independent of the four audible clip slots.
- * Parameter edits replace a looping phrase at its next boundary. A closed valve
+ * Parameter edits update the running phrase at its retained phase. A closed valve
  * finishes the current pass; opening it later launches the retained source. */
-export function createBlechSpigotEngine({ engine, sendScore = (score, settings) => ({ ...score, sampleId: engine.triggerSample(score.buffer, settings)?.id }), onChange = () => {}, onTransform = () => {} } = {}) {
+export function createBlechSpigotEngine({ engine, sendScore = (score, settings) => ({ ...score, sampleId: engine.triggerSample(score.buffer, { ...settings, program: settings.program === 'original' ? null : settings.program })?.id }), onChange = () => {}, onTransform = () => {} } = {}) {
   const sources = new Map(), strokes = new Map(); let serial = 0, disposed = false;
   const sampleFor = record => engine.state.samples.find(sample => sample.id === record.sampleId);
   function notify() { onChange(); }
@@ -46,6 +46,10 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     // existing Text editor's authored-layout resize contract.
     const sent = sendScore(record.score, { ...settings, name: record.name, source: record.source, transpose: 0, authoredTranspose: settings.transpose, sourceRotationDegrees: settings.rotationDegrees, channel: settings.channel, quantize: false });
     if (!sent?.sampleId) return null;
+    // The saved-pad sender owns score/patch/gain, but its compact API does not
+    // forward every layer mixer option. Restore those on this same new sample.
+    const mix = Object.fromEntries(['pan', 'muted', 'solo', 'midi', 'sync'].filter(key => settings[key] !== undefined).map(key => [key, settings[key]]));
+    if (Object.keys(mix).length) engine.configureSample(sent.sampleId, mix);
     record.sampleId = sent.sampleId; record.lastSample = sampleFor(record); record.pendingEdit = false; return sent;
   }
   function create(sourceScore, settings = {}) {
@@ -62,6 +66,26 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     record.settings.transpose = record.score.appliedTranspose;
     const sent = launch(record); if (!sent) return null;
     sources.set(record.id, record); notify(); return { ...record, ...sent, id: record.id };
+  }
+  /** Attach a saved-pad replay to the same layer identity without sending MIDI.
+   * Its already transformed score becomes a fresh geometric origin. */
+  function adoptSample(sampleId, sourceScore = null) {
+    if (disposed) return null;
+    const existing = bySample(sampleId); if (existing) return existing;
+    const audible = engine.getSampleScore(sampleId); if (!audible) return null;
+    const sample = engine.state.samples.find(item => item.id === sampleId); if (!sample) return null;
+    if (sources.size >= MAX_SOURCES) {
+      const idle = [...sources.values()].find(record => !sampleFor(record));
+      if (!idle) throw new Error('Close a source before adding another.');
+      sources.delete(idle.id);
+    }
+    const source = { ...(sourceScore ? copy(sourceScore) : {}), ...audible, pixels: undefined };
+    const settings = { transpose: 0, delayBeats: sample.delayBeats ?? 0, widthNotes: null, heightBeats: null, rotationDegrees: 0,
+      gain: sample.gain, pan: sample.pan, channel: sample.channel, program: sample.midi?.program ?? sample.program ?? 'original',
+      midi: copy(sample.midi), loop: sample.loop, sync: sample.sync, muted: sample.muted, solo: sample.solo };
+    const record = { id: `spigot-${++serial}`, sampleId, sourceScore: source, name: sample.name, source: sample.source || 'frames',
+      settings, score: transformBlechSpigot(source, settings), lastSample: sample, pendingEdit: false, expectedVersion: sample.scoreVersion };
+    sources.set(record.id, record); notify(); return record;
   }
   function getLayers() {
     const samples = engine.state.samples;
@@ -82,11 +106,11 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     settings.transpose = transformed.appliedTranspose;
     settings.delayBeats = clamp(settings.delayBeats, 0, 64, 0);
     const sample = sampleFor(record);
-    if (sample?.loop && !sample.paused) {
-      const next = engine.replaceSample(sample.id, transformed.buffer, { name: record.name, when: 'cycle-boundary', delayBeats: settings.delayBeats });
+    if (sample) {
+      const next = engine.replaceSample(sample.id, transformed.buffer, { name: record.name, when: 'live', delayBeats: settings.delayBeats });
       record.expectedVersion = next?.pendingReplacement?.token ?? next?.scoreVersion;
       record.pendingEdit = Boolean(next?.pendingReplacement);
-    } else record.pendingEdit = Boolean(sample);
+    } else record.pendingEdit = false;
     record.settings = settings; record.score = transformed; onTransform(record); notify(); return record;
   }
   function loop(id, enabled) {
@@ -181,6 +205,6 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     if (stroke.loop && !cancelled) loop(id, true);
     notify(); return true;
   }
-  return { create, edit, configure, loop, togglePlay, remove, bySample, forgetSample, adoptText, stopAll, getLayers, brushStart, brushMove, brushEnd,
+  return { create, adoptSample, edit, configure, loop, togglePlay, remove, bySample, forgetSample, adoptText, stopAll, getLayers, brushStart, brushMove, brushEnd,
     dispose() { disposed = true; strokes.clear(); sources.clear(); } };
 }
