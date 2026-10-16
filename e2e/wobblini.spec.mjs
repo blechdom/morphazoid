@@ -242,6 +242,41 @@ test("the shared recorder downloads a nonempty stereo mix without changing deck 
   expect((await state(page)).armed).toBe(true);
 });
 
+test("tiny decks and the focused editor preserve all eight live playheads and mixer settings", async ({ page }) => {
+  await demos(page);
+  await slider(page, "#d7Gain", 0.43);
+  await slider(page, "#crossfader", 0.2);
+  await page.locator("#playButton").click(); await arm(page);
+  await audible(page, 200);
+  const clocked = () => page.evaluate(async (url) => {
+    const { engine } = await import(url);
+    return { state: engine.getState(), time: engine.context.currentTime };
+  }, APP);
+  const before = await clocked();
+  await page.locator("#tinyView").click();
+  await expect(page.locator(".wb-shell")).toHaveClass(/is-tiny/);
+  await expect(page.locator(".wb-deck")).toHaveCount(8);
+  await page.locator("#d7Edit").click();
+  await expect(page.locator("#deck7")).toHaveClass(/is-selected/);
+  await expect(page.locator("#d7Rate")).toBeVisible();
+  await expect(page.locator("#d7Loop")).toBeVisible();
+  await page.locator("#fullView").click();
+  await expect(page.locator(".wb-shell")).not.toHaveClass(/is-tiny/);
+  const after = await clocked();
+  expect(after.state.armed).toBe(true);
+  expect(after.state.master).toEqual(before.state.master);
+  expect(after.state.decks[7].gain).toBe(0.43);
+  after.state.decks.forEach((deck, index) => {
+    const previous = before.state.decks[index];
+    expect(deck.playing).toBe(true);
+    expect([deck.name, deck.duration, deck.loopEnabled, deck.rate]).toEqual([previous.name, previous.duration, previous.loopEnabled, previous.rate]);
+    const travel = (deck.position - previous.position + deck.duration) % deck.duration;
+    const expected = ((after.time - before.time) * deck.rate) % deck.duration;
+    expect(Math.abs(travel - expected), `Deck ${index + 1} retained its audio-clock phase`).toBeLessThan(0.1);
+  });
+  await audible(page, 250);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`all eight decks and recovery controls stay reachable at ${viewport.width}×${viewport.height}`, async ({ browser, baseURL }, testInfo) => {
     const mobile = viewport.width !== 1440;
@@ -272,6 +307,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       expect((await state(page)).armed).toBe(false);
       await page.locator("#stopButton").click();
       expect((await state(page)).decks.every((deck) => !deck.playing)).toBe(true);
+      await page.locator("#tinyView").click();
+      await expect(page.locator(".wb-shell")).toHaveClass(/is-tiny/);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await page.locator("#d7Edit").click();
+      await expect(page.locator("#d7Rate")).toBeVisible();
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       expect(axe.violations).toEqual([]);
       await page.evaluate(() => scrollTo(0, 0));
