@@ -78,8 +78,8 @@ page session: reload clears them. It does not request microphone access.
 one stereo master mix. Each numbered point controls the same pan and volume as
 its deck: left to right is stereo pan, and top to bottom is 100% to 0% volume.
 Opening the mixer displays the current mix without changing it or turning
-Audio on. The toolbar's polygon button opens a larger native dialog in any
-view, including Records; the panel also has an expand button. Close it with
+Audio on. In Full decks and Tiny decks, the toolbar's polygon button opens a
+larger native dialog; the panel also has an expand button. Close it with
 the close button, Escape, or the backdrop.
 
 In **Move** mode, drag a numbered point to change one track, or drag the space
