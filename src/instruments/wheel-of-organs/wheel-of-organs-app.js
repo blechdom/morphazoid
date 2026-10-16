@@ -2057,6 +2057,39 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
   doc.addEventListener("keydown", keydown);
   frame = globalThis.requestAnimationFrame(loop);
 
+  registerHeaderPresets({
+    id: "image-to-instrument-3", presets: WHEEL_FULL_PRESETS, document: doc,
+    capture: () => captureWheelPreset(state, wordRate, mouthOverlap),
+    apply: (snapshot) => {
+      validateWheelPreset(snapshot);
+      if (spin.locked) throw new Error("The wheel is locked until the winning organ fades");
+      const next = wheelStateFromPreset(state, snapshot);
+      audio.releaseAll();
+      state = next.state;
+      wordRate = next.rate;
+      mouthOverlap = next.overlap;
+      activePreset = null;
+      flashLevels = Array(state.mouths.length).fill(0);
+      currentMouth = -1;
+      currentCharacter = "";
+      currentEvent = null;
+      phraseIndex = -1;
+      spin = createWheelSpinState({
+        mouthCount: state.mouths.length,
+        rotation: spin.rotation,
+        seed: spin.rngState,
+        spinNumber: spin.spinNumber,
+      });
+      layoutDirty = true;
+      compilePhrase();
+      buildMouthButtons();
+      syncGlobalControls();
+      syncPresetButtons();
+      syncAudio();
+    },
+    randomize: randomizeWheelPreset,
+  });
+
   const dispose = () => {
     globalThis.cancelAnimationFrame?.(frame);
     doc.removeEventListener("keydown", keydown);
@@ -2084,3 +2117,8 @@ export function mountWheelOfOrgans(doc = globalThis.document) {
     },
   });
 }
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  WHEEL_FULL_PRESETS, captureWheelPreset, randomizeWheelPreset, validateWheelPreset, wheelStateFromPreset,
+} from "./full-presets.js";
