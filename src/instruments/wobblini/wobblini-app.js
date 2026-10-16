@@ -409,8 +409,8 @@ function renderDeckSettings() {
   $("settingsKeyLock").setAttribute("aria-pressed", String(!!d.keyLock));
   $("settingsSlip").setAttribute("aria-pressed", String(!!d.slipEnabled));
   $("settingsCue").setAttribute("aria-pressed", String(!!d.cuePreviewing));
-  $("settingsPlay").setAttribute("aria-pressed", String(!!d.playing));
-  setIcon($("settingsPlay"), d.playing ? "pause" : "play", `${d.playing ? "Pause" : "Play"} deck ${number}`);
+  $("settingsPlay").setAttribute("aria-pressed", String(d.playing && !d.cuePreviewing));
+  setIcon($("settingsPlay"), d.playing && !d.cuePreviewing ? "pause" : "play", `${d.cuePreviewing ? "Continue" : d.playing ? "Pause" : "Play"} deck ${number}`);
   text("settingsPitchOut", signed(d.pitchSemitones ?? 0) + " st");
   text("settingsTrimOut", signed(d.trimDb ?? 0) + " dB");
   text("settingsPanOut", Math.abs(d.pan) < .01 ? "Center" : `${d.pan < 0 ? "L" : "R"} ${Math.round(Math.abs(d.pan) * 100)}%`);
@@ -537,7 +537,8 @@ function render() {
     text(`d${i}Kind`, d.loading ? "Loading…" : d.kind === "file" ? `Local file · ${d.analysisStatus === "ready" ? "Tempo analyzed" : d.analysisStatus === "analyzing" ? "Analyzing" : "Editable tempo"}` : "Original demo source");
     $("d" + i + "Load").setAttribute("aria-busy", String(d.loading));
     setIcon($("d" + i + "Load"), "load", "Load audio into deck " + (i + 1));
-    $(`d${i}Play`).setAttribute("aria-pressed", String(d.playing)); $(`d${i}Play`).setAttribute("aria-label", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`); setIcon($(`d${i}Play`), d.playing ? "pause" : "play", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`);
+    $(`d${i}Play`).setAttribute("aria-pressed", String(d.playing && !d.cuePreviewing));
+    setIcon($(`d${i}Play`), d.playing && !d.cuePreviewing ? "pause" : "play", `${d.cuePreviewing ? "Continue" : d.playing ? "Pause" : "Play"} deck ${i + 1}`);
     $(`d${i}Mute`).setAttribute("aria-pressed", String(d.mute)); $(`d${i}Solo`).setAttribute("aria-pressed", String(d.solo));
     $(`d${i}Effective`).innerHTML = `${d.effectiveBpm.toFixed(1)} <small>BPM</small>`;
     $(`d${i}Seek`).max = String(d.duration || 1); $(`d${i}Duration`).value = time(d.duration, false);
