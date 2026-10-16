@@ -6,9 +6,10 @@ const choices = [...featured.map(id => SAMPLE_INPUT_OPTIONS.find(option => optio
 
 /** Recorded input controls shared by the barber delays and Slippery Resynthesis.
  * The instrument owns arming and the effect graph; the existing bounded loader
- * owns decoding, cancellation, one live buffer source and sample attribution. */
+ * owns decoding, cancellation, one live buffer source and sample attribution.
+ * Pass `player` to render an input source the caller already owns. */
 export function mountProcessorSamplePlayer({ container, prepare, getContext, getTarget,
-  isArmed, isSelected, onChange = () => {}, onError = () => {} }) {
+  isArmed, isSelected, onChange = () => {}, onError = () => {}, player: shared = null }) {
   const doc = container.ownerDocument;
   const abort = new AbortController();
   container.classList.add('processor-sample-player');
@@ -51,7 +52,7 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
     $('sampleCredit').href = state.creditUrl || '#';
     onChange(state);
   };
-  player = createInputSource({
+  player = shared ?? createInputSource({
     prepare: async () => {
       await prepare();
       if (!bridge || bridge.context !== getContext()) {
@@ -63,8 +64,7 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
     getContext, getTarget: () => bridge, canPlay: () => isArmed() && isSelected(),
     onChange: refresh, onError,
   });
-  player.selectMode('samples');
-  player.selectSample(featured[0]);
+  if (!shared) { player.selectMode('samples'); player.selectSample(featured[0]); }
   const run = task => Promise.resolve(task).catch(onError);
   const listen = (id, type, handler) => $(id).addEventListener(type, handler, { signal: abort.signal });
   listen('sampleSelect', 'change', () => {
@@ -82,6 +82,6 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
   refresh();
   return {
     ...player, refresh, getSignal: () => bridge,
-    destroy() { abort.abort(); player.dispose(); bridge?.disconnect(); bridge = null; },
+    destroy() { abort.abort(); if (!shared) player.dispose(); bridge?.disconnect(); bridge = null; },
   };
 }
