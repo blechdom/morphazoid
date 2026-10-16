@@ -12,22 +12,25 @@ function setup() {
   return { engine, sources: createBlechSpigotEngine({ engine }), at(seconds) { now = seconds * 1000; }, contexts: () => contexts };
 }
 
-test('persistent sources transform pristine MIDI next loop while current falling score and sibling remain unchanged', async () => {
+test('persistent sources transform pristine MIDI immediately while retaining phrase phase, mix, and sibling clocks', async () => {
   const q = setup(), original = score();
-  const first = q.sources.create(original, { loop: true, source: 'math', delayBeats: 1, name: 'Shape' });
-  const sibling = q.sources.create(original, { loop: true, source: 'frames' });
-  q.at(.1); const before = q.engine.state.samples;
-  q.sources.edit(first.id, { rotationDegrees: 90, widthNotes: 36, heightBeats: 4, transpose: 12, delayBeats: .5 });
+  const first = q.sources.create(original, { loop: true, source: 'math', gain: .35, pan: -.25, channel: 3, name: 'Shape' });
+  q.sources.create(original, { loop: true, source: 'frames' });
+  q.at(.3); const before = q.engine.state.samples, count = q.engine.state.generatedNoteCount;
+  q.sources.edit(first.id, { rotationDegrees: 90, widthNotes: 36, heightBeats: 4, transpose: 12 });
   const layer = q.sources.getLayers()[0], current = q.engine.state.samples[0];
-  assert.equal(current.analysis, before[0].analysis, 'an already falling pending pass is not rewritten');
-  assert.equal(current.pendingReplacement.analysis.noteCount, 2);
+  assert.notEqual(current.analysis, before[0].analysis);
+  assert.equal(current.pendingReplacement, undefined); assert.equal(layer.pendingEdit, false);
+  assert.equal(current.id, first.sampleId); assert.equal(current.positionBeats, before[0].positionBeats * 2);
+  assert.equal(current.cycle, before[0].cycle); assert.equal(current.analysis.durationBeats, 4);
+  assert.equal(current.gain, .35); assert.equal(current.pan, -.25); assert.equal(current.channel, 3); assert.equal(current.loop, true);
+  assert.equal(q.engine.state.generatedNoteCount, count, 'rewritten past attacks are not counted again');
   assert.equal(layer.score.analysis.noteCount, 2); assert.equal(layer.settings.rotationDegrees, 90);
   assert.deepEqual(q.engine.state.samples[1], before[1]);
   q.sources.edit(first.id, { rotationDegrees: 180 });
   assert.deepEqual(q.sources.getLayers()[0].score.buffer, transformBlechSpigot(original, { ...layer.settings, rotationDegrees: 180 }).buffer, 'angle edits do not compound');
-  q.at(1.55); const changed = q.engine.state.samples.find(sample => sample.id === first.sampleId);
-  assert.equal(changed.analysis.durationBeats, 4); assert.ok(changed.pendingBeats > 0 && changed.pendingBeats <= .5);
-  assert.equal(q.engine.state.samples.find(sample => sample.id === sibling.sampleId).id, sibling.sampleId);
+  assert.equal(q.engine.state.samples[0].positionBeats, current.positionBeats);
+  q.at(.5); assert.equal(q.engine.state.samples[0].positionBeats, 1.6);
   assert.equal(q.contexts(), 0); await q.engine.dispose();
 });
 

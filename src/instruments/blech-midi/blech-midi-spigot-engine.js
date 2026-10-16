@@ -34,7 +34,7 @@ export function transformBlechSpigot(score, settings = {}) {
 }
 
 /** Persistent emitter identity is independent of the four audible clip slots.
- * Parameter edits replace a looping phrase at its next boundary. A closed valve
+ * Parameter edits update the running phrase at its retained phase. A closed valve
  * finishes the current pass; opening it later launches the retained source. */
 export function createBlechSpigotEngine({ engine, sendScore = (score, settings) => ({ ...score, sampleId: engine.triggerSample(score.buffer, settings)?.id }), onChange = () => {}, onTransform = () => {} } = {}) {
   const sources = new Map(), strokes = new Map(); let serial = 0, disposed = false;
@@ -82,11 +82,11 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     settings.transpose = transformed.appliedTranspose;
     settings.delayBeats = clamp(settings.delayBeats, 0, 64, 0);
     const sample = sampleFor(record);
-    if (sample?.loop && !sample.paused) {
-      const next = engine.replaceSample(sample.id, transformed.buffer, { name: record.name, when: 'cycle-boundary', delayBeats: settings.delayBeats });
+    if (sample) {
+      const next = engine.replaceSample(sample.id, transformed.buffer, { name: record.name, when: 'live', delayBeats: settings.delayBeats });
       record.expectedVersion = next?.pendingReplacement?.token ?? next?.scoreVersion;
       record.pendingEdit = Boolean(next?.pendingReplacement);
-    } else record.pendingEdit = Boolean(sample);
+    } else record.pendingEdit = false;
     record.settings = settings; record.score = transformed; onTransform(record); notify(); return record;
   }
   function loop(id, enabled) {
