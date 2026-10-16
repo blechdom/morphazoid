@@ -279,3 +279,22 @@ window.addEventListener('pageshow', event => { if (event.persisted && state.disp
 globalThis.__staircaseStudies = { snapshot: () => ({ ...state, camera: { ...state.camera }, settings: { ...state.settings } }), teardown };
 try { renderer = createStripedStaircaseRenderer(canvas); } catch (error) { $('renderError').hidden = false; $('renderError').textContent = error.message; }
 initWorker(); observer = new ResizeObserver(resize); observer.observe(canvas); resize(); queueField(0); updateControls(); renderFrame = requestAnimationFrame(render);
+
+import { registerHeaderPresets } from '../../site/header-presets.js';
+import { STUDIES_FULL_PRESETS, captureStudiesPreset, randomizeStudiesPreset, validateStudiesPreset } from './full-presets.js';
+
+registerHeaderPresets({
+  id: 'striped-staircase-rust', presets: STUDIES_FULL_PRESETS,
+  capture: () => captureStudiesPreset(state),
+  apply: snapshot => {
+    validateStudiesPreset(snapshot);
+    const { startIteration, maxIterations, steps, stripePeriod } = snapshot;
+    Object.assign(state, {
+      view: snapshot.viewId, camera: { ...snapshot.camera }, mode: snapshot.mode, palette: snapshot.palette,
+      speed: snapshot.speed, baseFrequency: snapshot.baseFrequency, brightness: snapshot.brightness, body: snapshot.body,
+      settings: normalizeStaircaseSettings({ ...state.settings, startIteration, maxIterations, steps, stripePeriod }),
+    });
+    sendControls(); updateControls(); queueField();
+  },
+  randomize: randomizeStudiesPreset,
+});
