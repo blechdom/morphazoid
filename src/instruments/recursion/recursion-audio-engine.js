@@ -195,7 +195,7 @@ export class RecursiveAudioEngine {
   }
 
   setExternalSeed(kind, channels, sampleRate, label) {
-    if (!["mic", "file"].includes(kind)) throw new RangeError(`Unknown external seed kind: ${kind}`);
+    if (!["mic", "file", "samples"].includes(kind)) throw new RangeError(`Unknown external seed kind: ${kind}`);
     const normalized = normalizeChannels(channels, { targetRms: 0.16, peakLimit: 0.86 });
     this.externalSeeds.set(kind, {
       channels: normalized,
@@ -226,6 +226,10 @@ export class RecursiveAudioEngine {
     await this.ensure();
     const decoded = await this.context.decodeAudioData(arrayBuffer.slice(0));
     this.setExternalSeed("file", copyAudioBufferChannels(decoded), decoded.sampleRate, label);
+  }
+
+  setSampleSeed(buffer, label) {
+    this.setExternalSeed("samples", copyAudioBufferChannels(buffer), buffer.sampleRate, label);
   }
 
   setInputGain(value) { this.captureGain = clamp(Number(value) || 0, 0, 4); }
@@ -353,7 +357,7 @@ export class RecursiveAudioEngine {
     if (!entry) {
       throw new Error(sourceKind === "mic"
         ? "Capture a short microphone seed first."
-        : "Choose a local audio file first.");
+        : sourceKind === "samples" ? "Choose a bundled sample first." : "Choose a local audio file first.");
     }
     if (entry.sampleRate === this.context.sampleRate) {
       const maximumSamples = Math.floor(this.context.sampleRate * MAX_SEED_SECONDS);

@@ -1,4 +1,6 @@
 import { mountAudioInputControl } from "../../audio-input-control.js";
+import { mountRecursionSamples } from "./recursion-samples.js";
+import { MAX_INPUT_FILE_BYTES } from "../micmic/native/input-source.js";
 import { RECURSION_STUDIES, buildRecursionPlan } from "./recursion.js";
 import { RecursiveAudioEngine } from "./recursion-audio-engine.js";
 import {
@@ -42,6 +44,7 @@ const SOURCE_COPY = Object.freeze({
   impulse: Object.freeze({ readout: "IMPULSE" }),
   mic: Object.freeze({ readout: "MIC" }),
   file: Object.freeze({ readout: "AUDIO" }),
+  samples: Object.freeze({ readout: "SAMPLE" }),
 });
 
 const settings = Object.fromEntries(RECURSION_STUDIES.map((study) => [
@@ -1699,6 +1702,11 @@ $("audioFile").addEventListener("change", async (event) => {
   const file = event.currentTarget.files?.[0];
   if (!file) return;
   inputError = "";
+  if (file.size > MAX_INPUT_FILE_BYTES) {
+    inputError = "Choose an audio file smaller than 64 MiB.";
+    micControl.refresh();
+    return;
+  }
   $("fileLabel").textContent = "Decoding";
   $("fileHint").textContent = file.name;
   try {
@@ -1717,6 +1725,7 @@ $("audioFile").addEventListener("change", async (event) => {
   }
 });
 
+let recursionSamples = null;
 let captureAttempt = 0;
 function stopMicCapture({ discard = false } = {}) {
   inputError = "";
@@ -1768,17 +1777,31 @@ const micControl = mountAudioInputControl({
   onStart: () => {
     inputError = "";
     if (micControl.root.sourceSelect.value === "file") { $("audioFile").click(); return; }
+    if (micControl.root.sourceSelect.value === "samples") { return recursionSamples?.activate(); }
     state.source = "mic"; paintSource(); updatePlan(); return captureMic();
   },
   onStop: stopMicCapture,
   onGainInput: (value) => audio.setInputGain(value),
   getState: () => ({ active: Boolean(audio.captureState), pending: audio.capturePending, error: inputError }),
   getSignal: () => ({ levels: { left: audio.captureLevel, right: 0 }, channels: 1 }),
-  sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }],
-  onSourceChange: (value) => { stopMicCapture({ discard: true }); state.source = value; paintSource(); updatePlan(); },
+  sources: [{ value: "mic", label: "Mic" }, { value: "file", label: "File" }, { value: "samples", label: "Samples" }],
+  onSourceChange: (value) => {
+    stopMicCapture({ discard: true }); state.source = value; paintSource(); updatePlan();
+    if (value === "samples") void recursionSamples?.activate(); else recursionSamples?.release();
+  },
   fileInput: $("audioFile"),
   hide: [$("fileInputLabel"), ...$("sourceButtons").querySelectorAll('[data-source="mic"], [data-source="file"]')],
 });
+
+const samplesHost = document.createElement("div");
+document.querySelector(".recursion-seed").append(samplesHost);
+recursionSamples = mountRecursionSamples({
+  container: samplesHost, audio, getSource: () => state.source, isAudioOn: () => state.audio,
+  isPlaying: () => state.playing, togglePlayback,
+  onSeed: () => { inputError = ""; paintSource(); updatePlan(); if (state.audio) queuePreparedRestart(); micControl.refresh(); },
+  onError: (error) => { inputError = error?.message || "This sample could not be loaded."; micControl.refresh(); },
+});
+globalThis.addEventListener?.("pagehide", () => recursionSamples?.destroy(), { once: true });
 
 function frame() {
   scheduledFrame = 0;

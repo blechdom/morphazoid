@@ -18,6 +18,7 @@ import {
   clamp,
 } from "./gesturama-core.js";
 import { DrumEngine, MicrophoneRecorder } from "./gesturama-audio.js";
+import { createGesturamaInput, inputStripState } from "./gesturama-input.js";
 import { drawZones } from "./gesturama-zones.js";
 
 const root = document.querySelector("#gesturama");
@@ -158,13 +159,62 @@ let microphoneHeld = false;
 let microphonePending = false;
 let microphonePromise = null;
 let microphoneVersion = 0;
-const inputControl = mountAudioInputControl({
-  container: document.querySelector("#gesturamaInput"),
-  onStart: () => startMicrophone(),
-  onStop: () => stopMicrophone(),
-  getState: () => ({ active: Boolean(microphoneStream), pending: microphonePending }),
-  getSignal: () => ({ node: microphoneGain, stream: microphoneStream }),
+let inputControl = null;
+const inputFile = Object.assign(document.createElement("input"), { type: "file", accept: "audio/*", id: "gesturamaInputFile" });
+const recordedContainer = document.createElement("div");
+recordedContainer.id = "gesturamaRecordedInput";
+const recordedInput = createGesturamaInput({
+  container: recordedContainer,
+  fileInput: inputFile,
+  prepare: async () => { await prepareRecordedGraph(); },
+  getContext: () => audio.context,
+  getTarget: () => microphoneGain,
+  isAudioOn: () => Boolean(audio.context) && !audio.muted,
+  onChange: () => inputControl?.refresh(),
+  onError: (error) => showToast(error?.message ?? String(error)),
 });
+inputControl = mountAudioInputControl({
+  container: document.querySelector("#gesturamaInput"),
+  onStart: () => (recordedInput.recorded ? startRecordedInput() : startMicrophone()),
+  onStop: () => stopInput(),
+  getState: () => inputStripState(recordedInput.mode, recordedInput.snapshot(), { active: Boolean(microphoneStream), pending: microphonePending }),
+  getSignal: () => (recordedInput.recorded ? { node: microphoneGain, channels: 2 } : { node: microphoneGain, stream: microphoneStream }),
+  sources: recordedInput.sources,
+  sourceValue: "mic",
+  fileInput: inputFile,
+  onSourceChange: (value) => { stopInput(); recordedInput.setMode(value); inputControl.refresh(); },
+});
+document.querySelector("#gesturamaInput").append(recordedContainer);
+
+async function prepareRecordedGraph() {
+  const context = await audio.ensureStarted();
+  if (!recordedInput.recorded) return;
+  microphoneGain = inputControl.createGain(context);
+  if (!microphoneDestination) {
+    microphoneDestination = context.createMediaStreamDestination();
+    microphoneGain.connect(microphoneDestination);
+  }
+}
+
+async function startRecordedInput({ held = true } = {}) {
+  const wasPlaying = recordedInput.snapshot().playing;
+  await recordedInput.start();
+  const { playing } = recordedInput.snapshot();
+  if (!playing) throw new Error(recordedInput.mode === "file" ? "Choose an audio file first." : "Sample input could not start.");
+  if (held || wasPlaying) microphoneHeld = true;
+}
+
+function stopInput() {
+  recordedInput.stop();
+  recordedInput.setRecordArm(false);
+  stopMicrophone();
+}
+
+function releaseInput() {
+  recordedInput.stop();
+  recordedInput.setRecordArm(false);
+  releaseMicrophone();
+}
 
 async function startMicrophone({ held = true } = {}) {
   if (held) microphoneHeld = true;
@@ -332,6 +382,7 @@ function cancelColorPicker() {
 
 function updateStatus() {
   const audioOn = Boolean(audio.context) && !audio.muted;
+  recordedInput.refresh();
   elements.cameraStatus.textContent = state.cameraReady ? "Camera live" : "Camera off";
   elements.cameraStatus.dataset.live = String(state.cameraReady);
   elements.zoneCount.textContent = `12 grid · ${state.zones.length} ${state.zones.length === 1 ? "paint zone" : "paint zones"}`;
@@ -1387,7 +1438,7 @@ function finishRecording(buffer, token) {
   state.recordToken += 1;
   state.recording = false;
   stopRecordClock();
-  if (!microphoneHeld) releaseMicrophone();
+  if (!microphoneHeld) releaseInput();
   inputControl.refresh();
   if (buffer) {
     setInstrument("sample");
@@ -1416,7 +1467,10 @@ async function toggleSampleRecording() {
   state.recordToken = token;
   if (elements.recordSampleButton) elements.recordSampleButton.disabled = true;
   try {
-    await startMicrophone({ held: false });
+    if (recordedInput.recorded) {
+      recordedInput.setRecordArm(true);
+      await startRecordedInput({ held: false });
+    } else await startMicrophone({ held: false });
     if (token !== state.recordToken || !microphoneDestination) return;
     await recorder.start({ maxDurationMs: 8_000, stream: microphoneDestination.stream });
     if (token !== state.recordToken) { void recorder.cancel(); return; }
@@ -1437,7 +1491,7 @@ async function toggleSampleRecording() {
       });
   } catch (error) {
     if (token !== state.recordToken) return;
-    if (!microphoneHeld) releaseMicrophone();
+    if (!microphoneHeld) releaseInput();
     updateSampleControls("Microphone unavailable", "error");
     showToast(error.message);
   } finally {
@@ -1565,6 +1619,7 @@ window.addEventListener("pagehide", () => {
   stopRecordClock();
   recorder.cancel();
   inputControl.destroy();
+  recordedInput.destroy();
   releaseMicrophone();
   clearScheduledHarpPlucks();
   audio.stopAllGesturePads({ release: 0.01 });
@@ -1573,7 +1628,7 @@ window.addEventListener("pagehide", () => {
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    stopMicrophone();
+    stopInput();
     clearScheduledHarpPlucks();
   }
   resetPerformancePoint({ hideMarker: true });
