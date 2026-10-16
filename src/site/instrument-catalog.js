@@ -16,10 +16,10 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 
 const CATALOG_DETAILS = Object.freeze({
   wobblini: define(
-    "Eight-deck DJ instrument",
-    "Mix eight local audio decks with original demo loops, cues, beat loops, source tempo and playback rate. Drag the records or wide waveforms forward and backward to scratch. Choose a master and sync each track independently. Shape the stereo mix with pan, volume, EQ, filters and shared filter wobble.",
-    "Load the demo loops or your own audio files, enable Audio, then play or scratch. Set source BPM, choose a master crown, and enable SYNC for the tracks that should follow.",
-    ["Local files", "Demo loops", "Eight decks", "Scratching", "Waveforms", "Cue points", "Beat loops", "Selectable master", "Stereo shape mixer", "Pointer", "Touch"],
+    "Eight-deck audio mixer",
+    "Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and one-shot playback. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.",
+    "Load your audio files or demo sources, enable Audio, then play or scratch. Use Prepare to set a return cue, or the gear for larger deck controls. SYNC is optional for each track.",
+    ["Local files", "Eight decks", "Scratching", "Cue preview", "Slip", "Input gain", "Auto Gain", "Crossfader", "BPM analysis", "Selectable master", "Key Lock", "Pitch shift", "Pointer", "Touch"],
   ),
   "graphonic-calculator": define(
     "Desmos-style graphing calculator",

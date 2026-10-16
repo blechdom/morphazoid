@@ -1,3 +1,4 @@
+import { restoreWobbliniDjaySite } from "./wobblini-djay-site-reference.mjs";
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -11,6 +12,7 @@ export const graphonicCalculatorDrumsSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed drum-trigger runtime row of the Graphonic Calculator. */
 export function restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreWobbliniDjaySite(source, file, { allowRestored: true });
   for (const change of graphonicCalculatorDrumsSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {
       const count = source.split(after).length - 1;

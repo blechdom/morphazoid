@@ -1,237 +1,204 @@
 # Wobblini
 
-Eight independent stereo audio tracks, built as a Morphazoid browser instrument.
-**Records** opens by default: eight circular scratchable records. Each record
-shows only its playing loop as a taller waveform, rotating past a fixed needle
-at three o'clock. A complete turn follows the loop; there are no IN/OUT markers
-or greyed-out portions of the full file on the record.
+Eight independent stereo sources for intercutting recordings and conversations.
+Audio starts off; playing, loading, cueing, scratching and changing views never
+arm it. Files and generated demo sources **play through once**. At the end the
+deck stops; Play starts it again from the beginning. Loop controls have been
+removed.
 
-Play/Pause sits at the center. The top-left corner has the track number, a tiny
-crown button to select the tempo master, and **SYNC** for that track. Only one
-crown is selected, initially track 1. The bottom-left corner holds **S** (solo)
-and **M** (mute), the bottom-right holds a volume knob, and the top-right gear
-opens track settings. Pausing stops the record; muting keeps it spinning and
-its playhead moving silently. Multiple tracks can be soloed together, and mute
-still silences a soloed track.
+## Performance views
 
-The settings popup shows the imported audio file name (or **Demo loop N** for
-generated audio), Load, **SYNC**, and compact Speed and Volume knobs with a **1×** speed reset. There is no file lock or loop
-editor in this popup. Close it with its close button, Escape, or the backdrop.
-The master strip provides Play/Pause all, Stop, a Master BPM knob, **Tap**, and
-**SYNC ALL**. Deck editing controls and the detailed mixer stay out of Records
-view; there is no A/B crossfader or global upload button.
+- **Classic:** two larger circular records. Left and Right select any two decks.
+- **Pro:** two wide scratchable waveforms, stacked on narrow phones.
+- **Eight decks:** all eight circular records, with padding around each one.
+- **Prepare:** one source with its waveform, cue, source tempo and detailed controls.
 
-Turn Audio on in the header, then play a record. The view icons switch to
-**Track view** for waveform editing or **Tiny tracks** for a compact overview;
-Edit expands one tiny track. Track view uses the full track width for its
-scratchable waveform, without a platter, and becomes one column on small
-screens. Switching views keeps playback and the mix intact. Most buttons use
-icons with accessible names and hover titles; **SYNC**, **SYNC ALL**, **S**, and
-**M** are compact text controls. Each record has a number without an enclosing
-card or track-name header. File names remain available in hover titles,
-screen-reader descriptions, and the settings popup.
+Switching views or choosing another visible deck preserves all eight transports
+and the mix. Hidden decks continue playing. The record waveform rotates past a
+fixed needle at three o'clock; one revolution represents the complete file.
+Reduced-motion preferences stop automatic rotation while preserving direct
+scratching and position readouts. File names appear in waveform views and the
+settings popup; platter view keeps them out of the playing surface.
 
-## Playing
+Play/Pause sits at the center of each record. Its top-left corner contains the
+number, master crown and **SYNC**; the top-right gear opens larger controls.
+Bottom-left **S** and **M** mean solo and mute; bottom-right is volume. Muting
+keeps the playhead moving. Pausing stops it. Multiple solos are allowed, and
+mute still silences a soloed deck. All eight stereo decks feed one stereo output.
 
-- Use Load in track settings or Track view to choose local audio. A global
-  unlock step is unnecessary because loading is reached through settings.
-- Drag Speed and Volume knobs vertically; hold Shift for finer changes.
-  Keyboard arrows adjust the focused knob. **1×** resets speed to the file's
-  original rate. The popup displays each knob's current value.
-- Hold and rotate a record, or drag a Track view waveform left or right, to
-  scratch the samples forward or backward. A held, stationary scratch surface
-  is silent. Playing tracks resume at the hand position; a synced follower
-  rejoins the selected master's beat phase when that master is playing.
-  A paused track stays paused. Focus a scratch surface and use Left/Right arrows
-  to scratch; Shift makes smaller movements. Pointer cancellation and lost
-  window focus release the scratch.
-- Each track has independent Play/Pause, a keyboard-accessible position slider,
-  and a cue point. The **flag icon is Set cue**: it saves the current position
-  as the manual beat-grid origin. The separate Return to cue button jumps to
-  that position and pauses. Space toggles all tracks; keys 1–8 toggle individual
-  tracks when focus is outside a control. Stop returns playheads to the start
-  of their active loop.
-- Tracks always loop. In Track view, choose the whole file or a beat-loop
-  length. The beat-loop menu starts a loop on the cue-relative beat grid,
-  shifting it near the file boundary when needed to fit. Choosing a new length
-  changes the active loop; selecting the whole file restores full-track
-  looping. The record displays just that active audio region. Loop selection
-  stays in Track view, separate from the compact record controls.
-- Set each file's **Source BPM** and cue manually. **Master BPM** changes the
-  selected master's playback speed; **Tap** measures one beat per tap and uses
-  the same native BPM control. Rate spans ½×–2× and pitch follows speed.
-  This MVP does not detect beats or preserve pitch. There is no metronome.
-- Each track has level, mute, solo, stereo pan, three EQ bands and a filter.
-  Negative filter values remove highs; positive values remove lows. All eight
-  stereo tracks feed the stereo master output.
-- **Wobble** modulates the track filters. Drag right for greater depth and up for
-  faster modulation. The Depth and Rate sliders are equivalent controls; on
-  the pad, arrow keys move the two axes and Home returns depth to zero. The
-  visible wave uses the audio clock while sound is armed.
-- Reset mixer restores levels, EQ, filter, pan and mute/solo, and dries the
-  wobble. It preserves imported audio, cues, loops, tempo, transport and the
-  master output level. Demo set replaces all eight sources; when local files
-  are present it asks first. Replacing a playing track also asks first.
+## Cue, scratch and Slip
 
-Audio starts off. Play, scratching and editing never arm it. Silent transports
-keep moving; turning Audio on joins their current position. Record in the shared
-Morphazoid header records the master mix. Local files are decoded in the browser
-and are not uploaded. This first version keeps files and mix state only for the
-current page session: reload clears them. It does not request microphone access.
+**Set cue** (flag with plus) stores the current return point. It does not change
+the beat grid. **Return to cue** jumps a playing deck back without stopping it.
+On a paused deck, hold Return to cue to preview from that point; release returns
+to the cue and pauses. Press Play during the hold to continue after release.
+Pointer cancellation, window blur and changing views release held previews.
+Space/Enter also support held preview on the focused Cue button.
 
-## Stereo shape mixer
+Drag a record or waveform forward and backward to scratch actual samples. A
+stationary held surface is silent. A playing deck resumes on release; a paused
+deck stays paused. Keyboard Left/Right scratches; Shift makes finer movements.
+The separate position slider seeks without a scratch sound.
 
-**Stereo shape** in Track view and Tiny tracks maps the eight stereo tracks to
-one stereo master mix. Each numbered point controls the same pan and volume as
-its deck: left to right is stereo pan, and top to bottom is 100% to 0% volume.
-Opening the mixer displays the current mix without changing it or turning
-Audio on. In Track view and Tiny tracks, the toolbar's polygon button opens a
-larger native dialog; the panel also has an expand button. Close it with
-the close button, Escape, or the backdrop.
+Enable **Slip** to retain an inaudible uninterrupted timeline while scratching
+or holding Cue. Releasing returns a previously playing deck to where it would
+have reached. Slip does not wrap the file: if that timeline reaches the end,
+playback stops. An enabled beat-sync follower rejoins the master's grid after
+release when the master is available.
 
-In **Move** mode, drag a numbered point to change one track, or drag the space
-around the points to move all eight together. **Rotate** turns their pan and
-volume positions around the group's center; **Stretch** changes stereo spread
-with horizontal movement and the spread of track volumes with vertical
-movement. These gestures change the actual mix. The octagon button explicitly
-arranges all eight tracks into a spread-out starting shape, changing both their
-pans and volumes. It is never applied just by opening the mixer.
+Space toggles all decks, and keys 1–8 toggle individual decks when focus is
+outside controls. Stop pauses everything and returns all sources to zero.
+Replacing a playing source asks before discarding it. Demo set replaces the
+sources and asks first if local files are present.
 
-Select a track by its number or the Track menu, then use the **Pan** and
-**Volume** sliders for precise edits. A focused numbered point also accepts
-arrow keys; hold Shift for smaller movements. Expand **Shape controls** for
-keyboard-accessible **Turn**, **Width**, and **Height** sliders. These group
-controls work relative to the start of each gesture: on release, their handles
-return to 0° or 1× while the new mix stays in place.
+## Gain, volume and crossfading
 
-**Undo** restores the previous shape edit, one step only. Editing pan or volume
-elsewhere clears that shape undo. **Center pans** moves every track to the
-stereo center while preserving its volume. Muted tracks and tracks excluded by
-solo appear dimmed; their points still control their underlying pan and level.
-The shape shares the existing deck mixer and master output, so EQ, filters,
-and mute/solo still apply. Shape edits preserve playback, loops, SYNC and the
-Audio state.
+**Gain** trims the input from −24 to +12 dB, separately from the deck's volume
+fader. Optional **Auto Gain** measures the decoded source's RMS and peak level
+and applies a bounded correction toward −18 dBFS RMS, with −1 dB peak headroom
+and a ±12 dB correction limit. This is static source matching, not LUFS matching
+or a continuous speech compressor. Silence gets no boost.
 
-## SYNC and master selection
+Assign each deck to **A**, **B** or **Thru**. The master A/B crossfader blends
+those groups; Thru bypasses it. Equal-power blending is used: at the center each
+group is approximately −3 dB, while either end silences the opposite group.
+Center resets the slider. Gain, volume, pan, mute/solo, EQ and filtering still
+apply to each source. The geometric group pan/volume mixer has been removed.
 
-Click any track's **crown** to make it the one tempo master. The selected crown
-has a colored circular background, and selecting another clears the previous
-one. Track 1 starts as master. Each other track's **SYNC** independently chooses
-whether it follows that master or keeps its own tempo. **SYNC ALL** enables
-all followers, or releases them when all are already selected. The master
-itself does not follow another track. Selecting a new master leaves the former
-master independent at its current tempo; each other track keeps its SYNC
-choice. Independent tracks keep their own tempo.
+Three EQ bands, a low/high filter and individual pan remain in Prepare.
+**Wobble** modulates the filters: right increases depth and up increases rate.
+Equivalent sliders and keyboard controls remain available. Reset mixer restores
+levels, input trims, Auto Gain, assignments, pan, EQ, filter and mute/solo, and
+dries wobble; it preserves files, cues, tempo, pitch and playback.
 
-Source BPM defines beat spacing and the cue defines beat zero. The demos have
-prepared grids; imported tracks begin with an assumed 120 BPM and a zero cue.
-Enter their actual tempo and set a cue on a beat before syncing. This aligns
-beat phase, not musical downbeats or phrases. Moving the cue keeps an existing
-loop region; the next loop choice uses the new grid origin.
+## Speed, pitch and SYNC
 
-When the selected master is playing and not being scratched, enabled followers
-match its effective tempo and align to the nearest matching beat phase. Changes
-to its rate or source BPM propagate to those followers. The Master BPM knob and
-Tap use that same selected master; they do not edit each file's source BPM.
-A paused follower keeps SYNC for its next launch. Starting, seeking, changing a
-loop or cue, editing source BPM, and releasing a scratch rejoin the master when
-that track's SYNC is enabled. Manually changing a follower's rate, including the
-**1×** reset, releases only that follower; other selected tracks keep following.
+The manual speed range is selectable: **±8%, ±10%, ±16%, ±25%, ±50% or ±75%**.
+The initial range is ±8%; Reset speed returns to 0% / 1×. Changing range clamps
+the current manual speed to the chosen range. **Key Lock**, initially enabled,
+preserves pitch while changing speed. **Pitch** shifts independently by −12 to
++12 semitones; it has its own reset. With Key Lock off, speed changes pitch too,
+and the chosen pitch shift is applied on top.
 
-Pausing or scratching the master suspends phase alignment: followers continue
-at the matched tempo, and rejoin when the master resumes or is released.
-SYNC stays enabled while alignment is suspended. Selecting another crown
-changes the master explicitly; the app does not automatically choose one.
-Master selection, SYNC and Tap never start a paused track or turn Audio on.
+Pitch processing reuses the repository's MIT-licensed Signalsmith Stretch
+worklet. It is created only for armed, playing decks that need it. Scratching
+bypasses the stretch processor. Source playback continues while the processor
+prepares; a preparation or memory failure reports an error and returns to
+ordinary playback with Key Lock off and pitch shift reset. Processing is
+memory-bounded; it is not a guarantee of eight stretched voices on every phone.
 
-SYNC cannot match a follower outside its ½×–2× rate range. A loop clipped to
-the file boundary must span a multiple of half a beat, allowing one decoded
-sample of rounding; half-beat loops align on that subdivision. That tiny
-rounding difference can accumulate over repeated wraps. Incompatible tempo or
-loop bounds report a sync error rather than claim a lock. A full file with an
-unmatched beat length can still loop, but needs a compatible beat-loop choice
-for phase sync. Source BPM metadata stays intact. All tracks share one audio clock, and synchronized source changes
-are scheduled at the same audio-clock boundary.
+Imported audio is analyzed in a background worker for BPM and a first-beat
+position. An uncertain analysis falls back to **120 BPM**; speech often has no
+stable beat. Source BPM and **First beat (s)** remain editable. The return cue is
+independent of that grid. Manual grid edits made during analysis are preserved.
 
-## Contract and limits
+One crown chooses the master, initially deck 1. Every other deck independently
+opts into **SYNC**, or keeps its own tempo. **SYNC ALL** enables all followers,
+or releases them if all are already selected. Selecting a new master leaves
+the old one independent and preserves other follower choices. The Master BPM
+knob and shared Tap control change the selected master's speed.
 
-The causal chain is file/demo samples → hand-controlled record or transport
-position → signed sample playback/rate/loop → EQ/filter/wobble → level/pan/solo → stereo master output.
-The instrument has eight decks, bounded source replacement fades, smoothed
-parameters, and protected master output. Graphics run at a maximum of 30 fps
-and device-pixel ratio 2 (20 fps and ratio 1 on touch/constrained devices);
-offscreen records and unchanged waveforms do not redraw. Circular waveform
-geometry is cached, and reduced-motion preferences stop automatic platter
-rotation while preserving direct scratching and the track position readout.
-The fixed three-o'clock needle does not rotate. Record rotation and the
-circular waveform describe the active loop, with one turn per loop. The taller
-waveform is a visual amplitude boost and does not change audio gain.
-Sample playback and modulation run in Web Audio,
-independently of animation frames. Scratching uses signed interpolated PCM
-in an AudioWorklet, with bounded velocity and release ramps; it requires
-AudioWorklet support in a secure context (HTTPS or localhost). Normal playback
-remains available if that capability is unavailable. Navigation releases its nodes, context,
-output connection, pointer/event handlers and animation loop.
+The master options gear chooses **Tempo only** or **Beat** sync, and a **1 beat**
+or **1 bar** alignment interval. Tempo-only matching preserves source position;
+Beat also aligns phase to the analyzed or corrected grid. A bar is four beats,
+not a detected spoken phrase. Sync can use the full supported 0.25×–1.75× rate
+range even outside the manual slider's selected range; controls display the
+actual matched speed. Impossible ratios report a warning.
 
-Files must be supported by the browser's audio decoder. Import bounds are
-64 MB encoded per file, ten minutes, one or two channels, 64 MB decoded per
-deck and 192 MB decoded across the session on the standard profile. A failed import keeps the previous
-deck. Source BPM is an editable assumption (120 initially), not an analysis.
-The shared MIDI controls expose general parameter/transport integration;
-dedicated DJ controller mappings and MIDI Learn are not implemented.
+Sync never starts a paused deck or arms Audio. While the master is paused or
+being scratched, followers keep their matched tempo and suspend phase locking.
+They rejoin when it resumes. Manual follower speed edits, including Reset speed,
+release that follower from sync. A cue point alone is not a beat-grid correction.
+There is no metronome, adaptive tempo grid or automatic master election.
 
-## iPhone and older phones
+## Source length and phone budgets
 
-The compatibility target is **iOS/iPadOS 15.4 or later in Safari**, over HTTPS.
-Safari introduced AudioWorklet in [iOS 14.5](https://webkit.org/blog/11648/new-webkit-features-in-safari-14-1/);
-the shared controls also use features such as native dialogs supported in
-[iOS 15.4](https://webkit.org/blog/12445/new-webkit-features-in-safari-15-4/).
-This is an API compatibility target, not a measured guarantee for every device.
-Current Linux WebKit automation is separate from testing Safari on an actual
-older iPhone. Native Safari does not provide Web MIDI.
+Imports load and decode **the whole file**. An over-limit source is rejected;
+Wobblini does **not** silently load only the beginning. A failed import preserves
+the prior source. For a long conversation, prepare shorter excerpts externally.
+Streaming long compressed sources with sample-accurate reverse scratching is
+not implemented.
 
-Coarse-pointer devices, devices reporting at most 4 GB RAM, and devices reporting
-at most four logical processors automatically use a constrained profile. It
-keeps all eight decks, decodes imports at 32 kHz, limits encoded files and decoded
-tracks to 16 MiB each, and gives loaded-track PCM a 64 MiB budget across the
-session. Use short clips or mono files to fit more audio. Scratch windows and
-replacement fades add bounded storage, and the browser decoder can temporarily
-allocate more before a decoded file's size is known. The standard profile uses
-48 kHz and the larger limits above.
+| Profile | Encoded file / decoded deck | Shared decoded PCM | Decode rate |
+| --- | --- | --- | --- |
+| Phone / constrained | 16 MiB / 16 MiB | 64 MiB | 32 kHz |
+| Standard | 64 MiB / 64 MiB | 192 MiB | 48 kHz |
 
-Before mobile decoding, a metadata-only reader checks that the duration could
-fit even as mono PCM (at most about 131 seconds with an empty track slot).
-An unreadable duration or overlong clip is rejected before native decoding;
-the previous track stays playable. Actual decoded channel and byte limits
-still apply, so stereo clips may need to be shorter. Replacing an import or
-leaving the page cancels metadata inspection and releases its temporary URL.
+There is also a ten-minute duration ceiling and a one/two-channel requirement;
+the byte limits commonly apply first. On the phone profile, one source can fit
+approximately **131 seconds mono or 65 seconds stereo**, subject to the shared
+budget. Eight equally sized sources share roughly **65 seconds mono or 33
+seconds stereo each**, before additional processing allocations. Pitch buffers
+also count against the shared budget, so available capacity may be lower.
 
-Scratching transfers only two seconds of PCM at a time, retaining at most two
-windows per held deck, instead of copying an entire track at each touch.
-Native playback remains independent of main-thread drawing. Scratch refills
-still need the main thread; long browser stalls can exhaust the available
-window. After a phone call, backgrounding or another audio interruption, return
-to the page and explicitly tap Audio to resume. Touch transport targets remain
-48 px, tempo fields avoid Safari's automatic input zoom, and the layout accounts
-for safe-area insets. The compact Records view is the lightest performance view.
+Coarse-pointer devices, devices reporting at most 4 GB memory, or at most four
+logical processors select the constrained profile. Before mobile decoding,
+metadata inspection rejects clips that could not fit even as mono PCM. Browser
+decoders can still allocate temporary memory before exact decoded size is known.
 
-This is an original MVP inspired by the observable mixing workflow of
-[Algoriddim djay for iOS](https://www.algoriddim.com/djay-ios) and its
-[interface documentation](https://help.algoriddim.com/user-manual/djay-ios/getting-started/interface).
-The references motivate vinyl platters, decks, transport, cues, loops and EQ;
-eight decks, the tiny view, the stereo shape mixer, and the wobble pad are
-Wobblini's own extension.
-The distinction between master tempo and beat-phase sync is informed by
-[Native Instruments' Traktor concepts](https://docs.native-instruments.com/online-guides/traktor-pro-manual/en/global-concepts.html).
-Wobblini uses explicit master selection and manual grids; it does not implement
-Traktor's automatic master selection or full beatgrid workflow.
-No proprietary app binaries, code, sounds, graphics or branding are copied.
-The demo audio is synthesized by this repository's code; the catalogue artwork
-is an original procedural composition. Neither requires external media access.
+Scratch transfers use bounded two-second windows rather than whole-file copies
+on each touch. Long main-thread stalls can exhaust those windows. Graphics are
+capped at 20 fps / DPR 1 on constrained devices and 30 fps / DPR 2 otherwise;
+offscreen graphics skip redraws. Sound scheduling uses the audio clock.
 
-Streaming accounts, AI stem separation, automatic beat detection, adaptive
-beatgrids, independent headphone pre-cueing and pitch-locked stretching
-are outside this MVP. Cue here means return to the saved position, not a
-separate headphone output. Browser automation checks mechanical behavior,
-bounded output, control sensitivity, import, recording and responsive layout;
-human listening and physical phone/controller testing remain separate.
+## Continuous recording
+
+Wobblini defaults to **Browser storage · continuous** in Settings → Recording.
+The shared Record button captures the stereo master into IndexedDB as a single
+continuous stream. It does not stop and restart at export boundaries. There is
+no fixed duration cutoff in this mode; available browser storage and write speed
+bound the session. PCM capture and pending writes are bounded in memory.
+
+Stop opens stored recordings. Select a numbered WAV part, prepare it, then tap
+Download. Each part is a self-contained stereo 24-bit WAV of up to **32 MiB**;
+concatenating their audio data preserves the continuous frame sequence. Export
+one part at a time. Starting another take does not delete previous stored takes.
+After reload, Settings → Recording → Stored recordings recovers committed audio
+without arming Audio. Delete removes a stored take explicitly.
+
+Keep the page open and screen awake. A phone call, backgrounding, audio
+interruption, slow writes or exhausted quota can stop capture. Committed chunks
+remain recoverable, but uncommitted audio may be lost. Browser data can be cleared
+or evicted; export important recordings. This does not promise unattended iOS
+background recording. The optional buffered and direct-to-file modes retain
+their existing size caps. See [recording modes and limits](main-output-recording.md).
+
+## Alignment with djay
+
+These names describe capabilities rather than a vague “basic” status. Availability
+in djay can depend on device and subscription. Wobblini uses an original interface
+and implementation inspired by the documented workflow, not proprietary code,
+media or artwork.
+
+| Capability | djay for iOS | Wobblini |
+| --- | --- | --- |
+| Alternative performance views | Classic, Pro and preparation workflows | Classic, Pro, eight-deck overview and single-deck Prepare; same live mix across views |
+| Concurrent sources | Up to four decks in the four-deck interface | Eight independent stereo decks |
+| Set / Return cue | Set a cue; jump back, with held preview | Separate Set and Return; paused hold previews, playing Return continues |
+| Input gain / Auto Gain | Separate gain and automatic matching | Separate trim and static RMS/peak matching; not the same loudness algorithm |
+| A/B crossfade assignment | Decks assigned to crossfader sides; Thru bypass | A/B/Thru on every deck, equal-power curve |
+| Speed / Key Lock / pitch shift | Speed ranges, pitch preservation and key changes | ±8–±75% ranges; Key Lock; independent ±12-semitone pitch |
+| BPM analysis / SYNC | Analysis plus tempo/beat sync options | Worker analysis, editable grid, 120 fallback; optional per-deck tempo/beat sync and 1-beat/1-bar alignment |
+| Beat loops | Beat-length loops | Intentionally removed; sources play once |
+| Slip | Background timeline resumes after manipulation | Timeline continues during scratching and Cue; file end stops playback |
+| Geometric group mixer | No equivalent required for this workflow | Removed; gain, volume, pan and A/B remain |
+| Maximum source length | No fixed duration ceiling stated in the cited import documentation | Whole-file decoding with the explicit phone and standard byte limits above; no partial import |
+| Continuous master recording | Built-in mix recording; no fixed ceiling stated in the cited guide | Storage-backed capture, numbered WAV parts; storage and browser interruptions bound duration |
+| Saved preparation / named cue bank / waveform zoom | Broader library and preparation tools | One session-only return cue per source; no saved preparation, named cue bank or waveform zoom |
+| Private headphone audition | Pre-cueing with supported output routing | Cue preview goes to the master mix; no independent headphone bus |
+
+References: [interface and cue controls](https://help.algoriddim.com/user-manual/djay-ios/getting-started/interface),
+[appearance / cue layout](https://help.algoriddim.com/user-manual/djay-ios/settings/appearance),
+[speed and sync settings](https://help.algoriddim.com/user-manual/djay-ios/settings/general),
+[Key Lock](https://help.algoriddim.com/user-manual/djay-ios/dj-tools/key-lock/key-lock),
+[independent key changes](https://help.algoriddim.com/user-manual/djay-ios/dj-tools/key-lock/changing-key),
+[Slip](https://help.algoriddim.com/user-manual/djay-ios/dj-tools/cueing-looping/slip),
+[external tracks](https://help.algoriddim.com/user-manual/djay-ios/music-library/advanced/adding-external-tracks),
+[recording](https://help.algoriddim.com/user-manual/djay-ios/mixing-basics/recording).
+
+The browser API compatibility target remains Safari on **iOS/iPadOS 15.4+** over
+HTTPS. Current Linux WebKit tests do not establish old-iPhone CPU performance,
+touch feel or audible quality. Physical-device and listening checks remain
+necessary. Local source files and mix preparation remain session-only; stored
+recordings are separate. No microphone, streaming account, stem separation,
+private cue output or dedicated DJ-controller mapping is provided.

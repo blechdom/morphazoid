@@ -6,6 +6,7 @@
 # Keep requirement order stable; every path is declared once. See README.md.
 copy+require	src/output-recorder.js
 copy+require	src/output-recorder-processor.js
+copy+require	src/output-recording-storage.js
 copy+require	src/media-element-output.js
 copy+require	src/site/output-recording-controls.js
 copy+require	src/site/output-recording-controls.css
@@ -2230,8 +2231,8 @@ copy+require	src/instruments/wobblini/wobblini-app.js
 copy+require	src/instruments/wobblini/wobblini.css
 copy+require	src/instruments/wobblini/wobblini-audio.js
 copy+require	src/instruments/wobblini/wobblini-model.js
-copy+require	src/instruments/wobblini/wobblini-geometry-model.js
-copy+require	src/instruments/wobblini/wobblini-mixer.js
+copy+require	src/instruments/wobblini/wobblini-pitch.js
+copy+require	src/instruments/wobblini/wobblini-level-analysis.js
 copy+require	src/instruments/wobblini/wobblini-scratch-model.js
 copy+require	src/instruments/wobblini/wobblini-scratch-processor.js
 

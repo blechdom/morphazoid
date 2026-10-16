@@ -1,3 +1,4 @@
+import { restoreWobbliniDjaySite, wobbliniDjaySiteChanges } from "./helpers/wobblini-djay-site-reference.mjs";
 import assert from 'node:assert/strict';
 import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
@@ -23,14 +24,16 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
   assert.equal(item.status, 'Work in Progress');
   assert.equal(item.imageHref, 'assets/instruments/wobblini.webp');
   assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['wip']);
-  assert.deepEqual(item.tags.map(tag => tag.id), ['wip', 'app', 'looper', 'audio-effect']);
+  assert.deepEqual(item.tags.map(tag => tag.id), ['wip', 'app', 'audio-effect']);
   assert.equal(FAVE_TOOL_IDS.includes(item.id), false);
-  assert.match(item.description, /eight local audio decks.*records or wide waveforms forward and backward to scratch.*shared filter wobble/i);
+  assert.match(item.description, /eight local stereo sources.*scratchable records or waveforms.*preserve pitch/i);
   assert.ok(item.features.includes('Scratching'));
   assert.ok(item.features.includes('Selectable master'));
-  assert.ok(item.features.includes('Stereo shape mixer'));
-  assert.equal(item.features.includes('Crossfader'), false);
-  assert.doesNotMatch(item.description, /streaming|stem separation|time.stretch|automatic BPM/i);
+  assert.ok(item.features.includes('Key Lock'));
+  assert.ok(item.features.includes('BPM analysis'));
+  assert.equal(item.features.includes('Beat loops'), false);
+  assert.ok(item.features.includes('Crossfader'));
+  assert.doesNotMatch(item.description, /streaming accounts|stem separation/i);
   assert.match(item.start, /enable Audio/);
   assert.equal(CANONICAL_PAGE_ROUTES.filter(route => route === item.href).length, 1);
   assert.deepEqual(instrumentMidiCapabilityForId(item.id), {
@@ -68,7 +71,8 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
     'assets/instruments/wobblini.webp', 'docs/wobblini.md',
     'src/instruments/wobblini/wobblini-app.js', 'src/instruments/wobblini/wobblini.css',
     'src/instruments/wobblini/wobblini-audio.js', 'src/instruments/wobblini/wobblini-model.js',
-    'src/instruments/wobblini/wobblini-geometry-model.js', 'src/instruments/wobblini/wobblini-mixer.js',
+    'src/instruments/wobblini/wobblini-pitch.js', 'src/instruments/wobblini/wobblini-level-analysis.js',
+    'src/output-recording-storage.js',
     'src/instruments/wobblini/wobblini-scratch-model.js', 'src/instruments/wobblini/wobblini-scratch-processor.js',
   ]) assert.deepEqual(entries.filter(entry => entry.path === file).map(entry => entry.policy), ['copy+require'], file);
   assert.equal(entries.some(entry => entry.path === 'src/pages/wobblini.html'), false, 'canonical pages use the page manifest');
@@ -101,7 +105,8 @@ test('Wobblini controls copy peels to the exact previous publication without hid
   assert.match(wobbliniControlsSiteChanges.baseCommit, /^9e60847c[0-9a-f]{32}$/);
   for (const change of wobbliniControlsSiteChanges.changes) {
     const url = new URL(change.file, root);
-    const source = await readFile(url, 'utf8');
+    const raw = await readFile(url, 'utf8');
+    const source = restoreWobbliniDjaySite(raw, change.file);
     const restored = restoreWobbliniControlsSite(source, change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256, change.file);
     assert.equal(await readWobbliniControlsSiteReference(url, 'utf8'), restored);
@@ -118,4 +123,25 @@ test('Wobblini controls copy peels to the exact previous publication without hid
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreWobbliniControlsSite(binary, 'README.md'), binary);
   assert.equal(restoreWobbliniControlsSite('untouched', 'unrelated.js'), 'untouched');
+});
+
+
+test('Wobblini performance amendments preserve preceding bytes and expose unrelated drift', async () => {
+  assert.equal(wobbliniDjaySiteChanges.baseCommit, '263f00b37166552d3714989ebdb8adf54d9ed4f7');
+  for (const change of wobbliniDjaySiteChanges.changes) {
+    const source = await readFile(new URL(change.file, root), 'utf8');
+    const restored = restoreWobbliniDjaySite(source, change.file);
+    assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256);
+    assert.equal(restoreWobbliniDjaySite(restored, change.file, { allowRestored: true }), restored);
+    assert.throws(() => restoreWobbliniDjaySite(restored, change.file), /exact Wobblini djay site amendment/);
+    for (const { before, after } of change.replacements) {
+      for (const edited of [source.replace(after, () => before), source + after, source.replace(after, () => after + 'unreviewed')]) {
+        if (edited.endsWith('unreviewed') || edited.includes(after + 'unreviewed')) {
+          assert.notEqual(createHash('sha256').update(restoreWobbliniDjaySite(edited, change.file)).digest('hex'), change.sha256);
+        } else assert.throws(() => restoreWobbliniDjaySite(edited, change.file), /exact Wobblini djay site amendment/);
+      }
+    }
+    const drift = '\n// unrelated source drift\n';
+    assert.equal(restoreWobbliniDjaySite(source + drift, change.file), restored + drift);
+  }
 });

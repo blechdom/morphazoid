@@ -1,0 +1,49 @@
+{
+  "baseCommit": "263f00b37166552d3714989ebdb8adf54d9ed4f7",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "3c9aae4ca1b69b65df6147de57b9d9f4915c399b020c3d829bef87586c0e8984",
+      "replacements": [
+        {
+          "before": "  wobblini: define(\n    \"Eight-deck DJ instrument\",\n    \"Mix eight local audio decks with original demo loops, cues, beat loops, source tempo and playback rate. Drag the records or wide waveforms forward and backward to scratch. Choose a master and sync each track independently. Shape the stereo mix with pan, volume, EQ, filters and shared filter wobble.\",\n    \"Load the demo loops or your own audio files, enable Audio, then play or scratch. Set source BPM, choose a master crown, and enable SYNC for the tracks that should follow.\",\n    [\"Local files\", \"Demo loops\", \"Eight decks\", \"Scratching\", \"Waveforms\", \"Cue points\", \"Beat loops\", \"Selectable master\", \"Stereo shape mixer\", \"Pointer\", \"Touch\"],\n  ),\n",
+          "after": "  wobblini: define(\n    \"Eight-deck audio mixer\",\n    \"Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and one-shot playback. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.\",\n    \"Load your audio files or demo sources, enable Audio, then play or scratch. Use Prepare to set a return cue, or the gear for larger deck controls. SYNC is optional for each track.\",\n    [\"Local files\", \"Eight decks\", \"Scratching\", \"Cue preview\", \"Slip\", \"Input gain\", \"Auto Gain\", \"Crossfader\", \"BPM analysis\", \"Selectable master\", \"Key Lock\", \"Pitch shift\", \"Pointer\", \"Touch\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "62bae6628f3bfd499f0770769d3bc65e9ce9b75a42f94d6bf99443d8f3d22b4b",
+      "replacements": [
+        {
+          "before": "**[Wobblini](wobblini.html)** is an eight-deck browser DJ instrument in progress: scratchable records and wide track waveforms, local files and demo loops, selectable master with per-track SYNC, cues, beat loops, EQ, filters, and a geometric stereo pan/volume mixer. Audio starts off. [Controls and MVP boundaries](docs/wobblini.md).\n",
+          "after": "**[Wobblini](wobblini.html)** intercuts eight stereo sources with scratchable records and waveforms, cue preview, Slip, separate input gain, A/B/Thru routing, BPM analysis, optional per-track SYNC, pitch preservation and independent pitch shift. Files play through once. Browser-storage recording exports numbered WAV parts. Audio starts off. [Controls and limits](docs/wobblini.md).\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "afe8741b1f103097f1540291cbd12683b21e0db3473454042c2adb6120b7df9e",
+      "replacements": [
+        {
+          "before": "  \"wobblini\": [\"app\", \"looper\", \"audio-effect\"],",
+          "after": "  \"wobblini\": [\"app\", \"audio-effect\"],"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "bc3a1cff0e131bb50c02e43a26708994d9647acfb0a3adcb3b7cce2e68983a98",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/output-recorder-processor.js\n",
+          "after": "copy+require\tsrc/output-recorder-processor.js\ncopy+require\tsrc/output-recording-storage.js\n"
+        },
+        {
+          "before": "copy+require\tsrc/instruments/wobblini/wobblini-geometry-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-mixer.js\n",
+          "after": "copy+require\tsrc/instruments/wobblini/wobblini-pitch.js\ncopy+require\tsrc/instruments/wobblini/wobblini-level-analysis.js\n"
+        }
+      ]
+    }
+  ]
+}
