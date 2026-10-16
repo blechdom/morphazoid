@@ -126,6 +126,29 @@ test("eight decks play silently until Audio is armed; Audio off and mixer reset 
   expect(errors).toEqual([]);
 });
 
+test("an interrupted audio context reports Audio off and explicitly rejoins all eight current playheads", async ({ page }) => {
+  await demos(page);
+  await page.locator("#playButton").click(); await arm(page); await audible(page, 300);
+  await page.evaluate(async (url) => (await import(url)).engine.context.suspend(), APP);
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
+  expect((await state(page)).decks.every((deck) => deck.playing)).toBe(true);
+  await silent(page);
+  const clocked = () => page.evaluate(async (url) => ({ state: (await import(url)).engine.getState(), time: performance.now() / 1000 }), APP);
+  const before = await clocked();
+  await arm(page);
+  const after = await clocked();
+  after.state.decks.forEach((deck, index) => {
+    const previous = before.state.decks[index];
+    const travel = (deck.position - previous.position + deck.duration) % deck.duration;
+    const expected = ((after.time - before.time) * deck.rate) % deck.duration;
+    expect(deck.playing).toBe(true);
+    expect(Math.abs(travel - expected), `Deck ${index + 1} rejoined its current phase`).toBeLessThan(0.12);
+  });
+  await expect(page.locator("#errorMessage")).toBeHidden();
+  await audible(page, 400);
+});
+
 test("a local WAV loads without Audio, and keyboard seek, cue, loop and tempo retain explicit transport ownership", async ({ page }) => {
   const errors = diagnostics(page);
   await demos(page); await loadTone(page);
@@ -144,6 +167,18 @@ test("a local WAV loads without Audio, and keyboard seek, cue, loop and tempo re
   await page.locator("#d0Cue").click();
   const cued = (await state(page)).decks[0];
   expect(cued.playing).toBe(false); expect(cued.position).toBeCloseTo(cue, 3);
+  await page.locator("#d0Edit").click();
+  const sourceTap = page.locator('.mz-tap-tempo[data-tap-control="#d0Bpm"]');
+  await expect(sourceTap).toBeVisible();
+  await sourceTap.evaluate((button) => {
+    button.reset();
+    const start = performance.now();
+    button.tap(start); button.tap(start + 400); button.tap(start + 800);
+  });
+  expect((await state(page)).decks[0].bpm).toBe(150);
+  expect((await state(page)).decks[0].rate).toBe(1);
+  expect((await state(page)).decks[0].playing).toBe(false);
+  expect((await state(page)).armed).toBe(false);
   await slider(page, "#d0Bpm", 120);
   await page.locator("#d0Loop").selectOption("4");
   const loop = (await state(page)).decks[0];
@@ -290,6 +325,37 @@ test("tiny decks and the focused editor preserve all eight live playheads and mi
     expect(Math.abs(travel - expected), `Deck ${index + 1} retained its audio-clock phase`).toBeLessThan(0.1);
   });
   await audible(page, 250);
+});
+
+test("touch cancellation releases the wobble pad without arming Audio or accepting stale movement", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  try {
+    const errors = diagnostics(page);
+    await ready(page);
+    await page.locator("#tinyView").click();
+    const pad = page.locator("#wobble-pad");
+    await pad.scrollIntoViewIfNeeded();
+    await pad.evaluate((node) => {
+      node.addEventListener("pointerdown", (event) => { node.dataset.testPointer = String(event.pointerId); }, { once: true });
+    });
+    const box = await pad.boundingBox(), session = await context.newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box.x + box.width * 0.2, y: box.y + box.height * 0.8 }] });
+    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: box.x + box.width * 0.8, y: box.y + box.height * 0.2 }] });
+    await expect.poll(async () => (await state(page)).master.wobbleAmount).toBeGreaterThan(0.7);
+    const before = (await state(page)).master;
+    await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    expect(await pad.evaluate((node) => node.hasPointerCapture(Number(node.dataset.testPointer)))).toBe(false);
+    await pad.evaluate((node) => node.dispatchEvent(new PointerEvent("pointermove", {
+      pointerId: Number(node.dataset.testPointer), pointerType: "touch", bubbles: true, clientX: 0, clientY: 0,
+    })));
+    expect((await state(page)).master).toEqual(before);
+    expect((await state(page)).armed).toBe(false);
+    expect((await state(page)).decks.some((deck) => deck.playing)).toBe(false);
+    expect((await readAudioStatus(page)).connectionCount).toBe(0);
+    expect(errors).toEqual([]);
+    await session.detach();
+  } finally { await context.close(); }
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
