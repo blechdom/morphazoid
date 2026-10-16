@@ -243,6 +243,7 @@ function refreshSlots() {
   }));
   $('lcdBank').textContent = `0${state.selectedSlot + 1} / SAMPLE BANK`;
   $('lcdSample').textContent = state.names[state.selectedSlot];
+  syncInput();
 }
 
 function selectSlot(slot) {

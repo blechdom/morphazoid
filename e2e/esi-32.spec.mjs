@@ -51,7 +51,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await expect(page.locator("h1")).toHaveText("ESI-32");
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width + 1);
       expect(await page.locator(".esi-panel").evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
-      expect(await page.locator("[data-instrument-preset-host]").evaluate(node => node.firstElementChild.classList.contains("instrument-preset-controls"))).toBe(true);
+      expect(await page.locator("[data-instrument-preset-host]").evaluate(node => {
+        const first = node.firstElementChild;
+        return first.matches('.instrument-preset-controls') ||
+          (first.matches('.mz-input-preset-row') && Boolean(first.querySelector('.instrument-preset-controls')) && Boolean(first.querySelector('.mz-audio-input-strip')));
+      })).toBe(true);
       for (const selector of ["#audioButton", "#audition", "#panic", "#sampleSlots button:last-child", "#keyboard .esi-key-row:last-child .esi-key:last-child", "#resetPatch", ".header-preset-picker > summary"]) {
         const control = page.locator(selector);
         await control.scrollIntoViewIfNeeded();

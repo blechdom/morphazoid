@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "  \"sample-drums\": define(\n",
-          "after": "  \"esi-32\": define(\n    \"ESI-32-inspired digital sampler\",\n    \"Loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.\",\n    \"Enable Audio, hold a keyboard key or Audition, then drag waveform markers to trim or loop. Select a slot to load your own sound.\",\n    [\"Audio file\", \"Computer keys\", \"MIDI input\", \"Sampler\", \"Presets\"],\n  ),\n  \"sample-drums\": define(\n"
+          "after": "  \"esi-32\": define(\n    \"ESI-32-inspired digital sampler\",\n    \"Records microphone or audio-interface input and loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.\",\n    \"Enable Audio, hold a keyboard key or Audition, then drag waveform markers to trim or loop. Select a slot to load your own sound.\",\n    [\"Audio input\", \"Recording\", \"Audio file\", \"Computer keys\", \"MIDI input\", \"Sampler\", \"Presets\"],\n  ),\n  \"sample-drums\": define(\n"
         }
       ]
     },
@@ -64,6 +64,10 @@
         {
           "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
           "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"esi-32\",\n"
+        },
+        {
+          "before": "const audioInputIds = new Set([\n",
+          "after": "const audioInputIds = new Set([\n  \"esi-32\",\n"
         }
       ]
     },
@@ -104,7 +108,7 @@
       "replacements": [
         {
           "before": "copy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n",
-          "after": "copy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n\n# ESI-32-inspired sampler\ncopy+require\tesi-32.html\ncopy+require\tsrc/instruments/esi-32/esi-32-app.js\ncopy+require\tsrc/instruments/esi-32/esi-32-audio.js\ncopy+require\tsrc/instruments/esi-32/esi-32-model.js\ncopy+require\tsrc/instruments/esi-32/esi-32-files.js\ncopy+require\tsrc/instruments/esi-32/esi-32.css\ncopy+require\tassets/instruments/esi-32.webp\ncopy+require\tdocs/esi-32.md\n"
+          "after": "copy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n\n# ESI-32-inspired sampler\ncopy+require\tesi-32.html\ncopy+require\tsrc/instruments/esi-32/esi-32-app.js\ncopy+require\tsrc/instruments/esi-32/esi-32-audio.js\ncopy+require\tsrc/instruments/esi-32/esi-32-model.js\ncopy+require\tsrc/instruments/esi-32/esi-32-files.js\ncopy+require\tsrc/instruments/esi-32/esi-32-recorder.js\ncopy+require\tsrc/instruments/esi-32/esi-32.css\ncopy+require\tassets/instruments/esi-32.webp\ncopy+require\tdocs/esi-32.md\n"
         }
       ],
       "sha256": "199dd0cc37572cd5779e5d39d1c1745a90cb10d9deb623a47b18f9209d116ab0"

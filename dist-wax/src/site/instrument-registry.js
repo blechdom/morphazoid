@@ -72,6 +72,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "karplus-strong", label: "Karplus Strong", href: "karplus-strong.html" },
     { id: "karplus-carpet", label: "Karplus Carpet", href: "karplus-carpet.html" },
     { id: "sample-drums", label: "Sample Drums", href: "sample-drums.html" },
+    { id: "esi-32", label: "ESI-32", href: "esi-32.html" },
     { id: "object-forge", label: "Dentaphone", href: "dentaphone.html", imageHref: "assets/instruments/dentaphone.webp" },
   ]),
   freezeGroup("sequencer", "Sequencer", [

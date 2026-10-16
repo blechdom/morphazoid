@@ -23,7 +23,7 @@ Click **Record into slot**, then **Stop recording**. The captured sound replaces
 the slot selected when recording began and appears in the waveform editor.
 Play the keys to hear it, then trim, loop, filter, export or save the bank as usual.
 Recording stops at 60 seconds. Audio off, disconnecting input, or hiding the page
-stops capture and keeps the recorded portion. Permission or capture failures
+stops capture and keeps the recorded portion. Permission or startup failures
 leave the existing sample intact. Input and recordings stay on your device.
 
 The separate red **Record** button in Morphazoid's masthead records the sampler's

@@ -21,6 +21,7 @@ import {
 } from "../src/instruments/wax/wax-midi-routing.js";
 
 const EXISTING_MIDI_CLIENTS = new Set([
+  "esi-32",
   "shape",
   "chaotic-fm",
   "recursive-fm",

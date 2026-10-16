@@ -105,3 +105,10 @@
 .esi-device { display: block; color: var(--esi-muted); font-size: 11px; }
 .esi-device span { display: block; margin: 12px 0 7px; }
 .esi-device select { width: 100%; min-height: 36px; color: #eeeaff; border: 1px solid #4c4c78; border-radius: 4px; background: #202342; }
+/* The narrow control rail needs a full row for each playable control group. */
+.esi-page .esi-panel > .mz-input-preset-row { flex-wrap: wrap; gap: 10px; padding: 10px 0; background: #111931; }
+.esi-page .esi-panel .mz-input-preset-row > .instrument-preset-controls { flex: 1 0 100%; width: 100%; }
+@media (pointer: coarse) {
+  .esi-page .masthead .audio-button { min-width: 48px; min-height: 48px; }
+  .esi-page #recordSample, .esi-page #inputDevice { min-height: 48px; }
+}

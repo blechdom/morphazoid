@@ -820,9 +820,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "esi-32": define(
     "ESI-32-inspired digital sampler",
-    "Loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.",
+    "Records microphone or audio-interface input and loads local audio into eight sample slots, with waveform trimming, forward loops, reverse playback, envelopes and a resonant lowpass. Original demo samples, pitched keyboard and MIDI, and portable sample banks.",
     "Enable Audio, hold a keyboard key or Audition, then drag waveform markers to trim or loop. Select a slot to load your own sound.",
-    ["Audio file", "Computer keys", "MIDI input", "Sampler", "Presets"],
+    ["Audio input", "Recording", "Audio file", "Computer keys", "MIDI input", "Sampler", "Presets"],
   ),
   "sample-drums": define(
     "Sample instrument",

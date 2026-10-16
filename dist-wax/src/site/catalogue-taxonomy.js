@@ -568,6 +568,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "spatial",
     "routing"
   ],
+  "esi-32": ["synthesizer"],
   "sample-drums": [
     "drum-machine"
   ],
