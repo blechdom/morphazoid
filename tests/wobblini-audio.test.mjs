@@ -463,14 +463,86 @@ test("Wobblini sync range failures are explicit, preserve transports and recover
   engine.setDeck(0, { rate: 0.9 }); assertSynced(engine); await engine.dispose();
 });
 
-test("Wobblini sync off preserves matched speeds and manual follower speed explicitly disables global Sync", async () => {
+test("Wobblini sync off preserves matched speeds and manual follower speed releases only that follower", async () => {
   const h = harness(), { engine } = h; engine.setDeck(1, { bpm: 90 }); engine.setSyncEnabled(true); engine.playAll();
   h.setWall(100.2); const before = engine.getDeckState(1); engine.setSyncEnabled(false);
   near(engine.getDeckState(1).position, before.position); near(engine.getDeckState(1).rate, 4 / 3);
   h.setWall(100.5); near(engine.getDeckState(1).position, before.position + 0.3 * 4 / 3);
   engine.setSyncEnabled(true); engine.setDeck(1, { rate: 0.75 });
-  assert.equal(engine.getState().syncEnabled, false); near(engine.getDeckState(1).rate, 0.75);
+  assert.equal(engine.getState().syncEnabled, true); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.getDeckState(1).syncEnabled, false); near(engine.getDeckState(1).rate, 0.75);
   assert.equal(engine.getDeckState(1).playing, true); assert.equal(engine.getDeckState(1).syncError, null);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  engine.setSyncEnabled(true); assert.equal(engine.getState().syncAllEnabled, true); assertSynced(engine);
+  await engine.dispose();
+});
+
+test("Wobblini per-deck Sync selects individual followers without arming Audio or changing the fixed master", async () => {
+  const h = harness(), { engine } = h;
+  engine.setDeck(1, { bpm: 90 }); engine.setDeck(2, { bpm: 150 });
+  assert.equal(engine.getState().syncEnabled, false); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.setDeckSyncEnabled(0, true), false); assert.equal(engine.getDeckState(0).syncEnabled, false);
+  assert.equal(engine.setDeckSyncEnabled(1, true), true);
+  assert.equal(engine.getState().syncEnabled, true); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.getDeckState(1).syncActive, false); near(engine.getDeckState(1).rate, 4 / 3);
+  engine.playAll(); h.setWall(100.237); assertSynced(engine, [1]);
+  near(engine.getDeckState(2).rate, 1); assert.equal(engine.getDeckState(2).syncActive, false);
+  engine.seek(2, 2.17); engine.setDeckSyncEnabled(2, true); assertSynced(engine, [1, 2]);
+  engine.setDeckSyncEnabled(1, false); engine.setDeckSyncEnabled(2, false);
+  assert.equal(engine.getState().syncEnabled, false);
+  assert.ok(engine.getState().decks.every(deck => !deck.syncEnabled && !deck.syncActive));
+  assert.equal(h.creates, 0); assert.equal(engine.armed, false); await engine.dispose();
+});
+
+test("Wobblini follower speed and 1x reset update native audio while other selected decks remain synced", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setDeck(1, { bpm: 90 }); engine.setSyncEnabled(true); await engine.arm(); engine.playAll();
+  context.currentTime += 0.2;
+  const others = engine.decks.slice(2).map(deck => deck.source), independent = engine.decks[1].source;
+  engine.setDeck(1, { rate: 0.75 });
+  assert.equal(engine.decks[1].source, independent); near(independent.source.playbackRate.value, 0.75);
+  assert.deepEqual(engine.decks.slice(2).map(deck => deck.source), others);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  engine.setDeck(0, { rate: 1.1 }); context.currentTime += 0.05;
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]); near(engine.getDeckState(1).rate, 0.75);
+  near(independent.source.playbackRate.value, 0.75);
+  engine.setDeckSyncEnabled(1, true); context.currentTime += 0.05; assertSynced(engine);
+  const resetSource = engine.decks[1].source; engine.setDeck(1, { rate: 1 });
+  near(resetSource.source.playbackRate.value, 1); near(engine.getDeckState(1).rate, 1);
+  assert.equal(engine.getDeckState(1).syncEnabled, false); assert.equal(engine.getState().syncEnabled, true);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  await engine.dispose();
+});
+
+test("Wobblini individual Sync release retains native playback and scopes warnings to requested followers", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setLoop(1, 0); engine.setDeck(1, { bpm: 40 }); engine.setLoop(2, 0); engine.setDeck(2, { bpm: 40 });
+  engine.setSyncEnabled(true); await engine.arm(); engine.playAll(); context.currentTime += 0.2;
+  assert.match(engine.getDeckState(1).syncError, /outside/); assert.match(engine.getDeckState(2).syncError, /outside/);
+  const before = engine.getDeckState(3), sources = engine.decks.map(deck => deck.source);
+  engine.setDeckSyncEnabled(3, false);
+  assert.deepEqual(engine.decks.map(deck => deck.source), sources);
+  near(engine.getDeckState(3).position, before.position); near(engine.getDeckState(3).rate, before.rate);
+  engine.setDeckSyncEnabled(1, false); assert.equal(engine.getDeckState(1).syncError, null);
+  assert.match(engine.getDeckState(2).syncError, /outside/);
+  engine.setSyncEnabled(false);
+  assert.ok(engine.getState().decks.every(deck => !deck.syncEnabled && !deck.syncActive && deck.syncError === null));
+  assert.ok(engine.getState().decks.every(deck => deck.playing)); await engine.dispose();
+});
+
+test("Wobblini selected memberships survive scratch, track replacement and explicit Audio rearming", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setDeckSyncEnabled(1, true); engine.setDeck(2, { rate: 1.25 }); engine.playAll();
+  engine.beginScratch(1); engine.scratchTo(1, 2.17); engine.endScratch(1); assertSynced(engine, [1]);
+  engine.beginScratch(2); engine.scratchTo(2, 3.13); engine.endScratch(2);
+  near(engine.getDeckState(2).position, 3.13); assert.equal(engine.getDeckState(2).syncEnabled, false);
+  engine.loadDemo(1); assertSynced(engine, [1]); await engine.loadFile(2, file());
+  near(engine.getDeckState(2).rate, 1.25); assert.equal(engine.getDeckState(2).syncEnabled, false);
+  await engine.arm(); context.currentTime += 0.05; assertSynced(engine, [1]);
+  await engine.setAudioEnabled(false); h.setWall(100.3); assertSynced(engine, [1]);
+  await engine.arm(); context.currentTime += 0.05; assertSynced(engine, [1]);
+  assert.equal(engine.getState().syncAllEnabled, false);
+  assert.deepEqual(engine.getState().decks.map(deck => deck.syncEnabled), [false, true, false, false, false, false, false, false]);
   await engine.dispose();
 });
 
