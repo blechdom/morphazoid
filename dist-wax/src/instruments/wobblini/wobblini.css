@@ -40,14 +40,12 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-deck { --deck-color: #c5f078; position: relative; min-width: 0; }
 .wb-deck.is-muted { opacity: .68; }
 .wb-deck.is-dragover { outline: 2px dashed var(--deck-color); outline-offset: -5px; background: #283b43; }
-/* IDs stay outside the controls; the crown marks the fixed sync master. */
-.wb-deck-number { position: absolute; top: 0; left: -8px; width: 6px; color: var(--deck-color); font: 600 9px/1 ui-monospace, monospace; text-align: center; pointer-events: none; user-select: none; }
-.wb-deck-number svg { position: absolute; width: 10px; height: 10px; left: -2px; top: 12px; }
+/* The crown selects the tempo master independently of follower membership. */
 .wb-deck .wb-load { min-height: 29px; padding: 4px 6px; font-size: 10px; background: transparent; }
 .wb-load[aria-busy="true"] { opacity: .5; }
 .wb-visual { display: flex; gap: 10px; align-items: center; }
 .wb-disc { width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; position: relative; }
-/* Clip transformed square bounds without clipping the upright loop labels. */
+/* Clip the rotating record to its circular playing surface. */
 .wb-record-clip { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
 .wb-record-surface { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: repeating-radial-gradient(circle, #1a2834 0 1px, #0b121a 2px 4px); transform: rotate(var(--record-angle, 0deg)); }
 .wb-record-surface::before { content: ''; position: absolute; inset: 20px; background: var(--deck-color); border-radius: 50%; opacity: .85; }
@@ -92,12 +90,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .wb-section-heading h2 { font-size: 12px; font-weight: 650; }
 .wb-small { background: transparent !important; padding: 4px 6px !important; min-height: 26px !important; font-size: 9px !important; color: #bccbd6 !important; }
-.wb-bus-labels { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; color: #c5f078; font: 600 16px/1 ui-monospace, monospace; }
-.wb-bus-labels output { color: #acbecd; font-size: 10px; font-weight: 400; }
-.wb-bus-labels span:last-child { color: #c5a0ff; }
-#crossfader { height: 38px; }
-.wb-routing { display: flex; justify-content: space-between; color: #a7bac7; font: 9px/1.6 ui-monospace, monospace; gap: 5px; }
-.wb-routing span { max-width: 50%; overflow-wrap: anywhere; }
 .wb-pad-wrap { position: relative; margin: 12px 0 15px; }
 #wobble-pad { display: block; width: 100%; height: 154px; touch-action: none; cursor: crosshair; background: #09121a; border-radius: 5px; }
 .wb-pad-axis { position: absolute; bottom: 7px; left: 9px; color: #a0b7c6; font: 8px/1 ui-monospace, monospace; letter-spacing: .12em; pointer-events: none; }
@@ -145,7 +137,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 @media (min-width: 1500px) { .wb-disc { width: 76px; height: 76px; } .wb-record-surface::before { inset: 24px; } .wb-record-surface::after { left: 36px; top: 36px; } .wb-wave { height: 70px; } }
 @media (max-width: 1199px) { .wb-workspace { grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; } .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-footer label { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: 1fr 27px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: none; } }
-@media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-deck.is-selected { grid-column: 1 / -1; grid-row: auto; } .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #syncAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; } .wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected .wb-eq, .wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo { grid-column: auto; } }
+@media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected { grid-column: 1 / -1; grid-row: auto; } .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #syncAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; } .wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected .wb-eq, .wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo { grid-column: auto; } }
 @media (pointer: coarse) { .wb-shell button, .wb-shell select { min-height: 40px; } .wb-shell :is(#playButton, .wb-deck-play) { min-height: 48px !important; min-width: 48px; } .wobblini-page #audioButton { min-width: 48px; min-height: 48px; } .wb-shell input[type="range"] { height: 32px; } .wb-shell .wb-seek { height: 24px !important; } .wb-detail summary { padding-block: 13px; } }
 
 /* Compact, icon-only controls share accessible labels and hover titles. */
@@ -177,12 +169,8 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; max-width: 1160px; margin: 18px auto 0; }
 .wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail) { display: none; }
 .is-records .wb-deck { aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.is-records .wb-deck-number { top: 5px; left: 5px; width: auto; display: flex; gap: 4px; align-items: center; font-size: 18px; }
-.is-records .wb-deck-number svg { position: static; width: 12px; height: 12px; }
-.is-records .wb-deck.is-synced .wb-deck-number { color: #efffff; }
-.is-records .wb-deck.has-sync-warning .wb-deck-number { color: #ffbc69; }
 .wb-shell #syncAll.has-sync-warning { border-color: #ffbc69; background: #69481e; color: #fff0ce; }
-.is-records .wb-visual { position: absolute; inset: 8%; display: block; margin: 0; }
+.is-records .wb-visual { position: absolute; inset: 13.5%; display: block; margin: 0; }
 .is-records .wb-disc { width: 100%; height: 100%; border: 0; }
 .is-records .wb-record-surface {
   background: conic-gradient(from 30deg, #ffffff00, #ffffff0e 15%, #ffffff00 26%, #ffffff00 50%, #ffffff0b 63%, #ffffff00 76%), repeating-radial-gradient(circle, #10151b 0 1px, #1b232a 1px 2px, #0c1116 2px 4px);
@@ -190,19 +178,19 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .is-records .wb-record-surface::before { inset: 29%; opacity: 1; background: linear-gradient(#11192299, #111922dd), var(--deck-color); }
 .is-records .wb-record-surface::after { width: 4px; height: 4px; top: calc(50% - 2px); left: calc(50% - 2px); }
 .is-records .wb-disc-needle { inset: 0; }
-.is-records .wb-disc-needle::after { top: 0; left: calc(50% - 1px); width: 2px; height: 19%; background: #f2f7ed; box-shadow: 0 0 2px #0a1016; }
+.is-records .wb-disc-needle::after { top: calc(50% - 1px); left: auto; right: 0; width: 19%; height: 2px; background: #f2f7ed; box-shadow: 0 0 2px #0a1016; }
 .is-records .is-scratching .wb-disc-needle::after { background: var(--deck-color); }
 .is-records .wb-record-corners { position: absolute; inset: 0; display: block; pointer-events: none; }
-.is-records .wb-record-corners button {
+.is-records .wb-record-corners .wb-corner-edit {
   position: absolute; z-index: 3; width: 34%; height: 34%; min-width: 48px; min-height: 48px !important;
   max-width: 86px; max-height: 86px; padding: 0 !important; border: 0; border-radius: 0;
   background: #172731 !important; color: var(--deck-color) !important; pointer-events: auto; -webkit-tap-highlight-color: transparent;
 }
-.is-records .wb-record-corners button:hover { background: #2c424c !important; }
-.is-records .wb-record-corners button[aria-pressed="true"] { background: var(--deck-color) !important; color: #10191b !important; }
-.is-records .wb-record-corners button:focus-visible { background: #47616c !important; outline: 0; }
-.is-records .wb-record-corners button:focus-visible svg { filter: drop-shadow(0 0 2px #fff); }
-.is-records .wb-record-corners button svg { position: absolute; width: 17px; height: 17px; transform: translate(-50%, -50%); pointer-events: none; }
+.is-records .wb-record-corners .wb-corner-edit:hover { background: #2c424c !important; }
+.is-records .wb-record-corners .wb-corner-edit[aria-pressed="true"] { background: var(--deck-color) !important; color: #10191b !important; }
+.is-records .wb-record-corners .wb-corner-edit:focus-visible { background: #47616c !important; outline: 0; }
+.is-records .wb-record-corners .wb-corner-edit:focus-visible svg { filter: drop-shadow(0 0 2px #fff); }
+.is-records .wb-record-corners .wb-corner-edit svg { position: absolute; width: 17px; height: 17px; transform: translate(-50%, -50%); pointer-events: none; }
 .is-records .wb-corner-edit { top: 0; right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
 .is-records .wb-corner-edit svg { left: 70%; top: 30%; }
 @media (max-width: 759px) {
@@ -219,11 +207,9 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 }
 
 /* The master strip stays within reach while record view hides deck editing. */
-.wb-record-crossfade, .wb-record-wave { display: none; }
+.wb-record-wave { display: none; }
 .is-records .wb-toolbar { max-width: 1160px; margin: 2px auto 0; padding-bottom: 0; }
 .is-records .wb-toolbar :is(#loadDemos, #resetMix) { display: none; }
-.is-records .wb-record-crossfade { display: flex; align-items: center; gap: 9px; width: clamp(140px, 24vw, 240px); margin-left: 16px; color: #b9c9d6; font: 600 10px/1 ui-monospace, monospace; }
-.is-records .wb-record-crossfade input { flex: 1; }
 .is-records .wb-record-wave { display: block; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
 @media (max-width: 479px) {
   .is-records .wb-toolbar { gap: 6px; }
@@ -231,10 +217,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .is-records .wb-toolbar .wb-master-tempo { order: initial; flex: 1; margin-left: auto; }
   .is-records .wb-toolbar #syncAll { order: initial; }
   .is-records .wb-toolbar .wb-play-all { flex: 0; }
-  .is-records .wb-record-crossfade { width: 100%; margin-left: 0; gap: 14px; }
-}
-@media (max-width: 340px) {
-  .is-records .wb-master-tempo > span { display: none; }
 }
 /* Keep the records clear of notches/home indicators. Native form text at 16px
    prevents iOS from zooming the page when editing a deck's tempo or loop. */
@@ -260,10 +242,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .is-records .wb-deck-transport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; pointer-events: none; }
 .is-records .wb-deck-transport :is(.wb-cue, .wb-set-cue) { display: none; }
 .is-records .wb-deck-play { width: 48px; height: 48px; min-width: 48px; min-height: 48px; border-radius: 50%; border: 1px solid var(--deck-color); background: #0c141ce6; pointer-events: auto; }
-.wb-loop-marker, .wb-loop-length { display: none; }
-.is-records .wb-loop-marker, .is-records .wb-loop-length { display: block; position: absolute; z-index: 2; color: var(--deck-color); background: #081018df; border-radius: 2px; padding: 2px 3px; font: 600 8px/1.1 ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
-.is-records .wb-loop-marker { transform: translate(-50%, -50%); }
-.is-records .wb-loop-length { left: 50%; bottom: 21%; transform: translateX(-50%); }
 /* A single shared dialog keeps eight decks light on older phones. */
 .wb-deck-settings { width: min(360px, calc(100vw - 28px)); max-width: none; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); margin: auto; padding: 16px; overflow: auto; overscroll-behavior: contain; }
 .wb-deck-settings header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -276,15 +254,13 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-settings-knobs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .wb-settings-knobs section { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .wb-settings-knobs label { color: #c1ced8; }
-.wb-settings-knob.mz-range-knob { width: 88px; min-width: 88px; height: 88px; }
-.wb-settings-knob .mz-range-knob__dial { width: 68px; height: 68px; top: 10px; background: #0c141c; border-width: 2px; }
-.wb-settings-knob .mz-range-knob__dial i { inset: 5px; }
-.wb-settings-knob .mz-range-knob__dial i::before { height: 16px; }
+.wb-settings-knob.mz-range-knob { width: 44px; min-width: 44px; height: 44px; }
+.wb-settings-knob .mz-range-knob__dial { width: 32px; height: 32px; top: 6px; background: #0c141c; border-width: 2px; }
+.wb-settings-knob .mz-range-knob__dial i { inset: 3px; }
+.wb-settings-knob .mz-range-knob__dial i::before { height: 7px; }
 .wb-deck-settings output { font: 12px/1.5 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .wb-settings-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
-.wb-settings-loop { display: grid; grid-template-columns: 1fr 48px minmax(0, 1.5fr); align-items: center; gap: 8px; margin-top: 20px; }
 .wb-deck-settings select, .wb-deck-settings input[type="number"] { min-width: 0; min-height: 48px; font: 16px system-ui, sans-serif; border: 1px solid #3c4854; border-radius: 5px; padding: 6px; background: #0c141c; color: #edf3f6; }
-.wb-settings-loop output { grid-column: 1 / -1; color: #c1ced8; }
 .wb-settings-grid { margin-top: 12px; }
 .wb-settings-grid summary { cursor: pointer; padding-block: 12px; color: #c1ced8; }
 .wb-settings-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -330,4 +306,51 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .wb-geometry-tools button, #geometryExpand, #geometryOpen { min-height: 48px; min-width: 48px; }
   .wb-geometry-controls .wb-geometry-point { width: 48px; height: 48px; min-width: 48px !important; min-height: 48px !important; }
   .wb-geometry-controls .wb-control input[type="range"] { height: 40px; }
+}
+
+/* Track view gives its entire width to the scratch waveform. */
+.wb-shell:not(.is-records) .wb-disc { display: none; }
+.wb-shell:not(.is-records) .wb-visual { display: block; }
+.wb-shell:not(.is-records) .wb-wave { height: 82px; cursor: grab; }
+.wb-shell:not(.is-records) .is-scratching .wb-wave { cursor: grabbing; }
+.wb-deck-identity { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 6px; }
+.wb-deck-heading { display: flex; align-items: center; gap: 4px; }
+.wb-deck-number { color: var(--deck-color); font: 650 15px/1 ui-monospace, monospace; pointer-events: none; user-select: none; }
+.wb-shell .wb-master-select { width: 24px; height: 24px; min-width: 24px !important; min-height: 24px !important; border: 0; padding: 3px; border-radius: 50%; background: #24323b; color: var(--deck-color); }
+.wb-shell .wb-master-select svg { width: 14px; height: 14px; }
+.wb-shell .wb-master-select[aria-pressed="true"] { background: var(--deck-color); color: #10191b; }
+.wb-shell .wb-track-sync { min-width: 40px !important; min-height: 24px !important; height: 24px; padding: 2px 4px; font: 700 9px/1 var(--font-ui, system-ui, sans-serif); }
+.wb-shell #syncAll { padding-inline: 7px; white-space: nowrap; font-size: 10px; min-width: 65px; }
+.wb-shell .wb-master-tempo { margin-left: 0; gap: 3px; flex: 0 0 auto; }
+.wb-shell .wb-tempo-knob.mz-range-knob { width: 36px; min-width: 36px; height: 40px; }
+.wb-shell .wb-tempo-knob input { width: 100% !important; height: 100%; }
+.wb-tempo-knob .mz-range-knob__dial { width: 28px; height: 28px; top: 6px; }
+.wb-master-tempo .wb-tempo-readout { display: flex; flex-direction: column; align-items: center; gap: 3px; width: auto; min-width: 36px; font: 600 13px/1 ui-monospace, monospace; color: #dce6ed; letter-spacing: 0; }
+.wb-tempo-readout small { font: 8px/1 system-ui, sans-serif; color: #a4b5c3; }
+.is-records .wb-deck-identity { position: absolute; top: 2px; left: 2px; z-index: 4; flex-direction: column; align-items: flex-start; gap: 3px; margin: 0; }
+.is-records .wb-deck-number { font-size: 18px; }
+.is-records .wb-deck-heading { gap: 3px; }
+.is-records .wb-master-select { width: 18px; height: 18px; min-width: 18px !important; min-height: 18px !important; padding: 2px; }
+.is-records .wb-master-select svg { width: 12px; height: 12px; }
+.is-records .wb-track-sync { width: 32px; min-width: 32px !important; height: 16px; min-height: 16px !important; padding: 1px 2px; font-size: 7px; border-radius: 3px; }
+.is-records .wb-corner-mix { display: flex; gap: 2px; position: absolute; bottom: 2px; left: 2px; z-index: 4; pointer-events: auto; }
+.is-records .wb-corner-mix button { width: 22px; min-width: 22px !important; height: 22px; min-height: 22px !important; padding: 0; border: 0; border-radius: 3px; font: 700 10px/1 system-ui, sans-serif; }
+.is-records .wb-record-volume.mz-range-knob { position: absolute; bottom: 0; right: 0; z-index: 4; width: 34px; min-width: 34px; height: 34px; margin: 0; pointer-events: auto; }
+.is-records .wb-record-volume input[type="range"] { height: 100%; }
+.wb-record-volume .mz-range-knob__dial { width: 26px; height: 26px; top: 4px; background: #15232c; }
+.wb-record-volume .mz-range-knob__dial i { inset: 3px; }
+.wb-record-volume .mz-range-knob__dial i::before { height: 7px; }
+.wb-deck-settings h2 { overflow-wrap: anywhere; min-width: 0; font-size: 17px; }
+.wb-deck-settings #settingsSync { width: 54px; font-size: 10px; }
+.wb-settings-knobs { gap: 10px; }
+.wb-settings-knobs label { font-size: 11px; }
+@media (max-width: 479px) {
+  .wb-shell:not(.is-records) .wb-decks { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .wb-shell.is-tiny .wb-deck.is-selected { grid-column: auto; }
+  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-wave { height: 60px; }
+  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: minmax(0, 1fr) 32px 32px; }
+  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: inline-flex; }
+  .wb-shell .wb-toolbar .wb-master-tempo { flex: 0 0 auto; }
+  .wb-shell.is-records .wb-toolbar .wb-master-tempo { margin-left: 0; }
+  .is-records #syncAll { margin-left: auto; }
 }

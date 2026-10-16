@@ -44,7 +44,7 @@ screen-reader descriptions, and the settings popup.
   rejoins the selected master's beat phase when that master is playing.
   A paused track stays paused. Focus a scratch surface and use Left/Right arrows
   to scratch; Shift makes smaller movements. Pointer cancellation and lost
-  focus release the scratch.
+  window focus release the scratch.
 - Each track has independent Play/Pause, a keyboard-accessible position slider,
   and a cue point. The **flag icon is Set cue**: it saves the current position
   as the manual beat-grid origin. The separate Return to cue button jumps to
@@ -162,7 +162,7 @@ parameters, and protected master output. Graphics run at a maximum of 30 fps
 and device-pixel ratio 2 (20 fps and ratio 1 on touch/constrained devices);
 offscreen records and unchanged waveforms do not redraw. Circular waveform
 geometry is cached, and reduced-motion preferences stop automatic platter
-rotation while preserving direct scratching and the file-position indicator.
+rotation while preserving direct scratching and the track position readout.
 The fixed three-o'clock needle does not rotate. Record rotation and the
 circular waveform describe the active loop, with one turn per loop. The taller
 waveform is a visual amplitude boost and does not change audio gain.

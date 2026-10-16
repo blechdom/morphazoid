@@ -214,5 +214,6 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "webgpu-303.html", "selector": "[role=\"slider\"][data-param-key=\"timeScale\"]", "mapping": {"unit": "powerHz", "floor": 0.01, "span": 29.99, "exponent": 2.65}},
   {"route": "webgpu-chiptune.html", "selector": "#tempo", "mapping": {"unit": "exponentialHz", "floor": 0.25, "factor": 16}},
   {"route": "webgpu-chiptune.html", "selector": "[role=\"slider\"][data-param-key=\"tempo\"]", "mapping": {"unit": "hz"}},
+  {"route": "wobblini.html", "selector": "#master-bpm", "mapping": {"unit": "bpm"}, "title": "Tap master BPM"},
   {"route": "yoyodyne.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
 ];

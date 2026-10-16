@@ -9,7 +9,7 @@ const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { .
 const colors = ["#c5f078", "#75dfc7", "#76c6f3", "#f1ca78", "#c6a2fa", "#fa9fb8", "#f6ae81", "#91b6fa"];
 let initialized = false, disposed = false, starting = false, audioAttempt = 0, frame = 0, lastDraw = 0;
 let view = "records", tiny = false, selected = null, confirmation = null, padPointer = null;
-let filesUnlocked = false, settingsDeck = null;
+let settingsDeck = null;
 // Safari does not expose deviceMemory. Coarse input selects the conservative
 // budget on iPhones/iPads too, without guessing their model from a user agent.
 const constrained = matchMedia("(any-pointer: coarse)").matches || navigator.deviceMemory <= 4 || navigator.hardwareConcurrency <= 4;
@@ -36,7 +36,6 @@ const icons = {
   setcue: '<path d="M5 21V3h11l-3 4 3 4H5m13 4v6m-3-3h6"/>',
   mute: '<path d="M11 4 6 8H3v8h3l5 4Zm5 5 6 6m0-6-6 6"/>',
   solo: '<path d="M4 15v-3a8 8 0 0 1 16 0v3M4 13h3v7H4zm13 0h3v7h-3z"/>',
-  sync: '<path d="M3 8h17l-4-4m5 12H4l4 4"/>',
   music: '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>',
   reset: '<path d="M4 9a8 8 0 1 1 0 7M4 3v6h6"/>',
   center: '<path d="M12 3v18M2 12h6m-3-3 3 3-3 3m17-3h-6m3-3-3 3 3 3"/>',
@@ -50,7 +49,6 @@ const icons = {
   polygon: '<path d="m8 3 8 0 5 5v8l-5 5H8l-5-5V8Z"/><circle cx="12" cy="12" r="2"/>',
   undo: '<path d="m7 3-5 5 5 5M2 8h10a7 7 0 0 1 0 14"/>',
   crown: '<path d="m3 6 4 4 5-6 5 6 4-4-2 12H5ZM5 21h14"/>',
-  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
   gear: '<path d="m10 3-.6 3-2 .9-2.7-1-2 3.5 2.2 2v2.2l-2.2 2 2 3.5 2.7-1 2 .9.6 3h4l.6-3 2-.9 2.7 1 2-3.5-2.2-2v-2.2l2.2-2-2-3.5-2.7 1-2-.9L14 3Z"/><circle cx="12" cy="12" r="3"/>',
   loop: '<path d="M4 9a7 7 0 0 1 12-4l3 3m0-5v5h-5M20 15a7 7 0 0 1-12 4l-3-3m0 5v-5h5"/>',
 };
@@ -65,15 +63,15 @@ const range = (i, key, label, min, max, step, value) => `<label class="wb-contro
 const cards = Array.from({ length: 8 }, (_, i) => {
   const deck = document.createElement("section");
   deck.className = "wb-deck"; deck.id = `deck${i}`; deck.dataset.deck = i;
-  deck.style.setProperty("--deck-color", colors[i]); deck.setAttribute("aria-label", `Deck ${i + 1}`);
-  deck.innerHTML = `<span class="wb-deck-number" aria-hidden="true"><span>${i + 1}</span>${i === 0 ? icon("crown") : ""}</span><span id="d${i}Sync" class="sr-only"></span><span id="d${i}Name" class="sr-only">Demo loop</span><span id="d${i}Kind" class="sr-only">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
-    <div class="wb-visual"><div id="d${i}Platter" class="wb-disc" role="slider" tabindex="0" aria-label="Scratch deck ${i + 1}" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-describedby="scratchHelp d${i}Name d${i}Kind d${i}Sync"><div class="wb-record-clip"><div class="wb-record-surface"><canvas id="d${i}RecordWave" class="wb-record-wave" aria-hidden="true"></canvas></div></div><i class="wb-disc-needle" aria-hidden="true"></i><span id="d${i}LoopIn" class="wb-loop-marker wb-loop-in" aria-hidden="true">IN</span><span id="d${i}LoopOut" class="wb-loop-marker wb-loop-out" aria-hidden="true">OUT</span><span id="d${i}LoopLength" class="wb-loop-length" aria-hidden="true"></span></div><div class="wb-wave-wrap"><canvas id="d${i}Wave" class="wb-wave" role="img" tabindex="0" aria-label="Deck ${i + 1} waveform. Drag or use left and right arrow keys to seek. Home returns to the start. A position slider also follows.">Audio waveform.</canvas><div class="wb-time"><output id="d${i}Time">0:00.0</output><output id="d${i}Duration">0:08</output></div></div></div>
+  deck.style.setProperty("--deck-color", colors[i]); deck.style.setProperty("--accent", colors[i]); deck.setAttribute("aria-label", `Deck ${i + 1}`);
+  deck.innerHTML = `<div class="wb-deck-identity"><div class="wb-deck-heading"><span class="wb-deck-number" aria-hidden="true">${i + 1}</span><button id="d${i}Master" class="wb-master-select" type="button" aria-label="Make deck ${i + 1} the tempo master" aria-pressed="${i === 0}" title="Make deck ${i + 1} the tempo master">${icon("crown")}</button></div><button id="d${i}Sync" class="wb-track-sync" type="button" aria-label="Sync deck ${i + 1} to the master" aria-pressed="false">SYNC</button></div><span id="d${i}SyncStatus" class="sr-only"></span><span id="d${i}Name" class="sr-only">Demo loop</span><span id="d${i}Kind" class="sr-only">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
+    <div class="wb-visual"><div id="d${i}Platter" class="wb-disc" role="slider" tabindex="0" aria-label="Scratch deck ${i + 1}" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-describedby="scratchHelp d${i}Name d${i}Kind d${i}SyncStatus"><div class="wb-record-clip"><div class="wb-record-surface"><canvas id="d${i}RecordWave" class="wb-record-wave" aria-hidden="true"></canvas></div></div><i class="wb-disc-needle" aria-hidden="true"></i></div><div class="wb-wave-wrap"><canvas id="d${i}Wave" class="wb-wave" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-label="Scratch deck ${i + 1} waveform" aria-describedby="scratchHelp">Audio waveform.</canvas><div class="wb-time"><output id="d${i}Time">0:00.0</output><output id="d${i}Duration">0:08</output></div></div></div>
     <input id="d${i}Seek" class="wb-seek" type="range" min="0" max="8" step="0.01" value="0" aria-label="Deck ${i + 1} position in seconds" />
     <div class="wb-deck-transport"><button id="d${i}Play" class="wb-deck-play" type="button" aria-label="Play deck ${i + 1}" aria-pressed="false" title="Play deck ${i + 1}">${icon("play")}</button><button id="d${i}Cue" class="wb-cue" type="button" aria-label="Return to cue on deck ${i + 1}" title="Return to cue">${icon("cue")}</button><button id="d${i}SetCue" class="wb-set-cue" type="button" aria-label="Set cue on deck ${i + 1}" title="Set cue">${icon("setcue")}</button></div>
-    <div class="wb-loop-row"><label for="d${i}Loop">Loop<select id="d${i}Loop" aria-label="Deck ${i + 1} loop length"><option value="off">Off</option>${[0.5, 1, 2, 4, 8, 16, 32].map((n) => `<option value="${n}">${n} beat${n === 1 ? "" : "s"}</option>`).join("")}</select></label><output class="wb-effective" id="d${i}Effective">120.0 <small>BPM</small></output></div>
-    <div class="wb-level-row"><label for="d${i}Gain"><span>LEVEL <output id="d${i}GainOut" for="d${i}Gain">65%</output></span><input id="d${i}Gain" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Deck ${i + 1} level" /></label><button id="d${i}Mute" type="button" aria-label="Mute deck ${i + 1}" aria-pressed="false" title="Mute deck ${i + 1}">${icon("mute")}</button><button id="d${i}Solo" class="wb-solo" type="button" aria-label="Solo deck ${i + 1}" aria-pressed="false" title="Solo deck ${i + 1}">${icon("solo")}</button></div>
-    <div class="wb-footer"><label for="d${i}Assign">BUS<select id="d${i}Assign" aria-label="Deck ${i + 1} crossfader assignment"><option>A</option><option>THRU</option><option>B</option></select></label><div class="wb-footer-actions"><button id="d${i}Load" class="wb-load" type="button" aria-label="Load audio into deck ${i + 1}" title="Load audio">${icon("load")}</button><button id="d${i}Edit" class="wb-edit" type="button" aria-expanded="false" aria-controls="d${i}Details" aria-label="Edit deck ${i + 1}" title="Edit deck ${i + 1}">${icon("sliders")}</button></div></div>
-    <details id="d${i}Details" class="wb-detail"><summary aria-label="Tempo, EQ and filter" title="Tempo, EQ and filter">${icon("sliders")}</summary><div class="wb-detail-body"><div class="wb-source-tempo"><label for="d${i}Bpm">Source BPM<input id="d${i}Bpm" class="deck-bpm" type="number" min="40" max="240" step="0.1" value="120" aria-label="Deck ${i + 1} source BPM" /></label><button id="d${i}Match" type="button" title="Match the master tempo using this source BPM. Pitch follows speed." aria-label="Match deck ${i + 1} tempo">${icon("sync")}</button></div>
+    <div class="wb-loop-row"><label for="d${i}Loop">Loop<select id="d${i}Loop" aria-label="Deck ${i + 1} loop length"><option value="full">Whole track</option>${[0.5, 1, 2, 4, 8, 16, 32].map((n) => `<option value="${n}">${n} beat${n === 1 ? "" : "s"}</option>`).join("")}</select></label><output class="wb-effective" id="d${i}Effective">120.0 <small>BPM</small></output></div>
+    <div class="wb-level-row"><label for="d${i}Gain"><span>LEVEL <output id="d${i}GainOut" for="d${i}Gain">65%</output></span><input id="d${i}Gain" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Deck ${i + 1} level" /></label><button id="d${i}Mute" type="button" aria-label="Mute deck ${i + 1}" aria-pressed="false" title="Mute deck ${i + 1}">M</button><button id="d${i}Solo" class="wb-solo" type="button" aria-label="Solo deck ${i + 1}" aria-pressed="false" title="Solo deck ${i + 1}">S</button></div>
+    <div class="wb-footer"><div class="wb-footer-actions"><button id="d${i}Load" class="wb-load" type="button" aria-label="Load audio into deck ${i + 1}" title="Load audio">${icon("load")}</button><button id="d${i}Edit" class="wb-edit" type="button" aria-expanded="false" aria-controls="d${i}Details" aria-label="Edit deck ${i + 1}" title="Edit deck ${i + 1}">${icon("sliders")}</button></div></div>
+    <details id="d${i}Details" class="wb-detail"><summary aria-label="Tempo, EQ and filter" title="Tempo, EQ and filter">${icon("sliders")}</summary><div class="wb-detail-body"><div class="wb-source-tempo"><label for="d${i}Bpm">Source BPM<input id="d${i}Bpm" class="deck-bpm" type="number" min="40" max="240" step="0.1" value="120" aria-label="Deck ${i + 1} source BPM" /></label></div>
     ${range(i, "Rate", "Speed", 0.5, 2, 0.001, 1)}
     <div class="wb-eq">${["Low", "Mid", "High"].map((name) => range(i, name, name, -24, 12, 0.5, 0)).join("")}</div>
     ${range(i, "Filter", "Filter · low ↔ high", -1, 1, 0.01, 0)}
@@ -83,24 +81,29 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   // Keep the same native controls, IDs and listeners in every view.
   const corners = document.createElement("div");
   corners.className = "wb-record-corners";
+  corners.innerHTML = `<div class="wb-corner-mix"></div><label class="wb-record-volume" title="Deck ${i + 1} volume"><input id="d${i}RecordGain" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Deck ${i + 1} platter volume" /></label>`;
   deck.append(corners);
-  const cornerControls = ["Edit"].map((name) => {
+  const recordGain = enhanceRangeKnob($(`d${i}RecordGain`));
+  on($(`d${i}RecordGain`), "input", event => engine.setDeck(i, { gain: event.target.valueAsNumber }));
+  on($(`d${i}Master`), "click", () => act(() => engine.setMasterDeck(i)));
+  on($(`d${i}Sync`), "click", () => act(() => engine.setDeckSyncEnabled(i, !engine.getDeckState(i).syncEnabled)));
+  const cornerControls = ["Edit", "Solo", "Mute"].map((name) => {
     const button = $("d" + i + name), home = document.createComment(name + " control");
     button.before(home); button.classList.add("wb-corner-" + name.toLowerCase());
     return { button, home };
   });
   const placeControls = (records) => {
     for (const { button, home } of cornerControls) {
-      if (records) corners.append(button); else home.after(button);
+      if (records) (button.classList.contains("wb-corner-edit") ? corners : corners.querySelector(".wb-corner-mix")).append(button); else home.after(button);
     }
   };
   placeControls(true);
   on($(`d${i}Play`), "click", () => act(() => engine.toggle(i)));
   on($(`d${i}Cue`), "click", () => act(() => engine.cue(i)));
   on($(`d${i}SetCue`), "click", () => { engine.setCue(i); say(`Deck ${i + 1} cue saved at ${time(engine.getDeckState(i).cuePoint)}.`); });
-  on($("d" + i + "Load"), "click", () => { if (filesUnlocked) $("d" + i + "File").click(); });
+  on($("d" + i + "Load"), "click", () => $("d" + i + "File").click());
   on($(`d${i}File`), "change", (event) => { const file = event.target.files[0]; event.target.value = ""; if (file) act(() => importFile(i, file)); });
-  on($(`d${i}Loop`), "change", (event) => act(() => engine.setLoop(i, event.target.value === "off" ? null : Number(event.target.value))));
+  on($(`d${i}Loop`), "change", (event) => act(() => engine.setLoop(i, event.target.value === "full" ? null : Number(event.target.value))));
   on($(`d${i}Seek`), "input", (event) => act(() => engine.seek(i, Number(event.target.value))));
   on($(`d${i}Seek`), "pointerdown", () => seeking.add(i));
   for (const type of ["pointerup", "pointercancel", "blur"]) on($(`d${i}Seek`), type, () => seeking.delete(i));
@@ -111,39 +114,55 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   }
   for (const key of ["Low", "Mid", "High"]) on($(`d${i}${key}`), "input", (event) => act(() => engine.setDeck(i, { eq: { [key.toLowerCase()]: Number(event.target.value) } })));
   for (const key of ["Mute", "Solo"]) on($(`d${i}${key}`), "click", () => { const field = key.toLowerCase(); engine.setDeck(i, { [field]: !engine.getDeckState(i)[field] }); });
-  on($(`d${i}Assign`), "change", (event) => engine.setDeck(i, { assignment: event.target.value }));
-  on($(`d${i}Match`), "click", () => matchDeck(i));
   on($(`d${i}Edit`), "click", () => editDeck(i));
   on($(`d${i}Details`), "toggle", () => { if (view !== "records") $(`d${i}Edit`).setAttribute("aria-expanded", String($(`d${i}Details`).open)); });
-  on(deck, "dragover", (event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); if (filesUnlocked) deck.classList.add("is-dragover"); } });
+  on(deck, "dragover", (event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); deck.classList.add("is-dragover"); } });
   on(deck, "dragleave", (event) => { if (!deck.contains(event.relatedTarget)) deck.classList.remove("is-dragover"); });
   on(deck, "drop", (event) => { event.preventDefault(); deck.classList.remove("is-dragover"); const file = event.dataTransfer.files[0]; if (file) act(() => importFile(i, file)); });
-  let pointer = null;
+  let waveHand = null, waveKeyboard = null;
   const wave = $(`d${i}Wave`);
-  const scrub = (event) => { const r = wave.getBoundingClientRect(); engine.seek(i, Math.min(1, Math.max(0, (event.clientX - r.left) / r.width)) * engine.getDeckState(i).duration); };
-  on(wave, "pointerdown", (event) => { if (event.button !== 0) return; wave.focus({ preventScroll: true }); pointer = event.pointerId; wave.setPointerCapture(pointer); seeking.add(i); scrub(event); });
-  on(wave, "pointermove", (event) => { if (event.pointerId === pointer) scrub(event); });
-  on(wave, "keydown", (event) => {
-    const d = engine.getDeckState(i), step = 60 / d.bpm * (event.shiftKey ? .1 : 1);
-    const target = { ArrowLeft: d.position - step, ArrowRight: d.position + step, Home: 0, End: d.duration }[event.key];
-    if (target !== undefined) { event.preventDefault(); engine.seek(i, target); }
+  const releaseWave = () => {
+    if (!waveHand && waveKeyboard === null) return;
+    const id = waveHand?.id; waveHand = null; waveKeyboard = null;
+    seeking.delete(i); engine.endScratch(i);
+    if (id !== undefined && wave.hasPointerCapture(id)) wave.releasePointerCapture(id);
+  };
+  on(wave, "pointerdown", event => {
+    if (event.button !== 0 || waveHand) return;
+    event.preventDefault(); releasePlatter(); wave.focus({ preventScroll: true });
+    if (!engine.beginScratch(i)) return;
+    const d = engine.getDeckState(i), bounds = wave.getBoundingClientRect();
+    waveHand = { id: event.pointerId, x: event.clientX, position: d.position, secondsPerPixel: d.duration / Math.max(1, bounds.width) };
+    waveKeyboard = null; wave.setPointerCapture(event.pointerId); seeking.add(i);
   });
-  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) on(wave, type, (event) => { if (event.pointerId !== pointer) return; pointer = null; seeking.delete(i); if (wave.hasPointerCapture(event.pointerId)) wave.releasePointerCapture(event.pointerId); });
+  on(wave, "pointermove", event => {
+    if (event.pointerId !== waveHand?.id) return;
+    engine.scratchTo(i, waveHand.position + (event.clientX - waveHand.x) * waveHand.secondsPerPixel);
+  });
+  on(wave, "keydown", event => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key) || waveHand) return;
+    event.preventDefault(); event.stopPropagation();
+    if (waveKeyboard === null) {
+      releasePlatter(); if (!engine.beginScratch(i)) return;
+      waveKeyboard = engine.getDeckState(i).position; seeking.add(i);
+    }
+    waveKeyboard += (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? .015 : .075);
+    engine.scratchTo(i, waveKeyboard);
+  });
+  on(wave, "keyup", event => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) releaseWave(); });
+  on(wave, "blur", releaseWave);
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) on(wave, type, event => { if (event.pointerId === waveHand?.id) releaseWave(); });
   const platter = $(`d${i}Platter`);
-  let hand = null, keyboardTarget = null, recordAngle = 0, recordPosition = 0;
-  const rotateTo = (sourcePosition, delta = sourcePosition - recordPosition) => {
-    recordAngle += delta / 1.8 * 360; recordPosition = sourcePosition;
-    deck.querySelector(".wb-record-surface").style.setProperty("--record-angle", `${recordAngle}deg`);
+  let hand = null, keyboardTarget = null;
+  const loopLength = d => Math.max(.001, d.loopEnd - d.loopStart);
+  const rotateTo = d => {
+    const phase = (d.position - d.loopStart) / loopLength(d);
+    deck.querySelector(".wb-record-surface").style.setProperty("--record-angle", `${phase * 360}deg`);
   };
-  const updateRecord = (d) => {
-    if (hand || keyboardTarget !== null) return;
-    if (reducedMotion.matches) { recordPosition = d.position; return; }
-    let delta = d.position - recordPosition;
-    if (d.playing && d.loopEnabled && delta < 0) delta += d.loopEnd - d.loopStart;
-    rotateTo(d.position, delta);
-  };
+  const updateRecord = d => { if (!reducedMotion.matches || d.scratching) rotateTo(d); };
   const angle = (event) => { const r = platter.getBoundingClientRect(); return Math.atan2(event.clientY - r.top - r.height / 2, event.clientX - r.left - r.width / 2); };
-  const release = () => {
+  const releasePlatter = () => {
+    if (!hand && keyboardTarget === null) return;
     const pointerId = hand?.id;
     hand = null; keyboardTarget = null;
     engine.endScratch(i);
@@ -151,38 +170,37 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   };
   on(platter, "pointerdown", (event) => {
     if (event.button !== 0 || hand) return;
-    event.preventDefault(); platter.focus({ preventScroll: true });
+    event.preventDefault(); releaseWave(); platter.focus({ preventScroll: true });
     if (!engine.beginScratch(i)) return;
-    recordPosition = engine.getDeckState(i).position;
-    hand = { id: event.pointerId, angle: angle(event), position: recordPosition };
+    const d = engine.getDeckState(i);
+    hand = { id: event.pointerId, angle: angle(event), position: d.position, duration: loopLength(d) };
     keyboardTarget = null; platter.setPointerCapture(event.pointerId);
   });
   on(platter, "pointermove", (event) => {
     if (event.pointerId !== hand?.id) return;
     const next = angle(event), delta = Math.atan2(Math.sin(next - hand.angle), Math.cos(next - hand.angle));
-    hand.position += delta / (Math.PI * 2) * 1.8; hand.angle = next;
+    hand.position += delta / (Math.PI * 2) * hand.duration; hand.angle = next;
     engine.scratchTo(i, hand.position);
     const d = engine.getDeckState(i);
-    rotateTo(d.position, d.loopEnabled ? delta / (Math.PI * 2) * 1.8 : d.position - recordPosition);
-    if (!d.loopEnabled) hand.position = d.position;
+    rotateTo(d);
   });
-  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) on(platter, type, (event) => { if (event.pointerId === hand?.id) release(); });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) on(platter, type, (event) => { if (event.pointerId === hand?.id) releasePlatter(); });
   on(platter, "keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight"].includes(event.key) || hand) return;
     event.preventDefault(); event.stopPropagation();
-    if (keyboardTarget === null) { if (!engine.beginScratch(i)) return; keyboardTarget = engine.getDeckState(i).position; }
+    if (keyboardTarget === null) { releaseWave(); if (!engine.beginScratch(i)) return; keyboardTarget = engine.getDeckState(i).position; }
     const step = (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? .015 : .075);
     keyboardTarget += step;
     engine.scratchTo(i, keyboardTarget);
     const d = engine.getDeckState(i);
-    rotateTo(d.position, d.loopEnabled ? step : d.position - recordPosition);
-    if (!d.loopEnabled) keyboardTarget = d.position;
+    rotateTo(d);
   });
-  on(platter, "keyup", (event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key) && keyboardTarget !== null) release(); });
-  on(platter, "blur", () => { if (keyboardTarget !== null) release(); });
+  on(platter, "keyup", (event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key) && keyboardTarget !== null) releasePlatter(); });
+  on(platter, "blur", () => { if (keyboardTarget !== null) releasePlatter(); });
+  const release = () => { releasePlatter(); releaseWave(); recordGain.cancelGesture(); };
   on(window, "blur", release);
   on(document, "visibilitychange", () => { if (document.hidden) release(); });
-  return { root: deck, wave, platter, release, updateRecord, placeControls, recordWave: $(`d${i}RecordWave`), recordContext: $(`d${i}RecordWave`).getContext("2d"), disc: deck.querySelector(".wb-record-surface"), context: wave.getContext("2d") };
+  return { root: deck, wave, platter, release, updateRecord, placeControls, recordGain, recordWave: $(`d${i}RecordWave`), recordContext: $(`d${i}RecordWave`).getContext("2d"), disc: deck.querySelector(".wb-record-surface"), context: wave.getContext("2d") };
 });
 
 function say(message) { if (!disposed) $("sessionStatus").textContent = message; }
@@ -205,6 +223,8 @@ async function toggleAudio() {
 }
 function confirmReplace(message) {
   if (confirmation) return Promise.resolve(false);
+  for (const card of cards) card.release();
+  releaseKnobs();
   $("replaceMessage").textContent = message;
   $("replaceDialog").returnValue = "cancel";
   $("replaceDialog").showModal();
@@ -212,21 +232,13 @@ function confirmReplace(message) {
 }
 on($("replaceDialog"), "close", () => { const resolve = confirmation; confirmation = null; resolve?.($("replaceDialog").returnValue === "replace"); });
 async function importFile(i, file) {
-  if (!filesUnlocked) { say("File loading is locked"); return; }
   const d = engine.getDeckState(i);
   if (d.playing && !await confirmReplace(`Deck ${i + 1} is playing. Replace “${d.name}” with “${file.name}”?`)) return;
-  if (disposed || !filesUnlocked) return;
+  if (disposed) return;
   say(`Loading ${file.name} into deck ${i + 1}…`);
   try { const loaded = await engine.loadFile(i, file); if (loaded && !disposed) say(`Deck ${i + 1} loaded · Set its source BPM before matching tempo`); }
   catch (error) { say(`Deck ${i + 1} kept its previous sound`); throw error; }
   render();
-}
-function matchDeck(i) {
-  const bpm = Number($("master-bpm").value) || 120;
-  const source = engine.getDeckState(i).bpm;
-  const requested = bpm / source;
-  engine.setDeck(i, { rate: Math.min(2, Math.max(0.5, requested)) });
-  say(requested < 0.5 || requested > 2 ? `Deck ${i + 1} reached its ½×–2× speed limit` : `Deck ${i + 1} matched to ${bpm} BPM · Pitch follows speed`);
 }
 function editDeck(i) {
   if (view === "records") { openDeckSettings(i); return; }
@@ -251,24 +263,22 @@ function setView(next) {
 }
 for (const name of ["records", "full", "tiny"]) on($(name + "View"), "click", () => setView(name));
 on($("playButton"), "click", () => { const playing = engine.getState().decks.some((d) => d.playing); engine[playing ? "pauseAll" : "playAll"](); });
-on($("stopButton"), "click", () => { for (const card of cards) card.release(); for (let i = 0; i < 8; i++) { engine.pause(i); engine.seek(i, 0); } say("Stopped · All decks at the beginning"); });
+on($("stopButton"), "click", () => { for (const card of cards) card.release(); for (let i = 0; i < 8; i++) { engine.pause(i); engine.seek(i, engine.getDeckState(i).loopStart); } say("Stopped · All decks at their loop start"); });
 on($("syncAll"), "click", () => act(() => {
   const enabled = !engine.getState().syncAllEnabled;
   engine.setSyncEnabled(enabled);
-  say(enabled ? "Sync on · Deck 1 leads tempo and beat position" : "Sync off · Deck speeds and playback kept");
+  say(enabled ? `SYNC ALL · Deck ${engine.getState().masterDeck + 1} leads tempo and beat position` : "Sync off · Deck speeds and playback kept");
 }));
 on($("master-bpm"), "input", (event) => {
   if (event.target.value === "" || !Number.isFinite(event.target.valueAsNumber)) return;
-  const master = engine.getDeckState(0);
-  engine.setDeck(0, { rate: Math.min(2, Math.max(.5, event.target.valueAsNumber / master.bpm)) });
+  engine.setMasterBpm(event.target.valueAsNumber);
 });
 for (const type of ["change", "blur"]) on($("master-bpm"), type, () => {
-  $("master-bpm").value = engine.getDeckState(0).effectiveBpm.toFixed(1);
+  $("master-bpm").value = engine.getState().syncBpm.toFixed(1);
 });
 on($("loadDemos"), "click", () => act(async () => {
-  if (!filesUnlocked) return;
   if (engine.getState().decks.some((d) => d.kind === "file") && !await confirmReplace("Replace your loaded files on all eight decks with the original demo loops?")) return;
-  if (disposed || !filesUnlocked) return;
+  if (disposed) return;
   for (let i = 0; i < 8; i++) engine.loadDemo(i);
   say("Original eight-loop demo set loaded");
 }));
@@ -277,16 +287,21 @@ on($("resetMix"), "click", () => {
   engine.setMaster({ crossfader: 0, wobbleAmount: 0, wobbleRate: 2 });
   say("Mixer reset · Files, tempo, loops and playback kept");
 });
-for (const [id, key] of [["crossfader", "crossfader"], ["recordCrossfader", "crossfader"], ["wobbleAmount", "wobbleAmount"], ["wobbleRate", "wobbleRate"]]) on($(id), "input", (event) => engine.setMaster({ [key]: Number(event.target.value) }));
-on($("centerFade"), "click", () => engine.setMaster({ crossfader: 0 }));
+for (const [id, key] of [["wobbleAmount", "wobbleAmount"], ["wobbleRate", "wobbleRate"]]) on($(id), "input", (event) => engine.setMaster({ [key]: Number(event.target.value) }));
 on($("dryWobble"), "click", () => engine.setMaster({ wobbleAmount: 0 }));
 on(window, "keydown", (event) => {
   if (event.repeat || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.isComposing || event.target.closest?.("input,button,select,textarea,a,summary,canvas,dialog,[contenteditable=true]")) return;
   if (/^[1-8]$/.test(event.key)) { event.preventDefault(); engine.toggle(Number(event.key) - 1); }
 });
 
+const masterKnob = enhanceRangeKnob($("master-bpm"));
 const settingsKnobs = [enhanceRangeKnob($("settingsSpeed")), enhanceRangeKnob($("settingsVolume"))];
+const releaseKnobs = () => { masterKnob.cancelGesture(); for (const knob of settingsKnobs) knob.cancelGesture(); };
+on(window, "blur", releaseKnobs);
+on(document, "visibilitychange", () => { if (document.hidden) releaseKnobs(); });
 function openDeckSettings(index) {
+  for (const card of cards) card.release();
+  releaseKnobs();
   settingsDeck = index;
   $("deckSettings").style.setProperty("--deck-color", colors[index]);
   $("deckSettings").style.setProperty("--accent", colors[index]);
@@ -298,32 +313,23 @@ function openDeckSettings(index) {
 function renderDeckSettings() {
   if (settingsDeck === null) return;
   const d = engine.getDeckState(settingsDeck), number = settingsDeck + 1;
-  text("deckSettingsTitle", "Deck " + number);
-  text("deckSettingsTrack", d.name);
-  $("settingsLoad").disabled = !filesUnlocked;
+  const master = engine.getState().masterDeck;
+  text("deckSettingsTitle", d.kind === "file" ? d.name : "Demo loop " + number);
+  text("deckSettingsTrack", "Deck " + number);
   $("settingsLoad").setAttribute("aria-busy", String(d.loading));
-  setIcon($("settingsLoad"), filesUnlocked ? "load" : "lock", filesUnlocked ? "Load audio into deck " + number : "File loading locked");
-  $("settingsSync").disabled = settingsDeck === 0;
+  setIcon($("settingsLoad"), "load", "Load audio into deck " + number);
+  $("settingsSync").disabled = settingsDeck === master;
   $("settingsSync").setAttribute("aria-pressed", String(!!d.syncEnabled));
-  setIcon($("settingsSync"), settingsDeck === 0 ? "crown" : "sync", settingsDeck === 0 ? "Deck 1 is the sync master" : (d.syncEnabled ? "Release deck " + number + " from sync" : "Sync deck " + number + " to deck 1"));
+  $("settingsSync").setAttribute("aria-label", settingsDeck === master ? `Deck ${number} is the tempo master` : `${d.syncEnabled ? "Release" : "Sync"} deck ${number}${d.syncEnabled ? " from sync" : ` to deck ${master + 1}`}`);
   value("settingsSpeed", d.rate); value("settingsVolume", d.gain); value("settingsBpm", d.bpm);
   text("settingsSpeedOut", d.rate.toFixed(3) + "×"); text("settingsVolumeOut", Math.round(d.gain * 100) + "%");
   for (const knob of settingsKnobs) knob.update();
-  $("settingsLoopToggle").setAttribute("aria-pressed", String(d.loopEnabled));
-  setIcon($("settingsLoopToggle"), "loop", (d.loopEnabled ? "Disable" : "Enable") + " loop on deck " + number);
-  value("settingsLoopLength", d.loopBeats);
-  text("settingsLoopBounds", d.loopEnabled ? "IN " + time(d.loopStart) + " · OUT " + time(d.loopEnd) : "Loop off");
   $("settingsSeek").max = d.duration;
   if (document.activeElement !== $("settingsSeek")) value("settingsSeek", d.position);
   text("settingsPosition", time(d.position));
-  text("settingsStatus", d.syncError || (settingsDeck === 0 ? "Sync master" : d.syncEnabled
-    ? d.syncActive ? "Synced to deck 1" : "Sync ready · Waiting for playback" : "Independent speed"));
+  text("settingsStatus", d.syncError || (settingsDeck === master ? "Tempo master" : d.syncEnabled
+    ? d.syncActive ? `Synced to deck ${master + 1}` : "Sync ready · Waiting for playback" : "Independent speed"));
 }
-on($("fileAccess"), "click", () => {
-  filesUnlocked = !filesUnlocked;
-  for (const card of cards) card.root.classList.remove("is-dragover");
-  render();
-});
 on($("closeDeckSettings"), "click", () => $("deckSettings").close());
 on($("deckSettings"), "close", () => {
   const index = settingsDeck; settingsDeck = null;
@@ -337,8 +343,8 @@ on($("deckSettings"), "click", (event) => {
   const r = $("deckSettings").getBoundingClientRect();
   if (event.target === $("deckSettings") && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) $("deckSettings").close();
 });
-on($("settingsLoad"), "click", () => { if (filesUnlocked && settingsDeck !== null) $("d" + settingsDeck + "File").click(); });
-on($("settingsSync"), "click", () => { if (settingsDeck > 0) engine.setDeckSyncEnabled(settingsDeck, !engine.getDeckState(settingsDeck).syncEnabled); });
+on($("settingsLoad"), "click", () => { if (settingsDeck !== null) $("d" + settingsDeck + "File").click(); });
+on($("settingsSync"), "click", () => { if (settingsDeck !== null && settingsDeck !== engine.getState().masterDeck) engine.setDeckSyncEnabled(settingsDeck, !engine.getDeckState(settingsDeck).syncEnabled); });
 for (const [id, field] of [["settingsSpeed", "rate"], ["settingsVolume", "gain"], ["settingsBpm", "bpm"]]) {
   on($(id), "input", (event) => {
     if (settingsDeck !== null && event.target.value !== "" && Number.isFinite(event.target.valueAsNumber)) engine.setDeck(settingsDeck, { [field]: event.target.valueAsNumber });
@@ -348,11 +354,6 @@ for (const [id, field] of [["settingsSpeed", "rate"], ["settingsVolume", "gain"]
 on($("settingsBpm"), "blur", () => { if (settingsDeck !== null) $("settingsBpm").value = engine.getDeckState(settingsDeck).bpm; });
 on($("settingsSpeedReset"), "click", () => { if (settingsDeck !== null) { engine.setDeck(settingsDeck, { rate: 1 }); renderDeckSettings(); } });
 on($("settingsSpeed"), "dblclick", () => $("settingsSpeedReset").click());
-on($("settingsLoopToggle"), "click", () => {
-  if (settingsDeck === null) return;
-  const d = engine.getDeckState(settingsDeck); engine.setLoop(settingsDeck, d.loopEnabled ? null : d.loopBeats);
-});
-on($("settingsLoopLength"), "change", (event) => { if (settingsDeck !== null) engine.setLoop(settingsDeck, Number(event.target.value)); });
 on($("settingsSeek"), "input", (event) => { if (settingsDeck !== null) engine.seek(settingsDeck, Number(event.target.value)); });
 on($("settingsCue"), "click", () => { if (settingsDeck !== null) engine.cue(settingsDeck); });
 on($("settingsSetCue"), "click", () => { if (settingsDeck !== null) engine.setCue(settingsDeck); });
@@ -361,6 +362,10 @@ const geometry = mountGeometricMixer({
   root: $("geometryMixer"), dialog: $("geometryDialog"), launcher: $("geometryOpen"),
   getState: () => engine.getState(), setMix: patches => engine.setDeckMix(patches), colors, icon, constrained,
 });
+for (const id of ["geometryOpen", "geometryExpand"]) on($(id), "click", () => {
+  for (const card of cards) card.release();
+  releaseKnobs();
+}, { capture: true });
 const pad = $("wobble-pad"), padContext = pad.getContext("2d");
 function padMove(event) {
   const r = pad.getBoundingClientRect();
@@ -382,9 +387,6 @@ function render() {
   renderPending = false;
   const state = engine.getState(), count = state.decks.filter((d) => d.playing).length;
   if (!starting) strip.setAudioState(state.armed ? "on" : "off");
-  $("fileAccess").setAttribute("aria-pressed", String(filesUnlocked));
-  setIcon($("fileAccess"), filesUnlocked ? "lock" : "load", filesUnlocked ? "Lock file loading" : "Unlock file loading");
-  $("loadDemos").disabled = !filesUnlocked;
   renderDeckSettings();
   geometry.update(state.decks);
   $("playButton").setAttribute("aria-pressed", String(count > 0)); setIcon($("playButton"), count ? "pause" : "play", count ? "Pause all" : "Play all");
@@ -395,19 +397,20 @@ function render() {
       const decks = syncErrors.filter((d) => d.syncError === message).map((d) => d.id + 1);
       return (decks.length > 1 ? "Decks " : "Deck ") + decks.join(", ") + ": " + message;
     }).join(" ") : "";
-  if (syncWarning !== lastSyncWarning) {
+  if (syncWarning !== lastSyncWarning || (syncWarning && $("errorMessage").hidden)) {
     if (syncWarning) { $("errorMessage").textContent = syncWarning; $("errorMessage").hidden = false; }
     else if ($("errorMessage").textContent === lastSyncWarning) $("errorMessage").hidden = true;
     lastSyncWarning = syncWarning;
   }
   $("syncAll").classList.toggle("has-sync-warning", !!state.syncEnabled && syncErrors.length > 0);
-  $("syncAll").setAttribute("aria-label", state.syncAllEnabled ? "Release all decks from sync" : "Sync all decks to deck 1");
+  $("syncAll").setAttribute("aria-label", state.syncAllEnabled ? "Release all decks from sync" : `Sync all decks to deck ${state.masterDeck + 1}`);
   $("syncAll").title = syncWarning || (state.syncAllEnabled
-    ? "Sync on · Deck 1 is master. Click to release sync."
-    : "Sync all decks to deck 1 · Uses source BPM and cue as beat zero");
-  value("master-bpm", Number(state.decks[0].effectiveBpm.toFixed(1)));
-  $("master-bpm").min = state.decks[0].bpm * .5;
-  $("master-bpm").max = state.decks[0].bpm * 2;
+    ? `SYNC ALL · Deck ${state.masterDeck + 1} is master. Click to release sync.`
+    : `Sync all decks to deck ${state.masterDeck + 1} · Uses source BPM and cue as beat zero`);
+  $("master-bpm").min = state.decks[state.masterDeck].bpm * .5;
+  $("master-bpm").max = state.decks[state.masterDeck].bpm * 2;
+  value("master-bpm", Number(state.syncBpm.toFixed(1)));
+  text("masterBpmOut", state.syncBpm.toFixed(1)); masterKnob.update();
   $("activeDecks").value = `${count} / 8 playing`;
   $("liveDot").classList.toggle("is-on", state.armed && count > 0);
   for (let i = 0; i < 8; i++) {
@@ -416,27 +419,35 @@ function render() {
     const key = [d.name, d.kind, d.loading, d.playing, d.scratching, d.mute, d.solo,
       state.decks.some((v) => v.solo), d.duration, d.cuePoint, d.effectiveBpm,
       d.gain, d.rate, d.bpm, d.pan, d.filter, d.assignment, d.loopEnabled, d.loopBeats,
-      d.eq.low, d.eq.mid, d.eq.high, d.syncActive, d.syncEnabled, d.syncError, state.syncEnabled, filesUnlocked, view, tiny, selected].join("|");
+      d.eq.low, d.eq.mid, d.eq.high, d.syncActive, d.syncEnabled, d.syncError, state.syncEnabled, state.masterDeck, view, tiny, selected].join("|");
     if (cards[i].renderKey === key) continue;
     cards[i].renderKey = key;
     cards[i].root.classList.toggle("is-playing", d.playing); cards[i].root.classList.toggle("is-muted", d.mute || (state.decks.some((v) => v.solo) && !d.solo));
     cards[i].root.classList.toggle("is-scratching", !!d.scratching);
     cards[i].root.classList.toggle("is-synced", !!d.syncActive);
     cards[i].root.classList.toggle("has-sync-warning", !!d.syncError && !!state.syncEnabled);
-    text("d" + i + "Sync", i === 0 ? "Sync master" : d.syncEnabled
-      ? d.syncError || (d.syncActive ? "Synced to deck 1" : "Sync waits for deck 1 to play") : "Sync off");
+    const isMaster = i === state.masterDeck;
+    const syncLabel = isMaster ? "Tempo master" : d.syncEnabled ? d.syncError || (d.syncActive ? `Synced to deck ${state.masterDeck + 1}` : `Sync waits for deck ${state.masterDeck + 1} to play`) : "Independent tempo";
+    text("d" + i + "SyncStatus", syncLabel);
+    $(`d${i}Master`).setAttribute("aria-pressed", String(isMaster));
+    $(`d${i}Master`).title = isMaster ? `Deck ${i + 1} is the tempo master` : `Make deck ${i + 1} the tempo master`;
+    $(`d${i}Master`).setAttribute("aria-label", $(`d${i}Master`).title);
+    $(`d${i}Sync`).disabled = isMaster;
+    $(`d${i}Sync`).setAttribute("aria-pressed", String(!!d.syncEnabled));
+    $(`d${i}Sync`).title = syncLabel;
+    $(`d${i}Sync`).setAttribute("aria-label", isMaster ? `Deck ${i + 1} is the tempo master` : `${d.syncEnabled ? "Release" : "Sync"} deck ${i + 1}${d.syncEnabled ? " from sync" : ` to deck ${state.masterDeck + 1}`}`);
     text(`d${i}Name`, d.name); cards[i].platter.title = d.name;
     text(`d${i}Kind`, d.loading ? "Loading…" : d.kind === "file" ? "Local file · Manual BPM" : "Original demo loop");
     $("d" + i + "Load").setAttribute("aria-busy", String(d.loading));
-    $("d" + i + "Load").disabled = !filesUnlocked;
-    setIcon($("d" + i + "Load"), filesUnlocked ? "load" : "lock", filesUnlocked ? "Load audio into deck " + (i + 1) : "File loading locked for deck " + (i + 1));
+    setIcon($("d" + i + "Load"), "load", "Load audio into deck " + (i + 1));
     $(`d${i}Play`).setAttribute("aria-pressed", String(d.playing)); $(`d${i}Play`).setAttribute("aria-label", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`); setIcon($(`d${i}Play`), d.playing ? "pause" : "play", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`);
     $(`d${i}Mute`).setAttribute("aria-pressed", String(d.mute)); $(`d${i}Solo`).setAttribute("aria-pressed", String(d.solo));
     $(`d${i}Effective`).innerHTML = `${d.effectiveBpm.toFixed(1)} <small>BPM</small>`;
     $(`d${i}Seek`).max = String(d.duration || 1); $(`d${i}Duration`).value = time(d.duration, false);
     $(`d${i}Cue`).title = `Return to ${time(d.cuePoint)} and pause`;
-    for (const [key, field] of [["Gain", "gain"], ["Rate", "rate"], ["Bpm", "bpm"], ["Pan", "pan"], ["Filter", "filter"], ["Assign", "assignment"]]) value(`d${i}${key}`, d[field]);
-    value(`d${i}Loop`, d.loopEnabled ? d.loopBeats : "off");
+    for (const [key, field] of [["Gain", "gain"], ["Rate", "rate"], ["Bpm", "bpm"], ["Pan", "pan"], ["Filter", "filter"]]) value(`d${i}${key}`, d[field]);
+    value(`d${i}Loop`, d.loopBeats ?? "full");
+    value(`d${i}RecordGain`, d.gain); cards[i].recordGain.update();
     $(`d${i}GainOut`).value = `${Math.round(d.gain * 100)}%`; $(`d${i}RateOut`).value = `${d.rate.toFixed(3)}×`;
     for (const key of ["Low", "Mid", "High"]) { const n = d.eq[key.toLowerCase()]; value(`d${i}${key}`, n); $(`d${i}${key}Out`).value = `${n > 0 ? "+" : ""}${n.toFixed(1)} dB`; }
     $(`d${i}PanOut`).value = Math.abs(d.pan) < 0.01 ? "Center" : `${d.pan < 0 ? "L" : "R"} ${Math.round(Math.abs(d.pan) * 100)}%`;
@@ -447,12 +458,8 @@ function render() {
     if (view === "records") editor.setAttribute("aria-haspopup", "dialog"); else editor.removeAttribute("aria-haspopup");
     setIcon(editor, view === "records" ? "gear" : tiny && selected === i ? "close" : "sliders", view === "records" ? `Track controls for deck ${i + 1}` : `${tiny && selected === i ? "Close" : "Edit"} deck ${i + 1}`);
   }
-  for (const id of ["crossfader", "wobbleAmount", "wobbleRate"]) value(id, state.master[id]);
-  value("recordCrossfader", state.master.crossfader);
-  const fade = state.master.crossfader;
-  $("crossfaderOut").value = Math.abs(fade) < .01 ? "Center" : `${fade < 0 ? "A" : "B"} ${Math.round(Math.abs(fade) * 100)}%`;
+  for (const id of ["wobbleAmount", "wobbleRate"]) value(id, state.master[id]);
   $("wobbleAmountOut").value = `${Math.round(state.master.wobbleAmount * 100)}%`; $("wobbleRateOut").value = `${state.master.wobbleRate.toFixed(2)} Hz`;
-  for (const side of ["A", "B"]) text("bus" + side, state.decks.filter((d) => d.assignment === side).map((d) => d.id + 1).join(" · ") || "No decks");
 }
 
 const canvasSizes = new WeakMap();
@@ -503,55 +510,28 @@ function drawRecordWave(card, d, color) {
   const ctx = card.recordContext, [w, h] = prepareCanvas(card.recordWave, card.recordContext);
   if (!w || !h) return;
   const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * .355;
-  const progress = d.duration ? d.position / d.duration : 0;
-  const loopIn = $("d" + d.id + "LoopIn"), loopOut = $("d" + d.id + "LoopOut"), length = $("d" + d.id + "LoopLength");
-  loopIn.hidden = loopOut.hidden = length.hidden = !d.loopEnabled;
-  if (d.loopEnabled && d.duration) {
-    const spin = (parseFloat(card.disc.style.getPropertyValue("--record-angle")) || 0) * Math.PI / 180;
-    const joined = (d.loopEnd - d.loopStart) / d.duration > .98;
-    loopIn.textContent = joined ? "IN/OUT" : "IN"; loopOut.hidden = joined;
-    for (const [marker, position] of [[loopIn, d.loopStart], [loopOut, d.loopEnd]]) {
-      const angle = position / d.duration * Math.PI * 2 + spin - Math.PI / 2;
-      marker.style.left = (50 + Math.cos(angle) * 44) + "%";
-      marker.style.top = (50 + Math.sin(angle) * 44) + "%";
-    }
-    const beats = (d.loopEnd - d.loopStart) * d.bpm / 60;
-    length.textContent = Number(beats.toFixed(1)) + " beats";
-  }
+  const peaks = d.loopPeaks || d.peaks || [];
   let cached = card.recordCache;
-  if (!cached || cached.peaks !== d.peaks || cached.width !== card.recordWave.width || cached.height !== card.recordWave.height) {
+  if (!cached || cached.peaks !== peaks || cached.width !== card.recordWave.width || cached.height !== card.recordWave.height) {
     const layer = document.createElement("canvas");
     layer.width = card.recordWave.width; layer.height = card.recordWave.height;
     const paint = layer.getContext("2d"), scale = canvasSize(card.recordWave).scale;
     paint.setTransform(scale, 0, 0, scale, 0, 0);
     paint.lineWidth = Math.max(1, w / 240); paint.strokeStyle = color; paint.beginPath();
-    const count = Math.min(constrained ? 160 : 240, Math.max(80, Math.floor(w))), peaks = d.peaks || [];
+    const count = Math.min(constrained ? 160 : 240, Math.max(80, Math.floor(w)));
     for (let n = 0; n < count; n++) {
-      const angle = n / count * Math.PI * 2 - Math.PI / 2;
+      // Audio runs counterclockwise around the record. Clockwise rotation brings
+      // each sample under the stationary 3 o'clock needle once per loop.
+      const angle = -n / count * Math.PI * 2;
       const peak = Math.min(1, Math.abs(peaks[Math.floor(n / count * peaks.length)] || 0));
       const amplitude = Math.max(.7, Math.sqrt(peak) * Math.min(w, h) * .12);
       paint.moveTo(cx + Math.cos(angle) * (radius - amplitude), cy + Math.sin(angle) * (radius - amplitude));
       paint.lineTo(cx + Math.cos(angle) * (radius + amplitude), cy + Math.sin(angle) * (radius + amplitude));
     }
     paint.stroke();
-    cached = card.recordCache = { layer, peaks: d.peaks, width: layer.width, height: layer.height };
+    cached = card.recordCache = { layer, peaks, width: layer.width, height: layer.height };
   }
-  // The file geometry is immutable until import/resize. Only the played wedge,
-  // loop and position dot move; no per-bar trigonometry on animation frames.
-  ctx.globalAlpha = .38; ctx.drawImage(cached.layer, 0, 0, w, h);
-  if (progress > 0) {
-    ctx.save(); ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, Math.max(w, h), -Math.PI / 2, progress * Math.PI * 2 - Math.PI / 2);
-    ctx.closePath(); ctx.clip(); ctx.clearRect(0, 0, w, h);
-    ctx.globalAlpha = .95; ctx.drawImage(cached.layer, 0, 0, w, h); ctx.restore();
-  }
-  ctx.globalAlpha = 1;
-  const angle = progress * Math.PI * 2 - Math.PI / 2;
-  ctx.fillStyle = "#f1f8fc"; ctx.beginPath(); ctx.arc(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, Math.max(2, w * .01), 0, Math.PI * 2); ctx.fill();
-  if (d.loopEnabled && d.duration) {
-    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.globalAlpha = .5; ctx.beginPath();
-    ctx.arc(cx, cy, Math.min(w, h) * .48, d.loopStart / d.duration * Math.PI * 2 - Math.PI / 2, d.loopEnd / d.duration * Math.PI * 2 - Math.PI / 2); ctx.stroke(); ctx.globalAlpha = 1;
-  }
+  ctx.globalAlpha = .9; ctx.drawImage(cached.layer, 0, 0, w, h); ctx.globalAlpha = 1;
 }
 
 function drawPad(state) {
@@ -578,15 +558,17 @@ function animate(now) {
       if (!visible.has(card.root)) continue;
       const size = canvasSize(view === "records" ? card.recordWave : card.wave);
       const key = [view, d.position, d.playing, d.loopEnabled, d.loopStart, d.loopEnd, d.cuePoint, d.duration].join("|");
-      if (card.drawKey !== key || card.drawSize !== size || card.drawPeaks !== d.peaks) {
+      if (card.drawKey !== key || card.drawSize !== size || card.drawPeaks !== d.peaks || card.drawLoopPeaks !== d.loopPeaks) {
         card.updateRecord(d);
         if (view !== "records") drawWave(card, d, colors[i]); else drawRecordWave(card, d, colors[i]);
-        card.drawKey = key; card.drawSize = size; card.drawPeaks = d.peaks;
+        card.drawKey = key; card.drawSize = size; card.drawPeaks = d.peaks; card.drawLoopPeaks = d.loopPeaks;
       }
       if (!readout) continue;
-      cards[i].platter.setAttribute("aria-valuemax", String(d.duration));
-      cards[i].platter.setAttribute("aria-valuenow", d.position.toFixed(2));
-      cards[i].platter.setAttribute("aria-valuetext", `${time(d.position)} of ${time(d.duration)}`);
+      for (const surface of [card.platter, card.wave]) {
+        surface.setAttribute("aria-valuemax", String(d.duration));
+        surface.setAttribute("aria-valuenow", d.position.toFixed(2));
+        surface.setAttribute("aria-valuetext", `${time(d.position)} of ${time(d.duration)}`);
+      }
       if (view !== "records") { value(`d${i}Time`, time(d.position)); if (!seeking.has(i) && document.activeElement !== $(`d${i}Seek`)) value(`d${i}Seek`, d.position); }
     }
     if (view !== "records" && visible.has(pad)) drawPad(state);
@@ -597,6 +579,8 @@ function animate(now) {
 }
 async function dispose() {
   if (disposed) return; disposed = true; audioAttempt++; abort.abort(); cancelAnimationFrame(frame); confirmation?.(false); confirmation = null;
+  for (const card of cards) { card.release(); card.recordGain.destroy(); }
+  masterKnob.destroy();
   for (const knob of settingsKnobs) knob.destroy();
   geometry.destroy();
   resizeObserver.disconnect(); visibilityObserver.disconnect(); strip.destroy?.(); await engine.dispose();

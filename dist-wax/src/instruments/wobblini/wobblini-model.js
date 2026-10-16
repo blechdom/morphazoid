@@ -19,9 +19,10 @@ export function clamp(value, min, max, fallback = min) {
 export function createDeckState(id) {
   if (!Number.isInteger(id) || id < 0 || id >= WOBBLINI_DECK_COUNT) throw new RangeError("Unknown Wobblini deck.");
   const demo = WOBBLINI_DEMOS[id];
+  // null means the complete file; every transport repeats its selected region.
   return { id, name: demo.name, kind: "demo", duration: demo.duration,
     position: 0, anchorTime: 0, playing: false, rate: 1, bpm: demo.bpm,
-    cuePoint: 0, loopBeats: 16, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
+    cuePoint: 0, loopBeats: null, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
     gain: 0.7, pan: 0, mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 },
     filter: 0, assignment: id < 4 ? "A" : "B", loading: false, scratching: false, scratchVelocity: 0, syncError: null };
 }
