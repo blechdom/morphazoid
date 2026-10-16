@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RECORDER_SOURCES, sourceMode, nextIndex, sampleChoices, checkInputFile, recorderStatus } from "../src/recorder-input-sources.js";
+import { RECORDER_SOURCES, sourceMode, nextIndex, sampleChoices, checkInputFile, recorderStatus } from "../src/families/recorded-input/recorder-input-sources.js";
 import { SAMPLE_INPUT_OPTIONS, MAX_INPUT_FILE_BYTES } from "../src/instruments/micmic/native/input-source.js";
 
 test("sources list Mic, File and Samples", () => {

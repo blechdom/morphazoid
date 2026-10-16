@@ -1,4 +1,4 @@
-import { mountRecorderInput } from "../../recorder-input-sources.js";
+import { mountRecorderInput } from "../recorded-input/recorder-input-sources.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
 import { CORES } from "./cores.js";

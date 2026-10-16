@@ -1,4 +1,4 @@
-import { mountRecorderInput } from "../../recorder-input-sources.js";
+import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { Loopini, clamp } from "./loopini.js";
 import { LoopiniAudio } from "./loopini-audio.js";
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";

@@ -31,6 +31,7 @@
     <title>Fabric Filter — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/families/recorded-input/recorded-input-panel.css" />
     <link rel="stylesheet" href="src/instruments/moire-drone/moire-drone.css" />
   </head>
   <body class="moire-drone-page">
@@ -109,7 +110,7 @@
             <span><b>Source</b></span>
             <select id="sourceMode">
               <option value="noise">Noise</option>
-              <option value="input">Mic / Audio In</option>
+              <option value="input">Input (Mic / File / Samples)</option>
             </select>
           </label>
           <div id="liveInputControls" hidden>
@@ -129,6 +130,18 @@
               <input id="inputGain" type="range" min="0" max="4" step="0.01" value="1" />
             </label>
             <p class="moire-control-help" id="inputStatus" role="status">Turn Audio on, then connect a microphone or audio interface.</p>
+          </div>
+          <div id="recordedSourceControls" hidden>
+            <label class="control" for="inputSourceKind">
+              <span><b>Input source</b></span>
+              <select id="inputSourceKind" aria-label="Input source">
+                <option value="mic">Mic / Audio In</option>
+                <option value="file">File</option>
+                <option value="samples">Samples</option>
+              </select>
+            </label>
+            <div id="recordedInputPanel"></div>
+            <input id="recordedInputFile" type="file" accept="audio/*" hidden />
           </div>
         </section>
         <details class="group control-section moire-propagation" data-section="play" open>

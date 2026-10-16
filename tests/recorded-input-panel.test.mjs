@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SAMPLE_INPUT_OPTIONS } from '../src/instruments/micmic/native/input-source.js';
-import { orderedSampleChoices, recordedModeOf, recordedStatusText, stripSourceOf } from '../src/recorded-input-panel.js';
+import { orderedSampleChoices, recordedModeOf, recordedStatusText, stripSourceOf } from '../src/families/recorded-input/recorded-input-panel.js';
 
 test('source values map onto mic, file and samples', () => {
   for (const value of ['mic', 'input', 'microphone', 'line']) assert.equal(recordedModeOf(value), 'mic');

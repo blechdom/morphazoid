@@ -1,4 +1,4 @@
-import { mountRecordedInputPanel, recordedModeOf, stripSourceOf } from "../../recorded-input-panel.js";
+import { mountRecordedInputPanel, recordedModeOf, stripSourceOf } from "../../families/recorded-input/recorded-input-panel.js";
 
 /** Samples and files enter graph.input, the node the microphone source feeds.
  * Selecting a source never requests the microphone; only startMicrophone does. */

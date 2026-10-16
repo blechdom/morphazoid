@@ -18,7 +18,7 @@ import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from "../../audio-input-settings.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
-import { createRecordedInput, withRecordedInput } from "../../recorded-input-sources.js";
+import { createRecordedInput, withRecordedInput } from "../../families/recorded-input/recorded-input-sources.js";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [

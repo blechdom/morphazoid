@@ -1,4 +1,4 @@
-import { mountRecordedInputPanel, recordedModeOf, stripSourceOf } from "../../recorded-input-panel.js";
+import { mountRecordedInputPanel, recordedModeOf, stripSourceOf } from "../../families/recorded-input/recorded-input-panel.js";
 
 /** Samples and files enter the worklet input exactly where the microphone does.
  * The engine's input lifecycle (active, pending, meter node, stop) is extended

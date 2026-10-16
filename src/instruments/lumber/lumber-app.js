@@ -10,7 +10,7 @@ import {
 } from "./full-presets.js";
 import { clamp, levelToGain, unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { mountRecorderInput } from "../../recorder-input-sources.js";
+import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { audioInputConstraints, configureAudioInputNode } from "../../audio-input-settings.js";
 import {
   addContourVertex,

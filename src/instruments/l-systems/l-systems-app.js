@@ -29,7 +29,7 @@ import {
 import { micBranchPlaybackRate } from "../../families/mic-branch/mic-branch-dsp.js";
 import { LSystemsMicDelayAudio } from "./mic-delay-audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
-import { createRecordedInput, withRecordedInput } from "../../recorded-input-sources.js";
+import { createRecordedInput, withRecordedInput } from "../../families/recorded-input/recorded-input-sources.js";
 import { attachRecordedEngineSource, detachRecordedEngineSource, onEngineDisable } from "./recorded-input.js";
 import { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from "./sound-engines.js";
 import { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from "./branch-parameters.js";

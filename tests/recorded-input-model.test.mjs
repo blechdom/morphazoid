@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RECORDED_INPUT_SOURCES, createActiveEdge, normalizeInputSource, recordedStartBlocker, shouldStopRecorded,
-} from '../src/recorded-input-model.js';
+} from '../src/families/recorded-input/recorded-input-model.js';
 
 test('source list is Mic, File, Samples with stable values', () => {
   assert.deepEqual(RECORDED_INPUT_SOURCES.map(source => [source.value, source.label]),

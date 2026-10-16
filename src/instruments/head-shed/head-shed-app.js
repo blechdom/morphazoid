@@ -1,5 +1,6 @@
+import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
-import { mountRecorderInput } from "../../recorder-input-sources.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
 import { audioInputConstraints } from "../../audio-input-settings.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 

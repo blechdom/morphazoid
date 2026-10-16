@@ -1,5 +1,5 @@
-import { createInputSource } from './instruments/micmic/native/input-source.js';
-import { mountProcessorSamplePlayer } from './processor-sample-player.js';
+import { createInputSource } from '../../instruments/micmic/native/input-source.js';
+import { mountProcessorSamplePlayer } from '../../processor-sample-player.js';
 import { RECORDED_INPUT_SOURCES, createActiveEdge, normalizeInputSource, recordedStartBlocker, shouldStopRecorded } from './recorded-input-model.js';
 
 /** File and bundled-sample inputs for an instrument that already owns a mic path.

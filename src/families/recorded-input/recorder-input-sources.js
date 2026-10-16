@@ -1,5 +1,5 @@
-import { mountAudioInputControl } from "./audio-input-control.js";
-import { createInputSource, SAMPLE_INPUT_OPTIONS, MAX_INPUT_FILE_BYTES } from "./instruments/micmic/native/input-source.js";
+import { mountAudioInputControl } from "../../audio-input-control.js";
+import { createInputSource, SAMPLE_INPUT_OPTIONS, MAX_INPUT_FILE_BYTES } from "../../instruments/micmic/native/input-source.js";
 
 export const RECORDER_SOURCES = Object.freeze([
   { value: "mic", label: "Mic" }, { value: "file", label: "File" }, { value: "samples", label: "Samples" },

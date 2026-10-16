@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
@@ -7,6 +8,7 @@ export const rubixoidsSiteAmendments = JSON.parse(readFileSync(new URL("../../do
 
 /** Remove only Rubixoids' exact additions before applying older frozen proofs. */
 export function restoreRubixoidsSite(source, file) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of rubixoidsSiteAmendments.changes.filter(change => change.file === file)) {

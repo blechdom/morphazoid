@@ -1,4 +1,4 @@
-import { createInputSource, SAMPLE_INPUT_OPTIONS } from './instruments/micmic/native/input-source.js';
+import { createInputSource, SAMPLE_INPUT_OPTIONS } from '../../instruments/micmic/native/input-source.js';
 
 const FEATURED_SAMPLES = ['music-vocal-scat', 'music-vocal-phrase', 'music-sax-multiphonic', 'music-sax-fingerings', 'music-tabla'];
 let panelCount = 0;

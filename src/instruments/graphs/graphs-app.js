@@ -40,7 +40,7 @@ import {
 } from "../../families/graph/graph-synth-audio.js";
 import { GraphDelayAudio } from "../graph-delay/graph-delay-audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
-import { createRecordedInput, withRecordedInput } from "../../recorded-input-sources.js";
+import { createRecordedInput, withRecordedInput } from "../../families/recorded-input/recorded-input-sources.js";
 import { attachRecordedGraphSource, detachRecordedGraphSource } from "./recorded-input.js";
 import { graphDistanceRatioFromTimeScale, graphsModeFor } from "./graphs-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
