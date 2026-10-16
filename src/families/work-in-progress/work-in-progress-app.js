@@ -463,3 +463,44 @@ on(window, "pagehide", () => {
   recordedInput?.destroy(); abort.abort(); audioStrip.destroy(); void audio.close();
 });
 syncControls(); updateTools(); renderId = requestAnimationFrame(frame);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  HOLLOWPHONIC_DEFAULT_OFFSETS,
+  HOLLOWPHONIC_FULL_PRESETS,
+  captureHollowphonicPreset,
+  randomizeHollowphonicPreset,
+  validateHollowphonicPreset,
+} from "./hollowphonic-presets.js";
+
+if (id === "hollowphonic" && document.querySelector("[data-instrument-preset-host]")) {
+  let internalGenerator = params.source === 3 ? 1 : params.source;
+  let pendingOffsets = null;
+  const trackGenerator = () => { if (params.source !== 3) internalGenerator = params.source; };
+  sourceSelect?.addEventListener("change", trackGenerator);
+  preset.addEventListener("change", trackGenerator);
+  $("resetButton").addEventListener("click", trackGenerator);
+  const liveOffsets = () => {
+    const reported = state.offsets ?? HOLLOWPHONIC_DEFAULT_OFFSETS;
+    if (pendingOffsets) {
+      const settled = pendingOffsets.values.every((value, index) => Math.abs(value - (reported[index] ?? 0)) < 1e-9);
+      if (!settled && performance.now() < pendingOffsets.until) return pendingOffsets.values;
+      pendingOffsets = null;
+    }
+    return reported;
+  };
+  registerHeaderPresets({
+    id: "hollowphonic", presets: HOLLOWPHONIC_FULL_PRESETS,
+    capture: () => captureHollowphonicPreset({ ...params, generator: params.source === 3 ? internalGenerator : params.source, offsets: liveOffsets() }),
+    apply: (snapshot) => {
+      validateHollowphonicPreset(snapshot);
+      const { depth, loss, coupling, mix, generator, offsets } = snapshot;
+      internalGenerator = generator;
+      setParams({ depth, loss, coupling, mix, ...(params.source === 3 ? {} : { source: generator }) });
+      offsets.forEach((offset, index) => send({ type: "cavity", index, offset }));
+      pendingOffsets = { values: [...offsets], until: performance.now() + 1500 };
+      status("Preset loaded; transport, input source and stored material retained.");
+    },
+    randomize: randomizeHollowphonicPreset,
+  });
+}

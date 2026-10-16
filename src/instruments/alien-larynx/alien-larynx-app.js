@@ -4724,3 +4724,44 @@ const recordedInput = mountRecordedInput({
     updateUi();
   },
 });
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ALIEN_LARYNX_FULL_PRESETS,
+  captureAlienLarynxPreset,
+  randomizeAlienLarynxPreset,
+  validateAlienLarynxPreset,
+} from "./full-presets.js";
+import { throatazoidPresetEntryForSnapshot } from "../throatazoid/full-presets.js";
+
+registerHeaderPresets({
+  id: "alien-larynx", presets: ALIEN_LARYNX_FULL_PRESETS,
+  capture: () => captureAlienLarynxPreset(state),
+  apply: snapshot => {
+    validateAlienLarynxPreset(snapshot);
+    if (pointerPhonemeTimer) clearTimeout(pointerPhonemeTimer);
+    pointerPhonemeTimer = 0;
+    pointerPhonemeSession = null;
+    const { alien, ...base } = snapshot;
+    const entry = throatazoidPresetEntryForSnapshot(base);
+    loadVoiceProfile(base);
+    for (const key of ["motionEnabled", "motionDepth", "motionMouths", "motionTongues", "motionNoses", "motionPressure"]) {
+      state[key] = base[key];
+    }
+    state.alien = structuredClone(alien);
+    graph?.physicalTract?.port?.postMessage?.({ type: "reset-alien", system: "all" });
+    state.voicePreset = entry?.voicePreset ?? "";
+    if (state.voicePreset) {
+      carrierVowel = VOICE_PRESETS[state.voicePreset].phoneme;
+      voiceAnchorPreset = state.voicePreset;
+    }
+    selectedThroat = 0;
+    selectedTongue = 0;
+    selectedNose = 0;
+    selectedGenomeMouth = 0;
+    selectedRobotGland = 0;
+    markAudioDirty();
+    updateUi();
+  },
+  randomize: randomizeAlienLarynxPreset,
+});
