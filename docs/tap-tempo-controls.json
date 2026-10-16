@@ -1,6 +1,13 @@
 {
   "confirmed": [
     {
+      "route": "wobblini",
+      "selector": "#master-bpm",
+      "mapping": { "unit": "bpm" },
+      "note": "One beat per tap changes the selected master's effective BPM through the native input event. Only SYNC-enabled followers follow; Audio and playback remain independent.",
+      "source": "src/pages/wobblini.html"
+    },
+    {
       "route": "fractal-delay",
       "selector": "#realMotionTempo",
       "mapping": { "unit": "bpm" },
@@ -2145,12 +2152,6 @@
     }
   ],
   "excluded": [
-    {
-      "route": "wobblini",
-      "selector": "#master-bpm, .deck-bpm, #d0Rate, #d1Rate, #d2Rate, #d3Rate, #d4Rate, #d5Rate, #d6Rate, #d7Rate",
-      "reason": "Explicit instrument design request removes Tap tempo controls; tempo is entered directly and Sync follows Deck 1.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
     {
       "route": "lattice",
       "id": "shepardCycles",

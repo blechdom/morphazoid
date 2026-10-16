@@ -25,8 +25,11 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
   assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['wip']);
   assert.deepEqual(item.tags.map(tag => tag.id), ['wip', 'app', 'looper', 'audio-effect']);
   assert.equal(FAVE_TOOL_IDS.includes(item.id), false);
-  assert.match(item.description, /eight local audio decks.*records forward and backward to scratch.*shared filter wobble/i);
+  assert.match(item.description, /eight local audio decks.*records or wide waveforms forward and backward to scratch.*shared filter wobble/i);
   assert.ok(item.features.includes('Scratching'));
+  assert.ok(item.features.includes('Selectable master'));
+  assert.ok(item.features.includes('Stereo shape mixer'));
+  assert.equal(item.features.includes('Crossfader'), false);
   assert.doesNotMatch(item.description, /streaming|stem separation|time.stretch|automatic BPM/i);
   assert.match(item.start, /enable Audio/);
   assert.equal(CANONICAL_PAGE_ROUTES.filter(route => route === item.href).length, 1);
@@ -35,24 +38,18 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
     noteMode: 'processor', audioInput: false, midiOutput: false,
     startsAudio: false, computerKeyboardMode: 'page',
   });
-  assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href), [], 'Wobblini explicitly opts out of Tap controls');
+  assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href), [
+    { route: 'wobblini.html', selector: '#master-bpm', mapping: { unit: 'bpm' }, title: 'Tap master BPM' },
+  ], 'Tap controls the selected master in native BPM units');
 });
 
-test('Wobblini Tap opt-out preserves every preceding route registration and records the exception', async () => {
-  assert.deepEqual(wobbliniSiteChanges.unchanged.map(({ file }) => file), ['src/site/tap-tempo-targets.js']);
-  for (const { file, sha256 } of wobbliniSiteChanges.unchanged) {
-    const source = restoreWipRolloutSite(await readFile(new URL(file, root), 'utf8'), file);
-    assert.equal(digest(source), sha256, file);
-    assert.equal(restoreWobbliniSite(source, file), source, 'no amendments remain to reverse');
-    const drift = '\n// unrelated drift\n';
-    assert.equal(restoreWobbliniSite(source + drift, file), source + drift);
-    assert.notEqual(digest(restoreWobbliniSite(source + drift, file)), sha256, 'unrelated drift remains detectable');
-  }
+test('Wobblini registers its native master BPM in the reviewed Tap inventory', async () => {
   const inventory = JSON.parse(await readFile(new URL('docs/tap-tempo-controls.json', root), 'utf8'));
-  assert.deepEqual(inventory.confirmed.filter(({ route }) => route === 'wobblini'), []);
-  const exceptions = inventory.excluded.filter(({ route }) => route === 'wobblini');
-  assert.equal(exceptions.length, 1);
-  assert.match(exceptions[0].reason, /explicit instrument design request removes Tap tempo/i);
+  const reviewed = inventory.confirmed.filter(({ route }) => route === 'wobblini');
+  assert.equal(reviewed.length, 1);
+  assert.equal(reviewed[0].selector, '#master-bpm');
+  assert.deepEqual(reviewed[0].mapping, { unit: 'bpm' });
+  assert.deepEqual(inventory.excluded.filter(({ route }) => route === 'wobblini'), []);
 });
 
 test('Wobblini has real original artwork, an incoming fallback route, and required runtime assets', async () => {
@@ -97,4 +94,28 @@ test('Wobblini additions preserve preceding source bytes and reject missing, rep
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreWobbliniSite(binary, 'src/pages/manifest.js'), binary);
   assert.equal(restoreWobbliniSite('untouched', 'unrelated.js'), 'untouched');
+});
+
+test('Wobblini controls copy peels to the exact previous publication without hiding drift', async () => {
+  const { wobbliniControlsSiteChanges, restoreWobbliniControlsSite, readWobbliniControlsSiteReference } = await import('./helpers/wobblini-controls-site-reference.mjs');
+  assert.match(wobbliniControlsSiteChanges.baseCommit, /^9e60847c[0-9a-f]{32}$/);
+  for (const change of wobbliniControlsSiteChanges.changes) {
+    const url = new URL(change.file, root);
+    const source = await readFile(url, 'utf8');
+    const restored = restoreWobbliniControlsSite(source, change.file);
+    assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256, change.file);
+    assert.equal(await readWobbliniControlsSiteReference(url, 'utf8'), restored);
+    assert.deepEqual(await readWobbliniControlsSiteReference(url), await readFile(url));
+    assert.equal(restoreWobbliniControlsSite(restored, change.file, { allowRestored: true }), restored);
+    for (const { before, after } of change.replacements) {
+      for (const changed of [source.replace(after, () => before), source + after, source.replace(after, () => after.replace('wobblini', 'unreviewed'))]) {
+        assert.throws(() => restoreWobbliniControlsSite(changed, change.file), /exact Wobblini controls site amendment/);
+      }
+    }
+    const drift = '\n// unrelated source drift\n';
+    assert.equal(restoreWobbliniControlsSite(source + drift, change.file), restored + drift);
+  }
+  const binary = Buffer.from('raw bytes');
+  assert.equal(restoreWobbliniControlsSite(binary, 'README.md'), binary);
+  assert.equal(restoreWobbliniControlsSite('untouched', 'unrelated.js'), 'untouched');
 });

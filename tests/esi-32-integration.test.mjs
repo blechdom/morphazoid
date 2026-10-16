@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readWobbliniControlsSiteReference as readFile } from './helpers/wobblini-controls-site-reference.mjs';
 import test from 'node:test';
 import { esi32SiteChanges, restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
 import { graphonicCalculatorMathSiteChanges, restoreGraphonicCalculatorMathSite } from './helpers/graphonic-calculator-math-site-reference.mjs';

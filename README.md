@@ -2,7 +2,7 @@
 
 **[ESI-32](esi-32.html)** is an E-mu ESI-32-inspired sampler with eight sample slots, original demo sounds, local audio import, waveform trimming, forward loops, reverse, a resonant lowpass and envelopes. Play the two-row keyboard or MIDI and save complete banks with their audio. Audio starts off. [Controls and emulation limits](docs/esi-32.md).
 
-**[Wobblini](wobblini.html)** is an eight-deck browser DJ instrument in progress: local tracks and original demo loops, per-deck cues, beat loops, EQ, filters and pan, A/THRU/B crossfader routing, and a shared filter wobble. Audio starts off. [Controls and MVP boundaries](docs/wobblini.md).
+**[Wobblini](wobblini.html)** is an eight-deck browser DJ instrument in progress: scratchable records and wide track waveforms, local files and demo loops, selectable master with per-track SYNC, cues, beat loops, EQ, filters, and a geometric stereo pan/volume mixer. Audio starts off. [Controls and MVP boundaries](docs/wobblini.md).
 
 **[Graphonic Calculator](graphonic-calculator.html)** is a Desmos-style graphing calculator, the first entry in the Math group: type functions of x or y, implicit relations, polar and parametric curves, points and shaded regions; sliders animate with Desmos loop modes, points drag their sliders, and Shape-style Points, Line and Radar readers with up to twelve heads turn every curve they meet into pitch and stereo position at a tap tempo. Audio starts off. [Syntax, playback, sound and limits](docs/graphonic-calculator.md); [research brief](docs/graphonic-calculator-research.md); [Desmos feature roadmap](docs/graphonic-calculator-roadmap.md).
 

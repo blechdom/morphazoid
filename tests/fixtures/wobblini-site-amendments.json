@@ -88,13 +88,16 @@
           "after": "<option value=\"graphonic-calculator.html\" selected>Graphonic Calculator</option><option value=\"wobblini.html\">Wobblini</option>"
         }
       ]
-    }
-  ],
-  "unchanged": [
+    },
     {
       "file": "src/site/tap-tempo-targets.js",
       "sha256": "0cff5228a2db8e1211589cad51f55a07b9ba6f8689ed3df13f880826e000e7ed",
-      "reason": "Wobblini opts out of Tap tempo; all preceding route registrations remain byte-for-byte unchanged."
+      "replacements": [
+        {
+          "before": "  {\"route\": \"yoyodyne.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+          "after": "  {\"route\": \"wobblini.html\", \"selector\": \"#master-bpm\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap master BPM\"},\n  {\"route\": \"yoyodyne.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n"
+        }
+      ]
     }
   ]
 }
