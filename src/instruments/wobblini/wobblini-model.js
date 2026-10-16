@@ -1,5 +1,7 @@
 export const WOBBLINI_DECK_COUNT = 8;
 export const WOBBLINI_LOOP_BEATS = Object.freeze([0.5, 1, 2, 4, 8, 16, 32]);
+export const WOBBLINI_TEMPO_RANGES = Object.freeze([8, 10, 16, 25, 50, 75]);
+export function tempoBounds(range = 8) { const fraction = (WOBBLINI_TEMPO_RANGES.includes(Number(range)) ? Number(range) : 8) / 100; return [1 - fraction, 1 + fraction]; }
 export const WOBBLINI_DEMOS = Object.freeze([
   { name: "Pocket kick", color: "#ff7968" },
   { name: "Velvet snare", color: "#ffb75e" },
@@ -19,10 +21,12 @@ export function clamp(value, min, max, fallback = min) {
 export function createDeckState(id) {
   if (!Number.isInteger(id) || id < 0 || id >= WOBBLINI_DECK_COUNT) throw new RangeError("Unknown Wobblini deck.");
   const demo = WOBBLINI_DEMOS[id];
-  // null means the complete file; every transport repeats its selected region.
+  // Sources play through once; loops are intentionally absent from the UI.
   return { id, name: demo.name, kind: "demo", duration: demo.duration,
     position: 0, anchorTime: 0, playing: false, rate: 1, bpm: demo.bpm,
-    cuePoint: 0, loopBeats: null, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
+    cuePoint: 0, beatOffset: 0, loopBeats: null, loopEnabled: false, loopStart: 0, loopEnd: demo.duration,
+    trimDb: 0, autoGain: false, autoGainDb: 0, keyLock: true, pitchSemitones: 0, tempoRange: 8,
+    slipEnabled: false, analysisStatus: "idle", analysisError: null, pitchStatus: "idle", pitchError: null,
     gain: 0.7, pan: 0, mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 },
     filter: 0, assignment: id < 4 ? "A" : "B", loading: false, scratching: false, scratchVelocity: 0, syncError: null };
 }
@@ -30,10 +34,14 @@ export function createDeckState(id) {
 /** Only musical mix fields can be patched; callers cannot mutate live clocks. */
 export function sanitizeDeckPatch(patch = {}, current = createDeckState(0)) {
   const result = {};
-  for (const [key, min, max] of [["rate", 0.5, 2], ["bpm", 40, 240], ["gain", 0, 1], ["pan", -1, 1], ["filter", -1, 1]]) {
+  if (WOBBLINI_TEMPO_RANGES.includes(Number(patch.tempoRange))) result.tempoRange = Number(patch.tempoRange);
+  const [minimumRate, maximumRate] = tempoBounds(result.tempoRange ?? current.tempoRange);
+  for (const [key, min, max] of [["rate", minimumRate, maximumRate], ["bpm", 40, 240], ["gain", 0, 1], ["pan", -1, 1], ["filter", -1, 1],
+    ["trimDb", -24, 12], ["pitchSemitones", -12, 12], ["beatOffset", 0, current.duration]]) {
     if (Object.hasOwn(patch, key)) result[key] = clamp(patch[key], min, max, current[key]);
   }
-  for (const key of ["mute", "solo"]) if (typeof patch[key] === "boolean") result[key] = patch[key];
+  if (Object.hasOwn(result, "tempoRange") && !Object.hasOwn(result, "rate")) result.rate = clamp(current.rate, minimumRate, maximumRate, 1);
+  for (const key of ["mute", "solo", "autoGain", "keyLock", "slipEnabled"]) if (typeof patch[key] === "boolean") result[key] = patch[key];
   if (["A", "THRU", "B"].includes(patch.assignment)) result.assignment = patch.assignment;
   if (patch.eq && typeof patch.eq === "object") {
     result.eq = { ...current.eq };
@@ -46,6 +54,8 @@ export function sanitizeDeckPatch(patch = {}, current = createDeckState(0)) {
 
 export function sanitizeMasterPatch(patch = {}, current = {}) {
   const result = {};
+  if (["tempo", "beat"].includes(patch.syncMode)) result.syncMode = patch.syncMode;
+  if ([1, 4].includes(Number(patch.syncInterval))) result.syncInterval = Number(patch.syncInterval);
   for (const [key, min, max, fallback] of [["gain", 0, 1, 0.65], ["crossfader", -1, 1, 0],
     ["wobbleAmount", 0, 1, 0], ["wobbleRate", 0.125, 8, 2]]) {
     if (Object.hasOwn(patch, key)) result[key] = clamp(patch[key], min, max, current[key] ?? fallback);
@@ -79,30 +89,31 @@ export function beatLoop(position, beats, bpm, duration, cuePoint = 0) {
   return { loopStart: start, loopEnd: Math.min(duration, start + length) };
 }
 
-/** Cue is the manually chosen beat-zero marker; this is not beat detection. */
+/** Beat zero is independent of the performer's return cue. */
 export function beatPhase(position, state, period = 1) {
-  const beats = (position - state.cuePoint) * state.bpm / 60;
+  const beats = (position - (state.beatOffset ?? 0)) * state.bpm / 60;
   return ((beats % period) + period) % period;
 }
 
 /** Half-beat loops lock a subdivision; arbitrary clipped loops cannot preserve
  * beat phase. Allow one source frame of decoder rounding, which can still
  * accumulate a tiny phase offset over repeated wraps. */
-export function syncLoopPeriod(state, sampleRate) {
-  if (!state.loopEnabled) return 1;
+export function syncLoopPeriod(state, sampleRate, requested = 1) {
+  if (!state.loopEnabled) return requested;
   const beats = (state.loopEnd - state.loopStart) * state.bpm / 60;
   const halfBeats = Math.round(beats * 2);
   const epsilon = Number.EPSILON * Math.max(1, Math.abs(state.loopStart), Math.abs(state.loopEnd)) * 8;
   const tolerance = Number.isFinite(sampleRate) && sampleRate > 0
     ? (1 / sampleRate + epsilon) * state.bpm / 60 : 5e-5;
   if (!Number.isFinite(beats) || halfBeats < 1 || Math.abs(beats - halfBeats / 2) > tolerance) return null;
+  if (requested === 4) return halfBeats % 8 === 0 ? 4 : null;
   return halfBeats % 2 === 0 ? 1 : 0.5;
 }
 
 /** Match tempo without silently clamping an impossible ratio. */
 export function syncRate(state, master) {
   const rate = master.bpm * master.rate / state.bpm;
-  return Number.isFinite(rate) && rate >= 0.5 - 1e-9 && rate <= 2 + 1e-9 ? clamp(rate, 0.5, 2) : null;
+  return Number.isFinite(rate) && rate >= 0.25 - 1e-9 && rate <= 1.75 + 1e-9 ? clamp(rate, 0.25, 1.75) : null;
 }
 
 /** Nearest exact matching phase within the source/loop, or no valid point. */
@@ -110,7 +121,7 @@ export function syncPosition(position, state, phase, period = 1) {
   const beat = 60 / state.bpm, span = beat * period;
   const low = state.loopEnabled ? state.loopStart : 0;
   const high = Math.min(state.duration, state.loopEnabled ? state.loopEnd : state.duration) - 1e-7;
-  const origin = state.cuePoint + phase * beat;
+  const origin = (state.beatOffset ?? 0) + phase * beat;
   const first = Math.ceil((low - origin) / span - 1e-9), last = Math.floor((high - origin) / span + 1e-9);
   if (first > last) return null;
   const index = clamp(Math.round((position - origin) / span), first, last);

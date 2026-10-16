@@ -10,7 +10,7 @@ test("Wobblini has eight independent, initially stopped and moderately leveled d
   assert.equal(WOBBLINI_DECK_COUNT, 8); assert.equal(WOBBLINI_DEMOS.length, 8);
   const decks = Array.from({ length: 8 }, (_, index) => createDeckState(index));
   assert.equal(new Set(decks.map(deck => deck.name)).size, 8);
-  assert.ok(decks.every(deck => !deck.playing && deck.gain <= 0.7 && deck.loopEnabled));
+  assert.ok(decks.every(deck => !deck.playing && deck.gain <= 0.7 && !deck.loopEnabled));
   decks[0].eq.low = -20; assert.equal(decks[1].eq.low, 0);
   assert.throws(() => createDeckState(8), RangeError);
 });
@@ -28,7 +28,7 @@ test("Wobblini hostile patches stay finite and cannot overwrite live clocks or b
   const patch = sanitizeDeckPatch({ gain: Infinity, pan: -99, rate: 99, bpm: NaN,
     eq: { low: -99, high: 99, mid: NaN }, playing: true, position: 999,
     assignment: "injected", mute: "false", filter: 8 }, current);
-  assert.deepEqual(patch, { gain: 0.7, pan: -1, rate: 2, bpm: 120,
+  assert.deepEqual(patch, { gain: 0.7, pan: -1, rate: 1.08, bpm: 120,
     eq: { low: -24, mid: 0, high: 12 }, filter: 1 });
   assert.deepEqual(sanitizeMasterPatch({ gain: NaN, crossfader: -8, wobbleRate: Infinity, wobbleAmount: 20 }),
     { gain: 0.65, crossfader: -1, wobbleRate: 2, wobbleAmount: 1 });
@@ -36,7 +36,7 @@ test("Wobblini hostile patches stay finite and cannot overwrite live clocks or b
 
 test("Wobblini audio-clock position crosses many loops without animation ticks", () => {
   const state = { ...createDeckState(0), position: 2.8, anchorTime: 5, playing: true,
-    rate: 1.5, loopStart: 2, loopEnd: 4 };
+    rate: 1.5, loopEnabled: true, loopStart: 2, loopEnd: 4 };
   near(deckPosition(state, 5.8), 2); near(deckPosition(state, 105), 2.8);
   near(deckPosition({ ...state, playing: false }, 105), 2.8);
   near(deckPosition({ ...state, loopEnabled: false }, 105), 8);
@@ -74,11 +74,11 @@ test("Wobblini wobble integrates a frequency ramp without phase jumps", () => {
 });
 
 
-test("Wobblini sync math matches exact cue-relative phase inside source and loop bounds", async () => {
+test("Wobblini sync math matches exact beat-offset-relative phase inside source and loop bounds", async () => {
   const { beatPhase, syncPosition, syncRate, syncLoopPeriod } = await import("../src/instruments/wobblini/wobblini-model.js");
-  const master = { ...createDeckState(0), bpm: 128, rate: 1.125, cuePoint: 0.123 };
-  for (const bpm of [72, 90, 120, 180, 240]) {
-    const state = { ...createDeckState(1), bpm, cuePoint: 0.213, loopEnabled: false };
+  const master = { ...createDeckState(0), bpm: 128, rate: 1.125, beatOffset: 0.123 };
+  for (const bpm of [90, 120, 180, 240]) {
+    const state = { ...createDeckState(1), bpm, beatOffset: 0.213, loopEnabled: false };
     near(syncRate(state, master) * bpm, 144);
     for (const position of [0, 0.03, 1.234, 7.999]) for (const phase of [0, 0.1, 0.5, 0.999]) {
       const target = syncPosition(position, state, phase);
@@ -89,7 +89,7 @@ test("Wobblini sync math matches exact cue-relative phase inside source and loop
   }
   assert.equal(syncRate({ bpm: 40 }, master), null);
   assert.equal(syncRate({ bpm: 240 }, { bpm: 40, rate: 1 }), null);
-  const state = { ...createDeckState(1), loopStart: 0.1, loopEnd: 0.35 };
+  const state = { ...createDeckState(1), loopEnabled: true, loopStart: 0.1, loopEnd: 0.35 };
   assert.equal(syncLoopPeriod(state), 0.5);
   const target = syncPosition(0.11, state, 0.37, 0.5);
   near(beatPhase(target, state, 0.5), 0.37);
@@ -109,19 +109,40 @@ test("Wobblini sync loop classification allows exactly one source frame at whole
     for (const beats of [0.5, 1, 1.5, 16]) for (const loopStart of [0, 120.123]) {
       const period = Number.isInteger(beats) ? 1 : 0.5, length = beats * 60 / bpm;
       for (const frames of [-1, 0, 1]) {
-        const state = { ...createDeckState(0), bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
+        const state = { ...createDeckState(0), loopEnabled: true, bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
         assert.equal(syncLoopPeriod(state, sampleRate), period, `${sampleRate} Hz / ${bpm} BPM / ${beats} beats / ${frames} frame`);
       }
       for (const frames of [-2, -1.01, 1.01, 2]) {
-        const state = { ...createDeckState(0), bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
+        const state = { ...createDeckState(0), loopEnabled: true, bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
         assert.equal(syncLoopPeriod(state, sampleRate), null, `${frames} frames exceed the source rounding allowance`);
       }
     }
-    const tiny = { ...createDeckState(0), bpm, loopEnd: 1 / sampleRate };
+    const tiny = { ...createDeckState(0), loopEnabled: true, bpm, loopEnd: 1 / sampleRate };
     assert.equal(syncLoopPeriod(tiny, sampleRate), null, "a positive half-beat count is required");
   }
-  const short = { ...createDeckState(0), loopEnd: 8 - 1 / 32000 };
+  const short = { ...createDeckState(0), loopEnabled: true, loopEnd: 8 - 1 / 32000 };
   assert.equal(syncLoopPeriod(short), null, "unknown source rate retains the previous narrow tolerance");
   assert.equal(syncLoopPeriod(short, 32000), 1);
   assert.equal(syncLoopPeriod(short, 48000), null, "use actual source frames, not a universal time allowance");
+});
+
+test("Wobblini selected speed ranges clamp manual edits while Sync has its own bounded range", async () => {
+  const { WOBBLINI_TEMPO_RANGES, tempoBounds, syncRate } = await import("../src/instruments/wobblini/wobblini-model.js");
+  assert.deepEqual(WOBBLINI_TEMPO_RANGES, [8, 10, 16, 25, 50, 75]);
+  for (const range of WOBBLINI_TEMPO_RANGES) {
+    const state = { ...createDeckState(0), tempoRange: range }, [low, high] = tempoBounds(range);
+    near(sanitizeDeckPatch({ rate: -99 }, state).rate, low); near(sanitizeDeckPatch({ rate: 99 }, state).rate, high);
+  }
+  near(sanitizeDeckPatch({ tempoRange: 8 }, { ...createDeckState(0), rate: 1.7 }).rate, 1.08);
+  near(syncRate({ bpm: 120 }, { bpm: 120, rate: 1.75 }), 1.75);
+  assert.equal(syncRate({ bpm: 120 }, { bpm: 120, rate: 1.76 }), null);
+});
+
+test("Wobblini AutoGain bounds quiet, silent, non-finite and transient-heavy audio", async () => {
+  const { analyzeTrackLevel } = await import("../src/instruments/wobblini/wobblini-level-analysis.js");
+  assert.equal(analyzeTrackLevel([new Float32Array(100)]).gainDb, 0);
+  assert.equal(analyzeTrackLevel([[NaN, Infinity]]).gainDb, 0);
+  assert.equal(analyzeTrackLevel([new Float32Array(100).fill(0.001)]).gainDb, 12);
+  const spike = new Float32Array(1000); spike[2] = 1;
+  near(analyzeTrackLevel([spike]).gainDb, -1);
 });
