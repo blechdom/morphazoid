@@ -139,7 +139,7 @@ export class WobbliniAudio {
     const master = this.decks[0].state, masterPosition = deckPosition(master, now);
     const playing = state.playing && (state.scratching || state.loopEnabled || position < state.duration);
     const masterPlaying = master.playing && !master.scratching && (master.loopEnabled || masterPosition < master.duration);
-    const period = Math.min(syncLoopPeriod(state) ?? 1, syncLoopPeriod(master) ?? 1);
+    const period = Math.min(syncLoopPeriod(state, deck.sampleRate) ?? 1, syncLoopPeriod(master, this.decks[0].sampleRate) ?? 1);
     const { anchorTime: _anchor, ...snapshot } = state;
     return { ...snapshot, eq: { ...state.eq }, position, playing,
       scratchVelocity: deck.scratch && now - deck.scratch.moveTime <= SCRATCH_HOLD_SECONDS ? state.scratchVelocity : 0,
@@ -186,10 +186,10 @@ export class WobbliniAudio {
     if (!followers.length) return rendered;
     if (this.armed) for (const deck of followers) if (deck.state.playing && !deck.state.scratching) this._buffer(deck);
     const now = this._now(), when = Math.max(now, boundary ?? this._syncBoundary(now));
-    const master = this.decks[0].state, reference = deckPosition(master, when), masterPeriod = syncLoopPeriod(master);
+    const master = this.decks[0].state, reference = deckPosition(master, when), masterPeriod = syncLoopPeriod(master, this.decks[0].sampleRate);
     const masterPlaying = master.playing && !master.scratching && (master.loopEnabled || reference < master.duration);
     for (const deck of followers) {
-      const state = this._capture(deck, now), rate = syncRate(state, master), ownPeriod = syncLoopPeriod(state);
+      const state = this._capture(deck, now), rate = syncRate(state, master), ownPeriod = syncLoopPeriod(state, deck.sampleRate);
       deck.syncAligned = false;
       state.syncError = rate === null ? "Sync needs a speed outside 0.5×–2×. Adjust deck 1 tempo or this source BPM."
         : masterPeriod === null ? "Deck 1's clipped loop cannot preserve beat phase. Turn its loop off or choose a shorter beat loop."

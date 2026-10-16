@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WOBBLINI_DECK_COUNT, WOBBLINI_DEMOS, createDeckState, sanitizeDeckPatch,
   sanitizeMasterPatch, crossfadeGains, deckPosition, beatLoop, createDemoSamples,
-  waveformPeaks, wobbleAt } from "../src/instruments/wobblini/wobblini-model.js";
+  waveformPeaks, wobbleAt, syncLoopPeriod } from "../src/instruments/wobblini/wobblini-model.js";
 
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`);
 
@@ -102,4 +102,26 @@ test("Wobblini loops snap to the manually chosen cue grid and stay inside the so
   assert.deepEqual(beatLoop(1.13, 2, 120, 8, 0.2), { loopStart: 0.7, loopEnd: 1.7 });
   assert.deepEqual(beatLoop(0.1, 2, 120, 8, 0.2), { loopStart: 0, loopEnd: 1 });
   assert.deepEqual(beatLoop(7.9, 4, 120, 8, 0.2), { loopStart: 6, loopEnd: 8 });
+});
+
+test("Wobblini sync loop classification allows exactly one source frame at whole and half beats", () => {
+  for (const sampleRate of [32000, 48000]) for (const bpm of [40, 120, 240]) {
+    for (const beats of [0.5, 1, 1.5, 16]) for (const loopStart of [0, 120.123]) {
+      const period = Number.isInteger(beats) ? 1 : 0.5, length = beats * 60 / bpm;
+      for (const frames of [-1, 0, 1]) {
+        const state = { ...createDeckState(0), bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
+        assert.equal(syncLoopPeriod(state, sampleRate), period, `${sampleRate} Hz / ${bpm} BPM / ${beats} beats / ${frames} frame`);
+      }
+      for (const frames of [-2, -1.01, 1.01, 2]) {
+        const state = { ...createDeckState(0), bpm, loopStart, loopEnd: loopStart + length + frames / sampleRate };
+        assert.equal(syncLoopPeriod(state, sampleRate), null, `${frames} frames exceed the source rounding allowance`);
+      }
+    }
+    const tiny = { ...createDeckState(0), bpm, loopEnd: 1 / sampleRate };
+    assert.equal(syncLoopPeriod(tiny, sampleRate), null, "a positive half-beat count is required");
+  }
+  const short = { ...createDeckState(0), loopEnd: 8 - 1 / 32000 };
+  assert.equal(syncLoopPeriod(short), null, "unknown source rate retains the previous narrow tolerance");
+  assert.equal(syncLoopPeriod(short, 32000), 1);
+  assert.equal(syncLoopPeriod(short, 48000), null, "use actual source frames, not a universal time allowance");
 });

@@ -581,6 +581,35 @@ test("Wobblini half-beat loops lock subdivisions and incompatible clipped loops 
   await engine.dispose();
 });
 
+test("Wobblini decoded master and follower loops use their source sample rates for native Sync and snapshots", async () => {
+  for (const sampleRate of [32000, 48000]) for (const masterBeats of [0.5, 16]) {
+    const followerBeats = masterBeats === 16 ? 0.5 : 16;
+    const durations = [masterBeats, followerBeats].map(beats => beats * 0.5 - 1 / sampleRate);
+    const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => buffer(durations.shift(), sampleRate, 1) }) });
+    const { engine, context } = h;
+    await engine.loadFile(0, file()); await engine.loadFile(1, file());
+    engine.setLoop(0, masterBeats); engine.setLoop(1, followerBeats);
+    engine.setSyncEnabled(true); assert.equal(h.creates, 0);
+    await engine.arm(); engine.playAll(); context.currentTime += 0.05;
+    assertSynced(engine);
+    assert.equal(engine.getState().decks[1].syncBeatPeriod, 0.5);
+    for (const id of [0, 1]) {
+      const deck = engine.decks[id], source = deck.source.source;
+      assert.equal(source.buffer.sampleRate, sampleRate); assert.equal(source.loop, true);
+      near(source.loopEnd, deck.buffer.duration); near(source.startTime, 5.016);
+      near(engine.getDeckState(id).position, source.offset + (context.currentTime - source.startTime) * source.playbackRate.value);
+    }
+    engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(followerBeats * 0.5 - 2 / sampleRate, sampleRate, 1) });
+    await engine.loadFile(1, file()); engine.setLoop(1, followerBeats);
+    assert.match(engine.getDeckState(1).syncError, /This clipped loop/);
+    assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
+    engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(masterBeats * 0.5 - 2 / sampleRate, sampleRate, 1) });
+    await engine.loadFile(0, file()); engine.setLoop(0, masterBeats);
+    for (const deck of engine.getState().decks.slice(1)) assert.match(deck.syncError, /Deck 1's clipped loop/);
+    await engine.dispose();
+  }
+});
+
 
 test("Wobblini master edits before a scheduled launch retain exact native and model timing", async () => {
   const h = harness(), { engine, context } = h;
