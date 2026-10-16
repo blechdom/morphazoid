@@ -76,7 +76,7 @@ function wave({ seconds = 8, sampleRate = 24000 } = {}) {
 }
 
 async function loadTone(page) {
-  await page.locator("#d0File").setInputFiles({ name: "Mobile QA tone.wav", mimeType: "audio/wav", buffer: wave() });
+  await page.locator("#d0File").setInputFiles({ name: "Mobile QA tone.wav", mimeType: "audio/wav", buffer: wave({ seconds: 30 }) });
   await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
   await expect.poll(async () => (await state(page)).decks[0].loading).toBe(false);
 }
@@ -171,6 +171,7 @@ test("small phone gears open usable track controls while records retain center p
   const chooserEvent = page.waitForEvent("filechooser"); await page.locator("#settingsLoad").tap();
   await (await chooserEvent).setFiles({ name: "Phone popup.wav", mimeType: "audio/wav", buffer: wave() });
   await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
+  await page.locator("#settingsTempoRange").selectOption("25");
   await setRange(page, "#settingsVolume", 0.4); await setRange(page, "#settingsSpeed", 1.2);
   expect((await state(page)).decks[0].gain).toBe(0.4); expect((await state(page)).decks[0].rate).toBe(1.2);
   await page.locator("#settingsSpeedReset").tap(); expect((await state(page)).decks[0].rate).toBe(1);
@@ -180,18 +181,20 @@ test("small phone gears open usable track controls while records retain center p
   for (const suffix of ["In", "Out", "Length"]) await expect(page.locator(`#d0Loop${suffix}`)).toBeHidden();
   await page.locator("#d0Play").tap(); await expect.poll(async () => (await state(page)).decks[0].position).toBeGreaterThan(0.1);
   await openSettings(page); await page.locator(".wb-settings-grid summary").tap(); await page.locator("#settingsCue").tap();
-  expect((await state(page)).decks[0].playing).toBe(false); expect((await state(page)).decks[0].position).toBe(0);
+  expect((await state(page)).decks[0].playing).toBe(true); expect((await state(page)).decks[0].position).toBeLessThan(.2);
+  await page.locator("#closeDeckSettings").tap(); await page.locator("#stopButton").tap(); await openSettings(page);
   await page.locator("#closeDeckSettings").tap(); await openSettings(page, 1);
   await expect(page.locator("#settingsSync")).toBeEnabled(); await expect(page.locator("#deckSettings")).toHaveCount(1);
   const dialog = await page.locator("#deckSettings").boundingBox(); await page.touchscreen.tap(dialog.x - 5, dialog.y + 10);
   await expect(page.locator("#deckSettings")).toBeHidden();
   expect((await state(page)).armed).toBe(false); expect((await readAudioStatus(page)).connectionCount).toBe(0);
-  for (const view of ["records", "tiny", "full"]) {
+  for (const view of ["records", "classic", "pro", "prepare"]) {
     await page.locator(`#${view}View`).tap();
-    if (view !== "records") {
+    await expect(page.locator(".wb-deck:visible")).toHaveCount(view === "records" ? 8 : view === "prepare" ? 1 : 2);
+    if (["pro", "prepare"].includes(view)) {
       await expect(page.locator("#d0Platter")).toBeHidden();
-      const first = await page.locator("#deck0").boundingBox(), second = await page.locator("#deck1").boundingBox();
-      expect(Math.abs(first.x - second.x)).toBeLessThan(2); expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
+      const first = await page.locator("#deck0").boundingBox();
+      if (view === "pro") { const second = await page.locator("#deck1").boundingBox(); expect(Math.abs(first.x - second.x)).toBeLessThan(2); expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1); }
       const wave = await page.locator("#d0Wave").boundingBox(); expect(wave.width).toBeGreaterThan(first.width * .8);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -282,6 +285,7 @@ test("phone WAV import, master tempo knob, and platter volume change real output
   await loadTone(page);
   expect(await page.evaluate(() => window.testDecodeCount)).toBe(1);
   expect((await state(page)).armed).toBe(false);
+  await page.locator("#d0TempoRange").evaluate(node => { node.value = "25"; node.dispatchEvent(new Event("change", { bubbles: true })); });
   await page.locator("#master-bpm").tap();
   await expect(page.locator("#master-bpm")).toBeFocused();
   await setRange(page, "#master-bpm", 135);
@@ -374,7 +378,7 @@ test("phone crowns and individual SYNC taps choose one master without stopping i
 });
 
 test("phone track waveform uses touch capture without seeking on contact", async ({ page }) => {
-  await ready(page); await loadTone(page); await page.locator("#fullView").tap(); await setRange(page, "#d0Seek", 2);
+  await ready(page); await loadTone(page); await page.locator("#prepareView").tap(); await setRange(page, "#d0Seek", 2);
   const wave = page.locator("#d0Wave"); await wave.scrollIntoViewIfNeeded();
   await wave.evaluate(node => node.addEventListener("pointerdown", event => { node.dataset.pointerType = event.pointerType; }));
   const box = await wave.boundingBox(); await wave.tap({ position: { x: box.width * .8, y: box.height * .5 } });
@@ -389,4 +393,24 @@ test("phone track waveform uses touch capture without seeking on contact", async
   for (let i = 1; i <= 6; i++) { await page.mouse.move(x - r.width * .02 * i, y); await page.waitForTimeout(35); peak = Math.max(peak, (await readAudioStatus(page)).rms); }
   expect((await state(page)).decks[0].position).toBeLessThan(1.5); expect(peak).toBeGreaterThan(.0001);
   await page.mouse.up(); expect((await state(page)).decks[0].scratching).toBe(false); await silent(page);
+});
+
+test("phone Cue tap previews without arming Audio and held keyboard Cue releases when settings close", async ({ page }) => {
+  await ready(page); await loadTone(page); await setRange(page, "#d0Seek", 2);
+  await page.locator("#d0SetCue").evaluate(node => node.click()); await setRange(page, "#d0Seek", 5);
+  await openSettings(page); await page.locator(".wb-settings-grid summary").tap();
+  const cue = page.locator("#settingsCue");
+  await cue.evaluate(async (node, url) => {
+    const { engine } = await import(url); node.observed = [];
+    for (const type of ["pointerdown", "pointerup"]) node.addEventListener(type, event => node.observed.push({ type: event.pointerType, preview: engine.getDeckState(0).cuePreviewing }));
+  }, APP);
+  await cue.tap();
+  expect(await cue.evaluate(node => node.observed)).toEqual([{ type: "touch", preview: true }, { type: "touch", preview: false }]);
+  expect((await state(page)).decks[0].position).toBe(2); expect((await state(page)).decks[0].playing).toBe(false);
+  expect((await state(page)).armed).toBe(false); expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  await cue.focus(); await page.keyboard.down("Enter");
+  await expect.poll(async () => (await state(page)).decks[0].cuePreviewing).toBe(true);
+  await page.evaluate(() => document.querySelector("#deckSettings").close()); await page.keyboard.up("Enter");
+  await expect.poll(async () => (await state(page)).decks[0].cuePreviewing).toBe(false);
+  expect((await state(page)).decks[0].playing).toBe(false); expect((await state(page)).decks[0].position).toBe(2);
 });
