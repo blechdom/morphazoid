@@ -103,9 +103,7 @@ const cards = Array.from({ length: 8 }, (_, i) => {
     }
   };
   placeControls(true);
-  // Keep a keyboard-held Cue focused until Play tells the engine to continue.
-  on($(`d${i}Play`), "pointerdown", event => { if (engine.getDeckState(i).cuePreviewing) event.preventDefault(); });
-  on($(`d${i}Play`), "click", () => act(() => engine.toggle(i)));
+  bindPlay($(`d${i}Play`), () => i);
   const releaseCue = bindCue($(`d${i}Cue`), () => i);
   on($(`d${i}SetCue`), "click", () => { engine.setCue(i); say(`Deck ${i + 1} cue saved at ${time(engine.getDeckState(i).cuePoint)}.`); });
   on($("d" + i + "Load"), "click", () => $("d" + i + "File").click());
@@ -217,6 +215,26 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   return { root: deck, wave, platter, release, updateRecord, placeControls, recordGain, recordWave: $(`d${i}RecordWave`), recordContext: $(`d${i}RecordWave`).getContext("2d"), disc: deck.querySelector(".wb-record-surface"), context: wave.getContext("2d") };
 });
 
+function bindPlay(button, deckIndex) {
+  let continuedOnPress = false;
+  on(button, "pointerdown", event => {
+    continuedOnPress = false;
+    const index = deckIndex();
+    if (event.button !== 0 || index === null || !engine.getDeckState(index).cuePreviewing) return;
+    // Secondary touch contacts may never synthesize click. Continue immediately
+    // while Cue is held, and keep keyboard Cue focus through the same action.
+    event.preventDefault(); continuedOnPress = true;
+    act(() => engine.play(index));
+  });
+  on(button, "pointercancel", () => { continuedOnPress = false; });
+  on(button, "click", event => {
+    const suppress = continuedOnPress && event.detail > 0;
+    continuedOnPress = false;
+    if (suppress) return;
+    const index = deckIndex();
+    if (index !== null) act(() => engine.toggle(index));
+  });
+}
 function bindCue(button, deckIndex) {
   let held = null, pointer = null, key = null;
   const begin = () => {
@@ -449,8 +467,7 @@ on($("settingsSpeedReset"), "click", () => { if (settingsDeck !== null) { engine
 on($("settingsSpeed"), "dblclick", () => $("settingsSpeedReset").click());
 on($("settingsSeek"), "input", (event) => { if (settingsDeck !== null) engine.seek(settingsDeck, Number(event.target.value)); });
 bindCue($("settingsCue"), () => settingsDeck);
-on($("settingsPlay"), "pointerdown", event => { if (settingsDeck !== null && engine.getDeckState(settingsDeck).cuePreviewing) event.preventDefault(); });
-on($("settingsPlay"), "click", () => { if (settingsDeck !== null) act(() => engine.toggle(settingsDeck)); });
+bindPlay($("settingsPlay"), () => settingsDeck);
 on($("settingsPitchReset"), "click", () => { if (settingsDeck !== null) engine.setDeck(settingsDeck, { pitchSemitones: 0 }); });
 on($("settingsAutoGain"), "change", event => { if (settingsDeck !== null) engine.setDeck(settingsDeck, { autoGain: event.target.checked }); });
 for (const [id, field] of [["settingsKeyLock", "keyLock"], ["settingsSlip", "slipEnabled"]]) on($(id), "click", () => {
