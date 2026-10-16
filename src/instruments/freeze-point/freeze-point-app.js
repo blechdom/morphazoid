@@ -1,3 +1,5 @@
+import { registerWaveLabPresets, setControlValue } from "../../families/wave-lab/wave-lab-presets.js";
+import { FREEZE_POINT_FULL_PRESETS, FREEZE_POINT_PRESET_KEYS, captureFreezePointPreset, randomizeFreezePointPreset, validateFreezePointPreset } from "./full-presets.js";
 import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
 import { createLattice, participationRatio, findThreshold, siteFrequency } from "./freeze-point.js?v=wave-20260918-1";
 
@@ -161,3 +163,13 @@ $("silenceButton").addEventListener("click", () => {
 
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
+
+registerWaveLabPresets({
+  id: "freeze-point", presets: FREEZE_POINT_FULL_PRESETS,
+  capture: () => captureFreezePointPreset(params),
+  apply: (snapshot) => {
+    validateFreezePointPreset(snapshot);
+    for (const key of FREEZE_POINT_PRESET_KEYS) setControlValue(key, snapshot[key]);
+  },
+  randomize: randomizeFreezePointPreset,
+});

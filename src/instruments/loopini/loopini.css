@@ -111,3 +111,5 @@ body.loopini-page { --accent: #f5c967; --accent-soft: #aa8e4e; --accent-glow: #4
   width: auto;
   margin-left: auto;
 }
+
+.loopini-stage > [data-instrument-preset-host] { margin-bottom: 20px; }
