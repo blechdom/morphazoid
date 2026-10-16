@@ -12,7 +12,7 @@ let view = "records", tiny = false, selected = null, confirmation = null, padPoi
 const constrained = matchMedia("(any-pointer: coarse)").matches || navigator.deviceMemory <= 4 || navigator.hardwareConcurrency <= 4;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const drawInterval = 1000 / (constrained ? 20 : 30), pixelRatioLimit = constrained ? 1 : 2;
-let renderPending = false, lastReadout = 0;
+let renderPending = false, lastReadout = 0, lastSyncWarning = "";
 const seeking = new Set();
 export const engine = new WobbliniAudio({ resourceProfile: constrained ? "constrained" : "standard", onChange: () => { if (initialized) renderPending = true; }, onError: showError });
 const initial = engine.getState();
@@ -40,7 +40,7 @@ const icons = {
   dry: '<path d="M3 12h18M5 5l14 14"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   check: '<path d="m4 12 5 5L20 6"/>',
-  tap: '<path d="m5 19 7-14 7 14ZM9 16l7-9M3 22h18"/>',
+  crown: '<path d="m3 6 4 4 5-6 5 6 4-4-2 12H5ZM5 21h14"/>',
 };
 const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
 function setIcon(node, name, label) {
@@ -49,19 +49,13 @@ function setIcon(node, name, label) {
   else if (!node.title) node.title = node.getAttribute("aria-label") || "";
 }
 for (const node of document.querySelectorAll("[data-icon]")) setIcon(node, node.dataset.icon);
-// Preserve the shared Tap behavior while using this instrument's icon-only face.
-const tapIcons = new MutationObserver(() => {
-  for (const node of $("wobblini").querySelectorAll(".mz-tap-tempo:not([data-rendered-icon])")) setIcon(node, "tap");
-});
-tapIcons.observe($("wobblini"), { childList: true, subtree: true });
-
 const range = (i, key, label, min, max, step, value) => `<label class="wb-control" for="d${i}${key}"><span>${label}<output id="d${i}${key}Out" for="d${i}${key}"></output></span><input id="d${i}${key}" type="range" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="Deck ${i + 1} ${label}" /></label>`;
 const cards = Array.from({ length: 8 }, (_, i) => {
   const deck = document.createElement("section");
   deck.className = "wb-deck"; deck.id = `deck${i}`; deck.dataset.deck = i;
   deck.style.setProperty("--deck-color", colors[i]); deck.setAttribute("aria-label", `Deck ${i + 1}`);
-  deck.innerHTML = `<span class="wb-deck-number" aria-hidden="true">${i + 1}</span><span id="d${i}Name" class="sr-only">Demo loop</span><span id="d${i}Kind" class="sr-only">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
-    <div class="wb-visual"><div id="d${i}Platter" class="wb-disc" role="slider" tabindex="0" aria-label="Scratch deck ${i + 1}" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-describedby="scratchHelp d${i}Name d${i}Kind"><i class="wb-disc-needle" aria-hidden="true"></i><canvas id="d${i}RecordWave" class="wb-record-wave" aria-hidden="true"></canvas></div><div class="wb-wave-wrap"><canvas id="d${i}Wave" class="wb-wave" role="img" tabindex="0" aria-label="Deck ${i + 1} waveform. Drag or use left and right arrow keys to seek. Home returns to the start. A position slider also follows.">Audio waveform.</canvas><div class="wb-time"><output id="d${i}Time">0:00.0</output><output id="d${i}Duration">0:08</output></div></div></div>
+  deck.innerHTML = `<span class="wb-deck-number" aria-hidden="true"><span>${i + 1}</span>${i === 0 ? icon("crown") : ""}</span><span id="d${i}Sync" class="sr-only"></span><span id="d${i}Name" class="sr-only">Demo loop</span><span id="d${i}Kind" class="sr-only">Original demo</span><input id="d${i}File" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" hidden />
+    <div class="wb-visual"><div id="d${i}Platter" class="wb-disc" role="slider" tabindex="0" aria-label="Scratch deck ${i + 1}" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-describedby="scratchHelp d${i}Name d${i}Kind d${i}Sync"><div class="wb-record-surface"><canvas id="d${i}RecordWave" class="wb-record-wave" aria-hidden="true"></canvas></div><i class="wb-disc-needle" aria-hidden="true"></i></div><div class="wb-wave-wrap"><canvas id="d${i}Wave" class="wb-wave" role="img" tabindex="0" aria-label="Deck ${i + 1} waveform. Drag or use left and right arrow keys to seek. Home returns to the start. A position slider also follows.">Audio waveform.</canvas><div class="wb-time"><output id="d${i}Time">0:00.0</output><output id="d${i}Duration">0:08</output></div></div></div>
     <input id="d${i}Seek" class="wb-seek" type="range" min="0" max="8" step="0.01" value="0" aria-label="Deck ${i + 1} position in seconds" />
     <div class="wb-deck-transport"><button id="d${i}Play" class="wb-deck-play" type="button" aria-label="Play deck ${i + 1}" aria-pressed="false" title="Play deck ${i + 1}">${icon("play")}</button><button id="d${i}Cue" class="wb-cue" type="button" aria-label="Return to cue on deck ${i + 1}" title="Return to cue">${icon("cue")}</button><button id="d${i}SetCue" class="wb-set-cue" type="button" aria-label="Set cue on deck ${i + 1}" title="Set cue">${icon("setcue")}</button></div>
     <div class="wb-loop-row"><label for="d${i}Loop">Loop<select id="d${i}Loop" aria-label="Deck ${i + 1} loop length"><option value="off">Off</option>${[0.5, 1, 2, 4, 8, 16, 32].map((n) => `<option value="${n}">${n} beat${n === 1 ? "" : "s"}</option>`).join("")}</select></label><output class="wb-effective" id="d${i}Effective">120.0 <small>BPM</small></output></div>
@@ -74,6 +68,21 @@ const cards = Array.from({ length: 8 }, (_, i) => {
     ${range(i, "Pan", "Pan · left ↔ right", -1, 1, 0.01, 0)}
     </div></details>`;
   $("deckGrid").append(deck);
+  // Keep the same native controls, IDs and listeners in every view.
+  const corners = document.createElement("div");
+  corners.className = "wb-record-corners";
+  deck.append(corners);
+  const cornerControls = ["Load", "Edit", "Cue", "Play"].map((name) => {
+    const button = $("d" + i + name), home = document.createComment(name + " control");
+    button.before(home); button.classList.add("wb-corner-" + name.toLowerCase());
+    return { button, home };
+  });
+  const placeControls = (records) => {
+    for (const { button, home } of cornerControls) {
+      if (records) corners.append(button); else home.after(button);
+    }
+  };
+  placeControls(true);
   on($(`d${i}Play`), "click", () => act(() => engine.toggle(i)));
   on($(`d${i}Cue`), "click", () => act(() => engine.cue(i)));
   on($(`d${i}SetCue`), "click", () => { engine.setCue(i); say(`Deck ${i + 1} cue saved at ${time(engine.getDeckState(i).cuePoint)}.`); });
@@ -112,7 +121,7 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   let hand = null, keyboardTarget = null, recordAngle = 0, recordPosition = 0;
   const rotateTo = (sourcePosition, delta = sourcePosition - recordPosition) => {
     recordAngle += delta / 1.8 * 360; recordPosition = sourcePosition;
-    deck.querySelector(".wb-disc-needle").style.setProperty("--disc-angle", `${recordAngle}deg`);
+    deck.querySelector(".wb-record-surface").style.setProperty("--record-angle", `${recordAngle}deg`);
   };
   const updateRecord = (d) => {
     if (hand || keyboardTarget !== null) return;
@@ -161,7 +170,7 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   on(platter, "blur", () => { if (keyboardTarget !== null) release(); });
   on(window, "blur", release);
   on(document, "visibilitychange", () => { if (document.hidden) release(); });
-  return { root: deck, wave, platter, release, updateRecord, recordWave: $(`d${i}RecordWave`), recordContext: $(`d${i}RecordWave`).getContext("2d"), disc: deck.querySelector(".wb-disc-needle"), context: wave.getContext("2d") };
+  return { root: deck, wave, platter, release, updateRecord, placeControls, recordWave: $(`d${i}RecordWave`), recordContext: $(`d${i}RecordWave`).getContext("2d"), disc: deck.querySelector(".wb-record-surface"), context: wave.getContext("2d") };
 });
 
 function say(message) { if (!disposed) $("sessionStatus").textContent = message; }
@@ -207,11 +216,14 @@ function matchDeck(i) {
   say(requested < 0.5 || requested > 2 ? `Deck ${i + 1} reached its ½×–2× speed limit` : `Deck ${i + 1} matched to ${bpm} BPM · Pitch follows speed`);
 }
 function editDeck(i) {
+  if (view === "records") setView("tiny");
   if (tiny) {
     selected = selected === i ? null : i;
     for (let j = 0; j < 8; j++) { cards[j].root.classList.toggle("is-selected", j === selected); $(`d${j}Details`).open = j === selected; }
   } else { $(`d${i}Details`).open = !$(`d${i}Details`).open; }
   render();
+  $("d" + i + "Edit").focus({ preventScroll: true });
+  if (tiny && selected === i) cards[i].root.scrollIntoView({ block: "nearest" });
 }
 function setView(next) {
   for (const card of cards) card.release();
@@ -219,14 +231,25 @@ function setView(next) {
   $("wobblini").classList.toggle("is-tiny", tiny);
   $("wobblini").classList.toggle("is-records", view === "records");
   for (const name of ["records", "full", "tiny"]) $(name + "View").setAttribute("aria-pressed", String(view === name));
-  for (const [i, card] of cards.entries()) { card.root.classList.remove("is-selected"); $(`d${i}Details`).open = false; }
+  for (const [i, card] of cards.entries()) { card.root.classList.remove("is-selected"); card.placeControls(view === "records"); $(`d${i}Details`).open = false; }
   render();
 }
 for (const name of ["records", "full", "tiny"]) on($(name + "View"), "click", () => setView(name));
 on($("playButton"), "click", () => { const playing = engine.getState().decks.some((d) => d.playing); engine[playing ? "pauseAll" : "playAll"](); });
 on($("stopButton"), "click", () => { for (const card of cards) card.release(); for (let i = 0; i < 8; i++) { engine.pause(i); engine.seek(i, 0); } say("Stopped · All decks at the beginning"); });
-on($("matchAll"), "click", () => { for (let i = 0; i < 8; i++) matchDeck(i); say("Tempo matched from source BPM · Speed range ½×–2×"); });
-on($("master-bpm"), "change", () => { $("master-bpm").value = Math.max(40, Math.min(240, Number($("master-bpm").value) || 120)); });
+on($("syncAll"), "click", () => act(() => {
+  const enabled = !engine.getState().syncEnabled;
+  engine.setSyncEnabled(enabled);
+  say(enabled ? "Sync on · Deck 1 leads tempo and beat position" : "Sync off · Deck speeds and playback kept");
+}));
+on($("master-bpm"), "input", (event) => {
+  if (event.target.value === "" || !Number.isFinite(event.target.valueAsNumber)) return;
+  const master = engine.getDeckState(0);
+  engine.setDeck(0, { rate: Math.min(2, Math.max(.5, event.target.valueAsNumber / master.bpm)) });
+});
+for (const type of ["change", "blur"]) on($("master-bpm"), type, () => {
+  $("master-bpm").value = engine.getDeckState(0).effectiveBpm.toFixed(1);
+});
 on($("loadDemos"), "click", () => act(async () => {
   if (engine.getState().decks.some((d) => d.kind === "file") && !await confirmReplace("Replace your loaded files on all eight decks with the original demo loops?")) return;
   if (disposed) return;
@@ -268,6 +291,25 @@ function render() {
   const state = engine.getState(), count = state.decks.filter((d) => d.playing).length;
   if (!starting) strip.setAudioState(state.armed ? "on" : "off");
   $("playButton").setAttribute("aria-pressed", String(count > 0)); setIcon($("playButton"), count ? "pause" : "play", count ? "Pause all" : "Play all");
+  $("syncAll").setAttribute("aria-pressed", String(!!state.syncEnabled));
+  const syncErrors = state.decks.filter((d) => d.syncError);
+  const syncWarning = state.syncEnabled && syncErrors.length
+    ? [...new Set(syncErrors.map((d) => d.syncError))].map((message) => {
+      const decks = syncErrors.filter((d) => d.syncError === message).map((d) => d.id + 1);
+      return (decks.length > 1 ? "Decks " : "Deck ") + decks.join(", ") + ": " + message;
+    }).join(" ") : "";
+  if (syncWarning !== lastSyncWarning) {
+    if (syncWarning) { $("errorMessage").textContent = syncWarning; $("errorMessage").hidden = false; }
+    else if ($("errorMessage").textContent === lastSyncWarning) $("errorMessage").hidden = true;
+    lastSyncWarning = syncWarning;
+  }
+  $("syncAll").classList.toggle("has-sync-warning", !!state.syncEnabled && syncErrors.length > 0);
+  $("syncAll").title = state.syncEnabled
+    ? (syncErrors.length ? syncWarning : "Sync on · Deck 1 is master. Click to release sync.")
+    : "Sync all decks to deck 1 · Uses source BPM and cue as beat zero";
+  value("master-bpm", Number(state.decks[0].effectiveBpm.toFixed(1)));
+  $("master-bpm").min = state.decks[0].bpm * .5;
+  $("master-bpm").max = state.decks[0].bpm * 2;
   $("activeDecks").value = `${count} / 8 playing`;
   $("liveDot").classList.toggle("is-on", state.armed && count > 0);
   for (let i = 0; i < 8; i++) {
@@ -276,11 +318,15 @@ function render() {
     const key = [d.name, d.kind, d.loading, d.playing, d.scratching, d.mute, d.solo,
       state.decks.some((v) => v.solo), d.duration, d.cuePoint, d.effectiveBpm,
       d.gain, d.rate, d.bpm, d.pan, d.filter, d.assignment, d.loopEnabled, d.loopBeats,
-      d.eq.low, d.eq.mid, d.eq.high, tiny, selected].join("|");
+      d.eq.low, d.eq.mid, d.eq.high, d.syncActive, d.syncError, state.syncEnabled, tiny, selected].join("|");
     if (cards[i].renderKey === key) continue;
     cards[i].renderKey = key;
     cards[i].root.classList.toggle("is-playing", d.playing); cards[i].root.classList.toggle("is-muted", d.mute || (state.decks.some((v) => v.solo) && !d.solo));
     cards[i].root.classList.toggle("is-scratching", !!d.scratching);
+    cards[i].root.classList.toggle("is-synced", !!d.syncActive);
+    cards[i].root.classList.toggle("has-sync-warning", !!d.syncError && !!state.syncEnabled);
+    text("d" + i + "Sync", i === 0 ? "Sync master" : state.syncEnabled
+      ? d.syncError || (d.syncActive ? "Synced to deck 1" : "Sync waits for deck 1 to play") : "Sync off");
     text(`d${i}Name`, d.name); cards[i].platter.title = d.name;
     text(`d${i}Kind`, d.loading ? "Loading…" : d.kind === "file" ? "Local file · Manual BPM" : "Original demo loop");
     $(`d${i}Load`).setAttribute("aria-busy", String(d.loading));
@@ -322,8 +368,8 @@ function canvasSize(canvas) {
   let size = canvasSizes.get(canvas);
   const scale = Math.min(pixelRatioLimit, window.devicePixelRatio || 1);
   if (!size || size.scale !== scale) {
-    const r = canvas.getBoundingClientRect();
-    size = { width: r.width, height: r.height, scale };
+    // Rotation expands bounding boxes, not the canvas's layout or pixel budget.
+    size = { width: canvas.clientWidth, height: canvas.clientHeight, scale };
     canvasSizes.set(canvas, size);
   }
   return size;
@@ -352,7 +398,7 @@ function drawWave(card, d, color) {
 function drawRecordWave(card, d, color) {
   const ctx = card.recordContext, [w, h] = prepareCanvas(card.recordWave, card.recordContext);
   if (!w || !h) return;
-  const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * .405;
+  const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * .355;
   const progress = d.duration ? d.position / d.duration : 0;
   let cached = card.recordCache;
   if (!cached || cached.peaks !== d.peaks || cached.width !== card.recordWave.width || cached.height !== card.recordWave.height) {
@@ -365,7 +411,7 @@ function drawRecordWave(card, d, color) {
     for (let n = 0; n < count; n++) {
       const angle = n / count * Math.PI * 2 - Math.PI / 2;
       const peak = Math.min(1, Math.abs(peaks[Math.floor(n / count * peaks.length)] || 0));
-      const amplitude = Math.max(.6, peak * Math.min(w, h) * .06);
+      const amplitude = Math.max(.7, Math.sqrt(peak) * Math.min(w, h) * .12);
       paint.moveTo(cx + Math.cos(angle) * (radius - amplitude), cy + Math.sin(angle) * (radius - amplitude));
       paint.lineTo(cx + Math.cos(angle) * (radius + amplitude), cy + Math.sin(angle) * (radius + amplitude));
     }
@@ -433,7 +479,7 @@ function animate(now) {
 }
 async function dispose() {
   if (disposed) return; disposed = true; audioAttempt++; abort.abort(); cancelAnimationFrame(frame); confirmation?.(false); confirmation = null;
-  tapIcons.disconnect(); resizeObserver.disconnect(); visibilityObserver.disconnect(); strip.destroy?.(); await engine.dispose();
+  resizeObserver.disconnect(); visibilityObserver.disconnect(); strip.destroy?.(); await engine.dispose();
 }
 on(window, "pagehide", (event) => {
   // A back-forward-cache restoration needs a fresh engine after this teardown.
