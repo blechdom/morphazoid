@@ -54,8 +54,8 @@ async function silent(page) {
   await expect.poll(async () => (await readAudioStatus(page)).rms).toBeLessThan(0.0001);
 }
 
-function wave() {
-  const sampleRate = 24000, frames = sampleRate * 8;
+function wave({ seconds = 8, sampleRate = 24000 } = {}) {
+  const frames = sampleRate * seconds;
   const buffer = Buffer.alloc(44 + frames * 2);
   buffer.write("RIFF"); buffer.writeUInt32LE(buffer.length - 8, 4); buffer.write("WAVEfmt ", 8);
   buffer.writeUInt32LE(16, 16); buffer.writeUInt16LE(1, 20); buffer.writeUInt16LE(1, 22);
@@ -88,6 +88,7 @@ test("small phone layouts retain circular decks, native touch focus, and explici
   await attachJSON(testInfo, "mobile-capabilities.json", capabilities);
   expect(capabilities.coarse).toBe(true);
   expect(capabilities.reducedMotion).toBe(true);
+  await expect(page.locator("#master-bpm")).toHaveAccessibleName("Master BPM");
   for (const selector of ["#audioButton", "#playButton"]) {
     const box = await page.locator(selector).boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
@@ -194,7 +195,20 @@ test("eight phone decks arm by tap and recover their phase after a suspended con
 
 test("phone WAV import, native tempo focus, and crossfade change real output", async ({ page }) => {
   const errors = diagnostics(page);
-  await ready(page); await loadTone(page);
+  await ready(page);
+  await page.evaluate(() => {
+    window.testDecodeCount = 0;
+    const decode = OfflineAudioContext.prototype.decodeAudioData;
+    OfflineAudioContext.prototype.decodeAudioData = function (...args) { window.testDecodeCount++; return decode.apply(this, args); };
+  });
+  await page.locator("#d0File").setInputFiles({ name: "Long mobile clip.wav", mimeType: "audio/wav", buffer: wave({ seconds: 132, sampleRate: 8000 }) });
+  await expect(page.locator("#errorMessage")).toContainText("too long for the current import budget", { timeout: 15000 });
+  expect((await state(page)).decks[0].kind).toBe("demo");
+  expect((await state(page)).decks[0].duration).toBe(8);
+  expect(await page.evaluate(() => window.testDecodeCount)).toBe(0);
+  expect((await state(page)).armed).toBe(false);
+  await loadTone(page);
+  expect(await page.evaluate(() => window.testDecodeCount)).toBe(1);
   expect((await state(page)).armed).toBe(false);
   await page.locator("#master-bpm").tap();
   await expect(page.locator("#master-bpm")).toBeFocused();
