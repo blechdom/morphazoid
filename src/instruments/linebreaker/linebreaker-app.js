@@ -9,6 +9,13 @@ import {
   sampledPorosityDiagnostics,
   shiftedMagnitude,
 } from "./linebreaker.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  LINEBREAKER_FULL_PRESETS,
+  captureLinebreakerPreset,
+  randomizeLinebreakerPreset,
+  validateLinebreakerPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -874,3 +881,14 @@ pool.setLevel(state.level);
 paintInterface();
 resizeCanvas();
 markDirty();
+
+registerHeaderPresets({
+  id: "linebreaker", presets: LINEBREAKER_FULL_PRESETS,
+  capture: () => captureLinebreakerPreset(state),
+  apply: snapshot => {
+    validateLinebreakerPreset(snapshot);
+    Object.assign(state, snapshot);
+    rebuildModel();
+  },
+  randomize: randomizeLinebreakerPreset,
+});
