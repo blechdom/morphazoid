@@ -1,4 +1,5 @@
 import { MidiphoriaPlayer } from '../midiphoria/midiphoria-player.js';
+import { BlackMidiPlayedCounter } from './blech-midi-black-score.js';
 import { mountMidiScoreView, readMidiAsset, MAX_PREVIEW_NOTES } from './blech-midi-score-view.js';
 import { parseMidi, MIDI_SAMPLE_LIMITS } from '../midi-mixer/midi-mixer-model.js';
 import { resolveBlechFileTiming, BLECH_MAX_FILE_RATE } from './blech-midi-timing.js';
@@ -54,6 +55,10 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   let collection = [], locals = [], visible = [], selected = null, localSerial = 0;
   let loading = false, ready = false, resumeAfterSelection = false, error = '', tempo = null, timingKind = 'unknown', freeTempo = null, tempoChanges = 0, preparedSongId = '';
   let player, preparedScore = null, preparationError = '';
+  const noteCounter = new BlackMidiPlayedCounter();
+  let rebasingCounter = false;
+  function getPlayedNoteCount() { return player && !rebasingCounter ? noteCounter.update(player.state) : noteCounter.count; }
+  function resetNoteCount() { if (player) noteCounter.reset(player.state); return noteCounter.count; }
   function getSettings() {
     return { name: selected?.title ?? '', source: 'files', program: 'original', channel: null, loop: $('blackLoopSong').checked, gain: Number($('blackFileLevel').value), linked: $('blackSyncTempo').checked, ratio: Number($('blackPlaybackRate').value), sourceTempo: tempo, tempo: freeTempo ?? tempo, rate: player?.state.rate ?? 1 };
   }
@@ -87,6 +92,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   function reflect() {
     if (disposed || !player) return;
     const state = player.state;
+    if (!rebasingCounter) noteCounter.update(state);
     $('blackPlayButton').disabled = !ready || !state.ready || loading || state.loading;
     $('blackPlayButton').setAttribute('aria-pressed', String(state.playing));
     $('blackPlayButton').setAttribute('aria-label', state.playing ? 'Pause MIDI file' : 'Play MIDI file');
@@ -151,7 +157,8 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     request?.abort(); request = new AbortController(); const signal = request.signal;
     preparedScore = null; preparationError = '';
     loading = true; ready = false; error = ''; selected = song; tempo = null; timingKind = 'unknown'; freeTempo = null; tempoChanges = 0; preparedSongId = '';
-    player.stop(); view.clear('Loading MIDI score…'); renderList(); credit(song); setTempo(); reflect();
+    const resume = resumeAfterSelection; stop(); resumeAfterSelection = resume;
+    noteCounter.setScore(null); view.clear('Loading MIDI score…'); renderList(); credit(song); setTempo(); reflect();
     songDescription.textContent = ''; notifyPrepared();
     try {
       let binary = null, preview = null;
@@ -177,6 +184,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
       }
       if (disposed || ticket !== version) return;
       ready = Boolean(loaded);
+      noteCounter.setScore(parsed, player.state);
       // A layer always contains this exact score, even when playback has a
       // separate creator-provided AUDIO edition. Never substitute that edition.
       prepareSelected(binary, song);
@@ -196,7 +204,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   function clearSelection() {
     version++; request?.abort(); request = null; loading = false; ready = false; resumeAfterSelection = false; selected = null;
     tempo = null; timingKind = 'unknown'; freeTempo = null; tempoChanges = 0; preparedSongId = ''; preparedScore = null; preparationError = ''; error = '';
-    player.stop(); view.clear(); renderList(); songDescription.textContent = ''; songCredit.replaceChildren(); setTempo(); reflect(); notifyPrepared();
+    stop(); noteCounter.setScore(null); view.clear(); renderList(); songDescription.textContent = ''; songCredit.replaceChildren(); setTempo(); reflect(); notifyPrepared();
   }
   function open() { view.setVisible(!document.hidden); }
   on($('blackSongSelect'), 'change', () => {
@@ -217,12 +225,23 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     if (disposed || !selected || expected && (expected.selectionVersion !== version || expected.revision !== transportRevision)) return false;
     if (loading) { resumeAfterSelection = true; transportRevision++; reflect(); return true; }
     if (!ready || !player.state.ready) return false;
-    const playing = player.play(); if (playing) transportRevision++;
+    const before = player.state;
+    getPlayedNoteCount();
+    const restarting = before.time >= before.duration;
+    if (restarting) rebasingCounter = true;
+    let playing;
+    try { playing = player.play(); } finally { rebasingCounter = false; }
+    if (restarting) noteCounter.rebase(player.state, { includeStart: true });
+    if (playing) transportRevision++;
     reflect(); return playing;
   }
-  function pause() { if (disposed) return null; resumeAfterSelection = false; transportRevision++; player.pause(); reflect(); return getTransportState(); }
+  function pause() { if (disposed) return null; getPlayedNoteCount(); resumeAfterSelection = false; transportRevision++; player.pause(); reflect(); return getTransportState(); }
   on($('blackPlayButton'), 'click', () => { if (getTransportState().playing) pause(); else play(); });
-  function stop() { resumeAfterSelection = false; transportRevision++; player.stop(); reflect(); }
+  function stop() {
+    getPlayedNoteCount(); resumeAfterSelection = false; transportRevision++; rebasingCounter = true;
+    try { player.stop(); } finally { rebasingCounter = false; }
+    noteCounter.rebase(player.state, { includeStart: true }); reflect();
+  }
   on($('blackStopButton'), 'click', stop);
   on($('blackLoopSong'), 'change', () => player.setLoop($('blackLoopSong').checked));
   on($('blackPlaybackRate'), 'input', setTempo); on($('blackSyncTempo'), 'change', setTempo);
@@ -231,7 +250,11 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   on($('blackOriginalTiming'), 'click', () => { freeTempo = null; $('blackSyncTempo').checked = false; $('blackPlaybackRate').value = '1'; $('blackPlaybackRate').dispatchEvent(new Event('input', { bubbles: true })); });
   on($('blackFileLevel'), 'input', () => { player.setVolume(Number($('blackFileLevel').value)); $('blackFileLevelOut').value = `${Math.round(Number($('blackFileLevel').value) * 100)}%`; });
   on($('blackSongPosition'), 'input', () => { $('blackSongTime').value = `${timeLabel(Number($('blackSongPosition').value))} / ${timeLabel(player.state.duration)}`; });
-  on($('blackSongPosition'), 'change', () => { transportRevision++; player.seek(Number($('blackSongPosition').value)); reflect(); });
+  on($('blackSongPosition'), 'change', () => {
+    getPlayedNoteCount(); transportRevision++; rebasingCounter = true;
+    try { player.seek(Number($('blackSongPosition').value)); } finally { rebasingCounter = false; }
+    noteCounter.rebase(player.state); reflect();
+  });
   on($('blackMidiFile'), 'change', () => {
     const files = [...$('blackMidiFile').files]; $('blackMidiFile').value = '';
     if (!files.length) return;
@@ -262,7 +285,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   showHash(); view.setVisible(!document.hidden); setTempo(); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   return {
-    play, pause, stop, getTransportState, reflect, setTempo, getSettings,
+    play, pause, stop, getTransportState, reflect, setTempo, getSettings, getPlayedNoteCount, resetNoteCount,
     getPreparedScore: () => preparedScore ? structuredClone(preparedScore) : null,
     setCollection(songs) { collection = songs; renderList(); },
     async enableAudio() {

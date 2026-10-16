@@ -54,6 +54,7 @@ export class MidiphoriaPlayer {
     this._maxPlaybackRate = clamp(maxPlaybackRate, 1, 64, 8);
     this._noteEffects = sanitizeMidiNoteEffects({});
     this._time = 0; this._duration = 0; this._seekTime = null; this._error = null; this._disposed = false;
+    this._playbackCycle = 0; this._pendingTimeChanges = 0; this._loopStart = 0; this._loopEnd = 0;
     this._onPageHide = () => { void this.dispose(); };
     this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
@@ -63,13 +64,13 @@ export class MidiphoriaPlayer {
       const time = this._visualTime(), score = this._visual;
       return { ready: true, hasSong: true, loading: false, playing: score.playing, visualOnly: true,
         audioEnabled: this._audioEnabled && this.context?.state === 'running', time, duration: score.duration,
-        rate: this._rate, loop: this._loop, volume: this._volume, fileName: score.name, soundfontName: this._fontName, error: this._error };
+        rate: this._rate, loop: this._loop, cycle: this._playbackCycle, loopStart: 0, loopEnd: score.duration, volume: this._volume, fileName: score.name, soundfontName: this._fontName, error: this._error };
     }
     const ready = this._engineReady && Boolean(this._file) && this._readyToken === this._file.token;
     const current = this._seekTime ?? (this._playing ? this._sequencer?.currentTime : this._time);
     return { ready, hasSong: Boolean(this._file), loading: Boolean(this._enginePromise || this._activeLoad),
       playing: this._playing, audioEnabled: this._audioEnabled && this.context?.state === 'running', time: clamp(current, 0, this._duration),
-      duration: this._duration, rate: this._rate, loop: this._loop, volume: this._volume,
+      duration: this._duration, rate: this._rate, loop: this._loop, cycle: this._playbackCycle, loopStart: this._loopStart, loopEnd: this._loopEnd || this._duration, volume: this._volume,
       fileName: this._file?.fileName ?? '', soundfontName: this._fontName, error: this._error };
   }
 
@@ -261,6 +262,7 @@ export class MidiphoriaPlayer {
       token: ++this._serial, completion, resolve };
     this._file = request; this._queued = request;
     this._readyToken = null; this._time = 0; this._duration = 0; this._seekTime = null; this._error = null;
+    this._playbackCycle = 0; this._loopStart = 0; this._loopEnd = 0;
     this._pumpLoad(); this._publish();
     if (!this.context) return this.state;
     return (await completion) ? this.state : false;
@@ -270,7 +272,7 @@ export class MidiphoriaPlayer {
     if (!this._disposed && this._visual) {
       const score = this._visual;
       this._visualTime();
-      if (score.time >= score.duration) score.time = 0;
+      if (score.time >= score.duration) { score.time = 0; this._playbackCycle = 0; }
       if (!score.playing) { score.at = this._clock(); score.playing = true; }
       this._publish(); return true;
     }
@@ -282,7 +284,7 @@ export class MidiphoriaPlayer {
       // Skip that lead-in only when starting from zero. Ordered worklet
       // messages retain setup controllers and leave ordinary seeks unchanged.
       this._sequencer.skipToFirstNoteOn = true;
-      this._sequencer.currentTime = 0;
+      this._pendingTimeChanges++; this._sequencer.currentTime = 0;
       this._sequencer.skipToFirstNoteOn = false;
     }
     this._playing = true;
@@ -307,12 +309,13 @@ export class MidiphoriaPlayer {
     if (this._disposed || !this.state.ready) return false;
     if (this._visual) {
       this._visual.time = clamp(seconds, 0, this._visual.duration, this.state.time);
+      this._playbackCycle = 0;
       this._visual.at = this._clock(); this._publish(); return true;
     }
     const time = clamp(seconds, 0, this._duration, this.state.time);
     this._clear('seek');
-    this._time = time; this._seekTime = time;
-    this._sequencer.currentTime = time;
+    this._time = time; this._seekTime = time; this._playbackCycle = 0;
+    this._pendingTimeChanges++; this._sequencer.currentTime = time;
     this._publish(); return true;
   }
 
@@ -338,6 +341,7 @@ export class MidiphoriaPlayer {
     const loading = Boolean(this._activeLoad);
     this._cancelLoads(); this._file = null; this._error = null;
     this._visual = { duration, name: String(name).slice(0, 256), time: 0, at: this._clock(), playing: false };
+    this._playbackCycle = 0;
     // Song-change events have no request IDs. Retire a pending audio loader so
     // its late completion cannot be mistaken for a subsequently selected file.
     if (loading) { this._audioEnabled = false; await this._closeEngine(); }
@@ -350,7 +354,7 @@ export class MidiphoriaPlayer {
     const now = this._clock();
     let time = score.time + Math.max(0, now - score.at) * this._rate;
     if (time >= score.duration) {
-      if (this._loop) time %= score.duration;
+      if (this._loop) { this._playbackCycle += Math.floor(time / score.duration); time %= score.duration; }
       else { time = score.duration; score.playing = false; }
     }
     score.time = time; score.at = now; return time;
@@ -490,7 +494,13 @@ export class MidiphoriaPlayer {
     });
     this._listen(events, 'timeChange', time => {
       if (this._disposed || this._visual) return;
-      if (this._playing && this._seekTime === null && finite(time) + 0.05 < this._time) this._clear('loop');
+      // Every unsolicited time-change while looping is the sequencer's loop
+      // boundary. Count messages, not display-frame wraps: very short scores
+      // can complete many cycles between two reads. Explicit seeks acknowledge
+      // separately, including the initial load's ordered seek to zero.
+      if (this._pendingTimeChanges) this._pendingTimeChanges--;
+      else if (this._playing && this._loop) { this._playbackCycle++; this._clear('loop'); }
+      else if (this._playing && this._seekTime === null && finite(time) + 0.05 < this._time) this._clear('loop');
       this._time = clamp(time, 0, this._duration); this._seekTime = null;
       this._publish();
     });
@@ -506,6 +516,8 @@ export class MidiphoriaPlayer {
       this._cancelLoads(); this._audioEnabled = false; this._desiredAudio = false;
       void this._closeEngine().then(() => this._publish());
     }, 15000);
+    // Loading a score itself emits its initial timeChange after songChange.
+    this._pendingTimeChanges++;
     try { this._sequencer.loadNewSongList([{ binary: request.buffer.slice(0), fileName: request.fileName }]); }
     catch (error) { this._finishLoad(error); }
   }
@@ -513,6 +525,7 @@ export class MidiphoriaPlayer {
   _finishLoad(error = null) {
     if (!this._activeLoad || this._disposed) return;
     const request = this._activeLoad;
+    if (error) this._pendingTimeChanges = Math.max(0, this._pendingTimeChanges - 1);
     this.runtime.clearTimeout(this._loadTimer); this._loadTimer = null; this._activeLoad = null;
     this._sequencer.pause();
     const current = request === this._file;
@@ -523,7 +536,11 @@ export class MidiphoriaPlayer {
       this._duration = error ? 0 : duration; this._time = 0; this._seekTime = null;
       this._readyToken = error ? null : request.token;
       if (!error) {
-        this._sequencer.currentTime = 0;
+        const data = this._sequencer.midiData;
+        const secondsAt = tick => typeof data?.midiTicksToSeconds === 'function' && Number.isFinite(tick) ? data.midiTicksToSeconds(tick) : NaN;
+        this._loopStart = clamp(secondsAt(data?.loop?.start), 0, duration);
+        this._loopEnd = clamp(secondsAt(data?.loop?.end), this._loopStart, duration, duration);
+        this._pendingTimeChanges++; this._sequencer.currentTime = 0;
         this._sequencer.loopCount = this._loop ? Infinity : 0;
       }
     }
@@ -589,7 +606,7 @@ export class MidiphoriaPlayer {
     try { this._sequencer?.pause(); this._synth?.stopAll(true); } catch { /* An errored processor may already be closed. */ }
     try { this._synth?.destroy(); } catch { /* Release remaining owned nodes below. */ }
     try { this._padSynth?.destroy(); } catch { /* Release remaining owned nodes below. */ }
-    this._sequencer = null; this._synth = null; this._padSynth = null;
+    this._sequencer = null; this._synth = null; this._padSynth = null; this._pendingTimeChanges = 0;
     this._releaseOutput?.(); this._releaseOutput = null;
     this._master?.disconnect(); this._master = null;
     this._preamp?.disconnect(); this._preamp = null;
