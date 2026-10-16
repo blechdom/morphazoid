@@ -18,11 +18,13 @@ function diagnostics(page) {
   return errors;
 }
 
-async function ready(page) {
+async function ready(page, { view = "full" } = {}) {
   await page.goto("/wobblini.html");
   await expect(page.locator(".wb-deck")).toHaveCount(8);
   await expect(page.locator("#audioButton")).toBeEnabled();
   await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", "wobblini");
+  if (view === "full") await page.locator("#fullView").click();
+  else await expect(page.locator(".wb-shell")).toHaveClass(/is-records/);
 }
 
 async function demos(page) {
@@ -78,6 +80,95 @@ async function loadTone(page, deck = 0) {
   await expect.poll(async () => (await state(page)).decks[deck].loading).toBe(false);
   await expect(page.locator(`#deck${deck}`)).toContainText(`QA tone ${deck + 1}.wav`);
 }
+
+async function ring(page, deck = 0) {
+  const platter = page.locator(`#d${deck}Platter`);
+  await platter.scrollIntoViewIfNeeded();
+  const box = await platter.boundingBox();
+  const point = (angle) => ({ x: box.x + box.width * (0.5 + Math.cos(angle) * 0.37), y: box.y + box.height * (0.5 + Math.sin(angle) * 0.37) });
+  return { platter, point };
+}
+
+test("records open as eight isolated circular decks with compact named icons and no implicit Audio", async ({ page }) => {
+  const errors = diagnostics(page);
+  await ready(page, { view: "records" });
+  await expect(page.locator(".wb-mixer")).toBeHidden();
+  for (let i = 0; i < 8; i++) {
+    const platter = page.locator(`#d${i}Platter`);
+    await expect(platter).toBeVisible();
+    const box = await platter.boundingBox();
+    expect(Math.abs(box.width - box.height), `Deck ${i + 1} is circular`).toBeLessThan(2);
+    await expect(page.locator(`#d${i}Play`)).toBeVisible();
+    for (const control of ["Gain", "Loop", "Assign", "Rate", "Seek"]) await expect(page.locator(`#d${i}${control}`)).toBeHidden();
+  }
+  for (const view of ["records", "full", "records"]) {
+    await page.locator(`#${view}View`).click();
+    const buttons = page.locator(".wb-shell button:visible");
+    for (const button of await buttons.all()) {
+      await expect(button).toHaveAccessibleName(/\S/);
+      expect((await button.innerText()).trim(), "instrument buttons display icons, with words retained in their accessible names").not.toMatch(/[a-z]{2,}/i);
+    }
+  }
+  const { point } = await ring(page);
+  const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
+  for (let i = 1; i <= 8; i++) { const p = point(i * Math.PI / 8); await page.mouse.move(p.x, p.y); }
+  await page.mouse.up();
+  const scratched = (await state(page)).decks[0];
+  expect(scratched.position).toBeGreaterThan(0.5);
+  expect(scratched.scratching).toBe(false); expect(scratched.playing).toBe(false);
+  expect((await state(page)).armed).toBe(false);
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  await page.locator("#d0Platter").focus();
+  const before = (await state(page)).decks[0].position;
+  await page.keyboard.press("ArrowRight");
+  expect((await state(page)).decks[0].position).toBeGreaterThan(before);
+  await page.keyboard.press("ArrowLeft");
+  expect((await state(page)).decks[0].position).toBeCloseTo(before, 2);
+  expect((await state(page)).armed).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test("vinyl pointer rotation produces forward and backward scratch audio and restores prior playback on release", async ({ page }) => {
+  const errors = diagnostics(page);
+  await ready(page); await loadTone(page);
+  await slider(page, "#d0Seek", 2);
+  await page.locator("#recordsView").click();
+  await arm(page);
+  await expect.poll(async () => (await state(page)).scratchReady).toBe(true);
+  const { platter, point } = await ring(page);
+  const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
+  await expect.poll(async () => (await state(page)).decks[0].scratching).toBe(true);
+  let peak = 0;
+  for (let i = 1; i <= 8; i++) {
+    const p = point(i * Math.PI / 8); await page.mouse.move(p.x, p.y); await page.waitForTimeout(45);
+    peak = Math.max(peak, (await readAudioStatus(page)).rms);
+  }
+  const forward = (await state(page)).decks[0];
+  expect(forward.position).toBeGreaterThan(2.5); expect(forward.scratchVelocity).toBeGreaterThan(0);
+  expect(peak).toBeGreaterThan(0.0001);
+  peak = 0;
+  for (let i = 7; i >= 0; i--) {
+    const p = point(i * Math.PI / 8); await page.mouse.move(p.x, p.y); await page.waitForTimeout(45);
+    peak = Math.max(peak, (await readAudioStatus(page)).rms);
+  }
+  const backward = (await state(page)).decks[0];
+  expect(backward.position).toBeLessThan(forward.position - 0.5); expect(backward.scratchVelocity).toBeLessThan(0);
+  expect(peak).toBeGreaterThan(0.0001);
+  await page.mouse.up();
+  expect((await state(page)).decks[0].scratching).toBe(false);
+  expect((await state(page)).decks[0].playing).toBe(false);
+  await silent(page);
+  await page.locator("#d0Play").click();
+  await audible(page, 200);
+  const next = point(0); await page.mouse.move(next.x, next.y); await page.mouse.down();
+  const drag = point(-Math.PI / 3); await page.mouse.move(drag.x, drag.y, { steps: 5 });
+  await platter.dispatchEvent("pointercancel", { pointerId: 1, pointerType: "mouse" });
+  await page.mouse.up();
+  expect((await state(page)).decks[0].scratching).toBe(false);
+  expect((await state(page)).decks[0].playing).toBe(true);
+  await audible(page, 250);
+  expect(errors).toEqual([]);
+});
 
 test("Wobblini exposes named controls and finite, reversible native ranges", async ({ page }, testInfo) => {
   await ready(page);
@@ -395,6 +486,17 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         await testInfo.attach(`wobblini-${view}-${viewport.width}x${viewport.height}`, { path, contentType: "image/png" });
       };
       await captureView("full");
+      await page.locator("#recordsView").click();
+      await expect(page.locator(".wb-shell")).toHaveClass(/is-records/);
+      await expect(page.locator(".wb-mixer")).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      for (let id = 0; id < 8; id++) {
+        const platter = page.locator(`#d${id}Platter`);
+        await expect(platter).toBeVisible();
+        const box = await platter.boundingBox();
+        expect(Math.abs(box.width - box.height)).toBeLessThan(2);
+      }
+      await captureView("records");
       await page.locator("#tinyView").click();
       await expect(page.locator(".wb-shell")).toHaveClass(/is-tiny/);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
