@@ -204,3 +204,33 @@ test('stamp thumbnail grid places the selected artwork while Math remains the op
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-tab', 'math');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });
+
+test.describe('phone canvas gestures', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('adding layers preserves near-keyboard painting coordinates for a real double-click', async ({ page }) => {
+    await open(page);
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    const paint = page.locator('.blech-spigot-paint'), before = await paint.boundingBox();
+    const priorPoint = await point(page, .3, .9), heldPoint = await point(page, .7, .9);
+    const expectStablePaint = async () => {
+      const current = await paint.boundingBox();
+      for (const key of ['x', 'y', 'width', 'height']) expect(current[key]).toBeCloseTo(before[key], 1);
+    };
+
+    await page.mouse.click(priorPoint.x, priorPoint.y);
+    const previous = (await layers(page))[0];
+    await expect(page.locator('.blech-live-layer[data-spigot-id]')).toHaveCount(1);
+    await expectStablePaint();
+    // Keep these viewport coordinates fixed: changing the canvas height between
+    // the two native clicks must not move the second click onto the keyboard.
+    await page.mouse.dblclick(heldPoint.x, heldPoint.y);
+    await expect.poll(async () => (await layers(page)).filter(layer => layer.settings.hold).length).toBe(1);
+    const result = await layers(page);
+    expect(result).toHaveLength(2);
+    expect(result.find(layer => layer.id === previous.id)).toEqual(previous);
+    expect(result.find(layer => layer.settings.hold)).toMatchObject({ name: 'Held note', settings: { hold: true, loop: false } });
+    await expectStablePaint();
+    await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+  });
+});
