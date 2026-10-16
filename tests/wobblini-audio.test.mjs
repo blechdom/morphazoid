@@ -262,6 +262,18 @@ test("Wobblini Audio-off during a held platter releases sound without losing han
   await engine.dispose();
 });
 
+test("Wobblini scratch velocity expiry survives wall/audio clock changes", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.beginScratch(0); h.setWall(100.05); engine.scratchTo(0, 0.1);
+  assert.ok(engine.getDeckState(0).scratchVelocity > 0);
+  await engine.arm(); context.currentTime += 0.2;
+  assert.equal(engine.getDeckState(0).scratchVelocity, 0);
+  engine.scratchTo(0, 0); assert.ok(engine.getDeckState(0).scratchVelocity < 0);
+  await engine.setAudioEnabled(false); h.setWall(100.25);
+  assert.equal(engine.getDeckState(0).scratchVelocity, 0);
+  await engine.dispose();
+});
+
 test("Wobblini replacement and explicit seek invalidate stale scratch gestures", async () => {
   const { engine } = harness(); engine.beginScratch(0); engine.scratchTo(0, 2);
   engine.loadDemo(0); engine.scratchTo(0, 5); near(engine.getDeckState(0).position, 0);

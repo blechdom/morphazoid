@@ -83,6 +83,7 @@ export class WobbliniAudio {
     const previous = this._now(), next = audio ? this.context.currentTime : this.wallTime();
     for (const deck of this.decks) {
       this._capture(deck, previous); deck.state.anchorTime = next + Math.max(0, deck.state.anchorTime - previous);
+      if (deck.scratch) deck.scratch.moveTime += next - previous;
     }
     this.armed = audio;
   }
