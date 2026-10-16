@@ -5,7 +5,7 @@ import base from "./playwright.config.mjs";
 // mobile viewports do not emulate an old iOS release or an iPhone's CPU/memory.
 export default defineConfig({
   ...base,
-  testMatch: "wobblini-mobile.spec.mjs",
+  testMatch: ["wobblini-mobile.spec.mjs", "wobblini-geometry.spec.mjs"],
   use: { ...base.use, contextOptions: { ...base.use.contextOptions, reducedMotion: "reduce" } },
   projects: [
     { name: "webkit-phone-375", use: { browserName: "webkit", viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } },
