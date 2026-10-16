@@ -1,3 +1,8 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { settleOnCapture } from "./preset-settle.js";
+import { captureWithDormantSlots, liveLoopNetworkState, planLoopNetworkRecall } from "./loop-network-presets.js";
+import { TAPE_WORM_FULL_PRESETS, randomizeTapeWormPreset } from "./tape-worm-presets.js";
+import { LOOP_SOUP_FULL_PRESETS, randomizeLoopSoupPreset } from "./loop-soup-presets.js";
 import { mountRecorderInput } from "../recorded-input/recorder-input-sources.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
@@ -86,9 +91,6 @@ function play(value) {
 }
 on($("playButton"), "click", () => play(!playing));
 on($("resetButton"), "click", () => { send({ type: "reset" }); brush = false; connecting = null; status("Controls reset. Loops, layout, recorded audio and routes retained."); });
-const preset = $("preset"); preset.add(new Option("Custom", "")); preset.options[0].disabled = true;
-for (const name of Object.keys(spec.presets)) preset.add(new Option(name, name));
-on(preset, "change", () => { send({ type: "params", values: spec.presets[preset.value] }); status(tape ? "Preset applied. Global gate positions set all routes; audio and topology retained." : "Preset applied; loops and routes retained."); });
 for (const c of spec.controls) on($(c.key), "input", () => send({ type: "params", values: { [c.key]: Number($(c.key).value) } }));
 
 const tools = $("instrumentTools"); tools.className = "network-tools";
@@ -376,9 +378,6 @@ function update() {
     if (document.activeElement !== $(c.key)) $(c.key).value = params[c.key];
     $(`${c.key}Out`).value = formatParameter(id, c, params[c.key]);
   }
-  const match = Object.entries(spec.presets).find(([, p]) => Object.keys(p).every((k) => Math.abs(p[k] - params[k]) < 1e-8));
-  if (document.activeElement !== preset) preset.value = match?.[0] ?? "";
-  $("presetHint").textContent = match ? help.presets[match[0]] : "Custom settings · routes and recordings retained.";
   if (demoInputButton) demoInputButton.textContent = params.demo > 0.5 ? "Demo input on" : "Demo input off";
   if (eraseButton) { eraseButton.textContent = brush ? "Erase brush on" : "Erase brush off"; eraseButton.setAttribute("aria-pressed", String(brush)); }
   $("modelStatus").textContent = `${state.loops.length} loops · ${state.routes.length} routes${tape ? ` · reader ${state.loops[state.tape]?.label}` : ""}`;
@@ -400,3 +399,19 @@ function frame(now) {
 }
 on(window, "pagehide", () => { if (disposed) return; disposed = true; audioAttempt++; micAttempt++; recordAttempt++; abort.abort(); cancelAnimationFrame(frameId); strip.destroy(); void audio.close(); });
 update(); frameId = requestAnimationFrame(frame);
+
+let recalledPreset = null;
+const presetKind = tape ? "tape" : "soup";
+const capturePreset = () => captureWithDormantSlots(presetKind, liveLoopNetworkState(state, params), recalledPreset);
+registerHeaderPresets({
+  id,
+  presets: tape ? TAPE_WORM_FULL_PRESETS : LOOP_SOUP_FULL_PRESETS,
+  capture: capturePreset,
+  apply: (snapshot) => {
+    const commands = planLoopNetworkRecall(presetKind, snapshot, state);
+    recalledPreset = snapshot;
+    for (const command of commands) send(command);
+    return settleOnCapture(capturePreset, snapshot);
+  },
+  randomize: (current, random) => (tape ? randomizeTapeWormPreset : randomizeLoopSoupPreset)(current, random, { loopCount: state.loops.length }),
+});

@@ -7,6 +7,7 @@ const pageSourceRoot = new URL("../src/pages/", import.meta.url);
 for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
   const help = INSTRUMENT_HELP[id];
   const network = ["tape-worm", "loop-soup"].includes(id);
+  const sharedPresets = ["tape-worm", "loop-soup", "tempo-tantrum", "habit-habitat"].includes(id);
   const links = Object.entries(STARTING_INSTRUMENTS).map(([slug, item]) =>
     `<a href="${slug}.html"${slug === id ? ' aria-current="page"' : ""}>${escape(item.title)}</a>`).join("\n");
   const ranges = spec.controls.map((c) => `<label class="control" for="${c.key}">
@@ -38,11 +39,12 @@ for (const [id, spec] of Object.entries(STARTING_INSTRUMENTS)) {
       ${network ? `<div class="network-viewport" id="networkViewport" tabindex="0" role="region" aria-label="Scrollable loop network" aria-describedby="canvasInstructions"><div id="stage"><div id="networkSurface" class="network-surface"></div></div></div>` : `<div class="stage-wrap" id="stageWrap"><canvas id="stage" role="img" tabindex="0" aria-label="${escape(spec.description)}" aria-describedby="canvasInstructions modelStatus">Use the labelled controls below to play this instrument.</canvas></div>`}
       <p class="starting-hint" id="canvasInstructions">${escape(spec.hint)} <a href="#howItWorks">How to play / keys</a></p>
     </section>
-    <aside class="starting-controls" aria-label="${escape(spec.title)} controls">
+    <aside class="starting-controls" aria-label="${escape(spec.title)} controls">${sharedPresets ? `
+      <div data-instrument-preset-host></div>` : ""}
       <section class="group">
-        <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>
+        <div class="transport-row"><button id="playButton" type="button" aria-pressed="false" data-primary-transport>Play</button><button id="resetButton" class="mini-action" type="button" data-reset-all data-reset-in-place>Reset controls</button></div>${sharedPresets ? "" : `
         <label class="field-label" for="preset">Starting point<select id="preset" aria-label="Starting point"></select></label>
-        <p id="presetHint" class="starting-note">${escape(help.presets[Object.keys(spec.presets)[0]])}</p>
+        <p id="presetHint" class="starting-note">${escape(help.presets[Object.keys(spec.presets)[0]])}</p>`}
         <div id="modelStatus" role="status">Ready · Audio off</div>
         <p id="liveStatus" role="status" aria-live="polite">Turn Audio on, then Play. No microphone is required for the demo.</p>
         <p id="actionStatus" class="starting-note">${id === "tape-worm" || id === "loop-soup" ? "Temporary audio: leaving or reloading this page discards it." : "Recordings and graph generation are not part of this demo."}</p>
