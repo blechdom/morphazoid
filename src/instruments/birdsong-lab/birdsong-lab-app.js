@@ -711,3 +711,22 @@ window.addEventListener("beforeunload", () => {
 updateControlOutputs();
 drawAnalysis();
 requestAnimationFrame(loadDemo);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  BIRDSONG_FULL_PRESETS, BIRDSONG_PARAMS, captureBirdsongPreset, randomizeBirdsongPreset, validateBirdsongPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "birdsong-lab", presets: BIRDSONG_FULL_PRESETS,
+  capture: () => captureBirdsongPreset(Object.fromEntries(
+    Object.entries(BIRDSONG_PARAMS).map(([key, spec]) => [key, Number($(spec.control).value)]),
+  )),
+  apply: snapshot => {
+    validateBirdsongPreset(snapshot);
+    for (const [key, spec] of Object.entries(BIRDSONG_PARAMS)) $(spec.control).value = String(snapshot[key]);
+    updateControlOutputs();
+    if (analysis?.voicedFraction) scheduleRender(0);
+  },
+  randomize: randomizeBirdsongPreset,
+});

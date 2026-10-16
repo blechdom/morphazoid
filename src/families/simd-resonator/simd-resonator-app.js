@@ -1222,3 +1222,29 @@ globalThis.__MORPHAZOID_SIMD_AUDIO__ = testApi;
 
 renderSettings(); renderAudioState(); renderBackend(); renderTelemetry(); renderWorkerState();
 state.frameRequest = globalThis.requestAnimationFrame(drawCanvas);
+
+import {
+  SIMD_LAB_FULL_PRESETS, captureSimdLabPreset, randomizeSimdLabPreset, validateSimdLabPreset,
+} from "./simd-lab-presets.js";
+
+if (isLabSurface) {
+  presetController = registerHeaderPresets({
+    id: "simd-lab", presets: SIMD_LAB_FULL_PRESETS,
+    capture: () => captureSimdLabPreset(state.engine, currentSettings()),
+    isPresetAvailable: preset => preset.snapshot.engine === state.engine,
+    apply: snapshot => {
+      validateSimdLabPreset(snapshot);
+      if (snapshot.engine !== state.engine) throw new Error("This preset belongs to another SIMD example");
+      stopAudition();
+      state.settings[state.engine] = { ...sanitizeSettings(state.engine, snapshot.settings) };
+      state.presetId = presetsForSimdEngine(state.engine).find((entry) => presetStateKey(entry.settings) === presetStateKey(snapshot.settings))?.id ?? null;
+      renderSettings(); sendConfiguration();
+    },
+    randomize: randomizeSimdLabPreset,
+    onApplied: () => {
+      if (!state.audioReady) return;
+      const engine = state.engine;
+      state.auditionTimer = globalThis.setTimeout(() => { if (state.engine === engine) auditionCurrentEngine(); }, 36);
+    },
+  });
+}

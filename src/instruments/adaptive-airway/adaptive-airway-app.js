@@ -455,3 +455,25 @@ globalThis.addEventListener("pagehide", (event) => {
 });
 
 init();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { AIRWAY_FULL_PRESETS, AIRWAY_PARAMS, captureAirwayPreset, randomizeAirwayPreset, validateAirwayPreset } from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "adaptive-airway", presets: AIRWAY_FULL_PRESETS,
+  capture: () => captureAirwayPreset(state),
+  apply: snapshot => {
+    validateAirwayPreset(snapshot);
+    state.presetId = snapshot.presetId;
+    const familySelect = $("modelFamily");
+    if (familySelect) familySelect.value = snapshot.family;
+    setFamily(snapshot.family);
+    for (const key of Object.keys(AIRWAY_PARAMS)) {
+      state[key] = snapshot[key];
+      const control = $(key);
+      if (control) control.value = String(snapshot[key]);
+    }
+    applyState();
+  },
+  randomize: randomizeAirwayPreset,
+});
