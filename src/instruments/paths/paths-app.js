@@ -730,3 +730,19 @@ function boot() {
 }
 
 boot();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PATH_FULL_PRESETS, capturePathPreset, randomizePathPreset, validatePathPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "paths", presets: PATH_FULL_PRESETS,
+  capture: () => capturePathPreset(state),
+  apply: (snapshot) => {
+    validatePathPreset(snapshot);
+    Object.assign(state, snapshot);
+    regenerate({ resetTime: false, announceChange: false });
+  },
+  randomize: randomizePathPreset,
+});
