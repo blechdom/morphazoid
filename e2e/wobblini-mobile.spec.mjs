@@ -99,11 +99,22 @@ test("small phone layouts retain circular decks, native touch focus, and explici
     const box = await platter.boundingBox();
     expect(Math.abs(box.width - box.height)).toBeLessThan(2);
     await expect(platter).toHaveAccessibleName(`Scratch deck ${i + 1}`);
-    const play = await page.locator(`#d${i}Play`).boundingBox();
-    const number = await page.locator(`#deck${i} .wb-record-label > span:first-child`).boundingBox();
-    const name = await page.locator(`#d${i}RecordName`).boundingBox();
-    expect(number.y + number.height, "deck number stays above the play target").toBeLessThanOrEqual(play.y + 1);
-    expect(name.y, "track name stays below the play target").toBeGreaterThanOrEqual(play.y + play.height - 1);
+    const badge = page.locator(`#deck${i} .wb-deck-number`);
+    await expect(badge).toHaveText(String(i + 1));
+    const badgeLayout = await badge.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const overlaps = [...node.parentElement.querySelectorAll(".wb-disc, button, input, select")].filter((control) => {
+        const other = control.getBoundingClientRect();
+        return other.width > 0 && other.height > 0 && getComputedStyle(control).visibility !== "hidden"
+          && box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top;
+      }).map((control) => control.id);
+      return { x: box.x, y: box.y, right: box.right, bottom: box.bottom, width: innerWidth, height: innerHeight, overlaps };
+    });
+    expect(badgeLayout.x).toBeGreaterThanOrEqual(0);
+    expect(badgeLayout.right).toBeLessThanOrEqual(badgeLayout.width);
+    expect(badgeLayout.y).toBeGreaterThanOrEqual(0);
+    expect(badgeLayout.bottom).toBeLessThanOrEqual(badgeLayout.height);
+    expect(badgeLayout.overlaps, "deck number stays clear of the platter and its controls").toEqual([]);
   }
   const platter = page.locator("#d0Platter");
   await platter.scrollIntoViewIfNeeded();

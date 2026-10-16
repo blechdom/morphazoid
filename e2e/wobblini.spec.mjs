@@ -78,7 +78,8 @@ async function loadTone(page, deck = 0) {
   await page.locator(`#d${deck}File`).setInputFiles({ name: `QA tone ${deck + 1}.wav`, mimeType: "audio/wav", buffer: wave() });
   await expect.poll(async () => (await state(page)).decks[deck].kind).toBe("file");
   await expect.poll(async () => (await state(page)).decks[deck].loading).toBe(false);
-  await expect(page.locator(`#deck${deck}`)).toContainText(`QA tone ${deck + 1}.wav`);
+  await expect.poll(async () => (await state(page)).decks[deck].name).toBe(`QA tone ${deck + 1}.wav`);
+  await expect(page.locator(`#d${deck}Platter`)).toHaveAttribute("title", `QA tone ${deck + 1}.wav`);
 }
 
 async function ring(page, deck = 0) {
