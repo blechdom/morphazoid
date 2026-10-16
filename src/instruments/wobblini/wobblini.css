@@ -1,7 +1,7 @@
 @import url("../../ui/index.css");
 
 html.wobblini-document { height: auto; min-height: 100%; overflow: auto; background: #0a1016; }
-body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow: visible; background: #0a1016; color: #e5edf1; }
+body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; display: block; overflow: visible; background: #0a1016; color: #e5edf1; }
 .wobblini-page .masthead { background: #0a1016; }
 .wb-shell { max-width: 1920px; margin: auto; padding: 14px 24px 32px; font-family: var(--font-ui, system-ui, sans-serif); }
 .wb-shell *, .wb-dialog * { box-sizing: border-box; }
@@ -166,7 +166,7 @@ body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow:
 .wb-deck-transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .wb-deck-transport button { padding: 4px; }
 .wb-deck-header { gap: 6px; }
-.wb-disc { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.wb-disc { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .wb-disc:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
 .wb-disc * { pointer-events: none; }
 .wb-record-label { display: none; }
@@ -187,7 +187,7 @@ body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow:
   background: conic-gradient(from 30deg, #ffffff00, #ffffff0e 15%, #ffffff00 26%, #ffffff00 50%, #ffffff0b 63%, #ffffff00 76%), repeating-radial-gradient(circle, #10151b 0 1px, #1b232a 1px 2px, #0c1116 2px 4px);
   box-shadow: 0 0 0 1px #57616a, inset 0 0 0 2px #080b10, 0 8px 24px #0006;
 }
-.is-records .wb-disc::before { inset: 30%; opacity: 1; background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--deck-color) 46%, #29303a), color-mix(in srgb, var(--deck-color) 22%, #111922)); border: 1px solid #ffffff1a; }
+.is-records .wb-disc::before { inset: 30%; opacity: 1; background: linear-gradient(#11192299, #111922dd), var(--deck-color); border: 1px solid #ffffff1a; }
 .is-records .wb-disc::after { display: none; }
 .is-records .wb-disc-needle { inset: 7px; border: 0; }
 .is-records .wb-disc-needle::after { top: 0; left: calc(50% - 1px); width: 2px; height: 22%; background: linear-gradient(var(--deck-color), var(--deck-color) 72%, transparent); }
@@ -198,7 +198,7 @@ body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow:
 .is-records .wb-deck-play { pointer-events: auto; border: 0; border-radius: 50%; width: 38px; height: 38px; min-height: 38px; padding: 10px; color: #eff7fa; background: #0c141abb; }
 .is-records .wb-deck-play[aria-pressed="true"] { background: #0c141abb; color: var(--deck-color); }
 .is-records .wb-deck-play:hover { background: #060a0fee; color: #fff; }
-.is-records .is-playing .wb-disc { border-color: #35434c; box-shadow: 0 0 0 1px color-mix(in srgb, var(--deck-color) 65%, #57616a), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
+.is-records .is-playing .wb-disc { border-color: #35434c; box-shadow: 0 0 0 1px var(--deck-color), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
 .is-records .is-scratching .wb-disc { box-shadow: 0 0 0 2px var(--deck-color), inset 0 0 0 2px #080b10, 0 0 30px #ffffff12; }
 @media (max-width: 759px) {
   .wb-heading { flex-wrap: nowrap; gap: 6px; }
@@ -236,4 +236,24 @@ body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow:
   .is-records .wb-toolbar #matchAll { order: initial; }
   .is-records .wb-toolbar .wb-play-all { flex: 0; }
   .is-records .wb-record-crossfade { width: 100%; margin-left: 0; gap: 14px; }
+}
+/* Keep the records clear of notches/home indicators. Native form text at 16px
+   prevents iOS from zooming the page when editing a deck's tempo or loop. */
+@media (pointer: coarse) {
+  .wb-shell { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(28px, env(safe-area-inset-bottom)); }
+  .wb-shell.is-records { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .wb-shell input[type="number"], .wb-shell select { font-size: 16px; }
+  .wb-shell .wb-source-tempo input { width: 76px !important; }
+  .wb-shell .wb-loop-row select { max-width: 110px; }
+  .wobblini-page .instrument-picker-search-input { font-size: 16px; }
+  .wobblini-page .instrument-picker-group > summary, .wobblini-page .instrument-picker-link { min-height: 44px; }
+}
+
+@supports (color: color-mix(in srgb, white, black)) {
+  .is-records .wb-disc::before { background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--deck-color) 46%, #29303a), color-mix(in srgb, var(--deck-color) 22%, #111922)); }
+  .is-records .is-playing .wb-disc { box-shadow: 0 0 0 1px color-mix(in srgb, var(--deck-color) 65%, #57616a), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
+}
+@supports not (color: color-mix(in srgb, white, black)) {
+  .wobblini-page { --accent-soft: #c5f0788c; --accent-glow: #c5f07838; }
+  .wobblini-page .instrument-info-popover { background: #0a1016; }
 }

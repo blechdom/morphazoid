@@ -7,8 +7,14 @@ const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { .
 const colors = ["#c5f078", "#75dfc7", "#76c6f3", "#f1ca78", "#c6a2fa", "#fa9fb8", "#f6ae81", "#91b6fa"];
 let initialized = false, disposed = false, starting = false, audioAttempt = 0, frame = 0, lastDraw = 0;
 let view = "records", tiny = false, selected = null, confirmation = null, padPointer = null;
+// Safari does not expose deviceMemory. Coarse input selects the conservative
+// budget on iPhones/iPads too, without guessing their model from a user agent.
+const constrained = matchMedia("(any-pointer: coarse)").matches || navigator.deviceMemory <= 4 || navigator.hardwareConcurrency <= 4;
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const drawInterval = 1000 / (constrained ? 20 : 30), pixelRatioLimit = constrained ? 1 : 2;
+let renderPending = false, lastReadout = 0;
 const seeking = new Set();
-export const engine = new WobbliniAudio({ onChange: () => { if (initialized) render(); }, onError: showError });
+export const engine = new WobbliniAudio({ resourceProfile: constrained ? "constrained" : "standard", onChange: () => { if (initialized) renderPending = true; }, onError: showError });
 const initial = engine.getState();
 const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", level: initial.master.gain,
   min: 0, max: 1, step: 0.01, onAudioClick: toggleAudio, onLevelInput: (gain) => engine.setMaster({ gain }) });
@@ -79,8 +85,8 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   for (const type of ["pointerup", "pointercancel", "blur"]) on($(`d${i}Seek`), type, () => seeking.delete(i));
   for (const [key, field] of [["Gain", "gain"], ["Rate", "rate"], ["Bpm", "bpm"], ["Filter", "filter"], ["Pan", "pan"]]) {
     on($(`d${i}${key}`), "input", (event) => { if (event.target.value !== "" && Number.isFinite(event.target.valueAsNumber)) act(() => engine.setDeck(i, { [field]: event.target.valueAsNumber })); });
-    on($(`d${i}${key}`), "change", render);
-    on($(`d${i}${key}`), "blur", render);
+    on($(`d${i}${key}`), "change", () => { cards[i].renderKey = null; render(); });
+    on($(`d${i}${key}`), "blur", () => { cards[i].renderKey = null; render(); });
   }
   for (const key of ["Low", "Mid", "High"]) on($(`d${i}${key}`), "input", (event) => act(() => engine.setDeck(i, { eq: { [key.toLowerCase()]: Number(event.target.value) } })));
   for (const key of ["Mute", "Solo"]) on($(`d${i}${key}`), "click", () => { const field = key.toLowerCase(); engine.setDeck(i, { [field]: !engine.getDeckState(i)[field] }); });
@@ -110,6 +116,7 @@ const cards = Array.from({ length: 8 }, (_, i) => {
   };
   const updateRecord = (d) => {
     if (hand || keyboardTarget !== null) return;
+    if (reducedMotion.matches) { recordPosition = d.position; return; }
     let delta = d.position - recordPosition;
     if (d.playing && d.loopEnabled && delta < 0) delta += d.loopEnd - d.loopStart;
     rotateTo(d.position, delta);
@@ -161,7 +168,8 @@ function say(message) { if (!disposed) $("sessionStatus").textContent = message;
 function showError(error) { if (disposed || error?.name === "AbortError") return; $("errorMessage").textContent = error?.message ?? String(error); $("errorMessage").hidden = false; }
 function act(fn) { $("errorMessage").hidden = true; try { Promise.resolve(fn()).catch(showError); } catch (error) { showError(error); } }
 function time(seconds, decimal = true) { const units = decimal ? 10 : 1, s = Math.floor(Math.max(0, Number(seconds) || 0) * units) / units; return `${Math.floor(s / 60)}:${(s % 60).toFixed(decimal ? 1 : 0).padStart(decimal ? 4 : 2, "0")}`; }
-function value(id, next) { const node = $(id); if (document.activeElement !== node || node.type !== "number") node.value = String(next); }
+function value(id, next) { const node = $(id); if ((document.activeElement !== node || node.type !== "number") && node.value !== String(next)) node.value = String(next); }
+function text(id, next) { const node = $(id); if (node.textContent !== next) node.textContent = next; }
 async function toggleAudio() {
   const attempt = ++audioAttempt; $("errorMessage").hidden = true;
   if (engine.armed || starting) { starting = false; strip.setAudioState("off"); await engine.setAudioEnabled(false); say("Audio off · Decks keep their transport state"); return; }
@@ -256,6 +264,7 @@ on(pad, "keydown", (event) => {
 
 function render() {
   if (!initialized || disposed) return;
+  renderPending = false;
   const state = engine.getState(), count = state.decks.filter((d) => d.playing).length;
   if (!starting) strip.setAudioState(state.armed ? "on" : "off");
   $("playButton").setAttribute("aria-pressed", String(count > 0)); setIcon($("playButton"), count ? "pause" : "play", count ? "Pause all" : "Play all");
@@ -263,11 +272,18 @@ function render() {
   $("liveDot").classList.toggle("is-on", state.armed && count > 0);
   for (let i = 0; i < 8; i++) {
     const d = state.decks[i];
+    // Position changes need the graphic/readout, not every hidden editor field.
+    const key = [d.name, d.kind, d.loading, d.playing, d.scratching, d.mute, d.solo,
+      state.decks.some((v) => v.solo), d.duration, d.cuePoint, d.effectiveBpm,
+      d.gain, d.rate, d.bpm, d.pan, d.filter, d.assignment, d.loopEnabled, d.loopBeats,
+      d.eq.low, d.eq.mid, d.eq.high, tiny, selected].join("|");
+    if (cards[i].renderKey === key) continue;
+    cards[i].renderKey = key;
     cards[i].root.classList.toggle("is-playing", d.playing); cards[i].root.classList.toggle("is-muted", d.mute || (state.decks.some((v) => v.solo) && !d.solo));
-    $(`d${i}RecordName`).textContent = d.name;
+    text(`d${i}RecordName`, d.name);
     cards[i].root.classList.toggle("is-scratching", !!d.scratching);
-    $(`d${i}Name`).textContent = d.name; $(`d${i}Name`).title = d.name;
-    $(`d${i}Kind`).textContent = d.loading ? "Loading…" : d.kind === "file" ? "Local file · Manual BPM" : "Original demo loop";
+    text(`d${i}Name`, d.name); $(`d${i}Name`).title = d.name;
+    text(`d${i}Kind`, d.loading ? "Loading…" : d.kind === "file" ? "Local file · Manual BPM" : "Original demo loop");
     $(`d${i}Play`).setAttribute("aria-pressed", String(d.playing)); $(`d${i}Play`).setAttribute("aria-label", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`); setIcon($(`d${i}Play`), d.playing ? "pause" : "play", `${d.playing ? "Pause" : "Play"} deck ${i + 1}`);
     $(`d${i}Mute`).setAttribute("aria-pressed", String(d.mute)); $(`d${i}Solo`).setAttribute("aria-pressed", String(d.solo));
     $(`d${i}Effective`).innerHTML = `${d.effectiveBpm.toFixed(1)} <small>BPM</small>`;
@@ -286,15 +302,38 @@ function render() {
   const fade = state.master.crossfader;
   $("crossfaderOut").value = Math.abs(fade) < .01 ? "Center" : `${fade < 0 ? "A" : "B"} ${Math.round(Math.abs(fade) * 100)}%`;
   $("wobbleAmountOut").value = `${Math.round(state.master.wobbleAmount * 100)}%`; $("wobbleRateOut").value = `${state.master.wobbleRate.toFixed(2)} Hz`;
-  for (const side of ["A", "B"]) $("bus" + side).textContent = state.decks.filter((d) => d.assignment === side).map((d) => d.id + 1).join(" · ") || "No decks";
+  for (const side of ["A", "B"]) text("bus" + side, state.decks.filter((d) => d.assignment === side).map((d) => d.id + 1).join(" · ") || "No decks");
 }
 
+const canvasSizes = new WeakMap();
+const resizeObserver = new ResizeObserver((entries) => {
+  for (const { target } of entries) canvasSizes.delete(target);
+});
+for (const canvas of [...cards.flatMap((card) => [card.wave, card.recordWave]), pad]) resizeObserver.observe(canvas);
+const visible = new Set(cards.map((card) => card.root));
+visible.add(pad);
+const visibilityObserver = new IntersectionObserver((entries) => {
+  for (const { target, isIntersecting } of entries) {
+    if (isIntersecting) visible.add(target); else visible.delete(target);
+  }
+});
+for (const target of visible) visibilityObserver.observe(target);
+function canvasSize(canvas) {
+  let size = canvasSizes.get(canvas);
+  const scale = Math.min(pixelRatioLimit, window.devicePixelRatio || 1);
+  if (!size || size.scale !== scale) {
+    const r = canvas.getBoundingClientRect();
+    size = { width: r.width, height: r.height, scale };
+    canvasSizes.set(canvas, size);
+  }
+  return size;
+}
 function prepareCanvas(canvas, ctx) {
-  const r = canvas.getBoundingClientRect(), scale = Math.min(2, window.devicePixelRatio || 1);
-  const width = Math.max(1, Math.round(r.width * scale)), height = Math.max(1, Math.round(r.height * scale));
+  const { width: w, height: h, scale } = canvasSize(canvas);
+  const width = Math.max(1, Math.round(w * scale)), height = Math.max(1, Math.round(h * scale));
   if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-  ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.clearRect(0, 0, r.width, r.height);
-  return [r.width, r.height];
+  ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.clearRect(0, 0, w, h);
+  return [w, h];
 }
 function drawWave(card, d, color) {
   const ctx = card.context, [w, h] = prepareCanvas(card.wave, ctx);
@@ -312,22 +351,35 @@ function drawWave(card, d, color) {
 }
 function drawRecordWave(card, d, color) {
   const ctx = card.recordContext, [w, h] = prepareCanvas(card.recordWave, card.recordContext);
+  if (!w || !h) return;
   const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * .405;
-  const count = Math.min(240, Math.max(80, Math.floor(w))), peaks = d.peaks || [];
   const progress = d.duration ? d.position / d.duration : 0;
-  ctx.lineWidth = Math.max(1, w / 240); ctx.strokeStyle = color;
-  // Batch the played/unplayed bars into two strokes per deck.
-  for (const played of [false, true]) {
-    ctx.globalAlpha = played ? .95 : .38; ctx.beginPath();
+  let cached = card.recordCache;
+  if (!cached || cached.peaks !== d.peaks || cached.width !== card.recordWave.width || cached.height !== card.recordWave.height) {
+    const layer = document.createElement("canvas");
+    layer.width = card.recordWave.width; layer.height = card.recordWave.height;
+    const paint = layer.getContext("2d"), scale = canvasSize(card.recordWave).scale;
+    paint.setTransform(scale, 0, 0, scale, 0, 0);
+    paint.lineWidth = Math.max(1, w / 240); paint.strokeStyle = color; paint.beginPath();
+    const count = Math.min(constrained ? 160 : 240, Math.max(80, Math.floor(w))), peaks = d.peaks || [];
     for (let n = 0; n < count; n++) {
-      if ((n / count <= progress) !== played) continue;
       const angle = n / count * Math.PI * 2 - Math.PI / 2;
       const peak = Math.min(1, Math.abs(peaks[Math.floor(n / count * peaks.length)] || 0));
       const amplitude = Math.max(.6, peak * Math.min(w, h) * .06);
-      ctx.moveTo(cx + Math.cos(angle) * (radius - amplitude), cy + Math.sin(angle) * (radius - amplitude));
-      ctx.lineTo(cx + Math.cos(angle) * (radius + amplitude), cy + Math.sin(angle) * (radius + amplitude));
+      paint.moveTo(cx + Math.cos(angle) * (radius - amplitude), cy + Math.sin(angle) * (radius - amplitude));
+      paint.lineTo(cx + Math.cos(angle) * (radius + amplitude), cy + Math.sin(angle) * (radius + amplitude));
     }
-    ctx.stroke();
+    paint.stroke();
+    cached = card.recordCache = { layer, peaks: d.peaks, width: layer.width, height: layer.height };
+  }
+  // The file geometry is immutable until import/resize. Only the played wedge,
+  // loop and position dot move; no per-bar trigonometry on animation frames.
+  ctx.globalAlpha = .38; ctx.drawImage(cached.layer, 0, 0, w, h);
+  if (progress > 0) {
+    ctx.save(); ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, Math.max(w, h), -Math.PI / 2, progress * Math.PI * 2 - Math.PI / 2);
+    ctx.closePath(); ctx.clip(); ctx.clearRect(0, 0, w, h);
+    ctx.globalAlpha = .95; ctx.drawImage(cached.layer, 0, 0, w, h); ctx.restore();
   }
   ctx.globalAlpha = 1;
   const angle = progress * Math.PI * 2 - Math.PI / 2;
@@ -352,15 +404,28 @@ function drawPad(state) {
 }
 function animate(now) {
   if (disposed) return;
-  if (!document.hidden && now - lastDraw >= 1000 / 30) {
+  if (!document.hidden && now - lastDraw >= drawInterval) {
     lastDraw = now; const state = engine.getState();
-    for (let i = 0; i < 8; i++) { const d = state.decks[i]; if (view !== "records") drawWave(cards[i], d, colors[i]);
-      else drawRecordWave(cards[i], d, colors[i]);
-      cards[i].updateRecord(d);
+    if (renderPending) render();
+    const readout = now - lastReadout >= 200;
+    if (readout) lastReadout = now;
+    for (let i = 0; i < 8; i++) {
+      const d = state.decks[i], card = cards[i];
+      if (!visible.has(card.root)) continue;
+      const size = canvasSize(view === "records" ? card.recordWave : card.wave);
+      const key = [view, d.position, d.playing, d.loopEnabled, d.loopStart, d.loopEnd, d.cuePoint, d.duration].join("|");
+      if (card.drawKey !== key || card.drawSize !== size || card.drawPeaks !== d.peaks) {
+        if (view !== "records") drawWave(card, d, colors[i]); else drawRecordWave(card, d, colors[i]);
+        card.drawKey = key; card.drawSize = size; card.drawPeaks = d.peaks;
+        card.updateRecord(d);
+      }
+      if (!readout) continue;
       cards[i].platter.setAttribute("aria-valuemax", String(d.duration));
       cards[i].platter.setAttribute("aria-valuenow", d.position.toFixed(2));
-      cards[i].platter.setAttribute("aria-valuetext", `${time(d.position)} of ${time(d.duration)}`); $(`d${i}Time`).value = time(d.position); if (!seeking.has(i) && document.activeElement !== $(`d${i}Seek`)) $(`d${i}Seek`).value = String(d.position); }
-    if (view !== "records") drawPad(state);
+      cards[i].platter.setAttribute("aria-valuetext", `${time(d.position)} of ${time(d.duration)}`);
+      if (view !== "records") { value(`d${i}Time`, time(d.position)); if (!seeking.has(i) && document.activeElement !== $(`d${i}Seek`)) value(`d${i}Seek`, d.position); }
+    }
+    if (view !== "records" && visible.has(pad)) drawPad(state);
     const count = state.decks.filter((d) => d.playing).length;
     if ($("activeDecks").value !== `${count} / 8 playing`) render();
   }
@@ -368,7 +433,7 @@ function animate(now) {
 }
 async function dispose() {
   if (disposed) return; disposed = true; audioAttempt++; abort.abort(); cancelAnimationFrame(frame); confirmation?.(false); confirmation = null;
-  tapIcons.disconnect(); strip.destroy?.(); await engine.dispose();
+  tapIcons.disconnect(); resizeObserver.disconnect(); visibilityObserver.disconnect(); strip.destroy?.(); await engine.dispose();
 }
 on(window, "pagehide", (event) => {
   // A back-forward-cache restoration needs a fresh engine after this teardown.
