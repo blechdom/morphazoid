@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { esi32SiteChanges, restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
+import { graphonicCalculatorMathSiteChanges, restoreGraphonicCalculatorMathSite } from './helpers/graphonic-calculator-math-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = source => createHash('sha256').update(source).digest('hex');
@@ -16,7 +17,8 @@ test('ESI-32 additions preserve the independently captured publication baseline'
     'src/site/instrument-registry.js',
   ]);
   for (const change of esi32SiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), 'utf8');
+    // The parallel Math amendment has its own independent proof and baseline.
+    const source = restoreGraphonicCalculatorMathSite(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true });
     const restored = restoreEsi32Site(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     const reapplied = change.replacements.reduce((current, { before, after }) => {
@@ -39,4 +41,25 @@ test('ESI-32 additions preserve the independently captured publication baseline'
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreEsi32Site(binary, 'src/pages/manifest.js'), binary);
   assert.equal(restoreEsi32Site('untouched', 'unrelated.js'), 'untouched');
+});
+
+test('parallel ESI-32 and Math amendments commute and reproduce all merged source bytes', async () => {
+  assert.equal(graphonicCalculatorMathSiteChanges.baseCommit, esi32SiteChanges.baseCommit);
+  const shared = esi32SiteChanges.changes.filter(change => graphonicCalculatorMathSiteChanges.changes.some(other => other.file === change.file));
+  assert.deepEqual(shared.map(({ file }) => file).sort(), ['README.md', 'src/site/catalogue-taxonomy.js', 'src/site/instrument-registry.js']);
+  const apply = (source, change) => change.replacements.reduce((current, { before, after }) => {
+    assert.equal(current.split(before).length - 1, 1, `${change.file}: unique merge insertion point`);
+    return current.replace(before, () => after);
+  }, source);
+  for (const esi of shared) {
+    const math = graphonicCalculatorMathSiteChanges.changes.find(change => change.file === esi.file);
+    assert.equal(esi.sha256, math.sha256, `${esi.file}: independent journals agree on the common baseline`);
+    const merged = await readFile(new URL(esi.file, root), 'utf8');
+    const esiFirst = restoreGraphonicCalculatorMathSite(restoreEsi32Site(merged, esi.file), esi.file);
+    const mathFirst = restoreEsi32Site(restoreGraphonicCalculatorMathSite(merged, esi.file), esi.file);
+    assert.equal(esiFirst, mathFirst, `${esi.file}: restoration order does not lose either feature`);
+    assert.equal(digest(esiFirst), esi.sha256);
+    assert.equal(apply(apply(esiFirst, esi), math), merged);
+    assert.equal(apply(apply(esiFirst, math), esi), merged);
+  }
 });

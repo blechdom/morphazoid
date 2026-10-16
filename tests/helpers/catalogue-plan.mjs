@@ -3,7 +3,8 @@ const originalPlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-updat
 // September 30 owner promotion: Spelling leaves WIP/Cooking for Voice.
 // October 1 owner removal; keep the historical catalogue evidence intact.
 export const removedInstrumentIds = new Set(['morphazoidical']);
-export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(row => !removedInstrumentIds.has(row.id)).map(row =>
+// October 16 owner request: a Math category, placed before Work in Progress, for the Graphonic Calculator.
+export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.categoryOrder.flatMap(id => (id === 'wip' ? ['math', 'wip'] : [id])), rows: originalPlan.rows.filter(row => !removedInstrumentIds.has(row.id)).map(row =>
   row.id === 'spelling-synthesizer' ? { ...row, categoryId: 'voice', categoryLabel: 'Voice' } : row) };
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
@@ -13,9 +14,9 @@ export const mainAdditions = [
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',
     tags: [{ id: 'app', label: 'App' }, { id: 'looper', label: 'Looper' }, { id: 'audio-effect', label: 'Audio Effect' }] },
-  // October 14 owner request: Desmos-style graphing calculator with a sonified trace playhead.
+  // October 14 owner request: Desmos-style graphing calculator with a sonified trace playhead; October 16: moved into the new Math category.
   { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp',
-    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    categoryId: 'math', categoryLabel: 'Math',
     tags: [{ id: '2d', label: '2D' }, { id: 'sonification', label: 'Sonification' }, { id: 'graphic-ui', label: 'Graphic-UI' }] },
   // October 14 owner request: compare Rust readings of Striped Staircase.
   { id: 'striped-staircase-rust', label: 'Staircase Studies', href: 'striped-staircase-rust.html', imageHref: 'assets/instruments/striped-staircase.webp',

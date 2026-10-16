@@ -273,3 +273,64 @@ test("point playheads ride every branch of a multi-branch curve", async ({ page 
   expect(branches.size).toBe(2);
   expect(reading.sample.filter((contact) => contact.id === hyperbola).length).toBe(4);
 });
+
+test("the play region box loops lines, recentres the radar and resizes from its handles", async ({ page }) => {
+  await open(page);
+  expect((await snapshot(page)).settings.region).toBeNull();
+  await expect(page.locator("#regionOut")).toHaveText("follows the view");
+  await page.locator("#regionUseView").click();
+  const view = (await snapshot(page)).view;
+  expect((await snapshot(page)).settings.region).toEqual(view);
+  await page.locator("#regionFit").click();
+  const fitted = (await snapshot(page)).settings.region;
+  expect(fitted.yMin).toBeGreaterThanOrEqual(view.yMin);
+  expect(fitted.yMax).toBeLessThanOrEqual(view.yMax);
+  expect(fitted.xMax - fitted.xMin).toBeLessThanOrEqual(view.xMax - view.xMin);
+  await page.locator("#playbackMode [data-playback='radar']").click();
+  const reading = (await snapshot(page)).reading;
+  expect(reading.center).toEqual({ x: (fitted.xMin + fitted.xMax) / 2, y: (fitted.yMin + fitted.yMax) / 2 });
+  expect(reading.heads[0].kind).toBe("ray");
+  const box = await page.locator("#stage").boundingBox();
+  const toPixel = (x, y) => [box.x + ((x - view.xMin) / (view.xMax - view.xMin)) * box.width, box.y + ((view.yMax - y) / (view.yMax - view.yMin)) * box.height];
+  const [cornerX, cornerY] = toPixel(fitted.xMax, fitted.yMax);
+  await page.mouse.move(cornerX, cornerY);
+  await page.mouse.down();
+  await page.mouse.move(cornerX - 60, cornerY + 40, { steps: 6 });
+  await page.mouse.up();
+  const resized = (await snapshot(page)).settings.region;
+  expect(resized.xMax).toBeLessThan(fitted.xMax);
+  expect(resized.yMax).toBeLessThan(fitted.yMax);
+  expect(resized.xMin).toBeCloseTo(fitted.xMin, 6);
+  expect(resized.yMin).toBeCloseTo(fitted.yMin, 6);
+  const [centerX, centerY] = toPixel((resized.xMin + resized.xMax) / 2, (resized.yMin + resized.yMax) / 2);
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 50, centerY, { steps: 5 });
+  await page.mouse.up();
+  const moved = (await snapshot(page)).settings.region;
+  expect(moved.xMin).toBeGreaterThan(resized.xMin);
+  expect(moved.xMax - moved.xMin).toBeCloseTo(resized.xMax - resized.xMin, 6);
+  expect((await snapshot(page)).view).toEqual(view);
+  await page.locator("#playbackMode [data-playback='line']").click();
+  await page.locator("#playButton").click();
+  await expect.poll(async () => (await snapshot(page)).reading.contacts).toBeGreaterThan(0);
+  const sample = (await snapshot(page)).reading.sample;
+  for (const contact of sample) { expect(contact.x).toBeGreaterThanOrEqual(moved.xMin - 1e-6); expect(contact.x).toBeLessThanOrEqual(moved.xMax + 1e-6); }
+  await page.locator("#regionFollow").click();
+  expect((await snapshot(page)).settings.region).toBeNull();
+  await expect(page.locator("#regionFollow")).toBeDisabled();
+});
+
+test("on a phone the open instrument chooser covers the preset bar, not the other way round", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await open(page);
+  await page.locator(".masthead .instrument-picker-trigger").first().click();
+  await expect(page.locator(".masthead .instrument-picker-panel")).toBeVisible();
+  const covering = await page.evaluate(() => {
+    const bar = document.querySelector("#mainPresets .instrument-picker-trigger").getBoundingClientRect();
+    return document.elementFromPoint(bar.x + bar.width / 2, bar.y + bar.height / 2)?.closest(".masthead .instrument-picker-panel") !== null;
+  });
+  expect(covering).toBe(true);
+  await context.close();
+});

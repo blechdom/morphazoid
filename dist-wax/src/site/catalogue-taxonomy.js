@@ -73,6 +73,10 @@ export const CATALOGUE_TAGS = Object.freeze([
     "label": "Algorithmic"
   },
   {
+    "id": "math",
+    "label": "Math"
+  },
+  {
     "id": "wip",
     "label": "Work in Progress"
   },

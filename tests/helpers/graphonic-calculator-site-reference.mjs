@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreBlechSpigotRuntime } from './blech-spigot-runtime-reference.mjs';
 import { restoreWobbliniSite } from './wobblini-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -13,6 +14,7 @@ export const graphonicCalculatorSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the exact reviewed Graphonic Calculator registration and runtime rows. */
 export function restoreGraphonicCalculatorSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWobbliniSite(source, file, { allowRestored: true });
   source = restoreBlechSpigotRuntime(source, file, { allowRestored: true });
   for (const change of graphonicCalculatorSiteChanges.changes.filter(change => change.file === file)) {

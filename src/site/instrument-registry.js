@@ -173,9 +173,11 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "sorting-algorithms", label: "Sorting", href: "algorithmic-sequencers.html" },
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
+  freezeGroup("math", "Math", [
+    { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
+  ]),
   freezeGroup("wip", "Work in Progress", [
     { id: "wobblini", label: "Wobblini", href: "wobblini.html", imageHref: "assets/instruments/wobblini.webp" },
-    { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
     { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },

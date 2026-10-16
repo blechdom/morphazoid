@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const blechSpigotRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the reviewed spigot paths; leave unrelated runtime drift visible. */
 export function restoreBlechSpigotRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   const change = blechSpigotRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   const markers = ['# BLECH MIDI live spigots and direct canvas performance.', ...change.paths];
