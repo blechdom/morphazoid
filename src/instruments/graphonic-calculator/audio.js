@@ -51,7 +51,7 @@ export function traceVoiceTargets(contacts, { view, center, octaves, source = "h
     const key = `${contact.id}:${contact.head ?? 0}:${contact.branch ?? "p"}`;
     const index = counts.get(key) ?? 0;
     counts.set(key, index + 1);
-    targets.push({ id: `${key}:${index}`, ...traceVoiceTarget({ x: contact.x, y: contact.y, view, center, octaves, source }) });
+    targets.push({ id: `${key}:${index}`, voice: VOICES.includes(contact.voice) ? contact.voice : null, ...traceVoiceTarget({ x: contact.x, y: contact.y, view, center, octaves, source }) });
   }
   const audible = targets.filter((target) => target.gain > 0).slice(0, limit);
   const normalization = audible.length ? TRACE_LEVEL / Math.sqrt(audible.length) : 0;
@@ -119,7 +119,7 @@ export class TraceAudio {
     if (panner) { gain.connect(panner); panner.connect(this.master); } else gain.connect(this.master);
     oscillator.start();
     modulator.start();
-    const voice = { oscillator, modulator, modulation, gain, panner, id: null, frequency: TRACE_BASE_HZ };
+    const voice = { oscillator, modulator, modulation, gain, panner, id: null, frequency: TRACE_BASE_HZ, voiceType: null, applied: null };
     this.applyTimbre(voice);
     return voice;
   }
@@ -133,9 +133,13 @@ export class TraceAudio {
   }
 
   applyTimbre(entry) {
-    const { voice, timbre } = this.timbreSettings;
+    const { timbre } = this.timbreSettings;
+    const voice = entry.voiceType ?? this.timbreSettings.voice;
     const context = this.context;
     if (!context) return;
+    const signature = `${voice}:${timbre.toFixed(2)}`;
+    if (entry.applied === signature) { this.steerModulation(entry, context.currentTime); return; }
+    entry.applied = signature;
     if (voice === "sine" || voice === "fm") entry.oscillator.type = "sine";
     else if (voice === "triangle") entry.oscillator.type = "triangle";
     else {
@@ -147,7 +151,8 @@ export class TraceAudio {
   }
 
   steerModulation(entry, now) {
-    const { voice, timbre, glide } = this.timbreSettings;
+    const { timbre, glide } = this.timbreSettings;
+    const voice = entry.voiceType ?? this.timbreSettings.voice;
     const index = voice === "fm" ? 0.5 + 6 * timbre : 0;
     entry.modulator.frequency.setTargetAtTime(entry.frequency * 2, now, glide);
     entry.modulation.gain.setTargetAtTime(index * entry.frequency, now, glide);
@@ -179,6 +184,7 @@ export class TraceAudio {
     const { glide } = this.timbreSettings;
     const frequency = Math.min(12000, Math.max(20, target.frequency));
     voice.frequency = frequency;
+    if ((target.voice ?? null) !== voice.voiceType) { voice.voiceType = target.voice ?? null; this.applyTimbre(voice); }
     if (fresh) voice.oscillator.frequency.setValueAtTime(frequency, now);
     else voice.oscillator.frequency.setTargetAtTime(frequency, now, glide);
     this.steerModulation(voice, now);

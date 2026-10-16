@@ -257,14 +257,14 @@ export function collectContacts(geometry, settings, view, travel) {
         const { runs } = arclength(item);
         runs.forEach((run, runIndex) => {
           const point = pointAlongRun(item, runIndex, head.phase);
-          if (point) contacts.push({ id: item.id, color: item.color, label: item.label, head: head.index, branch: runIndex, x: point.x, y: point.y, s: head.phase });
+          if (point) contacts.push({ id: item.id, color: item.color, label: item.label, voice: source.voice ?? null, head: head.index, branch: runIndex, x: point.x, y: point.y, s: head.phase });
         });
       }
       continue;
     }
     for (const entry of probeHits(geometry, head.guide.probe)) {
       if (entry.kind === "point") continue;
-      for (const hit of entry.hits) contacts.push({ id: entry.id, color: entry.color, label: entry.label, head: head.index, x: hit.x, y: hit.y, s: hit.s });
+      for (const hit of entry.hits) contacts.push({ id: entry.id, color: entry.color, label: entry.label, voice: entry.voice ?? null, head: head.index, x: hit.x, y: hit.y, s: hit.s });
     }
   }
   return { heads, contacts, region, center };
@@ -280,8 +280,8 @@ export function pitchValue(contact, source, region, center = radarCenter(region)
   return (contact.y - region.yMin) / (region.yMax - region.yMin);
 }
 
-/** Smallest box around every finite sample of the visible curves, padded, clamped to the view; null when nothing is drawn. */
-export function fitRegion(geometry, view, padding = 0.05) {
+/** Tight box around every finite sample of the visible curves, clamped to the view; null when nothing is drawn. */
+export function fitRegion(geometry, view) {
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
   for (const item of geometry) {
     if (item.kind === "point") continue;
@@ -291,7 +291,10 @@ export function fitRegion(geometry, view, padding = 0.05) {
       xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); yMin = Math.min(yMin, y); yMax = Math.max(yMax, y);
     }
   }
-  if (!(xMin < xMax) && !(yMin < yMax)) return null;
-  const xPad = Math.max((xMax - xMin) * padding, (view.xMax - view.xMin) * 0.02), yPad = Math.max((yMax - yMin) * padding, (view.yMax - view.yMin) * 0.02);
-  return { xMin: Math.max(view.xMin, xMin - xPad), xMax: Math.min(view.xMax, xMax + xPad), yMin: Math.max(view.yMin, yMin - yPad), yMax: Math.min(view.yMax, yMax + yPad) };
+  if (!(xMin <= xMax) || !(yMin <= yMax)) return null;
+  // A flat or vertical curve still needs a box with area: give the collapsed axis a sliver of the view.
+  const xSliver = (view.xMax - view.xMin) * 0.01, ySliver = (view.yMax - view.yMin) * 0.01;
+  if (xMax - xMin < xSliver) { xMin -= xSliver / 2; xMax += xSliver / 2; }
+  if (yMax - yMin < ySliver) { yMin -= ySliver / 2; yMax += ySliver / 2; }
+  return { xMin: Math.max(view.xMin, xMin), xMax: Math.min(view.xMax, xMax), yMin: Math.max(view.yMin, yMin), yMax: Math.min(view.yMax, yMax) };
 }

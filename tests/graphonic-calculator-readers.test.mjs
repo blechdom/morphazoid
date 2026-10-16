@@ -145,7 +145,9 @@ test("the play region bounds line sweeps, pins the radar centre, clips point tra
   assert.equal(traceVoiceTarget({ x: 0, y: 0, view: region, center: { x: 2, y: 1 } }).gain, 0, "outside the box is silent");
   assert.equal(traceVoiceTarget({ x: 2, y: 1, view: region, center: { x: 2, y: 1 } }).gain, 1);
   const fitted = fitRegion(scene(["y = x^2"], { xMin: -2, xMax: 2, yMin: -1, yMax: 5 }).geometry, { xMin: -2, xMax: 2, yMin: -1, yMax: 5 });
-  assert.ok(fitted.yMin <= 0 && fitted.yMin > -0.5 && fitted.yMax <= 5 && fitted.xMin >= -2 && fitted.xMax <= 2);
+  close(fitted.yMin, 0, 1e-3, "the box hugs the vertex with no padding"); close(fitted.xMin, -2, 1e-9); close(fitted.xMax, 2, 1e-9); close(fitted.yMax, 4, 1e-6, "y = x^2 peaks at 4 on the sampled edge");
+  const flat = fitRegion(scene(["y = 1"], VIEW).geometry, VIEW);
+  close(flat.yMax - flat.yMin, (VIEW.yMax - VIEW.yMin) * 0.01, 1e-9, "a horizontal line keeps a sliver of height so the box has area");
   assert.equal(fitRegion([], VIEW), null);
   assert.deepEqual(sanitizeRegion({ xMin: "1", xMax: 3, yMin: 0, yMax: 2 }), region);
   assert.equal(sanitizeRegion({ xMin: 3, xMax: 1, yMin: 0, yMax: 2 }), null);

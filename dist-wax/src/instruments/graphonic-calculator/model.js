@@ -54,6 +54,7 @@ export function sanitizeRow(row, index = 0) {
     range: sanitizeRange(source.range),
     role: ROW_ROLES.includes(source.role) ? source.role : "contour",
     drum: source.role === "drums" ? sanitizeDrum(source.drum) : null,
+    voice: VOICES.includes(source.voice) ? source.voice : null,
   };
 }
 
@@ -143,12 +144,13 @@ export function createState(overrides = {}) {
 
 /** Preset-owned scene without session identity: ids, slider motion direction and trailing empty rows are dropped. */
 export function snapshotOf(state) {
-  const rows = state.rows.map(({ text, color, visible, slider, range, role, drum }) => ({
+  const rows = state.rows.map(({ text, color, visible, slider, range, role, drum, voice }) => ({
     text, color, visible,
     slider: slider ? { min: slider.min, max: slider.max, step: slider.step, animating: slider.animating, mode: slider.mode, speed: slider.speed } : null,
     range: range ? [range[0], range[1]] : null,
     role: role === "drums" ? "drums" : "contour",
     drum: role === "drums" && drum ? { ...drum } : null,
+    voice: VOICES.includes(voice) ? voice : null,
   }));
   while (rows.length && !rows.at(-1).text.trim()) rows.pop();
   return { rows, view: { ...state.view }, settings: { ...state.settings } };
@@ -257,7 +259,7 @@ export function advanceSliders(state, analysis, deltaSeconds, directions) {
 const scene = (id, label, rows, view, settings = {}) => ({
   id, label,
   snapshot: {
-    rows: rows.map((row, index) => ({ text: row.text, color: row.color ?? COLORS[index % COLORS.length], visible: row.visible ?? true, slider: row.slider === undefined ? null : sanitizeSlider(row.slider), range: row.range ?? null, role: row.role ?? "contour", drum: row.role === "drums" ? sanitizeDrum(row.drum) : null })),
+    rows: rows.map((row, index) => ({ text: row.text, color: row.color ?? COLORS[index % COLORS.length], visible: row.visible ?? true, slider: row.slider === undefined ? null : sanitizeSlider(row.slider), range: row.range ?? null, role: row.role ?? "contour", drum: row.role === "drums" ? sanitizeDrum(row.drum) : null, voice: VOICES.includes(row.voice) ? row.voice : null })),
     view: { ...view },
     settings: sanitizeSettings({ ...DEFAULT_SETTINGS, ...settings }),
   },

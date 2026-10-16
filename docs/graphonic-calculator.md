@@ -90,19 +90,22 @@ folds it there and back; the direction button runs the whole clock backwards wit
 jumping. Head 1 draws solid and labelled; others dashed and dimmer, so a contact's
 colour is always its curve and its ring brightness is its head.
 
-## Drum triggers
+## Layers: waves and strikes
 
-Any drawn curve can switch from a sounding contour to a **drum row** with the ♩ button
-beside its colour swatch. A drum row stays silent as a contour; instead it carries
-**triggers**, diamonds on the curve that fire the shared Morphazoid FM drum kit (the
-sixteen voices of FM Drums and the Shape drum machine) whenever a playhead passes them:
-a Line sweep crossing their x or y, a Radar ray sweeping their bearing from the box
-centre, or a Points head reaching their arclength. Placement is **X grid** (the curve's
-crossings of the play region's vertical subdivisions), **Y grid**, **X + Y grid**, or
-**Equidistant on curve** (evenly spaced along each connected branch, unrelated to the
-grid). The count sets the subdivisions or triggers per branch, the voice picks the drum,
-and **Pitch ±** bends it by the trigger's height across the box in semitones. Mixing is
-the point: one contour can play as a synth line while another lays down the beat.
+Every drawn curve ends with a large **∿ Wave / ♩ Hits** switch beneath its own settings.
+As a wave the layer sounds as a contour, and a **Synthesis** pulldown lets it keep its own
+voice (sine, triangle, reed, saw, pulse or FM) instead of the shared one. As hits the layer
+is silent as a contour and carries **triggers**, diamonds on the curve that strike when a
+playhead passes them: a Line sweep crossing their x or y, a Radar ray sweeping their bearing
+from the box centre, or a Points head reaching their arclength. The **Count** knob sets the
+subdivisions or strikes per branch; **Placement** is X grid, Y grid, X + Y grid (the curve's
+crossings of the play region's subdivisions) or Equidistant on curve (evenly spaced along each
+connected branch, unrelated to the grid). The **Voice** pulldown offers two families: pitched
+strikes (Karplus-Strong pluck, rattlesnake, marimba bar, FM chime, pitched zap) whose note
+follows the trigger's height across the box over the Pitch range exactly like a contour, and
+the sixteen voices of the shared FM drum kit, which **Pitch ± st** can bend by height in
+semitones. Mixing is the point: one layer can play as a synth line while another lays down
+the beat and a third plucks a melody.
 
 ## Sound
 

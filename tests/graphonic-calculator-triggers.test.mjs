@@ -98,3 +98,21 @@ test("trigger voices come from the shared FM kit and bend with height when asked
   const low = triggerVoice(sanitizeDrum({ voice: "snap-snare", pitch: 12 }), { x: 1, y: -2 }, settings(), VIEW);
   close(low.frequency, flat.frequency / 2, 1e-6);
 });
+
+test("pitched strike voices are accepted, follow height over the pitch range, and rows keep their own wave voice", async () => {
+  const { PITCHED_VOICES, TRIGGER_VOICE_GROUPS, isPitchedVoice, pitchedTriggerFrequency } = await import("../src/instruments/graphonic-calculator/triggers.js");
+  assert.deepEqual(PITCHED_VOICES.map((voice) => voice.id), ["pluck", "rattle", "bar", "chime-fm", "zap"]);
+  assert.equal(TRIGGER_VOICE_GROUPS[1].voices, DRUM_VOICES);
+  assert.equal(sanitizeDrum({ voice: "rattle" }).voice, "rattle");
+  assert.ok(isPitchedVoice("pluck") && !isPitchedVoice("sub-kick"));
+  close(pitchedTriggerFrequency({ x: 0, y: VIEW.yMin }, settings({ traceOctaves: 2 }), VIEW), 220);
+  close(pitchedTriggerFrequency({ x: 0, y: VIEW.yMax }, settings({ traceOctaves: 2 }), VIEW), 880);
+  close(pitchedTriggerFrequency({ x: 0, y: 0 }, settings({ traceOctaves: 3 }), VIEW), 220 * 2 ** 1.5);
+  const state = applySnapshot({ rows: [{ text: "y = x", voice: "saw" }, { text: "y = 1", voice: "kazoo" }], view: VIEW, settings: DEFAULT_SETTINGS });
+  assert.deepEqual(state.rows.map((row) => row.voice), ["saw", null]);
+  assert.deepEqual(snapshotOf(state).rows.map((row) => row.voice), ["saw", null]);
+  const geometry = buildGeometry(analyzeState(state), state, VIEW, 800, 400);
+  assert.equal(geometry[0].voice, "saw");
+  const contacts = collectContacts(geometry, settings(), VIEW, 0.2).contacts;
+  assert.deepEqual([...new Set(contacts.map((contact) => contact.voice))].sort(), [null, "saw"].sort());
+});

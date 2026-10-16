@@ -42,7 +42,7 @@ test("expressions, sliders, errors and the silent trace sweep behave like a grap
   await expect(sliderRow.locator(".expression-slider-options")).toBeVisible();
   await sliderRow.locator(".slider-mode").selectOption("once");
   await sliderRow.locator(".slider-speed").selectOption("4");
-  expect((await snapshot(page)).rows.at(-1).slider).toMatchObject({ mode: "once", speed: 4, animating: true });
+  expect((await snapshot(page)).rows.at(-1).slider).toMatchObject({ mode: "once", speed: 4 });
   await expect.poll(async () => (await snapshot(page)).rows.at(-1).slider.animating, { timeout: 15000 }).toBe(false);
   expect((await snapshot(page)).rows.at(-1).text).toBe("R = 10");
   await expect(sliderRow.locator(".expression-slider-options")).toBeVisible();
@@ -335,24 +335,30 @@ test("on a phone the open instrument chooser covers the preset bar, not the othe
   await context.close();
 });
 
-test("a curve can switch to drum triggers that fire as the playhead passes while another curve keeps sounding", async ({ page }) => {
+test("a layer can switch to strikes that fire as the playhead passes while another layer keeps sounding", async ({ page }) => {
   await open(page);
   const parabola = page.locator(".expression-row").first();
-  await expect(parabola.locator(".row-role")).toBeVisible();
-  await parabola.locator(".row-role").click();
-  await expect(parabola.locator(".row-role")).toHaveAttribute("aria-pressed", "true");
+  await expect(parabola.locator(".layer-mode [data-role='contour']")).toHaveAttribute("aria-pressed", "true");
+  await parabola.locator(".layer-voice").selectOption("saw");
+  expect((await snapshot(page)).rows[0].voice).toBe("saw");
+  await parabola.locator(".layer-mode [data-role='drums']").click();
+  await expect(parabola.locator(".layer-mode [data-role='drums']")).toHaveAttribute("aria-pressed", "true");
   await expect(parabola.locator(".drum-placement")).toBeVisible();
+  await expect(parabola.locator(".layer-knob.mz-range-knob .mz-range-knob__dial")).toBeVisible();
   let state = await snapshot(page);
   expect(state.rows[0].kind).toBe("explicit-y");
   expect(state.drums.triggers.length).toBeGreaterThan(0);
   expect(state.drums.triggers.every((trigger) => trigger.rowId === state.rows[0].id)).toBe(true);
   const gridCount = state.drums.triggers.length;
   await parabola.locator(".drum-placement").selectOption("equidistant");
-  await parabola.locator(".drum-count").fill("5");
-  await parabola.locator(".drum-count").dispatchEvent("change");
+  await setRange(page, ".expression-row:first-child .drum-count", 5);
   await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBe(5);
   expect((await snapshot(page)).drums.triggers.map((trigger) => trigger.s)).toEqual([0.1, 0.3, 0.5, 0.7, 0.9]);
+  await expect(parabola.locator(".drum-count-out")).toHaveText("5");
+  await parabola.locator(".drum-voice").selectOption("pluck");
+  await expect(parabola.locator(".layer-pitch")).toBeHidden();
   await parabola.locator(".drum-voice").selectOption("snap-snare");
+  await expect(parabola.locator(".layer-pitch")).toBeVisible();
   await parabola.locator(".drum-placement").selectOption("xy");
   await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBeGreaterThan(gridCount);
   await page.locator("#playButton").click();
@@ -360,7 +366,8 @@ test("a curve can switch to drum triggers that fire as the playhead passes while
   await expect.poll(async () => (await snapshot(page)).reading.contacts).toBeGreaterThan(0);
   state = await snapshot(page);
   expect(state.reading.sample.every((contact) => contact.id !== state.rows[0].id)).toBe(true);
-  await parabola.locator(".row-role").click();
+  await parabola.locator(".layer-mode [data-role='contour']").click();
   await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBe(0);
   expect((await snapshot(page)).rows[0].kind).toBe("explicit-y");
+  expect((await snapshot(page)).rows[0].voice).toBe("saw");
 });

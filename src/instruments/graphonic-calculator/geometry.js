@@ -42,7 +42,7 @@ export function buildGeometry(analysis, state, view, width, height) {
   state.rows.forEach((row, index) => {
     const info = analysis.rows[index];
     if (!info?.plot || !row.visible) return;
-    const base = { id: row.id, index, color: row.color, kind: info.plot.type, label: info.label, segments: [], points: [], fills: [], strict: false, draggable: null };
+    const base = { id: row.id, index, color: row.color, kind: info.plot.type, label: info.label, voice: row.voice ?? null, segments: [], points: [], fills: [], strict: false, draggable: null };
     const { plot } = info;
     const scope = analysis.scope;
     try {
@@ -205,7 +205,7 @@ export function probeHits(geometry, probe) {
     }
     hits.sort((a, b) => a.s - b.s);
     const unique = hits.filter((hit, index) => index === 0 || hit.s - hits[index - 1].s > 1e-3 * length);
-    if (unique.length) results.push({ id: item.id, color: item.color, label: item.label, kind: item.kind, hits: unique });
+    if (unique.length) results.push({ id: item.id, color: item.color, label: item.label, kind: item.kind, voice: item.voice ?? null, hits: unique });
   }
   return results;
 }
