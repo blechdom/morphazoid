@@ -1,4 +1,4 @@
-import { mountAudioInputControl } from "../../audio-input-control.js";
+import { mountRecorderInput } from "../../recorder-input-sources.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
 import { CORES } from "./cores.js";
@@ -31,7 +31,7 @@ const audio = new StartingAudio(id, (next) => {
   state = next; params = { ...next.params };
   if (wasRecording && !next.recording) {
     pendingRecord = null;
-    if (!keepMic) audio.stopMic();
+    if (!keepMic) recorder.releaseInput(() => audio.stopMic());
     status(next.lastRecording?.accepted ? "Recording installed. Existing routes and other loops retained." : "Recording stopped; previous audio retained.");
   }
   if (!loopById(selected)) selected = state.loops[0].id;
@@ -52,7 +52,7 @@ async function toggleAudio() {
   const attempt = ++audioAttempt; $("audioError").hidden = true;
   if (starting || audio.armed) {
     starting = false; recordAttempt++; pendingRecord = null; micAttempt++; micPending = false; keepMic = false;
-    audio.mute(); strip.setAudioState("off"); status(playing ? "Audio is off — turn it on to hear playback" : "Audio off."); update(); return;
+    recorder.stop(); audio.mute(); strip.setAudioState("off"); status(playing ? "Audio is off — turn it on to hear playback" : "Audio off."); update(); return;
   }
   starting = true; strip.setAudioState("starting");
   try {
@@ -104,15 +104,15 @@ const remove = button(tools, "Remove selected", () => {
   const loop = selectedLoop();
   if (state.loops.length < 2 || !confirm(`Remove loop ${loop.label}, its recording and attached routes? Other loops keep playing.`)) return;
   if (connecting === loop.id) connecting = null;
-  if (pendingRecord === loop.id) { recordAttempt++; pendingRecord = null; if (!keepMic) audio.stopMic(); }
-  if (state.recording?.loopId === loop.id) { send({ type: "cancel-record" }); if (!keepMic) audio.stopMic(); }
+  if (pendingRecord === loop.id) { recordAttempt++; pendingRecord = null; if (!keepMic) recorder.releaseInput(() => audio.stopMic()); }
+  if (state.recording?.loopId === loop.id) { send({ type: "cancel-record" }); if (!keepMic) recorder.releaseInput(() => audio.stopMic()); }
   audio.fileGeneration++; send({ type: "remove-loop", loopId: loop.id });
   status(`Removed loop ${loop.label} and only its attached routes.`);
 }, "removeLoop");
 button(tools, "Arrange loops", () => { state.loops.forEach((l, i) => send({ type: "move-loop", loopId: l.id, ...loopPosition(i) })); status("Layout arranged. Timing and recordings unchanged."); }, "arrangeLoops");
 const connectButton = button(tools, "Connect selected", () => beginConnect(selected), "connectLoop");
 const micButton = document.createElement("button"); micButton.id = "microphoneButton";
-const micControl = mountAudioInputControl({
+const recorder = mountRecorderInput({
   container: tools, before: tools.firstElementChild, button: micButton,
   onStart: toggleMic,
   onStop: () => {
@@ -122,7 +122,12 @@ const micControl = mountAudioInputControl({
   onGainInput: (value) => audio.setInputGain(value),
   getState: () => ({ active: Boolean(audio.stream), pending: micPending || pendingRecord !== null }),
   getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),
+}, {
+  getContext: () => audio.context, targets: () => [audio.node],
+  prepare: async () => { if (!audio.node) await audio.arm(snapshot, { output: false }); await audio.context.resume(); },
+  onSourceLeave: () => { recordAttempt++; pendingRecord = null; send({ type: "finish-record" }); },
 });
+const micControl = recorder.control;
 const monitorLabel = document.createElement("label"); monitorLabel.className = "check-control";
 const monitor = document.createElement("input"); monitor.type = "checkbox"; monitor.id = "monitor";
 monitorLabel.append(monitor, document.createTextNode("Monitor microphone · headphones")); tools.append(monitorLabel);
@@ -144,14 +149,14 @@ async function toggleMic() {
 async function record(loopId) {
   const loop = loopById(loopId); if (!loop) return;
   if (filePending) { status("Wait for the current file load before recording."); return; }
-  if (pendingRecord === loopId) { recordAttempt++; pendingRecord = null; if (!keepMic) audio.stopMic(); update(); return; }
+  if (pendingRecord === loopId) { recordAttempt++; pendingRecord = null; if (!keepMic) recorder.releaseInput(() => audio.stopMic()); update(); return; }
   if (state.recording?.loopId === loopId) { send({ type: "finish-record" }); return; }
   if (state.recording || pendingRecord) { status("Finish the current recording first."); return; }
   if (!audio.armed || !audio.node) { error("Turn Audio on first. Recording never arms audio automatically."); return; }
   if (loop.name !== "Empty tape" && !confirm(`Replace the recording in loop ${loop.label}? The old tape stays until this take is finished.`)) return;
   const attempt = ++recordAttempt; pendingRecord = loopId; update();
   try {
-    const ok = await audio.startMic(snapshot);
+    const ok = await recorder.acquireInput(() => audio.startMic(snapshot));
     if (ok && !disposed && attempt === recordAttempt && loopById(loopId)) {
       send({ type: "record", loopId }); if (!tape) send({ type: "params", values: { demo: 0 } });
       status(`Recording microphone into ${loop.label}. Stop installs the take; Pause inside ${loop.label} pauses capture.`);

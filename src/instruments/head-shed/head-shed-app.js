@@ -1,5 +1,5 @@
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
-import { mountAudioInputControl } from "../../audio-input-control.js";
+import { mountRecorderInput } from "../../recorder-input-sources.js";
 import { audioInputConstraints } from "../../audio-input-settings.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 
@@ -317,20 +317,28 @@ const shell = createProtoShell({
     node.port.postMessage({ type: "param", running: shell.running });
   },
   onDisarm: () => {
-    releaseMic();
+    releaseMic(); recorder.stop();
     masterGain?.gain.setTargetAtTime(0, shell.context.currentTime, .02);
     node?.port.postMessage({ type: "param", running: false });
   },
   onTransport: (running) => { node?.port.postMessage({ type: "param", running }); },
 });
 
-const inputControl = mountAudioInputControl({
+const recorder = mountRecorderInput({
   container: $("micButton").closest(".group"),
   before: $("micButton").closest(".transport-row"), button: $("micButton"),
   onStart: enableMic, onStop: releaseMic,
   getState: () => ({ active: Boolean(micStream), pending: micPending }),
   getSignal: () => ({ node: micGain, stream: micStream }),
+}, {
+  getContext: () => shell.context, targets: () => [node, dryGain],
+  prepare: async () => {
+    if (!shell.context) shell.state.context = new (globalThis.AudioContext || globalThis.webkitAudioContext)({ latencyHint: "interactive" });
+    await shell.context.resume();
+    await prepareGraph(shell.context);
+  },
 });
+const inputControl = recorder.control;
 
 for (const [id, key, fmt] of [
   ["speed", "speed", (v) => `${v.toFixed(2)}×`],
