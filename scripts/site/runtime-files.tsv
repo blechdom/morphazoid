@@ -2226,6 +2226,8 @@ copy+require	src/instruments/wobblini/wobblini-app.js
 copy+require	src/instruments/wobblini/wobblini.css
 copy+require	src/instruments/wobblini/wobblini-audio.js
 copy+require	src/instruments/wobblini/wobblini-model.js
+copy+require	src/instruments/wobblini/wobblini-geometry-model.js
+copy+require	src/instruments/wobblini/wobblini-mixer.js
 copy+require	src/instruments/wobblini/wobblini-scratch-model.js
 copy+require	src/instruments/wobblini/wobblini-scratch-processor.js
 

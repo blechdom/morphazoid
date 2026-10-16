@@ -70,6 +70,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
     'assets/instruments/wobblini.webp', 'docs/wobblini.md',
     'src/instruments/wobblini/wobblini-app.js', 'src/instruments/wobblini/wobblini.css',
     'src/instruments/wobblini/wobblini-audio.js', 'src/instruments/wobblini/wobblini-model.js',
+    'src/instruments/wobblini/wobblini-geometry-model.js', 'src/instruments/wobblini/wobblini-mixer.js',
     'src/instruments/wobblini/wobblini-scratch-model.js', 'src/instruments/wobblini/wobblini-scratch-processor.js',
   ]) assert.deepEqual(entries.filter(entry => entry.path === file).map(entry => entry.policy), ['copy+require'], file);
   assert.equal(entries.some(entry => entry.path === 'src/pages/wobblini.html'), false, 'canonical pages use the page manifest');

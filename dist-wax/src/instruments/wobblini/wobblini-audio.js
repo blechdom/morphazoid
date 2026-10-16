@@ -537,6 +537,25 @@ export class WobbliniAudio {
     for (const item of this.decks) this._applyDeck(item);
     this._notify();
   }
+  /** Apply a geometry gesture together without touching transport or Sync.
+   * Only pan/gain are accepted; each affected graph is smoothed once. */
+  setDeckMix(patches) {
+    if (this.disposed || !Array.isArray(patches)) return 0;
+    const updates = new Map();
+    for (const patch of patches.slice(0, WOBBLINI_DECK_COUNT)) {
+      if (!patch || !Number.isInteger(patch.id) || !this.decks[patch.id]) continue;
+      const update = updates.get(patch.id) ?? {};
+      for (const [key, low, high] of [["pan", -1, 1], ["gain", 0, 1]]) {
+        if (Object.hasOwn(patch, key) && Number.isFinite(Number(patch[key]))) update[key] = clamp(patch[key], low, high);
+      }
+      if (Object.keys(update).length) updates.set(patch.id, update);
+    }
+    for (const [id, update] of updates) {
+      const deck = this.decks[id]; Object.assign(deck.state, update); this._applyDeck(deck);
+    }
+    if (updates.size) this._notify();
+    return updates.size;
+  }
   setMaster(patch) {
     if (this.disposed) return;
     Object.assign(this.master, sanitizeMasterPatch(patch, this.master)); this._applyMaster(); this._notify();

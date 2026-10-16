@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WobbliniAudio } from "../src/instruments/wobblini/wobblini-audio.js";
+import { octagonPoints, transformPoints, patchesFromPoints } from "../src/instruments/wobblini/wobblini-geometry-model.js";
 
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`);
@@ -635,4 +636,57 @@ test("Wobblini full snapshots project every phase from one shared clock read", a
     assert.ok(Math.min(error, 1 - error) < 1e-7);
   }
   await h.engine.dispose();
+});
+
+test("Wobblini geometric mix batches smooth each graph once and preserve all eight native transports and Sync", async () => {
+  let notifications = 0;
+  const h = harness({ onChange: () => notifications++ }), { engine, context } = h;
+  engine.setSyncEnabled(true); await engine.arm(); engine.playAll(); context.currentTime += 0.1;
+  const sources = engine.decks.map(deck => deck.source), anchors = engine.decks.map(deck => deck.state.anchorTime);
+  const nativeTiming = sources.map(item => ({ start: item.source.startTime, offset: item.source.offset,
+    rate: item.source.playbackRate.value, loopStart: item.source.loopStart, loopEnd: item.source.loopEnd }));
+  const events = engine.decks.map(deck => ({ pan: deck.graph.pan.pan.events.length, gain: deck.graph.gain.gain.events.length }));
+  const baseline = octagonPoints(); let patches;
+  notifications = 0;
+  for (let step = 0; step < 100; step++) {
+    context.currentTime += 0.04;
+    patches = patchesFromPoints(transformPoints(baseline, { rotation: step * 0.03, scaleX: 1 + Math.sin(step) * 0.2 }));
+    assert.equal(engine.setDeckMix(patches), 8); assertSynced(engine);
+  }
+  assert.equal(notifications, 100, "one complete-mix notification per gesture update");
+  for (const [id, deck] of engine.decks.entries()) {
+    assert.equal(deck.source, sources[id]); assert.equal(deck.state.anchorTime, anchors[id]);
+    const source = deck.source.source;
+    assert.deepEqual({ start: source.startTime, offset: source.offset, rate: source.playbackRate.value,
+      loopStart: source.loopStart, loopEnd: source.loopEnd }, nativeTiming[id]);
+    assert.equal(deck.graph.pan.pan.events.length - events[id].pan, 200, "one hold and ramp per pan update");
+    assert.equal(deck.graph.gain.gain.events.length - events[id].gain, 200, "one hold and ramp per gain update");
+    near(deck.graph.pan.pan.value, patches[id].pan); near(deck.graph.gain.gain.value, patches[id].gain * Math.SQRT1_2);
+    assert.equal(deck.state.playing, true); assert.equal(deck.retiring.size, 0);
+  }
+  assert.equal(h.sources.length, 8); assert.equal(engine.getState().syncAllEnabled, true);
+  await engine.dispose();
+});
+
+test("Wobblini mix batches never arm Audio, merge duplicate deck fields and ignore non-mix or invalid changes", async () => {
+  let notifications = 0;
+  const h = harness({ onChange: () => notifications++ }), { engine } = h;
+  engine.setSyncEnabled(true); engine.playAll(); h.setWall(100.25); notifications = 0;
+  const before = engine.getState();
+  assert.equal(engine.setDeckMix([{ id: 0, pan: -0.5, rate: 2, playing: false }, { id: 0, gain: 0.4 },
+    { id: 1, pan: 9, gain: -9 }, { id: 2, pan: NaN, gain: Infinity }, { id: 99, gain: 0 },
+    null, { id: 3, bpm: 40, mute: true }, { id: 0, pan: 0.3 }]), 2);
+  assert.equal(notifications, 1); const after = engine.getState();
+  near(after.decks[0].pan, 0.3); near(after.decks[0].gain, 0.4);
+  assert.equal(after.decks[1].pan, 1); assert.equal(after.decks[1].gain, 0);
+  for (const [id, deck] of after.decks.entries()) {
+    const { pan: _pan, gain: _gain, ...state } = deck;
+    const { pan: _oldPan, gain: _oldGain, ...original } = before.decks[id];
+    assert.deepEqual(state, original);
+    if (id > 1) { assert.equal(deck.pan, before.decks[id].pan); assert.equal(deck.gain, before.decks[id].gain); }
+  }
+  assertSynced(engine); assert.equal(after.armed, false); assert.equal(h.creates, 0);
+  assert.equal(engine.setDeckMix([{ id: 1, bpm: 60 }, { id: -1, pan: 0 }]), 0);
+  assert.equal(engine.setDeckMix(null), 0); assert.equal(notifications, 1);
+  await engine.dispose(); assert.equal(engine.setDeckMix([{ id: 0, gain: 1 }]), 0);
 });
