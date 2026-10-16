@@ -1,19 +1,12 @@
-.blech-spigot-controls { min-width: 0; flex: 0 0 auto; color: #d8e6df; font-size: 10px; }
+.blech-spigot-controls { position: relative; min-width: 0; flex: 0 0 auto; color: #d8e6df; font-size: 10px; }
 .blech-spigot-mode { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.blech-spigot-controls button { min-height: 28px; padding: 3px 8px; color: #d8e6df; background: #101b16; border: 1px solid #394b3f; border-radius: 0; font: inherit; }
+.blech-spigot-controls button { min-height: 36px; padding: 3px 8px; color: #d8e6df; background: #101b16; border: 1px solid #394b3f; border-radius: 0; font: inherit; }
 .blech-spigot-controls button[aria-pressed="true"] { background: #c94420; color: #fff; border-color: #ee724b; }
 .blech-spigot-mode output { flex: 1; min-width: 0; color: #9eafa6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.blech-spigot-editor { position: absolute; z-index: 6; box-sizing: border-box; padding: 7px; background: #101b16f5; border: 1px solid #99553e; color: #e6eee9; font: 10px monospace; overflow: auto; visibility: hidden; opacity: 0; pointer-events: none; }
-.blech-spigot-selection[data-inspecting="true"] .blech-spigot-editor { visibility: visible; opacity: 1; pointer-events: auto; }
-.blech-spigot-selection[data-dragging="true"] .blech-spigot-editor { visibility: hidden; opacity: 0; pointer-events: none; }
-.blech-spigot-fields { display: flex; align-items: end; gap: 5px; margin-top: 6px; }
-.blech-spigot-editor [data-spigot-details] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.blech-spigot-editor label { display: grid; flex: 1; gap: 2px; min-width: 0; color: #a8b9b0; white-space: nowrap; font-size: 9px; }
-.blech-spigot-editor input { box-sizing: border-box; width: 100%; min-width: 0; height: 26px; padding: 2px 3px; border: 1px solid #394b3f; border-radius: 0; background: #101b16; color: #e6eee9; font: inherit; }
 .blech-spigot-overlay { position: absolute; inset: 0; z-index: 4; overflow: hidden; pointer-events: none; }
 .blech-spigot-preview { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .blech-spigot-paint { position: absolute; inset: 0 0 auto; pointer-events: none; touch-action: none; outline-offset: -3px; }
-.blech-spigot-overlay[data-mode="stamp"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="draw"] .blech-spigot-paint { pointer-events: auto; cursor: crosshair; }
+.blech-spigot-overlay[data-mode="stamp"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="draw"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="erase"] .blech-spigot-paint { pointer-events: auto; cursor: crosshair; }
 .blech-spigot-paint:focus-visible { outline: 2px solid #f1a388; }
 .blech-spigot-selection[hidden] { display: none; }
 .blech-spigot-label { position: absolute; z-index: 1; padding: 2px 4px; pointer-events: none; background: #09130ed9; color: #ffd0b8; font: 10px monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -39,9 +32,32 @@
   .blech-spigot-overlay .blech-spigot-rotate { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
   .blech-spigot-selection .blech-spigot-grip { width: 28px; height: 28px; min-width: 28px; min-height: 28px; border: 8px solid transparent; background-clip: padding-box; }
   .blech-spigot-overlay .blech-spigot-valves button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
-  .blech-spigot-editor input { min-height: 36px; }
 }
 @media (max-height: 500px), (max-width: 700px) {
   .blech-spigot-controls { max-height: 110px; overflow-y: auto; overscroll-behavior: contain; }
   .blech-spigot-mode output { display: none; }
+}
+
+.blech-spigot-controls .blech-spigot-mode > button, .blech-spigot-stamp-picker > summary { box-sizing: border-box; display: grid; place-items: center; width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 7px; color: #d8e6df; background: #101b16; border: 1px solid #394b3f; border-radius: 0; cursor: pointer; }
+.blech-spigot-mode > button svg, .blech-spigot-stamp-picker summary svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.blech-spigot-stamp-picker > summary[aria-pressed="true"] { background: #c94420; color: #fff; border-color: #ee724b; }
+.blech-spigot-mode > button:disabled { opacity: .4; cursor: default; }
+.blech-spigot-stamp-picker .instrument-picker-current { display: block; }
+.blech-spigot-stamp-picker .instrument-picker-chevron { display: none; }
+.blech-spigot-controls [data-spigot-stamp-picker] { flex: 0 0 auto; }
+.blech-spigot-stamp-grid .instrument-picker-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; align-content: start; }
+.blech-spigot-stamp-grid .instrument-picker-row { display: block; min-width: 0; }
+.blech-spigot-stamp-grid .blech-stamp-choice { display: flex; flex-direction: column; align-items: stretch; justify-content: start; width: 100%; min-height: 78px; gap: 4px; padding: 5px; white-space: normal; }
+.blech-spigot-stamp-grid .blech-stamp-thumbnail { width: 100%; height: 40px; flex: 0 0 40px; object-fit: contain; }
+.blech-spigot-stamp-grid .blech-stamp-choice-copy { min-width: 0; overflow: hidden; font: 10px/1.2 monospace; text-align: center; }
+.blech-spigot-stamp-grid .blech-stamp-choice-copy small { display: none; }
+.blech-spigot-stamp-grid .instrument-picker-empty { grid-column: 1 / -1; }
+.blech-spigot-overlay[data-mode="draw"] .blech-spigot-move,
+.blech-spigot-overlay[data-mode="stamp"] .blech-spigot-move,
+.blech-spigot-overlay[data-mode="erase"] .blech-spigot-move,
+.blech-spigot-overlay[data-mode="erase"] .blech-spigot-grip,
+.blech-spigot-overlay[data-mode="erase"] .blech-spigot-rotate { pointer-events: none; }
+.blech-spigot-overlay[data-mode="erase"] .blech-spigot-paint { cursor: cell; }
+@media (pointer: coarse) {
+  .blech-spigot-controls .blech-spigot-mode > button, .blech-spigot-stamp-picker > summary { width: 48px; min-width: 48px; height: 48px; min-height: 48px; }
 }
