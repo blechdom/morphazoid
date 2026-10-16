@@ -23,7 +23,7 @@ export function createDeckState(id) {
     position: 0, anchorTime: 0, playing: false, rate: 1, bpm: demo.bpm,
     cuePoint: 0, loopBeats: 16, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
     gain: 0.7, pan: 0, mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 },
-    filter: 0, assignment: id < 4 ? "A" : "B", loading: false, scratching: false, scratchVelocity: 0 };
+    filter: 0, assignment: id < 4 ? "A" : "B", loading: false, scratching: false, scratchVelocity: 0, syncError: null };
 }
 
 /** Only musical mix fields can be patched; callers cannot mutate live clocks. */
@@ -69,11 +69,46 @@ export function deckPosition(state, time) {
   return clamp(position, 0, state.duration);
 }
 
-export function beatLoop(position, beats, bpm, duration) {
+export function beatLoop(position, beats, bpm, duration, cuePoint = 0) {
   const length = clamp(beats, 0.5, 32, 4) * 60 / clamp(bpm, 40, 240, 120);
   const beat = 60 / clamp(bpm, 40, 240, 120);
-  const start = Math.min(Math.floor(clamp(position, 0, duration) / beat + 1e-8) * beat, Math.max(0, duration - Math.min(length, duration)));
+  const origin = clamp(cuePoint, 0, duration);
+  const gridStart = origin + Math.floor((clamp(position, 0, duration) - origin) / beat + 1e-8) * beat;
+  const start = clamp(gridStart, 0, Math.max(0, duration - Math.min(length, duration)));
   return { loopStart: start, loopEnd: Math.min(duration, start + length) };
+}
+
+/** Cue is the manually chosen beat-zero marker; this is not beat detection. */
+export function beatPhase(position, state, period = 1) {
+  const beats = (position - state.cuePoint) * state.bpm / 60;
+  return ((beats % period) + period) % period;
+}
+
+/** Half-beat loops lock a subdivision; arbitrary clipped loops cannot preserve
+ * a beat phase after wrapping, even when their playback rates match. */
+export function syncLoopPeriod(state) {
+  if (!state.loopEnabled) return 1;
+  const beats = (state.loopEnd - state.loopStart) * state.bpm / 60;
+  if (beats <= 0 || Math.abs(beats * 2 - Math.round(beats * 2)) > 1e-4) return null;
+  return Math.abs(beats - Math.round(beats)) <= 1e-4 ? 1 : 0.5;
+}
+
+/** Match tempo without silently clamping an impossible ratio. */
+export function syncRate(state, master) {
+  const rate = master.bpm * master.rate / state.bpm;
+  return Number.isFinite(rate) && rate >= 0.5 - 1e-9 && rate <= 2 + 1e-9 ? clamp(rate, 0.5, 2) : null;
+}
+
+/** Nearest exact matching phase within the source/loop, or no valid point. */
+export function syncPosition(position, state, phase, period = 1) {
+  const beat = 60 / state.bpm, span = beat * period;
+  const low = state.loopEnabled ? state.loopStart : 0;
+  const high = Math.min(state.duration, state.loopEnabled ? state.loopEnd : state.duration) - 1e-7;
+  const origin = state.cuePoint + phase * beat;
+  const first = Math.ceil((low - origin) / span - 1e-9), last = Math.floor((high - origin) / span + 1e-9);
+  if (first > last) return null;
+  const index = clamp(Math.round((position - origin) / span), first, last);
+  return clamp(origin + index * span, low, high);
 }
 
 /** Integrate a linear frequency ramp so visual wobble follows oscillator phase. */

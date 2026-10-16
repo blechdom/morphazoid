@@ -72,3 +72,34 @@ test("Wobblini wobble integrates a frequency ramp without phase jumps", () => {
   near(wobbleAt(clock, 10.05).phase, 0.35); near(wobbleAt(clock, 10.05).frequency, 4);
   near(wobbleAt(clock, 10.1).phase, 0.6); near(wobbleAt(clock, 10.2).phase, 0.2);
 });
+
+
+test("Wobblini sync math matches exact cue-relative phase inside source and loop bounds", async () => {
+  const { beatPhase, syncPosition, syncRate, syncLoopPeriod } = await import("../src/instruments/wobblini/wobblini-model.js");
+  const master = { ...createDeckState(0), bpm: 128, rate: 1.125, cuePoint: 0.123 };
+  for (const bpm of [72, 90, 120, 180, 240]) {
+    const state = { ...createDeckState(1), bpm, cuePoint: 0.213, loopEnabled: false };
+    near(syncRate(state, master) * bpm, 144);
+    for (const position of [0, 0.03, 1.234, 7.999]) for (const phase of [0, 0.1, 0.5, 0.999]) {
+      const target = syncPosition(position, state, phase);
+      assert.ok(target >= 0 && target < state.duration);
+      const error = Math.abs(beatPhase(target, state) - phase);
+      assert.ok(Math.min(error, 1 - error) < 1e-7);
+    }
+  }
+  assert.equal(syncRate({ bpm: 40 }, master), null);
+  assert.equal(syncRate({ bpm: 240 }, { bpm: 40, rate: 1 }), null);
+  const state = { ...createDeckState(1), loopStart: 0.1, loopEnd: 0.35 };
+  assert.equal(syncLoopPeriod(state), 0.5);
+  const target = syncPosition(0.11, state, 0.37, 0.5);
+  near(beatPhase(target, state, 0.5), 0.37);
+  assert.equal(syncLoopPeriod({ ...state, loopEnd: 0.333 }), null);
+  assert.equal(syncPosition(0, { ...state, loopEnabled: false, duration: 0.03 }, 0.9), null);
+});
+
+
+test("Wobblini loops snap to the manually chosen cue grid and stay inside the source", () => {
+  assert.deepEqual(beatLoop(1.13, 2, 120, 8, 0.2), { loopStart: 0.7, loopEnd: 1.7 });
+  assert.deepEqual(beatLoop(0.1, 2, 120, 8, 0.2), { loopStart: 0, loopEnd: 1 });
+  assert.deepEqual(beatLoop(7.9, 4, 120, 8, 0.2), { loopStart: 6, loopEnd: 8 });
+});
