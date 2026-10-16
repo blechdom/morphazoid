@@ -2123,7 +2123,7 @@ registerHeaderPresets({
     clearError();
     renderAll();
     engine?.setOutput(state.globals.output);
-    await commitScene({ message: "Loaded the full scene without restarting transport." });
+    void commitScene({ message: "Loaded the full scene without restarting transport." });
   },
   randomize: randomizeSrtussPreset,
 });
