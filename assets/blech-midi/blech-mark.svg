@@ -5,7 +5,7 @@
   <defs>
     <path id="wing" fill-rule="evenodd" d="M100 62 68 27 8 8 29 47 10 38 38 81 51 64 67 94 78 73 103 81Z"/>
   </defs>
-  <g fill="#96f4cc">
+  <g fill="#c94420">
     <use href="#wing"/>
     <use href="#wing" transform="translate(240 0) scale(-1 1)"/>
     <path fill-rule="evenodd" d="m120 22 21 9 11 20-4 23-15 15h-26L92 74l-4-23 11-20 21-9Zm0 11a24 24 0 1 0 0 48 24 24 0 0 0 0-48Z"/>

@@ -20,6 +20,7 @@ export const MIXER_SAMPLE_STAMPS = Object.freeze([
 ].map(Object.freeze));
 
 export const MIXER_PATTERN_DEFAULTS = Object.freeze({ seed: 1, density: .5, span: 48, beats: 8, transpose: 0, offset: 0 });
+export const CONTINUOUS_MIDI_STAMPS = Object.freeze(['wave', 'zigzag', 'braid', 'stripes', 'chevrons', 'lattice', 'mesh', 'ladder']);
 const FIXED_SEED_PATTERNS = new Set(['polka-dots', 'plaid', 'checker', 'ladder', 'staircase', 'rings']);
 const bounded = (value, low, high, fallback) => Number.isFinite(Number(value)) ? Math.max(low, Math.min(high, Number(value))) : fallback;
 // Retain the original file bytes when 480 PPQ describes each row exactly.
@@ -130,6 +131,40 @@ function patternPixels(id, density, seed) {
   return pixels;
 }
 
+/** Periodic pitch/time contours fill every temporal row. The shared boundary
+ * is one point on the same periodic curve, not a chord added to close a shape.
+ * Half-row footprints retain thin diagonals when pitch moves several cells.
+ */
+function continuousPixels(id, density, seed) {
+  const rows = 32, columns = 48, period = rows - 1;
+  const phase = seed === 1 ? 0 : seededRandom(seed)() * Math.PI * 2;
+  const width = .55 + density * 1.5, spacing = Math.round(11 - density * 5);
+  const distance = (value, interval) => Math.abs(((value % interval) + interval) % interval - interval / 2);
+  const triangle = value => 1 - 4 * Math.abs(Math.round(value) - value);
+  const angle = y => y / period * Math.PI * 2;
+  const curve = (x, y, fn) => {
+    const points = [fn(y - .5), fn(y), fn(y + .5)];
+    return x >= Math.min(...points) - Math.max(.55, width * .6) && x <= Math.max(...points) + Math.max(.55, width * .6);
+  };
+  const pixel = (x, y) => {
+    switch (id) {
+      case 'wave': return curve(x, y, row => 23.5 + 18 * Math.sin(angle(row) + phase));
+      case 'zigzag': return curve(x, y, row => 23.5 + 19 * triangle(row / period * 2 + phase));
+      case 'braid': return [0, 2 * Math.PI / 3, 4 * Math.PI / 3].some(offset => curve(x, y, row => 23.5 + 17 * Math.sin(angle(row) + phase + offset)));
+      case 'stripes': return distance(x + y / period * spacing * 3 + phase, spacing) < width;
+      case 'chevrons': return distance(y / period * spacing * 4 - Math.abs(x - 23.5) * .6 + phase, spacing) < width;
+      case 'lattice': return distance(x + y / period * 39 + phase, 13) < width || distance(x - y / period * 39 + phase, 13) < width;
+      case 'mesh': return distance(x + Math.sin(angle(y) + phase) * 3, 8) < Math.max(.55, width * .6) || distance(y / period * 32 + Math.sin(x / 6) * 3, 8) < Math.max(.55, width * .6);
+      case 'ladder': return Math.abs(x - 12) < width || Math.abs(x - 35) < width || (x > 12 && x < 35 && distance(y / period * spacing * 4, spacing) < width);
+      default: return false;
+    }
+  };
+  const pixels = Array.from({ length: rows }, (_, y) => Array.from({ length: columns }, (_, x) => Number(pixel(x, y))));
+  // Avoid floating-point differences on an exact periodic boundary.
+  pixels[rows - 1] = pixels[0].slice();
+  return pixels;
+}
+
 /** Raw trails carry earlier notes upward, so emit each picture's top row first.
  * Falling-note stages instead retain bottom-row-first playback; pass
  * orientation: 'falling' to preserve the drawing above a keyboard. The default
@@ -196,8 +231,10 @@ export function mixerStampScore(id, options) {
   const stamp = MIXER_SAMPLE_STAMPS.find(item => item.id === id);
   if (!stamp) throw new Error('Choose a sample from the bank.');
   const normalized = patternOptions(options);
+  const continuous = options?.orientation === 'falling' && CONTINUOUS_MIDI_STAMPS.includes(id);
   let pixels;
-  if (id === 'square') {
+  if (continuous) pixels = continuousPixels(id, normalized.density, normalized.seed);
+  else if (id === 'square') {
     pixels = Array.from({ length: 32 }, (_, y) => Array.from({ length: 48 }, (_, x) =>
       Number(x >= 13 && x <= 34 && y >= 5 && y <= 26 && (x < 15 || x > 32 || y < 7 || y > 24))));
   } else if (stamp.glyph) {
@@ -205,7 +242,7 @@ export function mixerStampScore(id, options) {
   } else pixels = patternPixels(id, normalized.density, normalized.seed);
   // Preserve the original six shapes exactly at the default density. At the
   // extremes, sparse pixels or thicker strokes audibly change their score too.
-  if (stamp.glyph || id === 'square') {
+  if (!continuous && (stamp.glyph || id === 'square')) {
     if (normalized.density < .5) {
       const random = seededRandom(normalized.seed);
       pixels = pixels.map(row => row.map(value => Number(value && random() < .25 + normalized.density * 1.5)));
@@ -219,13 +256,18 @@ export function mixerStampScore(id, options) {
       }));
     }
   }
-  pixels = pixels.map(row => Array.from({ length: normalized.span }, (_, column) => row[Math.min(47, Math.floor((column + .5) * 48 / normalized.span))]));
+  pixels = pixels.map(row => {
+    if (!continuous || normalized.span >= 48) return Array.from({ length: normalized.span }, (_, column) => row[Math.min(47, Math.floor((column + .5) * 48 / normalized.span))]);
+    const resized = Array(normalized.span).fill(0);
+    row.forEach((value, column) => { if (value) resized[Math.min(normalized.span - 1, Math.floor((column + .5) * normalized.span / 48))] = 1; });
+    return resized;
+  });
   // Even sparse/low-resolution combinations remain playable and recoverable.
   if (!pixels.some(row => row.some(Boolean))) pixels[15][Math.floor(normalized.span / 2)] = 1;
   const lowestNote = Math.round(72 - normalized.span / 2) + normalized.transpose, secondsPerRow = normalized.beats / 64;
   const score = generateGridMidi(pixels, { title: stamp.label, secondsPerRow, lowestNote, ticksPerBeat: gridResolution(secondsPerRow) });
-  return { ...mixerPerformanceScore(score, { trimLeading: true, offset: normalized.offset, orientation: options?.orientation }),
-    patternOptions: { ...normalized, beats: score.duration * 2 }, group: stamp.group };
+  return { ...mixerPerformanceScore(score, { trimLeading: !continuous, offset: normalized.offset, orientation: options?.orientation }),
+    patternOptions: { ...normalized, beats: score.duration * 2 }, continuous, group: stamp.group };
 }
 
 /** Skip visually identical adjacent seeds without trapping a usable Variation

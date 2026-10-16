@@ -63,9 +63,9 @@ test('one persistent falling stage and keyboard-operated tabs start without audi
   await expect(page.locator('#blechTab-frames')).toBeFocused(); await expect(page.locator('#blechTab-frames')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#blechPanel-files')).toBeHidden();
   await page.keyboard.press('End'); await expect(page.locator('#blechTab-automata')).toBeFocused();
-  await page.keyboard.press('ArrowRight'); await expect(page.locator('#blechTab-files')).toBeFocused();
+  await page.keyboard.press('ArrowRight'); await expect(page.locator('#blechTab-math')).toBeFocused();
   await page.keyboard.press('ArrowLeft'); await expect(page.locator('#blechTab-automata')).toBeFocused();
-  await page.keyboard.press('Home'); await expect(page.locator('#blechTab-files')).toBeFocused();
+  await page.keyboard.press('Home'); await expect(page.locator('#blechTab-math')).toBeFocused();
   for (const name of tabs) await tab(page, name);
   const after = await page.locator('#blackMidiViewport').boundingBox();
   expect(Math.abs(after.y - before.y)).toBeLessThan(1); expect(Math.abs(after.height - before.height)).toBeLessThan(1);
@@ -87,10 +87,14 @@ test('math Drop creates an audible independent layer on the shared falling canva
   await expect(page.locator('#blechLiveLayers .blech-live-layer')).toHaveCount(1);
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('#blechMathPreset').selectOption('heart');
+  await page.locator('#blechMathPreset').selectOption('heart', { force: true });
   expect((await samples(page))[0]).toMatchObject({ id: first.id, notes: first.notes, duration: first.duration });
   await arm(page); await audible(page);
-  await tab(page, 'stamps'); await expect(page.locator('#mixerSavedPads [data-pad-loop]')).toBeChecked();
+  await tab(page, 'stamps');
+  await expect(page.locator('#blechSavedDrops')).not.toHaveAttribute('open', '');
+  await page.locator('#blechSavedDrops > summary').click();
+  await expect(page.locator('#blechSavedDrops #mixerSavedPads [data-pad-loop]')).toBeChecked();
+  await page.locator('#blechSavedDrops > summary').click();
   await tab(page, 'text'); await audible(page);
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(1);
   await page.locator('#blechLiveLayers [data-layer-stop]').click();
@@ -126,7 +130,7 @@ test('two captured drawings become a loopable frame layer while later preparatio
 });
 
 test('file and looped pad playback survive all preparation tabs and pause independently', async ({ page }) => {
-  test.setTimeout(90000); await open(page);
+  test.setTimeout(90000); await open(page); await tab(page, 'files');
   await page.locator('#blackSongSelect').selectOption('depeche-mode-everything-counts');
   await arm(page); await expect(page.locator('#blackPlayButton')).toBeEnabled();
   await page.locator('#blackPlayButton').click(); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
@@ -140,6 +144,7 @@ test('file and looped pad playback survive all preparation tabs and pause indepe
   await expect.poll(() => page.evaluate(() => __workspaceQA.player.state.time)).toBeGreaterThan(before + .2);
   await expect.poll(() => sources(page)).toContain(`sample:${sample.id}`);
   await audible(page);
+  await tab(page, 'files');
   await page.locator('#blackPlayButton').click();
   const paused = await page.evaluate(() => __workspaceQA.player.state.time), padBefore = (await samples(page))[0];
   await tab(page, 'sequence'); await page.waitForTimeout(300);
@@ -147,6 +152,7 @@ test('file and looped pad playback survive all preparation tabs and pause indepe
   const padAfter = (await samples(page))[0];
   expect(padAfter.cycle * padAfter.duration + padAfter.position).toBeGreaterThan(padBefore.cycle * padBefore.duration + padBefore.position);
   await audible(page);
+  await tab(page, 'files');
   await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
   await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true'); await audible(page);
@@ -170,7 +176,9 @@ test('editing and dropping an asymmetric saved drawing preserves its falling pit
   });
   expect(first.notes).toHaveLength(4);
   expect(first.notes[0].note).toBeGreaterThan(first.notes.at(-1).note);
-  await tab(page, 'stamps'); await page.locator('#mixerSavedPads [data-pad-edit]').first().click();
+  await expect(page.locator('#blechSavedDrops')).not.toHaveAttribute('open', '');
+  await page.locator('#blechSavedDrops > summary').click();
+  await page.locator('#blechSavedDrops #mixerSavedPads [data-pad-edit]').first().click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-frame', 'drawing');
   await drop(page);
   const copies = await page.evaluate(() => __workspaceQA.engine.state.samples.map(sample => ({ id: sample.id, notes: sample.analysis.notes.map(({ note, beat, duration }) => ({ note, beat, duration })) })));
@@ -195,5 +203,44 @@ test('prepared stamp loops persist for future drops while layer switches affect 
   await expect(page.locator('#blechDropLoop')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#blechLiveLayers [data-layer-stop]').click(); await drop(page, { loop: false });
   const oneShot = (await samples(page))[0]; expect(oneShot.loop).toBe(false); expect(oneShot.id).not.toBe(replay.id);
+  expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(0);
+});
+
+test('editing resized text retains the sent geometry and routing while authored duration remains editable', async ({ page }) => {
+  await open(page); await tab(page, 'text');
+  await page.locator('#blechTextMessage').fill('HELLO');
+  await expect(page.locator('#blechDropName')).toHaveText('Text · HELLO');
+  for (const [id, value] of [['blechDropWidth', '16'], ['blechDropHeight', '4'], ['blechDropPitch', '7']]) {
+    await page.locator(`#${id}`).fill(value); await page.locator(`#${id}`).press('Tab');
+  }
+  await page.locator('#blechDropChannel').selectOption({ value: '4' });
+  await page.locator('#blechDropProgram').selectOption('80');
+  await input(page, 'blechDropGain', .35);
+  await drop(page);
+  const layer = page.locator('#blechLiveLayers .blech-live-layer');
+  await layer.locator('[data-layer-pause]').click();
+  const capture = () => page.evaluate(() => {
+    const sample = __workspaceQA.engine.state.samples[0];
+    return { id: sample.id, notes: sample.analysis.notes.map(({ note, beat, duration, channel }) => ({ note, beat, duration, channel })),
+      duration: sample.analysis.durationBeats, paused: sample.paused, gain: sample.gain, channel: sample.channel, program: sample.midi.program, pan: sample.pan };
+  });
+  const before = await capture();
+  expect(before).toMatchObject({ duration: 4, paused: true, gain: .35, channel: 4, program: 80 });
+  expect(Math.max(...before.notes.map(note => note.note)) - Math.min(...before.notes.map(note => note.note)) + 1).toBe(16);
+  await layer.locator('[data-layer-edit]').click();
+  await expect(page.locator('#blechTextBeats')).toHaveValue('8');
+  await page.locator('#blechTextApply').click();
+  expect(await capture()).toEqual(before);
+  await layer.locator('[data-layer-channel]').selectOption({ value: '7' });
+  await layer.locator('[data-layer-pan]').evaluate(node => { node.value = '-.25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.locator('#blechTextMessage').fill('STAR');
+  await input(page, 'blechTextBeats', 12);
+  await page.locator('#blechTextApply').click();
+  const changed = await capture();
+  expect(changed).toMatchObject({ id: before.id, duration: 6, paused: true, gain: .35, channel: 7, program: 80, pan: -.25 });
+  expect(changed.notes).not.toEqual(before.notes);
+  expect(changed.notes.every(note => note.channel === 7)).toBe(true);
+  expect(Math.max(...changed.notes.map(note => note.note)) - Math.min(...changed.notes.map(note => note.note)) + 1).toBe(16);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(0);
 });

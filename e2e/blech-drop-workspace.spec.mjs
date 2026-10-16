@@ -52,7 +52,7 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
   test(`five generators stay separate from output controls and fit ${name}`, async ({ page }) => {
     await page.setViewportSize({ width, height }); await open(page);
     const generatorList = page.getByRole('tablist', { name: 'Generators', exact: true });
-    await expect(generatorList.getByRole('tab')).toHaveText(['Files', 'Frames', 'Math', 'Text', 'Automata']);
+    await expect(generatorList.getByRole('tab')).toHaveText(['Math', 'Files', 'Frames', 'Text', 'Automata']);
     await expect(page.getByRole('tablist', { name: 'Output settings' }).getByRole('tab')).toHaveText(['FX', 'Visualizer']);
     await expect(page.locator('#blechPanel-info')).toHaveJSProperty('tagName', 'FOOTER');
     await expect(page.locator('[data-blech-tab="info"]')).toHaveCount(0);

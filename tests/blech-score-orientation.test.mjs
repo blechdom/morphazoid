@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateGridMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
-import { mixerPerformanceScore, mixerStampScore, mixerMessageScore, nextMixerStampVariation, MIXER_SAMPLE_STAMPS } from '../src/instruments/midi-mixer/midi-mixer-performance-score.js';
+import { mixerPerformanceScore, mixerStampScore, mixerMessageScore, nextMixerStampVariation, MIXER_SAMPLE_STAMPS, CONTINUOUS_MIDI_STAMPS } from '../src/instruments/midi-mixer/midi-mixer-performance-score.js';
 
 function chronological(score) {
   const rows = Array.from({ length: score.rows }, () => Array(score.columns).fill(0));
@@ -37,13 +37,36 @@ test('falling orientation is preserved after pitch, height, width and offset edi
   assert.ok(score.pixels[3].filter(Boolean).length < 50);
 });
 
-test('all falling stamps keep their asymmetric pictures upright, with no leading silence', () => {
-  for (const stamp of MIXER_SAMPLE_STAMPS) {
+test('ordinary falling stamps keep their asymmetric pictures upright, with no leading silence', () => {
+  for (const stamp of MIXER_SAMPLE_STAMPS.filter(stamp => !CONTINUOUS_MIDI_STAMPS.includes(stamp.id))) {
     const rising = mixerStampScore(stamp.id), falling = mixerStampScore(stamp.id, { orientation: 'falling' });
     assert.equal(falling.notes[0].start, 0, stamp.id);
     assert.deepEqual(trim(chronological(falling).reverse()), trim(chronological(rising)), stamp.id);
     assert.deepEqual(falling.pixels, chronological(falling).reverse(), stamp.id);
   }
+});
+
+test('continuous falling stamps preserve their periodic picture orientation and playable seam', () => {
+  // These contours intentionally differ from the legacy rising stamps. Compare
+  // their exported MIDI with the falling picture, rather than the old glyph.
+  for (const id of CONTINUOUS_MIDI_STAMPS) {
+    const score = mixerStampScore(id, { orientation: 'falling', beats: 3.25 });
+    const rows = chronological(score), analysis = parseMidi(score.buffer);
+    assert.equal(score.continuous, true, id);
+    assert.equal(analysis.firstNoteBeat, 0, `${id}: no leading silence`);
+    assert.equal(analysis.durationBeats, 3.25, `${id}: exact loop boundary`);
+    assert.deepEqual(rows.toReversed(), score.pixels, `${id}: exported orientation matches preview`);
+    assert.deepEqual(rows[0], rows.at(-1), `${id}: last and first rows meet`);
+    assert.ok(rows.every(row => row.some(Boolean)), `${id}: no silent row at or inside the loop`);
+  }
+  // A seeded wave is asymmetric in time: the picture's upper quarter curves
+  // right, and playback reaches the picture's lower, left-curving quarter first.
+  const wave = mixerStampScore('wave', { orientation: 'falling', seed: 1 });
+  const center = row => row.reduce((sum, value, index) => sum + value * index, 0) / row.filter(Boolean).length;
+  const rows = chronological(wave), quarter = Math.floor(wave.rows / 4);
+  assert.ok(center(wave.pixels[quarter]) > wave.columns / 2);
+  assert.ok(center(wave.pixels[wave.rows - quarter - 1]) < wave.columns / 2);
+  assert.ok(center(rows[quarter]) < center(rows[wave.rows - quarter - 1]), 'lower picture enters first without a vertical flip');
 });
 
 test('falling message glyphs remain upright and sequential letters keep phrase order and rests', () => {

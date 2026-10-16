@@ -10,6 +10,8 @@ async function open(page) {
   });
   await page.goto('/blech-midi.html');
   await expect.poll(() => page.locator('#blackSongSelect option').count()).toBeGreaterThan(100);
+  await page.locator('#blechTab-files').click();
+  await expect(page.locator('#blechPanel-files')).toBeVisible();
 }
 async function input(page, selector, value) {
   await page.locator(selector).evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); }, value);

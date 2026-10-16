@@ -29,11 +29,15 @@ export function stampThumbnailRects(entry = {}) {
 }
 
 /** Compact stamp choice only; preparing or playing the selected stamp belongs to the owner. */
-export function mountBlechStampPicker(host, { entries = [], onSelect, selectedId, label = 'Choose stamp' } = {}) {
+export function mountBlechStampPicker(host, {
+  entries = [], onSelect, selectedId, label = 'Choose stamp',
+  placeholder = 'Find a stamp or collection', filterLabel = 'Filter MIDI stamps',
+  listLabel = 'MIDI stamps', emptyText = 'No matching stamps',
+} = {}) {
   const doc = host.ownerDocument, runtime = doc.defaultView ?? globalThis;
   const shell = createChoosePickerShell(doc, {
     current: label, label, title: label, panelId: `blech-stamp-choices-${++pickerSequence}`,
-    placeholder: 'Find a stamp or collection', filterLabel: 'Filter MIDI stamps', listLabel: 'MIDI stamps',
+    placeholder, filterLabel, listLabel,
   });
   const { details, summary, currentLabel, panel, search, searchInput, list } = shell;
   details.classList.add('blech-stamp-picker');
@@ -43,7 +47,7 @@ export function mountBlechStampPicker(host, { entries = [], onSelect, selectedId
   currentLabel.classList.add('blech-stamp-current');
   panel.append(search, list); details.append(summary, panel); host.append(details);
   const anchor = anchorChoosePickerPanel(shell, runtime);
-  const empty = doc.createElement('p'); empty.className = 'instrument-picker-empty'; empty.textContent = 'No matching stamps';
+  const empty = doc.createElement('p'); empty.className = 'instrument-picker-empty'; empty.textContent = emptyText;
   const removers = [];
   let disposed = false, selected = selectedId == null ? null : String(selectedId), rows = [];
   const listen = (target, type, handler) => {
@@ -66,8 +70,9 @@ export function mountBlechStampPicker(host, { entries = [], onSelect, selectedId
     if (entry.thumbnail?.nodeName === 'CANVAS' && entry.thumbnail.width && entry.thumbnail.height) {
       context.drawImage(entry.thumbnail, 0, 0, THUMB_WIDTH, THUMB_HEIGHT); return canvas;
     }
-    const rectangles = stampThumbnailRects(entry); context.fillStyle = '#caa0db';
-    for (const rect of rectangles) context.fillRect(rect.x, rect.y, rect.width, rect.height);
+    const rectangles = stampThumbnailRects(entry), stroke = clamp(Number(entry.thumbnailStroke) || 1, 1, 4);
+    context.fillStyle = stroke > 1 ? '#96f4cc' : '#caa0db';
+    for (const rect of rectangles) context.fillRect(rect.x, rect.y, Math.max(stroke, rect.width), Math.max(stroke, rect.height));
     if (!rectangles.length) {
       context.font = '14px monospace'; context.textAlign = 'center'; context.textBaseline = 'middle';
       context.fillText(entry.file ? 'MIDI' : '—', THUMB_WIDTH / 2, THUMB_HEIGHT / 2);
@@ -76,7 +81,7 @@ export function mountBlechStampPicker(host, { entries = [], onSelect, selectedId
   }
   function filter() {
     const words = searchInput.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    for (const row of rows) row.element.hidden = !words.every(word => row.search.includes(word));
+    for (const row of rows) row.element.hidden = Boolean(row.entry.hidden) || !words.every(word => row.search.includes(word));
     empty.hidden = rows.some(row => !row.element.hidden);
   }
   function reflect() {
@@ -121,7 +126,7 @@ export function mountBlechStampPicker(host, { entries = [], onSelect, selectedId
       const title = doc.createElement('span'); title.textContent = entry.title; copy.append(title);
       if (entry.group) { const group = doc.createElement('small'); group.textContent = entry.group; copy.append(group); }
       button.append(thumbnail(entry), copy); element.append(button); list.append(element);
-      rows.push({ entry, element, button, search: `${entry.title} ${entry.group ?? ''} ${entry.artist ?? ''} ${entry.collection ?? ''} ${entry.file ? 'MIDI file' : 'generated pattern'}`.toLocaleLowerCase() });
+      rows.push({ entry, element, button, search: `${entry.title} ${entry.group ?? ''} ${entry.artist ?? ''} ${entry.collection ?? ''} ${entry.keywords ?? ''} ${entry.file ? 'MIDI file' : 'generated pattern'}`.toLocaleLowerCase() });
     }
     list.append(empty);
     if (!rows.some(row => row.entry.id === selected && !row.button.disabled)) selected = rows.find(row => !row.button.disabled)?.entry.id ?? null;
