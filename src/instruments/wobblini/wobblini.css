@@ -47,6 +47,8 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-load[aria-busy="true"] { opacity: .5; }
 .wb-visual { display: flex; gap: 10px; align-items: center; }
 .wb-disc { width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; position: relative; }
+/* Clip transformed square bounds without clipping the upright loop labels. */
+.wb-record-clip { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
 .wb-record-surface { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: repeating-radial-gradient(circle, #1a2834 0 1px, #0b121a 2px 4px); transform: rotate(var(--record-angle, 0deg)); }
 .wb-record-surface::before { content: ''; position: absolute; inset: 20px; background: var(--deck-color); border-radius: 50%; opacity: .85; }
 .wb-record-surface::after { content: ''; position: absolute; width: 4px; height: 4px; top: 29px; left: 29px; border-radius: 50%; background: #09131c; }
