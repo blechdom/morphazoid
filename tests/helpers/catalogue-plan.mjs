@@ -10,10 +10,10 @@ const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-2026
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
-  // October 15 owner request: an eight-deck browser DJ MVP named Wobblini.
+  // October 15: eight-deck Wobblini; October 16 owner request removes looping.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',
-    tags: [{ id: 'app', label: 'App' }, { id: 'looper', label: 'Looper' }, { id: 'audio-effect', label: 'Audio Effect' }] },
+    tags: [{ id: 'app', label: 'App' }, { id: 'audio-effect', label: 'Audio Effect' }] },
   // October 14 owner request: Desmos-style graphing calculator with a sonified trace playhead; October 16: moved into the new Math category.
   { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp',
     categoryId: 'math', categoryLabel: 'Math',

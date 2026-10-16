@@ -114,11 +114,13 @@ export class OutputRecorder {
   getStatus() {
     const take = this.take;
     const sampleRate = take?.sampleRate || this.manager?.recordingSampleRate?.() || 48_000;
-    const maxBytes = take?.maxBytes || this.maxMemoryBytes;
+    const maxBytes = take?.storage ? null : take?.maxBytes || this.maxMemoryBytes;
     const frames = take?.frames || 0;
     return Object.freeze({
       state: this.state,
-      mode: take?.writable ? "file" : "memory",
+      mode: take?.storage ? "storage" : take?.writable ? "file" : "memory",
+      storageId: take?.storageId || null,
+      persistedFrames: take?.persistedFrames || 0,
       frames,
       sampleRate,
       channelCount: this.channelCount,
@@ -128,7 +130,7 @@ export class OutputRecorder {
       seconds: frames / sampleRate,
       bytes: take ? fileBytes(frames, this.headerBytes, this.bytesPerFrame) : 0,
       maxBytes,
-      maxSeconds: frameCapacity(maxBytes, this.headerBytes, this.bytesPerFrame) / sampleRate,
+      maxSeconds: maxBytes === null ? null : frameCapacity(maxBytes, this.headerBytes, this.bytesPerFrame) / sampleRate,
       filename: take?.filename || "",
       reason: take?.reason || "",
       error: take?.error || "",
@@ -151,13 +153,14 @@ export class OutputRecorder {
     }
   }
 
-  async start({ filename = "morphazoid-recording.wav", writable = null } = {}) {
+  async start({ filename = "morphazoid-recording.wav", writable = null, storage = null } = {}) {
+    if (writable && storage) throw new Error("Choose one recording destination.");
     if (this.destroyed) throw new Error("This recorder has been closed.");
     if (this.state !== "idle" && !(this.state === "error" && !this.take?.blob && !this.take?.saved)) {
       throw new Error("Save or discard the current take before recording again.");
     }
     const take = {
-      filename, writable, sampleRate: 48_000, frames: 0, persistedFrames: 0,
+      filename, writable, storage, storageId: null, sampleRate: 48_000, frames: 0, persistedFrames: 0,
       maxBytes: writable ? this.maxFileBytes : this.maxMemoryBytes,
       chunks: [], writeChain: Promise.resolve(), writeError: null,
       reason: "", error: "", blob: null, saved: false,
@@ -189,6 +192,11 @@ export class OutputRecorder {
       };
       context.addEventListener?.("statechange", take.handleStateChange);
       const loaded = context.audioWorklet.addModule(new URL("./output-recorder-processor.js", import.meta.url));
+      if (storage) {
+        take.writeChain = storage.create({ filename, sampleRate: take.sampleRate, channelCount: this.channelCount }).then(stored => {
+          take.storageId = stored.id;
+        }).catch(error => { take.writeError = error; });
+      }
       if (writable) {
         take.writeChain = this.fileOperation(take, () => writable.write(wavHeader({ sampleRate: take.sampleRate, frames: 0, channelCount: this.channelCount }))).catch((error) => {
           take.writeError = error;
@@ -208,6 +216,7 @@ export class OutputRecorder {
         channelInterpretation: this.channelCount === 2 ? "speakers" : "discrete",
         processorOptions: {
           maxFrames,
+          continuous: Boolean(storage),
           channelCount: this.channelCount,
           chunkFrames: Math.max(16_384, Math.ceil(take.sampleRate / 4 / 128) * 128),
           credits: 8,
@@ -262,7 +271,8 @@ export class OutputRecorder {
   acceptChunk(take, { buffer, frames }) {
     if (!(buffer instanceof ArrayBuffer) || !Number.isInteger(frames) || frames <= 0
       || buffer.byteLength !== frames * this.bytesPerFrame
-      || fileBytes(take.frames + frames, this.headerBytes, this.bytesPerFrame) > take.maxBytes) {
+      || !Number.isSafeInteger((take.frames + frames) * this.bytesPerFrame)
+      || (!take.storage && fileBytes(take.frames + frames, this.headerBytes, this.bytesPerFrame) > take.maxBytes)) {
       take.error = "The recorder returned an invalid audio chunk.";
       void this.stop("processor-error");
       return;
@@ -271,7 +281,7 @@ export class OutputRecorder {
       if (!take.finishing) take.node?.port.postMessage({ type: "credit" });
     };
     take.frames += frames;
-    if (!take.writable) {
+    if (!take.writable && !take.storage) {
       take.chunks.push(buffer);
       take.persistedFrames += frames;
       credit();
@@ -280,12 +290,15 @@ export class OutputRecorder {
       // promise queue even if a write stalls while the UI is still responsive.
       take.writeChain = take.writeChain.then(async () => {
         if (take.writeError) return;
-        await this.fileOperation(take, () => take.writable.write(buffer));
+        if (take.storage) await take.storage.append(take.storageId, buffer, frames);
+        else await this.fileOperation(take, () => take.writable.write(buffer));
         take.persistedFrames += frames;
         credit();
       }).catch((error) => {
         take.writeError = error;
-        take.error = message(error, "The recording file could not be written.");
+        take.error = take.storage
+          ? `Browser storage stopped: ${message(error, "storage unavailable")}. Completed audio is retained; export it or free storage before recording again.`
+          : message(error, "The recording file could not be written.");
         void this.stop("write-error");
       });
     }
@@ -367,32 +380,40 @@ export class OutputRecorder {
     await take.writeChain;
     take.frames = take.persistedFrames;
     try {
-      const header = wavHeader({ sampleRate: take.sampleRate, frames: take.frames, channelCount: this.channelCount });
-      const dataBytes = take.frames * this.bytesPerFrame;
-      const padding = new Uint8Array(dataBytes % 2);
-      if (take.writable && !take.frames && take.reason === "start-error") {
-        if (take.writeTimedOut) throw take.writeError;
-        await this.fileOperation(take, () => take.writable.abort?.());
-      } else if (take.writable) {
-        // A failed write may have appended only part of a chunk. Finalize just
-        // the fully written prefix, if the browser still allows the stream to
-        // be committed. An errored disk stream cannot promise recoverability.
-        await this.fileOperation(take, () => take.writable.write({ type: "write", position: 0, data: header }));
-        if (padding.length) {
-          await this.fileOperation(take, () => take.writable.write({ type: "write", position: this.headerBytes + dataBytes, data: padding }));
+      if (take.storage) {
+        // Each committed chunk and frame count are atomic. Even if final
+        // metadata fails (for example at quota), that prefix is recoverable.
+        take.saved = Boolean(take.storageId && take.frames);
+        if (take.storageId) await take.storage.finish(take.storageId, { reason: take.reason, error: take.error });
+      } else {
+        const header = wavHeader({ sampleRate: take.sampleRate, frames: take.frames, channelCount: this.channelCount });
+        const dataBytes = take.frames * this.bytesPerFrame;
+        const padding = new Uint8Array(dataBytes % 2);
+        if (take.writable && !take.frames && take.reason === "start-error") {
+          if (take.writeTimedOut) throw take.writeError;
+          await this.fileOperation(take, () => take.writable.abort?.());
+        } else if (take.writable) {
+          // A failed write may have appended only part of a chunk. Finalize just
+          // the fully written prefix, if the browser still allows the stream to
+          // be committed. An errored disk stream cannot promise recoverability.
+          await this.fileOperation(take, () => take.writable.write({ type: "write", position: 0, data: header }));
+          if (padding.length) {
+            await this.fileOperation(take, () => take.writable.write({ type: "write", position: this.headerBytes + dataBytes, data: padding }));
+          }
+          await this.fileOperation(take, () => take.writable.truncate?.(this.headerBytes + dataBytes + padding.length));
+          await this.fileOperation(take, () => take.writable.close());
+          take.saved = true;
+        } else if (take.frames > 0 || !take.error) {
+          const BlobConstructor = this.runtime.Blob ?? globalThis.Blob;
+          take.blob = new BlobConstructor([header, ...take.chunks, padding], { type: "audio/wav" });
         }
-        await this.fileOperation(take, () => take.writable.truncate?.(this.headerBytes + dataBytes + padding.length));
-        await this.fileOperation(take, () => take.writable.close());
-        take.saved = true;
-      } else if (take.frames > 0 || !take.error) {
-        const BlobConstructor = this.runtime.Blob ?? globalThis.Blob;
-        take.blob = new BlobConstructor([header, ...take.chunks, padding], { type: "audio/wav" });
       }
       this.state = take.blob || take.saved ? "ready" : "error";
     } catch (error) {
+      if (take.storage && error.name === "NotFoundError") take.saved = false;
       take.error = `The take could not be finalized: ${message(error, "unknown error")}`;
-      take.reason = take.writable ? "write-error" : "processor-error";
-      this.state = "error";
+      take.reason = take.writable || take.storage ? "write-error" : "processor-error";
+      this.state = take.storage && take.saved ? "ready" : "error";
       try { Promise.resolve(take.writable?.abort?.()).catch(() => {}); } catch { /* Release the file lock where possible. */ }
     }
     take.chunks = [];

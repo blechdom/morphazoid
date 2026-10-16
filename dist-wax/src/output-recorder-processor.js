@@ -15,7 +15,9 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
     let maximumFrames = Math.floor((0xffff_ffff - headerBytes + 8) / this.bytesPerFrame);
     const maximumDataBytes = maximumFrames * this.bytesPerFrame;
     if (headerBytes - 8 + maximumDataBytes + maximumDataBytes % 2 > 0xffff_ffff) maximumFrames -= 1;
-    this.maxFrames = Number.isFinite(config.maxFrames)
+    this.maxFrames = config.continuous === true
+      ? Math.floor(Number.MAX_SAFE_INTEGER / this.bytesPerFrame)
+      : Number.isFinite(config.maxFrames)
       ? Math.max(0, Math.min(maximumFrames, Math.floor(config.maxFrames))) : 0;
     this.maxCredits = Math.max(1, Math.min(32, Math.floor(config.credits || 8)));
     this.credits = this.maxCredits;

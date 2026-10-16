@@ -59,9 +59,9 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-deck-transport { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 5px; margin-top: 10px; }
 .wb-deck-transport .wb-deck-play { color: var(--deck-color); }
 .wb-deck-transport .wb-deck-play[aria-pressed="true"] { color: #10191b; }
-.wb-loop-row { display: flex; align-items: center; gap: 7px; margin-top: 9px; }
-.wb-loop-row label { color: #b5c3ce; font-size: 10px; display: flex; gap: 5px; align-items: center; flex: 1; }
-.wb-loop-row select { width: 100%; max-width: 88px; min-height: 28px; padding: 3px; font-size: 10px; }
+.wb-tempo-row { display: flex; align-items: center; gap: 7px; margin-top: 9px; }
+.wb-tempo-row label { color: #b5c3ce; font-size: 10px; display: flex; gap: 5px; align-items: center; flex: 1; }
+.wb-tempo-row select { width: 100%; max-width: 88px; min-height: 28px; padding: 3px; font-size: 10px; }
 .wb-effective { color: var(--deck-color); font: 600 14px/1 ui-monospace, monospace; white-space: nowrap; }
 .wb-effective small { font: 8px/1 var(--font-ui, sans-serif); color: #a9b9c6; }
 .wb-level-row { display: grid; grid-template-columns: minmax(55px, 1fr) 30px 30px; gap: 5px; align-items: center; margin-top: 8px; }
@@ -104,40 +104,10 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-dialog h2 { font-size: 19px; }
 .wb-dialog form { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .wb-dialog button { min-height: 40px; }
-/* Tiny decks retain live transport/level controls. The selected deck expands in
-   place, preserving the same DOM, file picker, focus, and audio state. */
-.wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) :is(.wb-loop-row, .wb-detail, .wb-cue, .wb-set-cue, .wb-load, .wb-seek) { display: none; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-visual { gap: 7px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { width: 42px; height: 42px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-record-surface::before { inset: 13px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-record-surface::after { left: 19px; top: 19px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-wave { height: 35px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-deck-transport { grid-template-columns: 1fr; margin-top: 5px; }
-.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-deck-play { min-height: 30px; padding: 4px; }
-.wb-shell.is-tiny .wb-deck.is-selected { grid-column: span 2; grid-row: span 2; }
-.wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr 1fr; }
-.wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo, .wb-shell.is-tiny .wb-deck.is-selected .wb-eq { grid-column: 1 / -1; }
-@media (min-width: 1200px) {
-  .wb-shell.is-tiny .wb-workspace { grid-template-columns: 1fr; }
-  .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
-  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: minmax(0, 1fr) 25px 25px; gap: 3px; }
-  .wb-shell.is-tiny .wb-mixer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto 1fr; align-items: start; gap: 28px; padding: 20px; }
-  .wb-shell.is-tiny .wb-geometry { grid-row: 1 / span 3; }
-  .wb-shell.is-tiny .wb-mixer-section:not(.wb-geometry) { grid-column: 2; }
-  .wb-shell.is-tiny .wb-mixer-section + .wb-mixer-section { border-top: 0; padding-top: 0; margin-top: 0; }
-  .wb-shell.is-tiny .wb-wobble { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px 18px; }
-  .wb-shell.is-tiny .wb-wobble .wb-section-heading { grid-column: 1 / -1; }
-  .wb-shell.is-tiny .wb-pad-wrap { grid-row: span 2; margin: 0; }
-  .wb-shell.is-tiny #wobble-pad { height: 100px; }
-  .wb-shell.is-tiny .wb-wobble > label + label { margin-top: 0; }
-  .wb-shell.is-tiny .wb-session-info { padding-top: 8px; }
-  .wb-shell.is-tiny #errorMessage { grid-column: 1 / -1; }
-}
 @media (min-width: 1500px) { .wb-disc { width: 76px; height: 76px; } .wb-record-surface::before { inset: 24px; } .wb-record-surface::after { left: 36px; top: 36px; } .wb-wave { height: 70px; } }
-@media (max-width: 1199px) { .wb-workspace { grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; } .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-footer label { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: 1fr 27px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: none; } }
-@media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected { grid-column: 1 / -1; grid-row: auto; } .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #syncAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; } .wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected .wb-eq, .wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo { grid-column: auto; } }
+@media (max-width: 1199px) { .wb-workspace { grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; } .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); }  }
+@media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; }      }
+@media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; }   .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #syncAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; }   }
 @media (pointer: coarse) { .wb-shell button, .wb-shell select { min-height: 40px; } .wb-shell :is(#playButton, .wb-deck-play) { min-height: 48px !important; min-width: 48px; } .wobblini-page #audioButton { min-width: 48px; min-height: 48px; } .wb-shell input[type="range"] { height: 32px; } .wb-shell .wb-seek { height: 24px !important; } .wb-detail summary { padding-block: 13px; } }
 
 /* Compact, icon-only controls share accessible labels and hover titles. */
@@ -167,7 +137,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-shell.is-records { max-width: 1320px; padding-top: 10px; }
 .is-records .wb-workspace { display: block; }
 .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.5vw, 20px); max-width: 1160px; margin: 18px auto 0; padding: 4px; }
-.wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail) { display: none; }
+.wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-tempo-row, .wb-level-row, .wb-footer, .wb-detail) { display: none; }
 .is-records .wb-deck { aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .wb-shell #syncAll.has-sync-warning { border-color: #ffbc69; background: #69481e; color: #fff0ce; }
 .is-records .wb-visual { position: absolute; inset: 13.5%; display: block; margin: 0; }
@@ -227,13 +197,13 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .is-records .wb-toolbar .wb-play-all { flex: 0; }
 }
 /* Keep the records clear of notches/home indicators. Native form text at 16px
-   prevents iOS from zooming the page when editing a deck's tempo or loop. */
+   prevents iOS from zooming the page when editing a deck's tempo or speed. */
 @media (pointer: coarse) {
   .wb-shell { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(28px, env(safe-area-inset-bottom)); }
   .wb-shell.is-records { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
   .wb-shell input[type="number"], .wb-shell select { font-size: 16px; }
   .wb-shell .wb-source-tempo input { width: 76px !important; }
-  .wb-shell .wb-loop-row select { max-width: 110px; }
+  .wb-shell .wb-tempo-row select { max-width: 110px; }
   .wobblini-page .instrument-picker-search-input { font-size: 16px; }
   .wobblini-page .instrument-picker-group > summary, .wobblini-page .instrument-picker-link { min-height: 44px; }
 }
@@ -277,45 +247,6 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-settings-grid output { margin-right: auto; }
 #settingsStatus { min-height: 1.6em; margin: 12px 0 0; color: var(--deck-color); font-size: 11px; }
 
-/* Eight stereo tracks share a pan/level plane; the same controls expand for touch. */
-.is-records #geometryOpen { display: none; }
-.wb-geometry-controls { min-width: 0; --deck-color: #c5f078; }
-.wb-geometry .wb-section-heading { margin-bottom: 10px; }
-.wb-geometry-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
-.wb-geometry-tools button { width: 100%; min-width: 0 !important; min-height: 40px; padding: 6px; }
-.wb-geometry-controls button[aria-pressed="true"] { color: #0a1016; background: var(--deck-color); border-color: var(--deck-color); }
-.wb-geometry-stage { position: relative; width: 100%; height: 260px; background: #09121a; border-radius: 5px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
-.wb-geometry-stage.is-dragging { cursor: grabbing; }
-.wb-geometry-stage[data-mode="rotate"] { cursor: alias; }
-.wb-geometry-stage[data-mode="stretch"] { cursor: nwse-resize; }
-#geometryCanvas { display: block; width: 100%; height: 100%; pointer-events: none; }
-.wb-geometry-controls .wb-geometry-point { position: absolute; display: inline-flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); width: 36px; height: 36px; min-width: 36px !important; min-height: 36px !important; padding: 0; border: 1px solid var(--deck-color); color: var(--deck-color); border-radius: 50%; background: #0c141ce8; font: 600 13px/1 ui-monospace, monospace; cursor: grab; -webkit-tap-highlight-color: transparent; }
-.wb-geometry-controls .wb-geometry-point[aria-pressed="true"] { z-index: 2; background: var(--deck-color); color: #0a1016; }
-.wb-geometry-controls .wb-geometry-point:focus-visible { z-index: 3; }
-.wb-geometry-help { margin: 8px 0 10px !important; color: #aebfcb; font-size: 10px; line-height: 1.5; }
-.wb-geometry-selected { display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; font-size: 11px; }
-.wb-geometry-selected select { width: 56px; }
-.wb-geometry-selected output { margin-left: auto; color: var(--deck-color); font: 10px/1.4 ui-monospace, monospace; }
-.wb-geometry-controls > .wb-control { margin-top: 10px; }
-.wb-geometry-keyboard { margin-top: 8px; }
-.wb-geometry-keyboard summary { padding-block: 10px; font-size: 11px; color: #aebfcb; cursor: pointer; }
-.wb-geometry-keyboard .wb-control { margin-block: 10px; }
-.wb-geometry-dialog { width: min(500px, calc(100vw - 28px)); max-width: none; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); margin: auto; padding: 16px; overflow: auto; overscroll-behavior: contain; }
-.wb-geometry-dialog > header { position: sticky; top: -16px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; background: #19242e; }
-.wb-geometry-dialog h2 { margin: 0; font-size: 20px; color: #c5f078; }
-.wb-geometry-dialog [data-geometry-close] { width: 48px; height: 48px; min-height: 48px; }
-.wb-geometry-dialog .wb-geometry-stage { height: clamp(240px, 45vh, 360px); }
-.wb-geometry-dialog input[type="range"] { display: block; width: 100%; min-width: 0; height: 40px; margin: 0; accent-color: var(--deck-color); }
-.wb-geometry-dialog select { min-height: 48px; font: 16px system-ui, sans-serif; border: 1px solid #3c4854; border-radius: 5px; padding: 6px; background: #0c141c; color: #edf3f6; }
-.wb-geometry-dialog :is(button, input, select, summary):focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-@media (min-width: 440px) { .wb-geometry-dialog .wb-geometry-tools { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-@media (max-width: 759px) { .wb-mixer .wb-geometry { grid-column: 1 / -1; } }
-@media (pointer: coarse) {
-  .wb-geometry-tools button, #geometryExpand, #geometryOpen { min-height: 48px; min-width: 48px; }
-  .wb-geometry-controls .wb-geometry-point { width: 48px; height: 48px; min-width: 48px !important; min-height: 48px !important; }
-  .wb-geometry-controls .wb-control input[type="range"] { height: 40px; }
-}
-
 /* Track view gives its entire width to the scratch waveform. */
 .wb-shell:not(.is-records) .wb-disc { display: none; }
 .wb-shell:not(.is-records) .wb-visual { display: block; }
@@ -354,11 +285,67 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-settings-knobs label { font-size: 11px; }
 @media (max-width: 479px) {
   .wb-shell:not(.is-records) .wb-decks { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .wb-shell.is-tiny .wb-deck.is-selected { grid-column: auto; }
-  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-wave { height: 60px; }
-  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: minmax(0, 1fr) 32px 32px; }
-  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: inline-flex; }
   .wb-shell .wb-toolbar .wb-master-tempo { flex: 0 0 auto; }
   .wb-shell.is-records .wb-toolbar .wb-master-tempo { margin-left: 0; }
   .is-records #syncAll { margin-left: auto; }
 }
+
+/* Views change the visible decks, never the audio graph. */
+.wb-view-decks { display: flex; gap: 16px; align-items: center; margin: 12px auto 0; max-width: 1160px; }
+.wb-view-decks label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #b5c5d0; }
+.wb-view-decks select { min-width: 56px; }
+.wb-view-decks output { margin-left: auto; font-size: 11px; color: #b5c5d0; }
+.wb-crossfade { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 12px auto; color: #c5f078; font: 650 11px ui-monospace, monospace; }
+.wb-crossfade input[type="range"] { height: 40px; flex: 1; }
+.wb-crossfade button { flex: 0 0 32px; }
+.wb-toolbar { position: relative; }
+.wb-sync-options { margin-left: auto; }
+.wb-sync-options summary { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; cursor: pointer; list-style: none; }
+.wb-sync-options summary::-webkit-details-marker { display: none; }
+.wb-sync-options > div { position: absolute; right: 0; top: 100%; z-index: 20; width: 218px; padding: 14px; border: 1px solid #4e6273; border-radius: 6px; background: #18232d; box-shadow: 0 10px 30px #0008; }
+.wb-sync-options label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; }
+.wb-sync-options label + label { margin-top: 10px; }
+.wb-shell.is-classic .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 860px; }
+.wb-shell:is(.is-pro, .is-prepare) { max-width: 1320px; }
+.wb-shell:is(.is-pro, .is-prepare) .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.wb-shell.is-prepare .wb-decks { grid-template-columns: minmax(0, 1fr); }
+.wb-shell.is-prepare .wb-detail-body { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.wb-shell.is-prepare .wb-eq { grid-column: 1 / -1; }
+.wb-shell.is-pro .wb-detail { display: none; }
+.wb-source-name { display: block; min-height: 2em; overflow-wrap: anywhere; color: #cbd8e1; font: 12px/1.5 var(--font-ui, system-ui, sans-serif); margin-bottom: 8px; }
+.wb-source-status { display: block; color: #efc987; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; margin-bottom: 6px; }
+.wb-source-status:empty, .is-records :is(.wb-source-name, .wb-source-status) { display: none; }
+.wb-field { display: flex; gap: 8px; align-items: center; justify-content: space-between; color: #b5c5d0; font-size: 11px; min-width: 0; }
+.wb-deck-options { display: flex; gap: 6px; align-items: center; }
+.wb-auto-gain { display: flex; align-items: center; gap: 6px; color: #b5c5d0; font-size: 11px; }
+.wb-auto-gain output { margin-left: auto; }
+.wb-settings-knobs { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.wb-settings-knobs output { white-space: nowrap; font-size: 10px; }
+.wb-settings-knobs section > button { width: 32px; min-height: 32px; height: 32px; }
+.wb-settings-switches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.wb-settings-switches label { display: flex; gap: 4px; align-items: center; font-size: 11px; }
+.wb-settings-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.wb-settings-fields label { display: flex; flex-direction: column; gap: 4px; color: #c1ced8; font-size: 11px; }
+.wb-settings-fields label:last-child { grid-column: 1 / -1; }
+.wb-settings-fields input[type="range"] { width: 100%; min-width: 0; height: 36px; accent-color: var(--deck-color); }
+.wb-settings-grid label + label { margin-top: 8px; }
+@media (max-width: 759px) {
+  .wb-view button { padding: 6px; }
+  .wb-shell.is-classic .wb-decks { grid-template-columns: minmax(0, 1fr); max-width: 400px; }
+  .wb-shell:is(.is-pro, .is-prepare) .wb-decks { grid-template-columns: minmax(0, 1fr); }
+  .wb-shell .wb-toolbar .wb-master-tempo, .wb-shell #syncAll { order: initial; }
+  .wb-shell .wb-toolbar > button { flex: 0; }
+  .wb-shell .wb-toolbar #syncAll { margin-left: 0; }
+  .wb-shell .wb-toolbar .wb-play-all { flex: 0; }
+}
+@media (max-width: 359px) {
+  .wb-heading { gap: 3px; }
+  .wb-title h1 { font-size: 22px; }
+  .wb-view { gap: 2px; }
+  .wb-view button { padding: 4px; }
+  .wb-shell.is-prepare .wb-detail-body { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 500px) and (min-width: 640px) {
+  .wb-shell.is-classic .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; }
+}
+@media (pointer: coarse) { .wb-crossfade input[type="range"] { height: 48px; } }
