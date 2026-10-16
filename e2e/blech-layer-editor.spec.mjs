@@ -31,6 +31,8 @@ test('explicit layer settings edit live geometry and instruments while sibling p
   const [first, second] = await pair(page), before = await sourceState(page), initialSamples = await sampleState(page);
   await row(page, first).locator('[data-layer-settings]').click();
   await expect(editor(page)).toBeVisible(); await expect(editor(page)).toHaveAttribute('data-spigot-id', first);
+  const [panelBox, rackBox] = await Promise.all([editor(page).boundingBox(), page.locator('#blechLiveLayers').boundingBox()]);
+  expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(rackBox.y + rackBox.height + 1);
   await expect(row(page, first)).toHaveAttribute('data-selected', 'true');
   expect((await row(page, first).boundingBox()).height).toBeLessThanOrEqual(34);
   expect(await editor(page).evaluate(node => node.previousElementSibling?.dataset.spigotId)).toBe(first);

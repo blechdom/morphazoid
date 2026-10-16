@@ -553,6 +553,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-live-layer > [data-layer-settings][aria-expanded="true"] { color: #07110b; background: #96f4cc; }
 .blech-layer-editor { position: sticky; left: 0; display: grid; flex: 0 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px 8px; width: 100%; min-width: 0; padding: 6px; box-sizing: border-box; background: #16241d; }
 .blech-layer-editor[hidden] { display: none; }
+.blech-preparation > .blech-live-strip:has(.blech-layer-editor:not([hidden])) { max-height: min(320px, 45dvh); }
 .blech-layer-editor-heading { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .blech-layer-editor-heading strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c9ffe6; font-size: 10px; }
 .blech-layer-editor-heading button { flex: 0 0 24px; min-width: 24px; width: 24px; height: 24px; min-height: 24px; padding: 0; font-size: 18px; }
