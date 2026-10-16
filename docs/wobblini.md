@@ -99,8 +99,9 @@ does not transfer to another deck. Sync remains enabled while alignment is
 suspended. It never starts a paused deck or turns Audio on.
 
 Sync cannot match a follower outside its ½×–2× rate range. A loop clipped to
-the file boundary must span an exact multiple of half a beat to stay aligned;
-half-beat loops align on that subdivision. Incompatible tempo or loop bounds
+the file boundary must span a multiple of half a beat, allowing one decoded
+sample of rounding; half-beat loops align on that subdivision. That tiny
+rounding difference can accumulate over repeated wraps. Incompatible tempo or loop bounds
 report a sync error rather than claim a lock. Source BPM metadata stays intact.
 All decks share one audio clock, and synchronized source changes are scheduled
 at the same audio-clock boundary.
