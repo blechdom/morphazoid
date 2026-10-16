@@ -135,13 +135,12 @@ test("bank shares explicit context, schedules exact notes and maps all sound con
 test("disposal cancels preparation and cannot revive a detached bank", async () => {
   const audio = context();
   let release;
-  const blockedRuntime = { ...runtime, fetch: async (url) => { await new Promise((resolve) => { release = resolve; }); return runtime.fetch(url); } };
+  const fetchGate = new Promise((resolve) => { release = resolve; });
+  const blockedRuntime = { ...runtime, fetch: async (url) => { await fetchGate; return runtime.fetch(url); } };
   const bank = new SequencerVoiceBank({ runtime: blockedRuntime });
   const pending = bank.prepare(audio);
   bank.dispose();
-  // Both kernels load sequentially; release their fetches without waiting on DSP.
-  release();
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  // Both sequential fetches share one gate, regardless of read/compile timing.
   release();
   await assert.rejects(pending, { name: "AbortError" });
   assert.equal(bank.context, null);
