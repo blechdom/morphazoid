@@ -33,10 +33,12 @@ export function midiStampPitchBounds(notes, pitchWidth = null) {
  * Compression is FIFO-safe for repeated pitches: each paired on and off moves
  * by the same convex interpolation, so releases cannot cross one another.
  */
-export function transformMidiStamp(input, { gateScale = 1, channel = null, transpose = 0, pitchWidth = null, timeScale = 1 } = {}) {
+export function transformMidiStamp(input, { gateScale = 1, channel = null, transpose = 0, pitchWidth = null, timeScale = 1, removeNoteIds = [] } = {}) {
   const source = bytesOf(input?.buffer && !ArrayBuffer.isView(input) ? input.buffer : input);
   if (!source) throw new Error('Choose a MIDI stamp first.');
   const analysis = parseMidi(source), gate = clamp(gateScale, .01, 1, 1);
+  const requestedRemoval = new Set(removeNoteIds), removed = new Set(analysis.notes.filter(note => requestedRemoval.has(note.id)).map(note => note.id));
+  const omittedEvents = new Set(analysis.events.filter(event => removed.has(event.noteId) && [8, 9].includes(event.kind)).map(event => event.order));
   const resizeTime = Number.isFinite(Number(timeScale)) && Number(timeScale) !== 1;
   // Quarter-beat size controls need representable loop edges even in low-PPQ files.
   const outputPpq = resizeTime ? Math.min(32764, Math.max(960, Math.ceil(analysis.ppq / 4) * 4)) : analysis.ppq;
@@ -48,7 +50,7 @@ export function transformMidiStamp(input, { gateScale = 1, channel = null, trans
   const requestedTranspose = Math.round(clamp(transpose, -127, 127, 0));
   const appliedTranspose = analysis.notes.length ? clamp(requestedTranspose, -pitch.low, 127 - pitch.high, 0) : 0;
   const buffer = source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-  if (gate === 1 && targetChannel === null && !appliedTranspose && pitch.width === pitch.sourceWidth && stretch === 1) return { buffer, analysis, gateScale: gate, appliedTranspose, channel: targetChannel, pitchWidth: pitch.width, timeScale: stretch, adjustedNoteCount: 0, warnings: [] };
+  if (!removed.size && gate === 1 && targetChannel === null && !appliedTranspose && pitch.width === pitch.sourceWidth && stretch === 1) return { buffer, analysis, gateScale: gate, appliedTranspose, channel: targetChannel, pitchWidth: pitch.width, timeScale: stretch, adjustedNoteCount: 0, warnings: [] };
 
   const notes = new Map(analysis.notes.map(note => [note.id, note]));
   const releases = new Map(), paired = new Set();
@@ -90,14 +92,14 @@ export function transformMidiStamp(input, { gateScale = 1, channel = null, trans
       }
       const movedTick = releases.get(sequence) ?? tick;
       if (movedTick !== tick) adjustedNoteCount++;
-      events.push({ tick: scaleTick(movedTick), order: sequence, bytes });
+      if (!omittedEvents.has(sequence)) events.push({ tick: scaleTick(movedTick), order: sequence, bytes });
     }
     chunks.push(trackChunk(events));
   }
   // A malformed-but-playable source may omit note-offs. Add complete releases
   // in explicit-port tracks without rewriting the source track's port changes.
   const missing = new Map();
-  for (const note of analysis.notes) if (gate !== 1 && !paired.has(note.id)) {
+  for (const note of analysis.notes) if (!removed.has(note.id) && gate !== 1 && !paired.has(note.id)) {
     const port = targetChannel === null ? Math.floor(note.channel / 16) : 0;
     if (!missing.has(port)) missing.set(port, [{ tick: 0, order: -1, bytes: [255, 33, 1, port] }]);
     missing.get(port).push({ tick: scaleTick(Math.max(Math.round(note.beat * analysis.ppq) + 1, Math.round((note.beat + note.duration * gate) * analysis.ppq))), order: note.id,
@@ -114,9 +116,9 @@ export function transformMidiStamp(input, { gateScale = 1, channel = null, trans
   for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.length; }
   if (output.byteLength > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('The edited stamp exceeds the MIDI sample size limit; no notes were removed.');
   const transformed = parseMidi(output);
-  if (transformed.noteCount !== analysis.noteCount) throw new Error('Could not preserve every note in the edited stamp.');
+  if (transformed.noteCount !== analysis.noteCount - removed.size) throw new Error('Could not preserve the remaining notes in the edited stamp.');
   if (transformed.events.length > MIDI_SAMPLE_LIMITS.events) throw new Error('The edited stamp exceeds the MIDI sample event limit; no notes were removed.');
-  return { buffer: output.buffer, analysis: transformed, gateScale: gate, appliedTranspose, channel: targetChannel, pitchWidth: pitch.width, timeScale: stretch, adjustedNoteCount,
+  return { buffer: output.buffer, analysis: transformed, removedNoteCount: removed.size, gateScale: gate, appliedTranspose, channel: targetChannel, pitchWidth: pitch.width, timeScale: stretch, adjustedNoteCount,
     warnings: missing.size ? ['Missing note-offs were completed at the chosen gate length.'] : [] };
 }
 

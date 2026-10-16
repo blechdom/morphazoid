@@ -13,7 +13,7 @@ import { mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
 import { mountBlechDropStage } from './blech-midi-drop-stage.js';
-import { createBlechSpigotEngine } from './blech-midi-spigot-engine.js';
+import { createBlechSpigotEngine, blechStrokeScore } from './blech-midi-spigot-engine.js';
 import { mountBlechSpigots } from './blech-midi-spigots.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
@@ -37,7 +37,7 @@ function mountBlechMidi() {
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
   let masterPause = null;
-  let selectedSpigot = null;
+  let selectedSpigot = null, canvasStampId = 'heart', canvasStampPrepared = null;
   let dropStage, stampPicker, spigots, spigotView, frameMode = 'stamps', automataSignature = '';
   const prepared = new Map();
   let bankChooser, effectsSignature = '';
@@ -65,6 +65,69 @@ function mountBlechMidi() {
     if (options.loop !== undefined) dropStage.configure({ loop: options.loop });
     return dropStage.send();
   }
+  let layerEditorSource = null;
+  const layerEditor = document.createElement('section');
+  layerEditor.id = 'blechLayerEditor'; layerEditor.className = 'blech-layer-editor'; layerEditor.hidden = true;
+  layerEditor.setAttribute('role', 'group');
+  layerEditor.innerHTML = `<div class="blech-layer-editor-heading"><strong data-layer-editor-name></strong><button type="button" data-layer-editor-close aria-label="Close layer settings">×</button></div>
+    <label>Pitch<input data-layer-field="transpose" type="number" min="-127" max="127" step="1"></label>
+    <label>Delay · beats<input data-layer-field="delayBeats" type="number" min="0" max="64" step=".25"></label>
+    <label>Width · notes<input data-layer-field="widthNotes" type="number" min="1" max="128" step="1"></label>
+    <label>Height · beats<input data-layer-field="heightBeats" type="number" min=".25" max="512" step=".25"></label>
+    <label>Rotation · °<input data-layer-field="rotationDegrees" type="number" min="0" max="359" step="1"></label>
+    <label>Instrument<select data-layer-program><option value="original">Original instruments</option>${GM_PROGRAM_NAMES.map((name, index) => `<option value="${index}">${index + 1} · ${name}</option>`).join('')}</select></label>
+    <output data-layer-editor-status role="status"></output>`;
+  $('blechLiveLayers').append(layerEditor);
+  function closeLayerEditor(restoreFocus = false) {
+    const owner = [...layerNodes.values()].find(node => node.dataset.spigotId === layerEditorSource);
+    layerEditorSource = null; layerEditor.hidden = true;
+    for (const node of layerNodes.values()) node.querySelector('[data-layer-settings]')?.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) owner?.querySelector('[data-layer-settings]')?.focus({ preventScroll: true });
+  }
+  function reflectLayerEditor() {
+    const source = spigots?.getLayers().find(layer => layer.id === layerEditorSource);
+    const owner = source && layerNodes.get(source.sampleId);
+    if (!source || !owner) { closeLayerEditor(layerEditor.contains(document.activeElement)); return; }
+    if (owner.nextElementSibling !== layerEditor) {
+      const focus = layerEditor.contains(document.activeElement) ? document.activeElement : null;
+      owner.after(layerEditor); focus?.focus({ preventScroll: true });
+    }
+    layerEditor.hidden = false; layerEditor.dataset.spigotId = source.id;
+    layerEditor.setAttribute('aria-label', `Layer settings for ${source.name}`);
+    layerEditor.querySelector('[data-layer-editor-name]').textContent = source.name;
+    for (const node of layerNodes.values()) node.querySelector('[data-layer-settings]')?.setAttribute('aria-expanded', String(node === owner));
+    const labels = { transpose: 'Pitch offset in semitones', delayBeats: 'Delay in beats', widthNotes: 'Width in notes', heightBeats: 'Height in beats', rotationDegrees: 'Rotation in degrees' };
+    for (const input of layerEditor.querySelectorAll('[data-layer-field]')) {
+      const key = input.dataset.layerField;
+      const fallback = key === 'widthNotes' ? source.score.pitchWidth ?? 128 : key === 'heightBeats' ? source.score.analysis.durationBeats : 0;
+      if (document.activeElement !== input) input.value = String(source.settings[key] ?? fallback);
+      input.setAttribute('aria-label', `${labels[key]} for ${source.name}`);
+    }
+    const program = layerEditor.querySelector('[data-layer-program]');
+    const selected = Object.hasOwn(source.settings.midi ?? {}, 'program') ? source.settings.midi.program : source.settings.program;
+    if (document.activeElement !== program) program.value = selected == null || selected === 'original' ? 'original' : String(selected);
+    program.setAttribute('aria-label', `Instrument for ${source.name}`);
+  }
+  on(layerEditor.querySelector('[data-layer-editor-close]'), 'click', () => closeLayerEditor(true));
+  on(layerEditor, 'keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeLayerEditor(true); } });
+  on(layerEditor, 'focusout', () => queueMicrotask(() => { if (layerEditorSource && !disposed) reflectLayerEditor(); }));
+  on(document, 'pointerdown', event => { if (layerEditorSource && !layerEditor.contains(event.target) && !event.target.closest('[data-layer-settings]')) closeLayerEditor(); });
+  on(layerEditor, 'change', event => {
+    const source = spigots?.getLayers().find(layer => layer.id === layerEditorSource);
+    if (!source) return;
+    const target = event.target, status = layerEditor.querySelector('[data-layer-editor-status]');
+    try {
+      if (target.matches('[data-layer-field]')) {
+        if (!target.value || !target.validity.valid) { status.value = 'Use a value within the shown range.'; return; }
+        spigots.edit(source.id, { [target.dataset.layerField]: Number(target.value) });
+      } else if (target.matches('[data-layer-program]')) {
+        const program = target.value === 'original' ? null : Number(target.value);
+        const midi = engine.state.samples.find(sample => sample.id === source.sampleId)?.midi ?? source.settings.midi ?? {};
+        spigots.configure(source.id, { program: program ?? 'original', midi: { ...midi, program } });
+      }
+      status.value = ''; reflectLayerEditor();
+    } catch (error) { status.value = error.message || 'Could not update this layer.'; }
+  });
   function configureLayer(id, patch) { const source = spigots?.bySample(id); return source ? spigots.configure(source.id, patch) : engine.configureSample(id, patch); }
   function reflectLayerSelection() {
     for (const node of layerNodes.values()) {
@@ -81,6 +144,7 @@ function mountBlechMidi() {
     }
     if (!source) return;
     spigotView?.setMode('select'); spigotView?.select(source.id);
+    return source;
   }
   function reflectLayers(state) {
     const sourceLayers = spigots?.getLayers() ?? [];
@@ -105,10 +169,18 @@ function mountBlechMidi() {
           <label class="blech-layer-dial" title="Layer volume"><span class="sr-only">Volume</span><input type="range" min="0" max="1" step=".01" data-layer-gain><output class="sr-only" data-layer-gain-out></output></label>
           <label class="blech-layer-channel" title="MIDI channel"><span class="sr-only">MIDI channel</span><select data-layer-channel><option value="">Orig</option>${Array.from({ length: 16 }, (_, i) => `<option value="${i}">${i + 1}${i === 9 ? ' D' : ''}</option>`).join('')}</select></label>
           <label class="blech-layer-dial" title="Stereo pan"><span class="sr-only">Pan</span><input type="range" min="-1" max="1" step=".01" value="0" data-layer-pan><output class="sr-only" data-layer-pan-out></output></label>
+          <button type="button" data-layer-settings title="Layer settings" aria-expanded="false" aria-controls="blechLayerEditor">⚙</button>
           <button type="button" data-layer-stop title="Remove this layer">×</button>`;
         node.setAttribute('role', 'group');
         const control = key => node.querySelector(`[data-layer-${key}]`);
         control('name').addEventListener('click', () => selectLayer(node.dataset.spigotId, sample.id));
+        control('settings').addEventListener('click', () => {
+          const closing = layerEditorSource && layerEditorSource === node.dataset.spigotId;
+          if (closing) { closeLayerEditor(); return; }
+          const source = selectLayer(node.dataset.spigotId, sample.id); if (!source) return;
+          layerEditorSource = source.id; layerEditor.querySelector('[data-layer-editor-status]').value = '';
+          reflectLayerEditor(); layerEditor.querySelector('input').focus({ preventScroll: true });
+        });
         node.addEventListener('click', event => {
           if (!event.target.closest('button, input, select, label, a, [role="slider"]')) selectLayer(node.dataset.spigotId, sample.id);
         });
@@ -137,6 +209,7 @@ function mountBlechMidi() {
       node.setAttribute('aria-label', name);
       node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
       node.querySelector('[data-layer-stop]').setAttribute('aria-label', `Remove ${name}`);
+      node.querySelector('[data-layer-settings]').setAttribute('aria-label', `Layer settings for ${name}`);
       if (!node.querySelector('[data-layer-edit]') && performanceView?.getTextLayer(sample.id)) {
         const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.layerEdit = ''; edit.textContent = 'Edit';
         edit.addEventListener('click', () => loadTextLayer(performanceView.getTextLayer(sample.id)));
@@ -173,13 +246,14 @@ function mountBlechMidi() {
       field(pause, sample.paused ? '▶' : 'Ⅱ'); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
       pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
       pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
-      const stateLabel = sample.closed ? 'Valve closed' : sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.loop ? 'Looping' : 'One shot';
+      const stateLabel = sample.closed ? 'Valve closed' : sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.hold ? 'Held' : sample.loop ? 'Looping' : 'One shot';
       const channel = sample.channel == null ? 'Original channels' : `Ch ${sample.channel + 1}`;
       const program = Number.isInteger(sample.midi?.program) && sample.midi.program >= 0 ? GM_PROGRAM_NAMES[sample.midi.program] : 'Original instruments';
       field(node.querySelector('[data-layer-status]'), `${stateLabel} · ${channel} · ${program}`);
       node.querySelector('[data-layer-name]').title = `${name} · ${stateLabel} · ${channel} · ${program}`;
     }
     reflectLayerSelection();
+    if (layerEditorSource) reflectLayerEditor();
     $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
     automataSeen ||= Boolean(state.automata?.playing);
@@ -297,7 +371,18 @@ function mountBlechMidi() {
   spigotView = mountBlechSpigots($('blackMidiViewport'), {
     controlsHost: $('blechSpigotControls'),
     getLayers: () => spigots.getLayers(),
-    getPreparedScore: () => ({ score: dropStage.getSourceScore(), settings: dropStage.getSettings() }),
+    getPreparedScore: () => spigotView?.getMode() === 'stamp' && canvasStampPrepared
+      ? { score: canvasStampPrepared.score, settings: { ...canvasStampPrepared.options, ...dropStage.getSettings(), name: canvasStampPrepared.options.name, source: 'frames' } }
+      : ({ score: dropStage.getSourceScore(), settings: dropStage.getSettings() }),
+    getStampEntries: () => performanceView.getStamps(),
+    getSelectedStampId: () => canvasStampId,
+    onSelectStamp: async id => {
+      const score = await performanceView.prepareStamp(id);
+      if (!score || disposed) return false;
+      canvasStampId = id; canvasStampPrepared = performanceView.getPreparedDrop();
+      stampPicker?.select(id); stampPicker?.update(performanceView.getStamps());
+      return true;
+    },
     getTempo: () => engine.state.tempo,
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
     onCreate: (score, settings) => spigots.create(score, settings),
@@ -308,6 +393,14 @@ function mountBlechMidi() {
     onBrushStart: options => spigots.brushStart(options),
     onBrushMove: (id, point) => spigots.brushMove(id, point),
     onBrushEnd: (id, options) => spigots.brushEnd(id, options),
+    onLatch: ({ pitch, delayBeats, prepared: draft, replaceIds = [] }) => {
+      for (const id of replaceIds) spigots.remove(id);
+      const note = { note: pitch, beat: 0, duration: 1, channel: 0, velocity: 88 };
+      return spigots.create(blechStrokeScore([note], 1, 'Held note'), {
+        ...draft?.settings, source: 'frames', name: 'Held note', delayBeats,
+        transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, loop: false, hold: true,
+      })?.id ?? null;
+    },
     onModeChange: mode => dropStage.suspendInteractions(Boolean(selectedSpigot) || mode !== 'select'),
     onSelectionChange: id => { selectedSpigot = id; reflectLayerSelection(); dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
   });

@@ -99,7 +99,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         const channels = message.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : message.program }));
         const timing = message.timing ? { ...message.timing } : undefined;
         if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat) + Math.max(0, Math.min(512, Number(message.delayBeats) || 0));
-        this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, pausedEpoch: message.pausedEpoch, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, scoreVersion: message.scoreVersion, replacedAt: message.replacedAt, replacedEpoch: message.replacedEpoch, config, channels });
+        this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, hold: message.hold === true, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, pausedEpoch: message.pausedEpoch, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, scoreVersion: message.scoreVersion, replacedAt: message.replacedAt, replacedEpoch: message.replacedEpoch, config, channels });
         if (message.pendingReplacement) this.sampleClock.replaceScore(slot, this.sampleReplacement(message.pendingReplacement, message.program), { defer: true, revision: message.revision });
         this.updateSampleMix();
         break;
@@ -148,7 +148,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       case 'sampleAppend': {
         const sample = this.sampleClock.samples[message.slot];
         if (!sample || sample.id !== message.id || !Number.isInteger(message.revision) || message.revision <= sample.revision || !message.data?.events) break;
-        this.sampleClock.appendScore(message.slot, message.data, message.revision);
+        this.sampleClock.appendScore(message.slot, message.data, message.revision, { allowGateEdits: message.allowGateEdits === true });
         this.updateSampleMix();
         break;
       }
