@@ -2218,3 +2218,13 @@ copy+require	assets/input-samples/expressive/sax-multiphonic.mp3
 copy+require	assets/input-samples/expressive/weird-sax.mp3
 copy+require	assets/input-samples/expressive/CREDITS.md
 copy+require	assets/input-samples/expressive/provenance.json
+
+# Wobblini: eight local-file decks and a shared filter wobble.
+copy+require	assets/instruments/wobblini.webp
+copy+require	docs/wobblini.md
+copy+require	src/instruments/wobblini/wobblini-app.js
+copy+require	src/instruments/wobblini/wobblini.css
+copy+require	src/instruments/wobblini/wobblini-audio.js
+copy+require	src/instruments/wobblini/wobblini-model.js
+copy+require	src/instruments/wobblini/wobblini-scratch-model.js
+copy+require	src/instruments/wobblini/wobblini-scratch-processor.js

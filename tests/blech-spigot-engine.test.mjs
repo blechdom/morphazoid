@@ -12,22 +12,25 @@ function setup() {
   return { engine, sources: createBlechSpigotEngine({ engine }), at(seconds) { now = seconds * 1000; }, contexts: () => contexts };
 }
 
-test('persistent sources transform pristine MIDI next loop while current falling score and sibling remain unchanged', async () => {
+test('persistent sources transform pristine MIDI immediately while retaining phrase phase, mix, and sibling clocks', async () => {
   const q = setup(), original = score();
-  const first = q.sources.create(original, { loop: true, source: 'math', delayBeats: 1, name: 'Shape' });
-  const sibling = q.sources.create(original, { loop: true, source: 'frames' });
-  q.at(.1); const before = q.engine.state.samples;
-  q.sources.edit(first.id, { rotationDegrees: 90, widthNotes: 36, heightBeats: 4, transpose: 12, delayBeats: .5 });
+  const first = q.sources.create(original, { loop: true, source: 'math', gain: .35, pan: -.25, channel: 3, name: 'Shape' });
+  q.sources.create(original, { loop: true, source: 'frames' });
+  q.at(.3); const before = q.engine.state.samples, count = q.engine.state.generatedNoteCount;
+  q.sources.edit(first.id, { rotationDegrees: 90, widthNotes: 36, heightBeats: 4, transpose: 12 });
   const layer = q.sources.getLayers()[0], current = q.engine.state.samples[0];
-  assert.equal(current.analysis, before[0].analysis, 'an already falling pending pass is not rewritten');
-  assert.equal(current.pendingReplacement.analysis.noteCount, 2);
+  assert.notEqual(current.analysis, before[0].analysis);
+  assert.equal(current.pendingReplacement, undefined); assert.equal(layer.pendingEdit, false);
+  assert.equal(current.id, first.sampleId); assert.equal(current.positionBeats, before[0].positionBeats * 2);
+  assert.equal(current.cycle, before[0].cycle); assert.equal(current.analysis.durationBeats, 4);
+  assert.equal(current.gain, .35); assert.equal(current.pan, -.25); assert.equal(current.channel, 3); assert.equal(current.loop, true);
+  assert.equal(q.engine.state.generatedNoteCount, count, 'rewritten past attacks are not counted again');
   assert.equal(layer.score.analysis.noteCount, 2); assert.equal(layer.settings.rotationDegrees, 90);
   assert.deepEqual(q.engine.state.samples[1], before[1]);
   q.sources.edit(first.id, { rotationDegrees: 180 });
   assert.deepEqual(q.sources.getLayers()[0].score.buffer, transformBlechSpigot(original, { ...layer.settings, rotationDegrees: 180 }).buffer, 'angle edits do not compound');
-  q.at(1.55); const changed = q.engine.state.samples.find(sample => sample.id === first.sampleId);
-  assert.equal(changed.analysis.durationBeats, 4); assert.ok(changed.pendingBeats > 0 && changed.pendingBeats <= .5);
-  assert.equal(q.engine.state.samples.find(sample => sample.id === sibling.sampleId).id, sibling.sampleId);
+  assert.equal(q.engine.state.samples[0].positionBeats, current.positionBeats);
+  q.at(.5); assert.equal(q.engine.state.samples[0].positionBeats, 1.6);
   assert.equal(q.contexts(), 0); await q.engine.dispose();
 });
 
@@ -181,4 +184,65 @@ test('a dense stamp still places every note as one source and never becomes a tr
   q.at(.2); assert.equal(q.sources.brushMove(id, { pitch: 72 }), false); assert.equal(q.sources.brushEnd(id), false);
   assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.samples[0].analysis.noteCount, 5120);
   await q.engine.dispose();
+});
+
+test('selecting an unowned saved-pad replay adopts its current score without changing playback, mix, counters or Audio', async () => {
+  const q = setup(), original = score();
+  const replay = q.engine.triggerSample(original.buffer, { name: 'Saved shape', source: 'math', loop: true, delayBeats: 1,
+    channel: 5, gain: .37, pan: -.4, muted: true, solo: true, program: null, midi: { program: 17, controllers: { 74: 89 } }, sync: false });
+  q.at(1); q.engine.setSamplePaused(replay.id, true);
+  const before = q.engine.state, exported = q.engine.getSampleScore(replay.id);
+  assert.equal(exported.analysis.channels[0].channel, 5, 'export follows current channel routing');
+  new Uint8Array(exported.buffer).fill(0); exported.analysis.notes[0].note = 127;
+  assert.equal(q.engine.getSampleScore(replay.id).analysis.notes[0].note, 48, 'caller receives detached MIDI bytes and score metadata');
+  const metadata = { textSettings: { message: 'A', beats: 2 }, buffer: new Uint8Array([0]).buffer };
+  const adopted = q.sources.adoptSample(replay.id, metadata);
+  assert.ok(adopted); assert.equal(adopted.sampleId, replay.id); assert.deepEqual(q.engine.state, before);
+  assert.equal(q.sources.getLayers().length, 1); assert.equal(q.sources.getLayers()[0].paused, true);
+  assert.equal(adopted.settings.delayBeats, 1); assert.equal(adopted.settings.rotationDegrees, 0); assert.equal(adopted.settings.transpose, 0);
+  assert.equal(adopted.settings.widthNotes, null); assert.equal(adopted.settings.heightBeats, null);
+  assert.deepEqual(adopted.sourceScore.textSettings, metadata.textSettings);
+  metadata.textSettings.message = 'B'; assert.equal(adopted.sourceScore.textSettings.message, 'A');
+  assert.equal(q.sources.adoptSample(replay.id).id, adopted.id, 'repeated selection does not duplicate the layer');
+  assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.generatedNoteCount, before.generatedNoteCount);
+  q.sources.edit(adopted.id, { transpose: 12, heightBeats: 4 });
+  const edited = q.engine.state.samples[0]; assert.equal(edited.id, replay.id); assert.equal(edited.paused, true);
+  assert.equal(edited.analysis.notes[0].note, 60); assert.equal(edited.gain, .37); assert.equal(edited.pan, -.4);
+  assert.equal(edited.channel, 5); assert.equal(edited.muted, true); assert.equal(edited.solo, true);
+  assert.deepEqual(edited.midi, before.samples[0].midi); assert.equal(edited.sync, false);
+  q.engine.stopSample(replay.id); q.sources.togglePlay(adopted.id);
+  const relaunched = q.engine.state.samples[0]; assert.notEqual(relaunched.id, replay.id); assert.equal(q.engine.state.samples.length, 1);
+  assert.equal(relaunched.analysis.notes[0].note, 60); assert.equal(relaunched.loop, true); assert.equal(relaunched.gain, .37);
+  assert.equal(relaunched.pan, -.4); assert.equal(relaunched.channel, 5); assert.equal(relaunched.muted, true); assert.equal(relaunched.solo, true);
+  assert.deepEqual(relaunched.midi, before.samples[0].midi); assert.equal(relaunched.sync, false);
+  assert.equal(q.contexts(), 0); await q.engine.dispose();
+});
+
+test('adoption rejects finished or missing samples and preserves file-program playback on replay', async () => {
+  const q = setup(), original = score(), sample = q.engine.triggerSample(original.buffer, { program: null, loop: false });
+  const source = q.sources.adoptSample(sample.id); assert.equal(source.settings.program, 'original');
+  q.at(2); assert.equal(q.engine.getSampleScore(sample.id), null); assert.equal(q.sources.adoptSample(9876), null);
+  q.sources.togglePlay(source.id); assert.equal(q.engine.state.samples[0].program, null);
+  q.sources.dispose(); assert.equal(q.sources.adoptSample(q.engine.state.samples[0].id), null);
+  await q.engine.dispose();
+});
+
+
+test('replaying an adopted source restores mixer settings even when the saved-pad sender omits them', async () => {
+  const q = setup(); let launches = 0;
+  const sources = createBlechSpigotEngine({ engine: q.engine, sendScore: (score, settings) => {
+    launches++;
+    const sample = q.engine.triggerSample(score.buffer, { name: settings.name, channel: settings.channel, gain: settings.gain,
+      program: settings.program === 'original' ? null : settings.program, loop: settings.loop });
+    return { ...score, sampleId: sample.id };
+  } });
+  const sample = q.engine.triggerSample(score().buffer, { loop: true, gain: .28, channel: 4, pan: .65, muted: true, solo: true, sync: false,
+    midi: { program: 21, controllers: { 74: 45 }, gain: .5 } });
+  const before = q.engine.state.samples[0], layer = sources.adoptSample(sample.id);
+  assert.equal(launches, 0, 'selection never invokes the score sender');
+  q.engine.stopSample(sample.id); sources.togglePlay(layer.id);
+  const replay = q.engine.state.samples[0]; assert.equal(launches, 1); assert.equal(q.engine.state.samples.length, 1);
+  for (const key of ['gain', 'channel', 'pan', 'muted', 'solo', 'sync', 'loop']) assert.equal(replay[key], before[key], key);
+  assert.deepEqual(replay.midi, before.midi); assert.equal(replay.positionBeats, 0); assert.equal(replay.paused, false);
+  assert.equal(q.contexts(), 0); sources.dispose(); await q.engine.dispose();
 });

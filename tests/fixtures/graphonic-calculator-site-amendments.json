@@ -1,5 +1,5 @@
 {
-  "baseCommit": "eaa70f1c1c9b2a3c10539a8eac7ba176f1f79c45",
+  "baseCommit": "9e54c04c843482eef08b3f4dd6c8b60542c4cd4e",
   "changes": [
     {
       "file": "src/pages/manifest.js",

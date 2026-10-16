@@ -13,15 +13,15 @@
 <body class="graphonic-calculator-page">
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
-    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="graphonic-calculator.html" aria-current="page">Graphonic Calculator</a></nav>
-    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="graphonic-calculator.html" selected>Graphonic Calculator</option></select></label>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="graphonic-calculator.html" aria-current="page">Graphonic Calculator</a><a class="tab" href="wobblini.html">Wobblini</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="graphonic-calculator.html" selected>Graphonic Calculator</option><option value="wobblini.html">Wobblini</option></select></label>
     <div id="audioHost"></div>
   </header>
   <main class="shell graphing-shell" id="graphonicCalculator">
     <section class="stage graphing-stage" aria-label="Graph">
       <div class="stage-wrap graphing-stage-wrap" id="stageWrap">
         <canvas id="stage" tabindex="0" role="img" aria-label="Graph of the listed expressions. Drag to pan; wheel, pinch, plus or minus zoom; arrow keys pan; Home resets the view; drag a highlighted point to change its sliders." aria-describedby="canvasInstructions">The graph of every expression in the list.</canvas>
-        <div class="graphing-heading"><h1>Graphonic<br />calculator</h1><span>type · drag · zoom · play to hear</span></div>
+        <div class="graphing-heading"><h1>Graphonic Calculator</h1></div>
         <div class="stage-view-actions" aria-label="View controls"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="homeView" type="button" aria-label="Reset view">⌂</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
         <output id="hoverReadout" class="graphing-hover" aria-live="off"></output>
       </div>

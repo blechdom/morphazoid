@@ -1,0 +1,103 @@
+{
+  "baseCommit": "876f074ba7bc4c95ade84836c9ee69118e1e36de",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "f6a8faecb0b0680c05cde525b5705eed91d7102fc556f71a5ab48baf93fc7e24",
+      "replacements": [
+        {
+          "before": "  \"weierstrass.html\",\n",
+          "after": "  \"weierstrass.html\",\n  \"wobblini.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "53e9e8756378ef9b84ed89997fca785d22b239ba1f277e9a83bedf8248d34063",
+      "replacements": [
+        {
+          "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"wobblini\", label: \"Wobblini\", href: \"wobblini.html\", imageHref: \"assets/instruments/wobblini.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "4e53319ddf51fed769b0753d7e216a73f47c6bbc201f4419d7d31f799f0daa8f",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  wobblini: define(\n    \"Eight-deck DJ instrument\",\n    \"Mix eight local audio decks with original demo loops, waveform seeking, cues, beat loops, source tempo and playback rate. Drag the records forward and backward to scratch. Shape each deck with EQ, filter and pan; assign it to either side of the crossfader and add shared filter wobble.\",\n    \"Load the demo loops or your own audio files, enable Audio, then play or scratch a record. Set source BPM before matching a deck to the master tempo.\",\n    [\"Local files\", \"Demo loops\", \"Eight decks\", \"Scratching\", \"Waveforms\", \"Cue points\", \"Beat loops\", \"Crossfader\", \"Pointer\", \"Touch\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "0333bcf0f0c2040c1b48b6ef4804c39deb00e53da1c2eac78e2c42c968192569",
+      "replacements": [
+        {
+          "before": "  \"trackazoid\": [\"looper\", \"audio-effect\"],\n",
+          "after": "  \"wobblini\": [\"app\", \"looper\", \"audio-effect\"],\n  \"trackazoid\": [\"looper\", \"audio-effect\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "f4917a7319cb9844da063644fd54d89a584cc86a6070c22cd4a683662792b008",
+      "replacements": [
+        {
+          "before": "  processor: Object.freeze([\n",
+          "after": "  processor: Object.freeze([\n    \"wobblini\",\n"
+        },
+        {
+          "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
+          "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"wobblini\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "0cff5228a2db8e1211589cad51f55a07b9ba6f8689ed3df13f880826e000e7ed",
+      "replacements": [
+        {
+          "before": "export const TAP_TEMPO_TARGETS = [\n",
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"wobblini.html\", \"selector\": \"#master-bpm\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap master tempo\"},\n  {\"route\": \"wobblini.html\", \"selector\": \".deck-bpm\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap deck source BPM\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d0Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d0Bpm\"}, \"title\": \"Tap deck 1 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d1Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d1Bpm\"}, \"title\": \"Tap deck 2 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d2Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d2Bpm\"}, \"title\": \"Tap deck 3 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d3Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d3Bpm\"}, \"title\": \"Tap deck 4 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d4Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d4Bpm\"}, \"title\": \"Tap deck 5 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d5Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d5Bpm\"}, \"title\": \"Tap deck 6 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d6Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d6Bpm\"}, \"title\": \"Tap deck 7 playback tempo (relative to its source BPM)\"},\n  {\"route\": \"wobblini.html\", \"selector\": \"#d7Rate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#d7Bpm\"}, \"title\": \"Tap deck 8 playback tempo (relative to its source BPM)\"},\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "2982ad071d006c50d73a593873ffb7df9cee34218575a933c10d4db12078be46",
+      "replacements": [
+        {
+          "before": "copy+require\tassets/input-samples/expressive/provenance.json\n",
+          "after": "copy+require\tassets/input-samples/expressive/provenance.json\n\n# Wobblini: eight local-file decks and a shared filter wobble.\ncopy+require\tassets/instruments/wobblini.webp\ncopy+require\tdocs/wobblini.md\ncopy+require\tsrc/instruments/wobblini/wobblini-app.js\ncopy+require\tsrc/instruments/wobblini/wobblini.css\ncopy+require\tsrc/instruments/wobblini/wobblini-audio.js\ncopy+require\tsrc/instruments/wobblini/wobblini-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "3ec9a40982415887b0971be208c4bc9aebb35dd540cd9b7e9de60e0204f8c4ce",
+      "replacements": [
+        {
+          "before": "# Morphazoid\n\n",
+          "after": "# Morphazoid\n\n**[Wobblini](wobblini.html)** is an eight-deck browser DJ instrument in progress: local tracks and original demo loops, per-deck cues, beat loops, EQ, filters and pan, A/THRU/B crossfader routing, and a shared filter wobble. Audio starts off. [Controls and MVP boundaries](docs/wobblini.md).\n\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/graphonic-calculator.html",
+      "sha256": "6192d3f4d2a5a385be890b7cc36555a90c428d655a48020ba05362338b5d8120",
+      "replacements": [
+        {
+          "before": "<a class=\"tab active\" href=\"graphonic-calculator.html\" aria-current=\"page\">Graphonic Calculator</a>",
+          "after": "<a class=\"tab active\" href=\"graphonic-calculator.html\" aria-current=\"page\">Graphonic Calculator</a><a class=\"tab\" href=\"wobblini.html\">Wobblini</a>"
+        },
+        {
+          "before": "<option value=\"graphonic-calculator.html\" selected>Graphonic Calculator</option>",
+          "after": "<option value=\"graphonic-calculator.html\" selected>Graphonic Calculator</option><option value=\"wobblini.html\">Wobblini</option>"
+        }
+      ]
+    }
+  ]
+}

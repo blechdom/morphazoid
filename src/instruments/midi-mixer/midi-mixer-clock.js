@@ -70,6 +70,16 @@ export function advanceSampleTiming(timing, data, options, beats, seconds) {
   return next;
 }
 
+/** Resize a running phrase around its current musical phase. A vertical move
+ * adds/removes launch delay without replaying earlier attacks: once an earlier
+ * placement crosses the present, skip forward using the same audio clock. */
+export function liveSampleReplacementTiming(timing, previous, next, options = {}) {
+  const phase = Math.max(0, Math.min(1, timing.positionBeats / previous.durationBeats));
+  const waiting = timing.pendingBeats + (options.delayDelta ?? 0);
+  const updated = { positionBeats: phase * next.durationBeats, cycle: timing.cycle, pendingBeats: Math.max(0, waiting), ended: false };
+  return waiting < 0 ? advanceSampleTiming(updated, next, { ...options, paused: false }, -waiting, -waiting * 60 / (options.tempo ?? 120)) : updated;
+}
+
 /** Fraction of an elapsed interval at which the current pass ends. */
 export function sampleReplacementBoundary(timing, data, options, beats, seconds) {
   if (options.paused || !options.loop) return null;
@@ -97,7 +107,7 @@ export class MidiSampleClock {
     this.stop(slot);
     const timing = sample.timing ?? { positionBeats: Math.max(0, this.beat - sample.startBeat), pendingBeats: Math.max(0, sample.startBeat - this.beat), cycle: 0, ended: false };
     if (timing.ended || !sample.loop && timing.positionBeats >= sample.data.durationBeats) return false;
-    this.samples[slot] = { ...sample, paused: Boolean(sample.paused), sync: sample.sync !== false, loop: Boolean(sample.loop), timing: { ...timing }, cursor: lowerBound(sample.data.events, timing.positionBeats) };
+    this.samples[slot] = { ...sample, paused: Boolean(sample.paused), sync: sample.sync !== false, loop: Boolean(sample.loop), timing: { ...timing }, resumeAfterDelay: timing.pendingBeats > 0 && timing.positionBeats > 0, cursor: lowerBound(sample.data.events, timing.positionBeats) };
     this.resync(slot);
     return true;
   }
@@ -116,10 +126,13 @@ export class MidiSampleClock {
     if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
     if (revision !== undefined) sample.revision = revision;
   }
-  replaceScore(slot, replacement, { restart = false, defer = false, revision } = {}) {
+  replaceScore(slot, replacement, { restart = false, defer = false, live = false, revision } = {}) {
     const sample = this.samples[slot]; if (!sample) return false;
     if (revision !== undefined) sample.revision = revision;
-    if (defer && sample.loop) sample.pendingReplacement = replacement;
+    if (live) {
+      const timing = liveSampleReplacementTiming(sample.timing, sample.data, replacement.data, { ...sample, delayDelta: replacement.delayDelta, tempo: replacement.tempo });
+      this.applyReplacement(slot, replacement, 0, this.seconds, 0, true, timing);
+    } else if (defer && sample.loop) sample.pendingReplacement = replacement;
     else if (restart || sample.paused || sample.timing.pendingBeats > 0 || sample.timing.positionBeats === 0 && sample.timing.cycle === 0) {
       this.applyReplacement(slot, replacement, 0, this.seconds, sample.timing.pendingBeats);
     } else if (sample.loop) sample.pendingReplacement = replacement;
@@ -158,16 +171,22 @@ export class MidiSampleClock {
     sample.timing.cycle++;
     this.applyReplacement(slot, sample.pendingReplacement, 0, this.seconds);
   }
-  applyReplacement(slot, replacement, frame, at, pendingBeats = 0, restore = true) {
+  applyReplacement(slot, replacement, frame, at, pendingBeats = 0, restore = true, liveTiming = null) {
     const sample = this.samples[slot]; if (!sample || !replacement) return;
     this.release(slot + 2, frame);
     sample.data = replacement.data; sample.channels = replacement.channels; sample.skippedAppendNotes = null;
     sample.scoreVersion = replacement.token; sample.replacedAt = at; sample.replacedEpoch = sample.playbackEpoch ?? 0;
     sample.pendingReplacement = null; sample.playbackEpoch = (sample.playbackEpoch ?? 0) + 1;
-    sample.resumedPositionBeats = 0; sample.resumedCycle = sample.timing.cycle;
-    sample.timing = { positionBeats: 0, cycle: sample.timing.cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false };
-    sample.cursor = 0; sample.wrapPending = sample.needsResync = false;
+    sample.timing = liveTiming ?? { positionBeats: 0, cycle: sample.timing.cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false };
+    sample.resumedPositionBeats = sample.timing.positionBeats; sample.resumedCycle = sample.timing.cycle;
+    sample.cursor = lowerBound(sample.data.events, sample.timing.positionBeats); sample.wrapPending = sample.needsResync = false;
+    sample.resumeAfterDelay = Boolean(liveTiming && sample.timing.pendingBeats > 0 && sample.timing.positionBeats > 0);
     this.replace(slot + 2, sample.data, frame);
+    if (sample.timing.ended) {
+      if (this.completed.length >= 4) this.completed.shift();
+      this.completed.push({ id: sample.id, revision: sample.revision, scoreVersion: sample.scoreVersion, ...sample.timing, finishedAt: at });
+      this.samples[slot] = null; return;
+    }
     if (restore) this.resync(slot, frame); else sample.needsResync = true;
   }
   setPaused(slot, paused, revision) {
@@ -218,6 +237,12 @@ export class MidiSampleClock {
       }
       let frameStart = initial.pendingBeats / beatIncrement;
       if (frameStart >= frames - 1e-9) { sample.timing = final; continue; }
+      if (sample.resumeAfterDelay) {
+        sample.resumeAfterDelay = false;
+        if (!restores) { skipRemainder(Math.max(0, Math.min(frames - 1, Math.round(frameStart)))); continue; }
+        restores--; sample.timing.pendingBeats = 0;
+        this.resync(slot, Math.max(0, Math.min(frames - 1, Math.round(frameStart))));
+      }
       const coordinate = beat => sample.sync ? beat : sampleSecondsAt(sample.data, beat);
       const toBeat = value => sample.sync ? value : sampleBeatAt(sample.data, value);
       const increment = sample.sync ? beatIncrement : 1 / sampleRate;

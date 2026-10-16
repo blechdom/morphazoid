@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
+import { restoreWobbliniSite } from './wobblini-site-reference.mjs';
 
 export const headerPresetsBatchSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/header-presets-batch-site-amendments.json', import.meta.url), 'utf8',
@@ -12,6 +13,7 @@ export const headerPresetsBatchSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed preset-row wiring, page hosts and runtime manifest rows. */
 export function restoreHeaderPresetsBatchSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreWobbliniSite(source, file, { allowRestored: true });
   for (const change of headerPresetsBatchSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {
       const count = source.split(after).length - 1;

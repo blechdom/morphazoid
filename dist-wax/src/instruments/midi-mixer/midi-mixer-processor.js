@@ -142,7 +142,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         if (!sample || sample.id !== message.id || !Number.isInteger(message.revision) || message.revision <= (sample.revision ?? -1)) break;
         if (!message.replacement?.data?.channels || message.replacement.data.channels.length > 16) break;
         this.sampleClock.confirmScore(message.slot, message.scoreVersion);
-        this.sampleClock.replaceScore(message.slot, this.sampleReplacement(message.replacement, message.program), { restart: message.restart, defer: message.defer, revision: message.revision });
+        this.sampleClock.replaceScore(message.slot, this.sampleReplacement(message.replacement, message.program), { restart: message.restart, defer: message.defer, live: message.live, revision: message.revision });
         break;
       }
       case 'sampleAppend': {

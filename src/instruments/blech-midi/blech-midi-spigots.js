@@ -1,5 +1,6 @@
 import { blackMidiKeyLayout, blackMidiTimeGeometry } from './blech-midi-black-renderer.js';
 import { midiStampPitchBounds } from '../midi-mixer/midi-mixer-score-transform.js';
+import { GM_PROGRAM_NAMES } from '../midi-mixer/midi-mixer-model.js';
 
 const clamp = (value, min, max, fallback = min) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
 const quarter = value => Math.round(value * 4) / 4;
@@ -43,33 +44,50 @@ export function mountBlechSpigots(viewport, {
   const ownedHost = !controlsHost;
   if (!controlsHost) { controlsHost = document.createElement('div'); viewport.before(controlsHost); }
   controlsHost.classList.add('blech-spigot-controls');
-  controlsHost.innerHTML = `<div class="blech-spigot-mode" role="group" aria-label="Canvas tool">${MODES.map(mode => `<button type="button" data-spigot-mode="${mode}" aria-pressed="${mode === 'select'}">${mode[0].toUpperCase() + mode.slice(1)}</button>`).join('')}<output data-spigot-status role="status">Select a source, or stamp or draw into the flow.</output></div>
-    <div class="blech-spigot-editor" hidden><b data-spigot-title></b><label>Pitch<input data-spigot-field="transpose" aria-label="Source pitch offset" type="number" min="-127" max="127" step="1"></label><label>Delay<input data-spigot-field="delayBeats" aria-label="Source delay in beats" type="number" min="0" max="64" step=".25"></label><label>Width<input data-spigot-field="widthNotes" aria-label="Source width in notes" type="number" min="1" max="128" step="1"></label><label>Height<input data-spigot-field="heightBeats" aria-label="Source height in beats" type="number" min=".25" max="512" step=".25"></label><label>Rotate<input data-spigot-field="rotationDegrees" aria-label="Source rotation in degrees" type="number" min="0" max="359" step="1"></label></div>`;
+  controlsHost.innerHTML = `<div class="blech-spigot-mode" role="group" aria-label="Canvas tool">${MODES.map(mode => `<button type="button" data-spigot-mode="${mode}" aria-pressed="${mode === 'select'}">${mode[0].toUpperCase() + mode.slice(1)}</button>`).join('')}<output data-spigot-status role="status">Select a layer below to reshape its playing pattern.</output></div>`;
   const overlay = document.createElement('div'); overlay.className = 'blech-spigot-overlay';
   overlay.innerHTML = `<canvas class="blech-spigot-preview" aria-label="Selected MIDI source pattern"></canvas><div class="blech-spigot-paint" tabindex="-1" role="group" aria-label="MIDI flow canvas. Arrow keys position; hold Enter to stamp or draw; Escape selects." data-space-key-owner></div><div class="blech-spigot-sources"></div><div class="blech-spigot-selection" hidden><button type="button" class="blech-spigot-move" aria-label="Move source; arrows change pitch and delay" data-space-key-owner></button>${['left','right','top','bottom','top-left','top-right','bottom-left','bottom-right'].map(edge => `<button type="button" class="blech-spigot-grip" data-spigot-resize="${edge}" aria-label="Resize source ${edge.replace('-', ' ')}; arrow keys adjust" data-space-key-owner></button>`).join('')}<button type="button" class="blech-spigot-rotate" aria-label="Rotate source; left and right arrows change angle" data-space-key-owner>↻</button><div class="blech-spigot-valves"><button type="button" data-spigot-play aria-label="Pause source">Ⅱ</button><button type="button" data-spigot-loop aria-label="Loop source" aria-pressed="false">↻</button><button type="button" data-spigot-remove aria-label="Remove source">×</button><button type="button" data-spigot-deselect aria-label="Deselect source">✓</button></div></div>`;
   viewport.append(overlay);
   const $ = selector => overlay.querySelector(selector), c$ = selector => controlsHost.querySelector(selector);
-  const canvas = $('canvas'), context = canvas.getContext('2d'), surface = $('.blech-spigot-paint'), selection = $('.blech-spigot-selection'), editor = c$('.blech-spigot-editor');
-  const nodes = new Map();
+  const canvas = $('canvas'), context = canvas.getContext('2d'), surface = $('.blech-spigot-paint'), selection = $('.blech-spigot-selection');
+  $('.blech-spigot-sources').remove();
+  const label = document.createElement('div'); label.className = 'blech-spigot-label'; selection.append(label);
+  const editor = document.createElement('div'); editor.className = 'blech-spigot-editor';
+  editor.innerHTML = `<div data-spigot-details></div><div class="blech-spigot-fields"><label>Pitch<input data-spigot-field="transpose" aria-label="Source pitch offset" type="number" min="-127" max="127" step="1"></label><label>Delay<input data-spigot-field="delayBeats" aria-label="Source delay in beats" type="number" min="0" max="64" step=".25"></label><label>Width<input data-spigot-field="widthNotes" aria-label="Source width in notes" type="number" min="1" max="128" step="1"></label><label>Height<input data-spigot-field="heightBeats" aria-label="Source height in beats" type="number" min=".25" max="512" step=".25"></label><label>Rotate · °<input data-spigot-field="rotationDegrees" aria-label="Source rotation in degrees" type="number" min="0" max="359" step="1"></label></div>`;
+  selection.append(editor);
   let mode = 'select', selectedId = null, disposed = false, drag = null, brush = null, pulse = null, cursor = { pitch: 64, delayBeats: 2 };
+  let pendingEdit = null, editTimer = null, hoverTimer = null;
   const geometry = () => { const rect = viewport.getBoundingClientRect(); return spigotGeometry(rect.width, rect.height, getTempo(), getView()); };
   const sources = () => getLayers() ?? [];
   const selected = () => sources().find(source => source.id === selectedId);
   const status = text => { c$('[data-spigot-status]').value = text; };
   const act = callback => { try { return callback?.(); } catch (error) { status(error.message); return null; } };
   function setSelection(id) {
+    cancelEdit(); drag = null; selection.dataset.dragging = 'false';
     selectedId = id; onSelectionChange?.(id); render();
   }
   function setMode(next) {
     if (!MODES.includes(next)) return;
-    endBrush(true); drag = null; mode = next;
+    endBrush(true); cancelEdit(); drag = null; selection.dataset.dragging = 'false'; mode = next;
     if (mode !== 'select') setSelection(null);
     onModeChange?.(mode); render();
-    status(mode === 'select' ? 'Select a source to move, resize or rotate it.' : mode === 'stamp' ? 'Tap to place the selected pattern. Hold to repeat it.' : 'Hold and draw into the flow. Hold still for a line.');
+    status(mode === 'select' ? 'Select a layer below. Drag its rectangle or handles to reshape playback.' : mode === 'stamp' ? 'Tap to place the selected pattern. Hold to repeat it.' : 'Hold and draw into the flow. Hold still for a line.');
   }
   function edit(patch) {
     if (!selectedId) return;
+    const settings = selected()?.settings;
+    if (settings && Object.entries(patch).every(([key, value]) => settings[key] === value)) return;
     act(() => onEdit?.(selectedId, patch)); render();
+  }
+  function cancelEdit() { clearTimeout(editTimer); editTimer = null; pendingEdit = null; }
+  function flushEdit() {
+    const next = pendingEdit; cancelEdit();
+    if (next && next.id === selectedId) edit(next.patch);
+  }
+  function queueEdit(patch) {
+    pendingEdit = { id: selectedId, patch };
+    // Dense artwork is parsed once per update, never once per pointer sample.
+    if (editTimer === null) editTimer = setTimeout(flushEdit, 80);
   }
   function render() {
     if (disposed) return;
@@ -79,41 +97,18 @@ export function mountBlechSpigots(viewport, {
     overlay.dataset.mode = mode; surface.style.height = `${Math.max(0, g.present - 2)}px`; surface.tabIndex = mode === 'select' ? -1 : 0;
     for (const button of controlsHost.querySelectorAll('[data-spigot-mode]')) button.setAttribute('aria-pressed', String(button.dataset.spigotMode === mode));
     const current = sources(), ids = new Set(current.map(source => source.id));
-    for (const [id, node] of nodes) if (!ids.has(id)) { node.remove(); nodes.delete(id); }
     if (selectedId && !ids.has(selectedId)) { selectedId = null; onSelectionChange?.(null); }
-    const occupied = [], centers = [];
-    current.forEach((source, index) => {
-      let node = nodes.get(source.id);
-      if (!node) {
-        node = document.createElement('button'); node.type = 'button'; node.className = 'blech-spigot-emitter'; node.dataset.spigotId = source.id;
-        listen(node, 'click', () => setSelection(source.id)); $('.blech-spigot-sources').append(node); nodes.set(source.id, node);
-      }
-      const d = spigotDimensions(source), key = g.layout[Math.round(clamp((d.low + d.high) / 2, 0, 127))];
-      const anchorX = (key.x + key.width / 2) * g.width, anchorY = g.present - d.delayBeats * g.pixelsPerBeat;
-      let x = clamp(anchorX, targetSize / 2, Math.max(targetSize / 2, g.width - targetSize / 2));
-      let y = clamp(anchorY, targetSize / 2, Math.max(targetSize / 2, g.present - targetSize / 2 - 2));
-      const baseX = x, baseY = y, spacing = targetSize + 4;
-      for (let attempt = 0; attempt < 96; attempt++) {
-        const direction = attempt % 2 ? -1 : 1, column = Math.ceil((attempt % 16) / 2), row = Math.floor(attempt / 16);
-        const trialX = clamp(baseX + direction * column * spacing, targetSize / 2, Math.max(targetSize / 2, g.width - targetSize / 2));
-        const trialY = clamp(baseY + (row % 2 ? -1 : 1) * Math.ceil(row / 2) * spacing, targetSize / 2, Math.max(targetSize / 2, g.present - targetSize / 2 - 2));
-        if (!occupied.some(point => Math.abs(point.x - trialX) < spacing && Math.abs(point.y - trialY) < spacing)) { x = trialX; y = trialY; break; }
-      }
-      occupied.push({ x, y }); centers.push({ x, y, anchorX, anchorY });
-      node.style.left = `${x}px`; node.style.top = `${y}px`;
-      node.textContent = `${index + 1}${source.open ? '●' : '○'}`;
-      node.title = `${source.name || 'Source'} · ${source.pendingEdit ? 'changes next loop' : source.paused ? 'paused' : source.open ? 'open' : 'closed'}`;
-      node.setAttribute('aria-label', `Select ${source.name || 'source'} ${index + 1}`);
-      node.setAttribute('aria-pressed', String(source.id === selectedId)); node.dataset.open = String(Boolean(source.open));
-    });
     const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = Math.round(g.width * dpr); canvas.height = Math.round(g.height * dpr); context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    context.strokeStyle = '#c9442070'; context.lineWidth = 1;
-    for (const marker of centers) { context.beginPath(); context.moveTo(marker.x, marker.y); context.lineTo(marker.anchorX, clamp(marker.anchorY, 0, g.present)); context.stroke(); }
-    const source = selected(); selection.hidden = !source || mode !== 'select'; editor.hidden = !source || mode !== 'select';
-    if (!source) return;
+    const source = selected(); selection.hidden = !source || mode !== 'select';
+    if (!source || mode !== 'select') return;
+    selection.dataset.spigotId = source.id;
     const settings = source.settings ?? source, d = spigotDimensions(source);
-    c$('[data-spigot-title]').textContent = source.name || 'Source';
-    for (const field of controlsHost.querySelectorAll('[data-spigot-field]')) {
+    const state = source.paused ? 'Paused' : source.playing ? settings.loop ? 'Looping' : 'Playing' : 'Stopped';
+    label.textContent = `${source.name || 'Layer'} · ${state}`;
+    const program = Number(settings.program), instrument = settings.program !== 'original' && GM_PROGRAM_NAMES[program] || 'Original instruments';
+    $('[data-spigot-details]').textContent = `${settings.channel == null ? 'Original channels' : `Ch ${settings.channel + 1}`} · ${instrument} · ${Math.round((settings.gain ?? .75) * 100)}%`;
+    $('.blech-spigot-move').setAttribute('aria-label', `Move ${source.name || 'layer'}; arrows change pitch and delay`);
+    for (const field of overlay.querySelectorAll('[data-spigot-field]')) {
       if (document.activeElement === field) continue;
       const fallback = field.dataset.spigotField === 'widthNotes' ? d.width : field.dataset.spigotField === 'heightBeats' ? d.heightBeats : 0;
       field.value = String(settings[field.dataset.spigotField] ?? fallback);
@@ -122,6 +117,9 @@ export function mountBlechSpigots(viewport, {
     const left = clamp(low.x * g.width, 2, Math.max(2, g.width - 24)), right = clamp((high.x + high.width) * g.width, left + 24, g.width - 2);
     const bottom = clamp(g.present - d.delayBeats * g.pixelsPerBeat, 28, g.present - 2), top = clamp(g.present - (d.delayBeats + d.heightBeats) * g.pixelsPerBeat, 2, bottom - 24);
     Object.assign($('.blech-spigot-move').style, { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${bottom - top}px` });
+    Object.assign(label.style, { left: `${left + 6}px`, top: `${top + 5}px`, maxWidth: `${Math.max(40, right - left - 12)}px` });
+    const cardWidth = Math.min(390, g.width - 16), cardHeight = coarse ? 94 : 78;
+    Object.assign(editor.style, { left: `${clamp(left, 4, Math.max(4, g.width - cardWidth - 4))}px`, width: `${cardWidth}px`, top: `${clamp(bottom + valveHeight + 10 < g.present - cardHeight ? bottom + valveHeight + 10 : top + 30, 4, Math.max(4, g.present - cardHeight - 4))}px`, maxHeight: `${Math.max(48, g.present - 8)}px` });
     for (const grip of overlay.querySelectorAll('[data-spigot-resize]')) {
       const edge = grip.dataset.spigotResize;
       grip.style.left = `${edge.includes('left') ? left : edge.includes('right') ? right : (left + right) / 2}px`;
@@ -139,9 +137,17 @@ export function mountBlechSpigots(viewport, {
       context.fillRect(key.x * g.width, Math.max(0, y), Math.max(1, key.width * g.width), Math.max(1, Math.min(g.present, end) - Math.max(0, y)));
     }
     context.globalAlpha = 1;
+    if (source.active && !source.lastSample?.pending) {
+      const phase = clamp((source.lastSample?.positionBeats ?? 0) / Math.max(.001, d.heightBeats), 0, 1);
+      const y = clamp(g.present - (d.delayBeats + phase * d.heightBeats) * g.pixelsPerBeat, top, bottom);
+      context.strokeStyle = '#ffe0cf'; context.lineWidth = 1;
+      context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke();
+    }
   }
   for (const button of controlsHost.querySelectorAll('[data-spigot-mode]')) listen(button, 'click', () => setMode(button.dataset.spigotMode));
-  for (const field of controlsHost.querySelectorAll('[data-spigot-field]')) listen(field, 'change', () => { edit({ [field.dataset.spigotField]: Number(field.value) }); field.blur(); render(); });
+  for (const field of overlay.querySelectorAll('[data-spigot-field]')) listen(field, 'change', () => { cancelEdit(); edit({ [field.dataset.spigotField]: Number(field.value) }); render(); });
+  listen(selection, 'pointerenter', () => { clearTimeout(hoverTimer); selection.dataset.inspecting = 'true'; });
+  listen(selection, 'pointerleave', () => { clearTimeout(hoverTimer); hoverTimer = setTimeout(() => { selection.dataset.inspecting = 'false'; }, 220); });
   listen($('[data-spigot-deselect]'), 'click', () => setSelection(null));
   listen($('[data-spigot-play]'), 'click', () => { act(() => onTogglePlay?.(selectedId)); render(); });
   listen($('[data-spigot-loop]'), 'click', () => { const source = selected(); act(() => onToggleLoop?.(selectedId, !(source?.settings?.loop ?? source?.loop))); render(); });
@@ -205,11 +211,14 @@ export function mountBlechSpigots(viewport, {
       if (event.button !== 0 || !event.isPrimary || !selected()) return;
       event.preventDefault(); const source = selected(), rect = $('.blech-spigot-move').getBoundingClientRect();
       const centerX = rect.x + rect.width / 2, centerY = rect.y + rect.height / 2;
-      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, kind, ...source.settings, ...spigotDimensions(source), transpose: source.settings?.transpose ?? 0, rotationDegrees: source.settings?.rotationDegrees ?? 0, centerX, centerY, angle: Math.atan2(centerY - event.clientY, event.clientX - centerX), g: geometry() };
+      cancelEdit();
+      selection.dataset.dragging = 'true';
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, pointerPitch: pointerPoint(event).pitch, kind, ...source.settings, ...spigotDimensions(source), transpose: source.settings?.transpose ?? 0, rotationDegrees: source.settings?.rotationDegrees ?? 0, centerX, centerY, angle: Math.atan2(centerY - event.clientY, event.clientX - centerX), g: geometry() };
       control.setPointerCapture(event.pointerId); control.focus({ preventScroll: true });
     });
-    listen(control, 'pointermove', event => { if (drag?.id === event.pointerId) edit(transformDrag(drag, Math.round((event.clientX - drag.x) / drag.g.width * 128), (event.clientY - drag.y) / drag.g.pixelsPerBeat, event)); });
-    for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(control, name, () => { drag = null; });
+    listen(control, 'pointermove', event => { if (drag?.id === event.pointerId) queueEdit(transformDrag(drag, pointerPoint(event).pitch - drag.pointerPitch, (event.clientY - drag.y) / drag.g.pixelsPerBeat, event)); });
+    listen(control, 'pointerup', () => { flushEdit(); drag = null; selection.dataset.dragging = 'false'; });
+    for (const name of ['pointercancel', 'lostpointercapture']) listen(control, name, () => { cancelEdit(); drag = null; selection.dataset.dragging = 'false'; });
     listen(control, 'keydown', event => {
       const source = selected(); if (!source || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
       event.preventDefault(); const step = event.shiftKey ? 12 : 1, beat = event.shiftKey ? 1 : .25;
@@ -217,10 +226,12 @@ export function mountBlechSpigots(viewport, {
       edit(transformDrag({ kind, ...source.settings, ...spigotDimensions(source), transpose: source.settings?.transpose ?? 0 }, event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, event.key === 'ArrowUp' ? -beat : event.key === 'ArrowDown' ? beat : 0));
     });
   }
-  listen(globalThis, 'blur', () => { drag = null; endBrush(true); });
-  listen(document, 'visibilitychange', () => { if (document.hidden) { drag = null; endBrush(true); } });
+  listen(overlay, 'keydown', event => { if (event.key === 'Escape' && selectedId) { event.preventDefault(); setSelection(null); } });
+  const cancelGesture = () => { cancelEdit(); drag = null; selection.dataset.dragging = 'false'; endBrush(true); };
+  listen(globalThis, 'blur', cancelGesture);
+  listen(document, 'visibilitychange', () => { if (document.hidden) cancelGesture(); });
   const resize = new ResizeObserver(render); resize.observe(viewport); render();
-  return { refresh: render, cancelGesture() { drag = null; endBrush(true); }, setMode, select: setSelection, getMode: () => mode,
-    dispose() { if (disposed) return; endBrush(true); disposed = true; events.abort(); resize.disconnect(); overlay.remove(); nodes.clear(); if (ownedHost) controlsHost.remove(); else controlsHost.replaceChildren(); },
+  return { refresh: render, cancelGesture, setMode, select: setSelection, getMode: () => mode, getSelection: () => selectedId,
+    dispose() { if (disposed) return; cancelEdit(); clearTimeout(hoverTimer); endBrush(true); disposed = true; events.abort(); resize.disconnect(); overlay.remove(); if (ownedHost) controlsHost.remove(); else controlsHost.replaceChildren(); },
   };
 }

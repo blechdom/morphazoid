@@ -6,8 +6,7 @@
 .graphing-stage-wrap #stage.is-pointing { cursor: pointer; }
 .graphing-stage-wrap #stage:focus-visible { outline: 2px solid var(--graphing-accent); }
 .graphing-heading { position: absolute; left: 18px; top: 14px; pointer-events: none; }
-.graphing-heading h1 { margin: 0; font: 600 clamp(20px, 2.4vw, 32px)/1.02 var(--font-ui, sans-serif); letter-spacing: -0.04em; color: var(--graphing-accent); text-shadow: 0 1px 12px rgba(7, 11, 14, 0.9); }
-.graphing-heading span { display: block; margin-top: 6px; font: 11px/1.3 var(--mono, monospace); color: var(--graphing-muted); letter-spacing: 0.02em; }
+.graphing-heading h1 { margin: 0; white-space: nowrap; font: 600 clamp(20px, 2.4vw, 32px)/1.02 var(--font-ui, sans-serif); letter-spacing: -0.04em; color: var(--graphing-accent); text-shadow: 0 1px 12px rgba(7, 11, 14, 0.9); }
 .graphing-stage-wrap .stage-view-actions { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 6px; }
 .graphing-stage-wrap .stage-view-actions button { width: 40px; height: 40px; border: 1px solid var(--graphing-line); border-radius: 4px; background: rgba(13, 21, 26, 0.9); color: var(--graphing-ink); font-size: 18px; line-height: 1; }
 .graphing-stage-wrap .stage-view-actions button:hover { border-color: var(--graphing-accent); }
@@ -68,7 +67,6 @@
 @media (max-width: 960px) {
   .graphing-shell { grid-template-columns: 1fr; }
   .graphing-heading h1 { font-size: 20px; }
-  .graphing-heading span { display: none; }
   .graphing-panel { padding: 10px 12px calc(24px + env(safe-area-inset-bottom)); }
   .expression-row { grid-template-columns: 30px minmax(0, 1fr) auto; }
   .expression-actions { flex-direction: row; }

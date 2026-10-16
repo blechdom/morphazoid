@@ -525,22 +525,26 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 }
 
 /* Dropped copies share one compact mixer, independent of the selected generator. */
-#blechLiveLayers { grid-auto-rows: max-content; align-content: start; }
-.blech-live-layer { grid-template-columns: minmax(96px, 1fr) repeat(4, 28px) 32px 46px 32px 28px; gap: 6px; padding: 3px 0 3px 6px; min-height: max-content; }
-.blech-layer-copy { gap: 4px; }
-.blech-layer-copy > [data-layer-name] { font-size: 10px; }
+#blechLiveLayers { display: flex; flex-direction: column; align-items: stretch; gap: 2px; overflow: auto; }
+.blech-live-layer { position: relative; display: flex; flex: 0 0 auto; flex-wrap: nowrap; gap: 4px; padding: 2px 0 2px 4px; width: max-content; min-width: 100%; min-height: 32px; box-sizing: border-box; }
+.blech-live-layer[data-selected="true"] { background: #173326; border-left-color: #c9ffe6; }
+.blech-layer-copy { display: flex; align-items: center; flex: 1 1 168px; width: 168px; min-width: 168px; gap: 6px; }
+.blech-layer-copy > [data-layer-name] { flex: 1 1 auto; min-width: 0; width: 0; height: 28px; min-height: 28px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; border: 0; background: transparent; font-size: 10px; }
+.blech-layer-copy > [data-layer-name][aria-pressed="true"] { color: #e5fff5; }
+.blech-layer-copy > [data-layer-name]:focus-visible { outline: 2px solid #e5fff5; outline-offset: -2px; }
+.blech-layer-copy .blech-layer-timeline { flex: 0 0 42px; width: 42px; cursor: pointer; }
 .blech-layer-timeline, .blech-layer-timeline canvas { height: 6px; }
-.blech-live-layer > button { width: 28px; height: 28px; min-height: 28px; padding: 0; font-size: 12px; }
+.blech-live-layer > button { flex: 0 0 28px; width: 28px; height: 28px; min-height: 28px; padding: 0; font-size: 12px; }
 .blech-live-layer > [data-layer-stop] { font-size: 20px; }
 .blech-live-layer > button[aria-pressed="true"] { color: #07110b; background: #96f4cc; }
 .blech-live-layer[data-muted="true"] { border-left-color: #54615b; }
 .blech-live-layer[data-muted="true"] .blech-layer-copy { opacity: .45; }
-.blech-live-layer label.blech-layer-loop { position: relative; display: grid; place-items: center; min-height: 28px; width: 28px; height: 28px; margin: 0; }
+.blech-live-layer label.blech-layer-loop { flex: 0 0 28px; position: relative; display: grid; place-items: center; min-height: 28px; width: 28px; height: 28px; margin: 0; }
 .blech-layer-loop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .blech-layer-loop > span { display: grid; place-items: center; width: 100%; height: 100%; box-sizing: border-box; border: 1px solid #324037; font-size: 21px; color: #96f4cc; background: #111d17; }
 .blech-layer-loop:has(:checked) > span { color: #07110b; background: #96f4cc; }
 .blech-layer-loop:has(:focus-visible) > span { outline: 2px solid #e5fff5; outline-offset: 2px; }
-.blech-live-layer label.blech-layer-dial, .blech-live-layer label.blech-layer-channel { display: grid; justify-items: center; align-content: center; gap: 1px; min-height: 0; font-size: 8px; line-height: 1; color: #a1b4ae; margin: 0; }
+.blech-live-layer label.blech-layer-dial, .blech-live-layer label.blech-layer-channel { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 0; min-height: 0; height: 28px; font-size: 8px; line-height: 1; color: #a1b4ae; margin: 0; }
 .blech-live-layer .blech-layer-dial .mixer-range-knob { width: 28px; min-width: 28px; max-width: 28px; flex-basis: 28px; height: 28px; min-height: 28px; }
 .blech-live-layer .blech-layer-dial .mixer-range-knob > .mz-range-knob__dial { top: 2px; width: 24px; height: 24px; }
 .blech-live-layer .blech-layer-dial .mixer-range-knob > input { min-height: 0; }
@@ -557,18 +561,11 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #blechMathPicker { min-width: 0; flex: 1 1 200px; }
 #blechMathPicker summary { max-width: 100%; box-sizing: border-box; }
 .blech-layer-copy [data-layer-edit] { padding: 0 3px; min-height: 18px; height: 18px; font-size: 9px; justify-self: start; }
-@media (max-width: 1100px) {
-  .blech-live-layer { grid-template-columns: repeat(4, 28px) minmax(28px, 1fr) 46px minmax(28px, 1fr) 28px; gap: 4px; }
-  .blech-layer-copy { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
-  .blech-layer-copy > [data-layer-name] { flex: 1 1 auto; }
-  .blech-layer-copy .blech-layer-timeline { flex: 0 1 70px; }
-}
 @media (pointer: coarse) {
-  .blech-live-layer { grid-template-columns: repeat(4, minmax(48px, 1fr)); }
-  .blech-live-layer > button, .blech-live-layer label.blech-layer-loop, .blech-live-layer .blech-layer-dial .mixer-range-knob, .blech-live-layer .blech-layer-channel select { width: 48px; min-width: 48px; max-width: 48px; height: 48px; min-height: 48px; }
+  .blech-live-layer { min-height: 52px; }
+  .blech-live-layer > button, .blech-live-layer label.blech-layer-loop, .blech-live-layer .blech-layer-dial .mixer-range-knob, .blech-live-layer .blech-layer-channel select { flex-basis: 48px; width: 48px; min-width: 48px; max-width: 48px; height: 48px; min-height: 48px; }
+  .blech-live-layer label.blech-layer-dial, .blech-live-layer label.blech-layer-channel, .blech-layer-copy > [data-layer-name], .blech-layer-copy [data-layer-edit] { height: 48px; min-height: 48px; }
   .blech-live-layer .blech-layer-dial .mixer-range-knob > .mz-range-knob__dial { top: 12px; }
-  .blech-live-layer > button, .blech-live-layer label.blech-layer-loop { justify-self: center; }
-  .blech-layer-copy { grid-column: 1 / -1; }
 }
 
 .blech-drop-position { grid-template-columns: repeat(4, minmax(48px, 1fr)); gap: 8px; }
