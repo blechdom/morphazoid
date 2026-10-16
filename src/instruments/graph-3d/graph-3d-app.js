@@ -402,3 +402,22 @@ on($("infoButton"), "click", () => $("infoDialog").showModal());
 on($("infoDialog"), "close", () => $("infoButton").focus({ preventScroll: true }));
 refreshGraph(); syncControls(); updateInspector();
 timer = setInterval(tick, 20); frameId = requestAnimationFrame(frame);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  GRAPH_3D_FULL_PRESETS, captureGraph3DPreset, graph3DRestorePayload, randomizeGraph3DPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "graph-3d", presets: GRAPH_3D_FULL_PRESETS,
+  capture: () => captureGraph3DPreset(model),
+  apply: snapshot => {
+    const payload = graph3DRestorePayload(snapshot);
+    if (drag) finish({ pointerId: drag.id }, true);
+    model.restore(payload);
+    traversal.clear(); observed = []; audio.silence(); selected = selectedEdge = 0;
+    forceAccumulator = 0; nextPulse = now() + 0.025;
+    refreshGraph(); syncControls(); updateInspector();
+  },
+  randomize: randomizeGraph3DPreset,
+});

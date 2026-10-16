@@ -68,3 +68,4 @@ body.starting-instrument { --accent: #a4ddba; overflow: hidden; background: #080
   .starting-title p { font-size: 11px; }
   .starting-hint { font-size: 10px; }
 }
+.starting-controls > [data-instrument-preset-host] { margin-bottom: 14px; }

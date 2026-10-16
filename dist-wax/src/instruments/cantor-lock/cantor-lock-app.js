@@ -10,6 +10,13 @@ import {
   analyzeCantorLock,
   complexMagnitudes,
 } from "./cantor-lock.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  CANTOR_LOCK_FULL_PRESETS,
+  captureCantorLockPreset,
+  randomizeCantorLockPreset,
+  validateCantorLockPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_AUDIO_VOICES = 12;
@@ -943,3 +950,14 @@ if (globalThis.ResizeObserver) {
 
 rebuild();
 markDirty();
+
+registerHeaderPresets({
+  id: "cantor-lock", presets: CANTOR_LOCK_FULL_PRESETS,
+  capture: () => captureCantorLockPreset(state),
+  apply: snapshot => {
+    validateCantorLockPreset(snapshot);
+    Object.assign(state, snapshot);
+    rebuild();
+  },
+  randomize: randomizeCantorLockPreset,
+});

@@ -1,3 +1,7 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { settleOnCapture } from "./preset-settle.js";
+import { TEMPO_FULL_PRESETS, TEMPO_PRESET_PARAMS, captureTempoPreset, randomizeTempoPreset, validateTempoPreset } from "./tempo-tantrum-presets.js";
+import { HABIT_FULL_PRESETS, HABIT_PRESET_PARAMS, captureHabitPreset, randomizeHabitPreset, validateHabitPreset } from "./habit-habitat-presets.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { STARTING_INSTRUMENTS } from "./catalog.js";
 import { INSTRUMENT_HELP, formatParameter } from "./help.js";
@@ -60,7 +64,7 @@ function send(message) {
 function setParams(values) {
   mirror.set(values); params = { ...mirror.params };
   send({ type: "params", values: params });
-  if (typeof preset !== "undefined") {
+  if (preset) {
     const match = Object.entries(spec.presets).find(([, p]) => Object.keys(p).every((k) => Math.abs(p[k] - params[k]) < 1e-8));
     preset.value = match?.[0] ?? "";
     $("presetHint").textContent = match ? help.presets[match[0]] : "Custom settings · current transport and stored material retained.";
@@ -108,17 +112,20 @@ function choose(count, label = "Voice", names = null) {
   }
 }
 const preset = $("preset");
-const customPreset = new Option("Custom settings", ""); customPreset.disabled = true; preset.add(customPreset);
-for (const name of Object.keys(spec.presets)) { const option = new Option(name, name); preset.add(option); }
-preset.value = Object.keys(spec.presets)[0];
-on(preset, "change", () => { setParams(spec.presets[preset.value]); status("Preset changed; transport and stored material retained."); });
+if (preset) {
+  const customPreset = new Option("Custom settings", ""); customPreset.disabled = true; preset.add(customPreset);
+  for (const name of Object.keys(spec.presets)) { const option = new Option(name, name); preset.add(option); }
+  preset.value = Object.keys(spec.presets)[0];
+  on(preset, "change", () => { setParams(spec.presets[preset.value]); status("Preset changed; transport and stored material retained."); });
+}
 on($("playButton"), "click", () => {
   playing = !playing; send({ type: "play", value: playing }); syncControls();
   status(!audio.armed && playing ? "Audio is off — turn it on to hear playback" : playing ? "Playing." : "Paused.");
 });
 on($("resetButton"), "click", () => {
-  send({ type: "reset" }); setParams(spec.defaults); preset.selectedIndex = 0;
-  preset.value = Object.keys(spec.presets)[0]; brush = false;
+  send({ type: "reset" }); setParams(spec.defaults);
+  if (preset) { preset.selectedIndex = 0; preset.value = Object.keys(spec.presets)[0]; }
+  brush = false;
   status(help.reset);
 });
 for (const c of spec.controls) on($(c.key), "input", () => {
@@ -463,3 +470,71 @@ on(window, "pagehide", () => {
   recordedInput?.destroy(); abort.abort(); audioStrip.destroy(); void audio.close();
 });
 syncControls(); updateTools(); renderId = requestAnimationFrame(frame);
+
+import {
+  HOLLOWPHONIC_DEFAULT_OFFSETS,
+  HOLLOWPHONIC_FULL_PRESETS,
+  captureHollowphonicPreset,
+  randomizeHollowphonicPreset,
+  validateHollowphonicPreset,
+} from "./hollowphonic-presets.js";
+
+if (id === "hollowphonic" && document.querySelector("[data-instrument-preset-host]")) {
+  let internalGenerator = params.source === 3 ? 1 : params.source;
+  let pendingOffsets = null;
+  const trackGenerator = () => { if (params.source !== 3) internalGenerator = params.source; };
+  sourceSelect?.addEventListener("change", trackGenerator);
+  preset.addEventListener("change", trackGenerator);
+  $("resetButton").addEventListener("click", trackGenerator);
+  const liveOffsets = () => {
+    const reported = state.offsets ?? HOLLOWPHONIC_DEFAULT_OFFSETS;
+    if (pendingOffsets) {
+      const settled = pendingOffsets.values.every((value, index) => Math.abs(value - (reported[index] ?? 0)) < 1e-9);
+      if (!settled && performance.now() < pendingOffsets.until) return pendingOffsets.values;
+      pendingOffsets = null;
+    }
+    return reported;
+  };
+  registerHeaderPresets({
+    id: "hollowphonic", presets: HOLLOWPHONIC_FULL_PRESETS,
+    capture: () => captureHollowphonicPreset({ ...params, generator: params.source === 3 ? internalGenerator : params.source, offsets: liveOffsets() }),
+    apply: (snapshot) => {
+      validateHollowphonicPreset(snapshot);
+      const { depth, loss, coupling, mix, generator, offsets } = snapshot;
+      internalGenerator = generator;
+      setParams({ depth, loss, coupling, mix, ...(params.source === 3 ? {} : { source: generator }) });
+      offsets.forEach((offset, index) => send({ type: "cavity", index, offset }));
+      pendingOffsets = { values: [...offsets], until: performance.now() + 1500 };
+      status("Preset loaded; transport, input source and stored material retained.");
+    },
+    randomize: randomizeHollowphonicPreset,
+  });
+}
+
+const pickParams = (keys) => Object.fromEntries(keys.map((key) => [key, params[key]]));
+const sharedPreset = {
+  "tempo-tantrum": {
+    presets: TEMPO_FULL_PRESETS, randomize: randomizeTempoPreset,
+    capture: () => captureTempoPreset({ ...pickParams(TEMPO_PRESET_PARAMS), offsets: state.offsets }),
+    apply(snapshot) {
+      validateTempoPreset(snapshot);
+      setParams(Object.fromEntries(TEMPO_PRESET_PARAMS.map((key) => [key, snapshot[key]])));
+      snapshot.offsets.forEach((offset, index) => send({ type: "body", index, offset }));
+    },
+  },
+  "habit-habitat": {
+    presets: HABIT_FULL_PRESETS, randomize: randomizeHabitPreset,
+    capture: () => captureHabitPreset({ ...pickParams(HABIT_PRESET_PARAMS), weights: state.weights }),
+    apply(snapshot) {
+      validateHabitPreset(snapshot);
+      setParams(Object.fromEntries(HABIT_PRESET_PARAMS.map((key) => [key, snapshot[key]])));
+      send({ type: "memory", weights: snapshot.weights });
+    },
+  },
+}[id];
+if (sharedPreset) {
+  registerHeaderPresets({
+    id, presets: sharedPreset.presets, capture: sharedPreset.capture, randomize: sharedPreset.randomize,
+    apply: (snapshot) => { sharedPreset.apply(snapshot); return settleOnCapture(sharedPreset.capture, snapshot); },
+  });
+}

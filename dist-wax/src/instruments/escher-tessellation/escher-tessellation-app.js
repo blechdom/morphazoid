@@ -1648,3 +1648,28 @@ updateStudy();
 resizeCanvas();
 render();
 animationFrame = globalThis.requestAnimationFrame(animate);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ESCHER_FULL_PRESETS, applyEscherPreset, captureEscherPreset, randomizeEscherPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "escher-tessellation", presets: ESCHER_FULL_PRESETS,
+  capture: () => captureEscherPreset(state),
+  apply: snapshot => {
+    const { structureChanged } = applyEscherPreset(state, snapshot);
+    if (structureChanged) {
+      selectedContourId = null;
+      playbackDistance = 0;
+      activeContourEvent = null;
+      audio.setPosition?.(0);
+    }
+    geometryDirty = true;
+    renderDirty = true;
+    synchronizeControls();
+    updateStudy();
+    audio.configure(performanceConfig());
+  },
+  randomize: randomizeEscherPreset,
+});

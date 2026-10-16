@@ -5,7 +5,7 @@ const state = (page) => page.locator("#stage").evaluate((c) => JSON.parse(c.data
 async function ready(page) {
   await page.goto("/graph-3d.html");
   await expect(page.locator("#stage")).toHaveAttribute("data-state", /"nodes"/);
-  await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", "graph-3d");
+  await expect(page.locator(".instrument-picker[data-active-tool-id]")).toHaveAttribute("data-active-tool-id", "graph-3d");
 }
 async function arm(page) {
   await page.locator("#audioButton").click();

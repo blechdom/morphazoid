@@ -327,3 +327,35 @@ globalThis.addEventListener("pagehide", (event) => {
 });
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SPLICE_RING_FULL_PRESETS, captureSpliceRingPreset, randomizeSpliceRingPreset, validateSpliceRingPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "splice-ring", presets: SPLICE_RING_FULL_PRESETS,
+  capture: () => captureSpliceRingPreset({ splices, chords, params }),
+  apply: snapshot => {
+    validateSpliceRingPreset(snapshot);
+    splices = [...snapshot.splices];
+    chords = new Map(snapshot.chords);
+    rotor = new Map();
+    selected = 0;
+    linkFrom = null;
+    drag = null;
+    if (readerSeg >= splices.length) readerSeg = 0;
+    params.speed = snapshot.speed;
+    params.crossfade = snapshot.crossfade;
+    params.useChords = snapshot.useChords;
+    params.alternate = snapshot.alternate;
+    $("speed").value = String(params.speed);
+    $("speedOut").textContent = `${params.speed.toFixed(2)}×`;
+    $("crossfade").value = String(params.crossfade);
+    $("crossfadeOut").textContent = `${(params.crossfade * 1000).toFixed(0)} ms`;
+    $("useChords").checked = params.useChords;
+    $("alternate").checked = params.alternate;
+    refresh();
+  },
+  randomize: randomizeSpliceRingPreset,
+});

@@ -1,3 +1,5 @@
+import { registerWaveLabPresets, setControlValue } from "../../families/wave-lab/wave-lab-presets.js";
+import { EXCEPTIONAL_FULL_PRESETS, EXCEPTIONAL_PRESET_KEYS, captureExceptionalPreset, randomizeExceptionalPreset, validateExceptionalPreset } from "./full-presets.js";
 import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
 import {
   eigenmodes, responseToPerturbation, proximity, safeGamma, decaySeconds,
@@ -187,3 +189,13 @@ $("nudgeButton").addEventListener("click", () => {
 
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
+
+registerWaveLabPresets({
+  id: "exceptional", presets: EXCEPTIONAL_FULL_PRESETS,
+  capture: () => captureExceptionalPreset(params),
+  apply: (snapshot) => {
+    validateExceptionalPreset(snapshot);
+    for (const key of EXCEPTIONAL_PRESET_KEYS) setControlValue(key, snapshot[key]);
+  },
+  randomize: randomizeExceptionalPreset,
+});

@@ -1,3 +1,4 @@
+import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
@@ -7,6 +8,7 @@ import { readFileSync } from 'node:fs';
 export const fractalNavigationAmendments = JSON.parse(readFileSync(new URL('../../docs/fractal-delay-navigation-runtime-changes.json', import.meta.url), 'utf8'));
 
 export function restoreFractalNavigation(source, file, { allowRestored = false } = {}) {
+  source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });

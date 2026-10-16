@@ -1,3 +1,4 @@
+import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
@@ -8,6 +9,7 @@ export const gesticulesMetadataAmendments = JSON.parse(readFileSync(new URL("../
 
 /** Reverse only the declared instrument additions; retain the frozen move proof. */
 export function restoreGesticulesMetadata(source, file) {
+  source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });

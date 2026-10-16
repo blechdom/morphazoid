@@ -1,3 +1,5 @@
+import { registerWaveLabPresets, setControlValue } from "../../families/wave-lab/wave-lab-presets.js";
+import { CRAB_LOOM_FULL_PRESETS, captureCrabLoomPreset, randomizeCrabLoomPreset, validateCrabLoomPreset } from "./full-presets.js";
 import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
 import {
   INVOLUTIONS, involutionById, isOneSided, lapsPerPeriod, cutBand, compositePeriod,
@@ -277,3 +279,16 @@ $("recordButton")?.addEventListener("click", () => {
 
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
+
+registerWaveLabPresets({
+  id: "crab-loom", presets: CRAB_LOOM_FULL_PRESETS,
+  capture: () => captureCrabLoomPreset(state),
+  apply: (snapshot) => {
+    validateCrabLoomPreset(snapshot);
+    setControlValue("involution", snapshot.involution, { type: "change" });
+    for (const key of ["halfTwists", "headOffset", "hocket", "speed", "retain"]) setControlValue(key, snapshot[key]);
+    state.seam = snapshot.seam;
+    push();
+  },
+  randomize: randomizeCrabLoomPreset,
+});

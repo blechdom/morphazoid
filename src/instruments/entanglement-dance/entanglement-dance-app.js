@@ -20,6 +20,13 @@ import {
   bellConcurrence,
   sampleBellOutcome,
 } from "./entanglement-dance.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ENTANGLEMENT_DANCE_FULL_PRESETS,
+  captureEntanglementDancePreset,
+  randomizeEntanglementDancePreset,
+  validateEntanglementDancePreset,
+} from "./full-presets.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -674,4 +681,17 @@ globalThis.addEventListener("pagehide", () => {
   disposed = true;
   if (frameId) { cancelAnimationFrame(frameId); frameId = null; }
   voices.disable();
+});
+
+registerHeaderPresets({
+  id: "entanglement-dance", presets: ENTANGLEMENT_DANCE_FULL_PRESETS,
+  capture: () => captureEntanglementDancePreset(state),
+  apply: snapshot => {
+    validateEntanglementDancePreset(snapshot);
+    const { bellState, ...values } = snapshot;
+    Object.assign(state, values);
+    for (const [id, value] of Object.entries(values)) $(id).value = String(value);
+    setBellState(bellState);
+  },
+  randomize: randomizeEntanglementDancePreset,
 });

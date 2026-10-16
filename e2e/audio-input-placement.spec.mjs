@@ -8,6 +8,8 @@ const presetRoutes = new Set([
   "fractal-synthesis.html", "synthesis.html", "graphs.html", "morphynx.html",
   "simd-resonator.html", "simd-lab.html", "gesturama.html", "tape-worm.html",
   "loop-soup.html", "hollowphonic.html", "throatazoid.html", "lumber.html",
+  "acoustic-manifold.html", "alien-larynx.html", "crab-loom.html", "exceptional.html", "freeze-point.html",
+  "head-shed.html", "loopini.html", "micromorph.html", "recursion.html", "scatter-ghost.html",
 ]);
 for (const fallback of [false, true]) {
   test(`${fallback ? "fallback" : "native"} input popup follows responsive placement and a new preset row`, async ({ page }) => {

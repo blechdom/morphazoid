@@ -476,3 +476,30 @@ renderPhysicsControls();
 renderSceneInformation();
 paintTransport();
 scheduleFrame();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PHYSICS_FULL_PRESETS,
+  applyPhysicsPreset,
+  capturePhysicsPreset,
+  randomizePhysicsPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: sceneId,
+  presets: PHYSICS_FULL_PRESETS[sceneId],
+  capture: () => capturePhysicsPreset(sceneId, scene.state, globalState),
+  apply: (snapshot) => {
+    const sound = applyPhysicsPreset(sceneId, scene, snapshot);
+    Object.assign(globalState, sound);
+    $("baseFrequency").value = String(sound.baseFrequency);
+    $("baseFrequencyOut").textContent = `${Math.round(sound.baseFrequency)} Hz`;
+    $("pitchRange").value = String(sound.pitchRange);
+    $("pitchRangeOut").textContent = `${sound.pitchRange.toFixed(2)} oct`;
+    fixedStepper.reset();
+    renderPhysicsControls();
+    renderSceneInformation();
+    scheduleFrame();
+  },
+  randomize: (current, random) => randomizePhysicsPreset(sceneId, current, random),
+});

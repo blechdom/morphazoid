@@ -4469,3 +4469,14 @@ if (experiment === "automata") registerHeaderPresets({
     updateSummaries();
   },
 });
+
+import { registerExperimentPresets } from "./experiment-preset-wiring.js";
+
+registerExperimentPresets({
+  experiment, state, $, painters: presetControlPainters,
+  hooks: {
+    ensureSpringState, resetPrimeSieve, resetDoublePendulum, resetReactionDiffusion, setOrbital, setDnaSequence,
+    fireNeuralInput, setFourierWave, updateOrbitalFerrisControls, updateCommonAudio, updateSummaries,
+    invalidateOrbitalFerrisScene: () => { orbitalFerrisFrameScene = null; },
+  },
+});

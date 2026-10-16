@@ -6,10 +6,11 @@ import { blechSpigotRuntimeChange as change, restoreBlechSpigotRuntime as restor
 import { restoreGraphonicCalculatorSite } from './helpers/graphonic-calculator-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-site-reference.mjs';
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
+import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 
 test('spigot runtime addition preserves the exact preceding manifest and historical guards', async () => {
-  const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file);
+  const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file), change.file);
   const previous = restore(source, change.file);
   assert.equal(createHash('sha256').update(previous).digest('hex'), change.sha256);
   assert.equal(restore(previous, change.file, { allowRestored: true }), previous);
@@ -24,7 +25,7 @@ test('spigot runtime addition preserves the exact preceding manifest and histori
 });
 
 test('partial, relocated, duplicated or weakened spigot additions fail while unrelated changes remain visible', async () => {
-  const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file);
+  const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file), change.file);
   for (const modified of [source + change.addition, change.addition + source.replace(change.addition, ''),
     ...change.paths.map(path => source.replace(`copy+require\t${path}`, `copy\t${path}`)),
     ...change.paths.map(path => source.replace(path, 'unreviewed-spigot-path'))]) {

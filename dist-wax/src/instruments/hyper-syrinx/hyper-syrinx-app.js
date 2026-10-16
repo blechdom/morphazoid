@@ -950,3 +950,42 @@ globalThis.addEventListener("pagehide", () => {
 
 render();
 requestAnimationFrame(animate);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  HYPER_SYRINX_FULL_PRESETS,
+  HYPER_SYRINX_STAGES,
+  captureHyperSyrinxPreset,
+  hyperSyrinxEntryForSnapshot,
+  hyperSyrinxEquation,
+  randomizeHyperSyrinxPreset,
+  validateHyperSyrinxPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "hyper-syrinx", presets: HYPER_SYRINX_FULL_PRESETS,
+  capture: () => captureHyperSyrinxPreset(state),
+  apply: snapshot => {
+    validateHyperSyrinxPreset(snapshot);
+    const wasActive = transportActive;
+    const entry = hyperSyrinxEntryForSnapshot(snapshot);
+    const localId = ["elephant-bird", "murmuration", "hydra", "soft-machine"].find(id => id === entry?.id);
+    state = {
+      presetId: localId ?? "custom",
+      label: entry?.label ?? "Custom organism",
+      equation: entry?.equation || hyperSyrinxEquation(snapshot),
+      route: snapshot.route,
+      metabolism: snapshot.metabolism,
+      crossCoupling: snapshot.crossCoupling,
+      breathTexture: snapshot.breathTexture,
+      wetness: snapshot.wetness,
+      modules: Object.fromEntries(HYPER_SYRINX_STAGES.map(stage => [
+        stage, snapshot.modules[stage].map(item => module(stage, item.species, item.value)),
+      ])),
+    };
+    render();
+    engine.rebuild(state);
+    if (wasActive) engine.setExcitation(true);
+  },
+  randomize: randomizeHyperSyrinxPreset,
+});

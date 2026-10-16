@@ -1,6 +1,0 @@
-.wave-lab .wave-lab-input-sources { margin: 0 0 0.5rem; padding: 0.5rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 8px; background: rgba(255, 255, 255, 0.03); }
-.wave-lab .wave-lab-input-sources[hidden] { display: none; }
-.wave-lab .wave-lab-input-sources[data-mode="file"] .select-field,
-.wave-lab .wave-lab-input-sources[data-mode="file"] #sampleCredit { display: none; }
-.wave-lab .wave-lab-input-sources .select-field { display: grid; gap: 0.3rem; font-size: 0.75rem; }
-.wave-lab .wave-lab-input-sources select { min-width: 0; }

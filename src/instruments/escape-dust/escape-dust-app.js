@@ -8,6 +8,14 @@ import {
   stepEscapeDustSimulation,
   wavePositionDensity,
 } from "./escape-dust.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ESCAPE_DUST_FULL_PRESETS,
+  captureEscapeDustPreset,
+  openingWidthFromCells,
+  randomizeEscapeDustPreset,
+  validateEscapeDustPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const DRAW_INTERVAL = 1_000 / 30;
@@ -935,3 +943,15 @@ voices.setLevel(state.level);
 updateReadouts();
 resizeCanvas();
 scheduleFrame();
+
+registerHeaderPresets({
+  id: "escape-dust", presets: ESCAPE_DUST_FULL_PRESETS,
+  capture: () => captureEscapeDustPreset(state),
+  apply: snapshot => {
+    validateEscapeDustPreset(snapshot);
+    const { openingCells, ...values } = snapshot;
+    Object.assign(state, values, { openingWidth: openingWidthFromCells(openingCells) });
+    restartSimulation({ announceChange: false });
+  },
+  randomize: randomizeEscapeDustPreset,
+});

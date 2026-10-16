@@ -14,7 +14,7 @@ async function setRange(page, id, value) {
 async function ready(page, id) {
   await page.goto(`/${id}.html`);
   await expect(page.locator("#stage")).toHaveAttribute("data-state", /"params"/);
-  await expect(page.locator(".instrument-picker")).toHaveAttribute("data-active-tool-id", id);
+  await expect(page.locator(".instrument-picker[data-active-tool-id]")).toHaveAttribute("data-active-tool-id", id);
 }
 async function arm(page) {
   await page.locator("#audioButton").click();
@@ -43,7 +43,7 @@ for (const id of ids) {
     expect(signal.summary.maxRms).toBeGreaterThan(0.001);
     expect(signal.summary.maxPeak).toBeLessThan(0.9);
     const before = (await state(page)).time;
-    await page.locator("#preset").selectOption({ index: 2 });
+    await chooseSharedPreset(page, 2);
     await expect.poll(async () => (await state(page)).time).toBeGreaterThan(before);
     await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
     await page.locator("#resetButton").click();
@@ -92,16 +92,23 @@ for (const id of ids) {
     for (const name of ["Try this first", "What you hear", "The mechanism", "Pause, reset, and memory", "What this demo does not do"]) {
       await expect(page.locator("#howItWorks").getByRole("heading", { name, exact: true })).toBeVisible();
     }
-    const firstHint = await page.locator("#presetHint").textContent();
-    await page.locator("#preset").selectOption({ index: 2 });
-    await expect(page.locator("#presetHint")).not.toHaveText(firstHint);
+    const notes = await page.locator(".header-preset-picker [data-preset-id]").evaluateAll((items) => items.map((item) => item.title));
+    expect(notes.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(notes).size).toBe(notes.length);
+    for (const note of notes) expect(note.length).toBeGreaterThan(0);
+    await chooseSharedPreset(page, 2);
     const control = page.locator(".starting-controls input[type=range]").first();
     await control.evaluate((el) => {
       el.value = el.min; el.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    await expect(page.locator("#preset")).toHaveValue("");
-    await expect(page.locator("#presetHint")).toContainText("Custom settings");
+    await expect(page.locator(".header-preset-picker summary")).toContainText(/custom/i);
   });
+}
+
+async function chooseSharedPreset(page, target) {
+  const entries = page.locator(".header-preset-picker [data-preset-id]");
+  await page.locator(".header-preset-picker > summary").click();
+  await (typeof target === "number" ? entries.nth(target) : entries.filter({ hasText: target }).first()).click();
 }
 
 test("Tempo: worklet keeps moving through a stalled UI and recovers from a phase nudge", async ({ page }) => {
@@ -113,7 +120,7 @@ test("Tempo: worklet keeps moving through a stalled UI and recovers from a phase
   const before = (await state(page)).time;
   await page.evaluate(() => { const end = performance.now() + 500; while (performance.now() < end) { /* intentional UI stall */ } });
   await expect.poll(async () => (await state(page)).time).toBeGreaterThan(before + 0.45);
-  await page.locator("#preset").selectOption("No manners");
+  await chooseSharedPreset(page, "No manners");
   await expect.poll(async () => (await state(page)).locked?.every((x) => !x), { timeout: 6000 }).toBe(true);
 });
 

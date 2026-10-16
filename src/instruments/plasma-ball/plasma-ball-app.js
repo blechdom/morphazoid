@@ -13,6 +13,13 @@ import {
   wrapAngle,
 } from "./plasma-ball.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PLASMA_BALL_FULL_PRESETS,
+  capturePlasmaBallPreset,
+  randomizePlasmaBallPreset,
+  validatePlasmaBallPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1022,3 +1029,18 @@ resizeCanvas();
 updateReadouts();
 updateAudioVoices();
 requestFrame();
+
+registerHeaderPresets({
+  id: "plasma-ball", presets: PLASMA_BALL_FULL_PRESETS,
+  capture: () => capturePlasmaBallPreset(state),
+  apply: snapshot => {
+    validatePlasmaBallPreset(snapshot);
+    const countChanged = snapshot.boltCount !== state.boltCount;
+    Object.assign(state, snapshot);
+    if (countChanged) state.bolts = createPlasmaBolts(state.boltCount, 19 + state.time * 0.013);
+    updateReadouts();
+    updateAudioVoices();
+    requestFrame();
+  },
+  randomize: randomizePlasmaBallPreset,
+});

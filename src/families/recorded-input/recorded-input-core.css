@@ -1,0 +1,16 @@
+.recorded-input-panel { box-sizing: border-box; min-width: 0; margin: 8px 0; padding: 10px; border: 1px solid var(--line-strong, #344153); background: var(--bg-deep, #10151b); }
+.recorded-input-panel[hidden], .recorded-input-panel [hidden] { display: none; }
+.recorded-input-panel .select-field { display: grid; gap: 6px; margin: 0; color: var(--muted, #a4a6b5); font: 11px var(--mono, monospace); }
+.recorded-input-panel select { box-sizing: border-box; width: 100%; min-height: 36px; font: 11px var(--mono, monospace); color: var(--ink, #e8edf0); background: var(--bg-deep, #10151b); border: 1px solid var(--line-strong, #344153); }
+.recorded-input-panel .processor-sample-choice select { width: 0; }
+.recorded-input-panel button { box-sizing: border-box; min-height: 36px; font: 11px var(--mono, monospace); cursor: pointer; }
+.recorded-input-panel button:focus-visible, .recorded-input-panel select:focus-visible { outline: 2px solid #b47cff; outline-offset: 2px; }
+.recorded-input-panel[data-recorded-source="file"] .select-field,
+.recorded-input-panel[data-recorded-source="file"] #sampleCredit { display: none; }
+.recorded-input-choose { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.recorded-input-choose button { flex: 0 0 auto; }
+.recorded-input-choose span { min-width: 0; overflow-wrap: anywhere; font-size: 11px; }
+@media (pointer: coarse) {
+  .recorded-input-panel button { min-height: 48px; }
+  .recorded-input-panel select { min-height: 48px; font-size: 16px; }
+}

@@ -1,3 +1,5 @@
+import { registerWaveLabPresets, setControlValue } from "../../families/wave-lab/wave-lab-presets.js";
+import { SCATTER_GHOST_FULL_PRESETS, captureScatterGhostPreset, randomizeScatterGhostPreset, validateScatterGhostPreset } from "./full-presets.js";
 import { createWaveLabShell } from "../../families/wave-lab/wave-lab-shell.js?v=wave-20260918-1";
 import {
   createScatterers, paths, renderImpulseResponse, refocusQuality, reverseChannel,
@@ -199,3 +201,20 @@ $("count").addEventListener("input", (e) => {
 
 globalThis.addEventListener("resize", resize);
 resize(); tick();
+
+registerWaveLabPresets({
+  id: "scatter-ghost", presets: SCATTER_GHOST_FULL_PRESETS,
+  capture: () => captureScatterGhostPreset({ ...params, source, focus, scatterers }),
+  apply: (snapshot) => {
+    validateScatterGhostPreset(snapshot);
+    drag = null;
+    scatterers = snapshot.scatterers.map((item, id) => ({ id, ...item, moved: Boolean(recordedPaths) }));
+    source = { ...snapshot.source };
+    focus = { ...snapshot.focus };
+    $("count").value = String(scatterers.length);
+    $("countOut").textContent = String(scatterers.length);
+    for (const key of ["size", "wet"]) setControlValue(key, snapshot[key]);
+    updateQuality();
+  },
+  randomize: randomizeScatterGhostPreset,
+});

@@ -17,6 +17,13 @@ import {
   successProbability,
 } from "./annealogue.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  ANNEALOGUE_FULL_PRESETS,
+  captureAnnealoguePreset,
+  randomizeAnnealoguePreset,
+  validateAnnealoguePreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("stage");
@@ -699,3 +706,23 @@ updateAudioVoices();
 updateUi();
 resizeCanvas();
 drawLandscape();
+
+registerHeaderPresets({
+  id: "annealogue", presets: ANNEALOGUE_FULL_PRESETS,
+  capture: () => captureAnnealoguePreset(state),
+  apply: snapshot => {
+    validateAnnealoguePreset(snapshot);
+    Object.assign(state, snapshot);
+    state.amplitudes = simulateAnneal({
+      landscape: state.landscapeId,
+      gamma: state.gamma,
+      durationSeconds: state.durationSeconds,
+      progress: state.progress,
+    });
+    state.measurement = null;
+    updateAudioVoices();
+    updateUi();
+    requestFrame();
+  },
+  randomize: randomizeAnnealoguePreset,
+});

@@ -867,3 +867,22 @@ function initialize() {
 }
 
 initialize();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  WAVE_POOL_FULL_PRESETS, captureWavePoolPreset, randomizeWavePoolPreset, wavePoolStateFromPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "wave-pool", presets: WAVE_POOL_FULL_PRESETS,
+  capture: () => captureWavePoolPreset(state),
+  apply: snapshot => {
+    state = wavePoolStateFromPreset(state, snapshot);
+    physics = deriveWavePoolPhysics(state);
+    syncControls();
+    syncReadouts();
+    buildSequenceGrid();
+    postConfiguration();
+  },
+  randomize: randomizeWavePoolPreset,
+});

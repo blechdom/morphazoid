@@ -9,6 +9,7 @@ import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { restoreWobbliniSite, wobbliniSiteChanges } from './helpers/wobblini-site-reference.mjs';
+import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = source => createHash('sha256').update(source).digest('hex');
@@ -63,7 +64,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
 test('Wobblini additions preserve preceding source bytes and reject missing, repeated or altered amendments', async () => {
   assert.match(wobbliniSiteChanges.baseCommit, /^876f074b[0-9a-f]{32}$/);
   for (const change of wobbliniSiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), 'utf8');
+    const source = restoreWipRolloutSite(await readFile(new URL(change.file, root), 'utf8'), change.file);
     const restored = restoreWobbliniSite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     assert.equal(restoreWobbliniSite(restored, change.file, { allowRestored: true }), restored);

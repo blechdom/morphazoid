@@ -1,3 +1,6 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { setControlValue } from "../../families/wave-lab/wave-lab-presets.js";
+import { HEAD_SHED_FULL_PRESETS, captureHeadShedPreset, randomizeHeadShedPreset, validateHeadShedPreset } from "./full-presets.js";
 import { mountRecorderInput } from "../../families/recorded-input/recorder-input-sources.js";
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
 import { mountAudioInputControl } from "../../audio-input-control.js";
@@ -407,3 +410,21 @@ globalThis.addEventListener("resize", resize);
 resize();
 syncHeadPanel();
 loop();
+
+registerHeaderPresets({
+  id: "head-shed", presets: HEAD_SHED_FULL_PRESETS,
+  capture: () => captureHeadShedPreset({ ...params, heads }),
+  apply: (snapshot) => {
+    validateHeadShedPreset(snapshot);
+    const selectedIndex = Math.max(0, heads.findIndex((head) => head.id === selected));
+    heads = snapshot.heads.map((head, index) => ({ id: index + 1, ...head }));
+    nextId = heads.length + 1;
+    selected = heads[Math.min(selectedIndex, heads.length - 1)].id;
+    drag = null;
+    params.rotorOnly = snapshot.rotorOnly;
+    $("rotorOnly").checked = snapshot.rotorOnly;
+    for (const key of ["speed", "retain", "genLoss"]) setControlValue(key, snapshot[key]);
+    pushHeads(); pushParams(); syncHeadPanel();
+  },
+  randomize: randomizeHeadShedPreset,
+});

@@ -1,3 +1,4 @@
+import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
@@ -10,6 +11,7 @@ for (const file of changes[0].regressionTests) assert.ok(existsSync(new URL(`../
 
 /** Reverse the documented UI/capture amendment without changing the frozen references. */
 export function restoreHiccupHeadWebcam(source, file) {
+  source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });

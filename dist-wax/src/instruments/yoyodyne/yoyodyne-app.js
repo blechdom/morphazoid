@@ -277,3 +277,13 @@ window.__yoyodyne = Object.freeze({
     launches: world.launches, catches: world.catches, trick: world.trick }),
 });
 sync(); resize(); if (!hidden) resume();
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { YOYODYNE_FULL_PRESETS, applyYoyodynePreset, captureYoyodynePreset, randomizeYoyodynePreset } from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "yoyodyne", presets: YOYODYNE_FULL_PRESETS,
+  capture: () => captureYoyodynePreset(world),
+  apply: snapshot => { applyYoyodynePreset(world, snapshot); sync(); },
+  randomize: randomizeYoyodynePreset,
+});

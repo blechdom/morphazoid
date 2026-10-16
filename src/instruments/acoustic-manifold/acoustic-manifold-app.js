@@ -2496,6 +2496,10 @@ async function loadSampleSource(id) {
     inputState.pending = false;
     $("audio-file").value = "";
     setLoadedSource(loaded);
+    if ($("analysis-profile").value === "songbird") {
+      $("analysis-profile").value = "general";
+      updateProfilePresentation();
+    }
     await analyzeSource();
     return analysisMatchesProfile();
   } catch (error) {
@@ -2592,3 +2596,127 @@ if (!ACOUSTIC_BUILT_IN_SOURCES.every((entry) => ACOUSTIC_PROFILES[entry.profileI
   setBusy(false);
   requestAnimationFrame(loadSelectedBuiltIn);
 }
+
+import { registerHeaderPresets, presetStateKey } from "../../site/header-presets.js";
+import {
+  ACOUSTIC_FULL_PRESETS,
+  acousticAnalysisBudgetIssue,
+  captureAcousticPreset,
+  randomizeAcousticPreset,
+  validateAcousticPreset,
+} from "./full-presets.js";
+
+function readAcousticPresetControls() {
+  const number = (id) => Number($(id).value);
+  const sequence = $("analysis-sequence-gap-seconds").value.trim();
+  return {
+    profile: $("analysis-profile").value,
+    analysis: {
+      minimumSpectralHz: number("analysis-minimum-spectral-hz"),
+      maximumSpectralHz: number("analysis-maximum-spectral-hz"),
+      minimumEventSeconds: number("analysis-minimum-event-seconds"),
+      gapSeconds: number("analysis-gap-seconds"),
+      fixedWindowSeconds: number("analysis-fixed-window-seconds"),
+      fixedWindowOverlapPercent: number("analysis-fixed-window-overlap"),
+      minimumActiveRatioPercent: number("analysis-minimum-active-ratio"),
+      frameSize: number("analysis-frame-size"),
+      hopRatio: number("analysis-hop-ratio"),
+      analysisTargetRate: number("analysis-target-rate"),
+      sequenceGapSeconds: sequence === "" ? null : Number(sequence),
+      neighborCount: number("analysis-neighbor-count"),
+    },
+    route: { rule: $("walk-rule").value, length: number("route-length"), surprise: number("surprise") },
+    listenMode: $("listen-mode").value,
+    resynthesis: {
+      gestureSpeed: number("gesture-speed"),
+      pitchShift: number("pitch-shift"),
+      bodyScale: number("body-scale"),
+      textureAmount: number("texture-amount"),
+      manifoldExaggeration: number("manifold-exaggeration"),
+      gapMs: number("route-gap"),
+    },
+  };
+}
+
+function acousticPresetContext() {
+  return { sampleRate: sourceSampleRate, sampleCount: sourceSamples ? sourceSamples.length : null };
+}
+
+async function applyAcousticPreset(snapshot) {
+  validateAcousticPreset(snapshot);
+  const before = captureAcousticPreset(readAcousticPresetControls());
+  const differs = (key) => presetStateKey(before[key]) !== presetStateKey(snapshot[key]);
+  if (!Object.keys(snapshot).some(differs)) return;
+  if (busy || captureIsActive() || disposed) {
+    throw new Error("Wait for the current load, analysis or capture to finish before recalling a preset");
+  }
+  const issue = acousticAnalysisBudgetIssue(snapshot.profile, snapshot.analysis, acousticPresetContext());
+  if (issue) throw new RangeError(issue);
+
+  const routeChanged = differs("route");
+  const analysisChanged = differs("profile") || differs("analysis");
+  const listenChanged = differs("listenMode");
+  const soundChanged = differs("resynthesis");
+
+  if (routeChanged) {
+    $("walk-rule").value = snapshot.route.rule;
+    $("route-length").value = String(snapshot.route.length);
+    $("surprise").value = String(snapshot.route.surprise);
+    activeRouteRule = snapshot.route.rule;
+    updateRangeOutputs();
+    if (route.length) setRoute([]);
+  }
+  if (analysisChanged) {
+    stopPlayback(false, true);
+    $("analysis-profile").value = snapshot.profile;
+    updateProfilePresentation();
+    const profile = selectedProfile();
+    const { analysis: values } = snapshot;
+    setAnalysisParameterInputs({
+      minimumSpectralHz: values.minimumSpectralHz,
+      maximumSpectralHz: values.maximumSpectralHz,
+      minimumStropheSeconds: values.minimumEventSeconds,
+      stropheGapSeconds: values.gapSeconds,
+      fixedWindowSeconds: values.fixedWindowSeconds,
+      fixedWindowOverlap: values.fixedWindowOverlapPercent / 100,
+      minimumWindowActiveRatio: values.minimumActiveRatioPercent / 100,
+      analysisTargetRate: values.analysisTargetRate,
+      frameSize: values.frameSize,
+      hopSize: Math.round(values.frameSize * values.hopRatio),
+      sequenceGapSeconds: values.sequenceGapSeconds,
+      neighborCount: values.neighborCount,
+    }, profile);
+    commitAnalysisParameterChange("Preset analysis parameters applied.");
+  }
+  if (listenChanged) {
+    $("listen-mode").value = snapshot.listenMode;
+    stopPlayback(false, true);
+    invalidateRouteRender();
+    updateListenPresentation();
+  }
+  if (soundChanged) {
+    const { resynthesis: values } = snapshot;
+    $("gesture-speed").value = String(values.gestureSpeed);
+    $("pitch-shift").value = String(values.pitchShift);
+    $("body-scale").value = String(values.bodyScale);
+    $("texture-amount").value = String(values.textureAmount);
+    $("manifold-exaggeration").value = String(values.manifoldExaggeration);
+    $("route-gap").value = String(values.gapMs);
+    const named = Object.entries(RESYNTHESIS_PRESETS).find(([, preset]) => (
+      resynthesisKey(normalizeAcousticResynthesis(preset)) === resynthesisKey()
+    ));
+    $("resynthesis-preset").value = named ? named[0] : "custom";
+    commitResynthesisChange("Preset transform applied.");
+  }
+  setBusy(false);
+  if (analysisChanged && sourceSamples && !analysisMatchesProfile()) await analyzeSource();
+  else if (routeChanged || listenChanged) setStatus("Preset applied; build a route to play it.", "ready");
+}
+
+registerHeaderPresets({
+  id: "acoustic-manifold",
+  presets: ACOUSTIC_FULL_PRESETS,
+  capture: () => captureAcousticPreset(readAcousticPresetControls()),
+  apply: applyAcousticPreset,
+  randomize: (current, random) => randomizeAcousticPreset(current, random, acousticPresetContext()),
+});

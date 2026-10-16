@@ -9,7 +9,7 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="src/instruments/fractal-signals/style.css" />
-  <link rel="stylesheet" href="src/recorded-input-player.css" />
+  <link rel="stylesheet" href="src/families/recorded-input/recorded-input-core.css" />
 </head>
 <body class="fractal-page">
   <header class="masthead">
@@ -59,7 +59,7 @@
         <p id="microphoneStatus">Enable Audio to use the microphone.</p>
         <div id="inputControls" class="control-grid"></div>
         <div id="fileSourceControls">
-          <div class="source-actions"><button type="button" id="loadSource">Load audio…</button><button type="button" id="clearSource">Built-in source</button></div>
+          <div class="source-actions"><button type="button" id="loadSource" title="Analyse a file once; its spectrum and envelope shape the synthetic voices. For a file played as live input, use the Input source menu in the input strip.">Load material…</button><button type="button" id="clearSource">Built-in source</button></div>
           <input type="file" id="sourceFile" accept="audio/*" hidden />
           <p id="sourceStatus">Original synthetic material. Local files stay on this device.</p>
         </div>

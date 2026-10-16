@@ -1273,3 +1273,21 @@ window.addEventListener("pageshow", (event) => {
 });
 if (manualMode) draw();
 else scheduledFrame = requestAnimationFrame(animate);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  VECTOR_FLIGHT_FULL_PRESETS, applyVectorFlightPreset, captureVectorFlightPreset, randomizeVectorFlightPreset,
+} from "./full-presets.js";
+
+registerHeaderPresets({
+  id: "vector-flight", presets: VECTOR_FLIGHT_FULL_PRESETS,
+  capture: () => captureVectorFlightPreset(state),
+  apply: snapshot => {
+    const { densityChanged, articulation } = applyVectorFlightPreset(state, snapshot);
+    if (densityChanged) resetStars();
+    paintControls();
+    setArticulation(articulation);
+    updateAudio(performance.now(), true);
+  },
+  randomize: randomizeVectorFlightPreset,
+});
