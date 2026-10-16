@@ -1,3 +1,4 @@
+import { mountRecordedInput } from "../../families/voice-input/recorded-input.js";
 import {
   MICROMORPH_DEFAULTS,
   MICROMORPH_PCM_CHUNK_FRAMES,
@@ -857,3 +858,33 @@ function initialize() {
 }
 
 initialize();
+
+const privacyCard = document.querySelector(".micromorph-privacy-card");
+const recordedInput = mountRecordedInput({
+  control: inputControl,
+  host: { container: privacyCard.parentElement, before: privacyCard },
+  prepare: async () => {
+    await audio.initialize();
+    audio.clearSuspendTimer();
+    await audio.context.resume();
+  },
+  getContext: () => audio.context,
+  getTarget: () => audio.inputAnalyser,
+  isArmed: () => state.audioOn,
+  isEngaged: () => audio.enabled,
+  channels: () => 1,
+  multiplier: () => state.parameters.inputGain,
+  onSourceChange: (next) => {
+    if (next !== "mic") stopMicrophone("Microphone released.").catch(showAudioError);
+  },
+  onLiveChange: (live) => {
+    if (live) {
+      audio.node.port.postMessage({ type: "reset" });
+      audio.node.port.postMessage({ type: "active", value: true });
+      audio.enabled = true;
+      audio.setOutputArmed(audio.outputArmed);
+      audio.setModelActive(modelIsReady());
+      updateInterface({ sendControls: false });
+    } else stopMicrophone("Recorded input stopped.").catch(showAudioError);
+  },
+});
