@@ -8,7 +8,7 @@
     "fullPresets": 2129,
     "favesImplemented": 17,
     "activeRemaining": 60,
-    "regularRemaining": 130
+    "regularRemaining": 131
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -966,6 +966,15 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "wobblini",
+      "label": "Wobblini",
+      "href": "wobblini.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "graphonic-calculator",
       "label": "Graphonic Calculator",
       "href": "graphonic-calculator.html",
@@ -1871,6 +1880,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "wobblini",
       "graphonic-calculator",
       "striped-staircase-rust",
       "vector-fractals",

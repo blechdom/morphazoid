@@ -45,9 +45,11 @@ test("Music Rooms routes live in Works in progress without entering the instrume
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
   assert.equal(group.label, "Work in Progress");
-  // The independent Staircase Studies addition precedes this existing group;
-  // preserve the exact earlier ordering of Vector Fractals and the rooms.
-  assert.deepEqual(group.tools.filter(({ id }) => !["striped-staircase-rust", "graphonic-calculator"].includes(id)).slice(0, 5), [
+  // Preserve the room block immediately after Vector Fractals without tying
+  // that relationship to unrelated instruments added before it.
+  const vectorFractalsIndex = group.tools.findIndex(({ id }) => id === "vector-fractals");
+  assert.ok(vectorFractalsIndex >= 0);
+  assert.deepEqual(group.tools.slice(vectorFractalsIndex, vectorFractalsIndex + roomTools.length + 1), [
     { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html' },
     ...roomTools,
   ]);
