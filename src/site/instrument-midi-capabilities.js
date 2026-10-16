@@ -307,6 +307,7 @@ const processorAudioIds = new Set([
   "loopini",
 ]);
 const audioInputIds = new Set([
+  "esi-32",
   "fractal-delay",
   "l-systems",
   "moire-drone",

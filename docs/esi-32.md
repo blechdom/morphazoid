@@ -15,6 +15,20 @@ downloads. Files remain on the device; the instrument does not upload audio.
 Use **Save bank** before leaving or reloading the page to keep imported samples
 and settings.
 
+To record a microphone or audio interface, enable **Audio**, then click the
+violet input toggle beside the input gain and meter. Allow microphone access
+and choose **Audio input device** if you use an external interface. The input
+meter follows the input gain; capture does not feed live input to the speakers.
+Click **Record into slot**, then **Stop recording**. The captured sound replaces
+the slot selected when recording began and appears in the waveform editor.
+Play the keys to hear it, then trim, loop, filter, export or save the bank as usual.
+Recording stops at 60 seconds. Audio off, disconnecting input, or hiding the page
+stops capture and keeps the recorded portion. Permission or capture failures
+leave the existing sample intact. Input and recordings stay on your device.
+
+The separate red **Record** button in Morphazoid's masthead records the sampler's
+stereo output as WAV. It is independent of microphone-to-sample capture.
+
 Drag the waveform markers or use the labelled trim and loop controls. Focus
 the waveform and use arrows to move the start, or Shift + arrows to move the
 end. Trim chooses the playable region; Loop repeats its interior region;

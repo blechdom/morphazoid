@@ -2,6 +2,8 @@ import { createRangeField } from '../../ui/index.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { getSharedMidiManager, COMPUTER_KEYBOARD_LAYOUTS } from '../../midi-manager.js';
 import { Esi32Audio } from './esi-32-audio.js';
+import { mountAudioInputControl } from '../../audio-input-control.js';
+import { Esi32SampleRecorder } from './esi-32-recorder.js';
 import { ESI32_DEFAULT_PATCH, ESI32_DEMO_SAMPLES, ESI32_PRESETS, sanitizeEsi32Patch, randomizeEsi32Patch, createEsi32DemoData } from './esi-32-model.js';
 import { encodeWav, serializeBank, parseBank } from './esi-32-files.js';
 
@@ -35,8 +37,35 @@ let raf = 0;
 let waveData = null;
 let peaks = null;
 let drag = null;
+let inputControl;
+let inputStream = null;
+let inputSource = null;
+let inputGain = null;
+let inputPending = false;
+let inputGeneration = 0;
+let recordingSlot = 0;
+let recordingGeneration = 0;
+let applyingRecording = false;
+let appliedBlob = null;
+let inputMessage = '';
+let sampleRecorder;
+sampleRecorder = new Esi32SampleRecorder({
+  runtime: globalThis,
+  onChange(snapshot) {
+    if (disposed) return;
+    syncInput();
+    syncAudio();
+    if (snapshot.state === 'ready' && snapshot.blob && snapshot.blob !== appliedBlob) {
+      appliedBlob = snapshot.blob;
+      void applyRecordedSample(snapshot.blob, recordingSlot, recordingGeneration);
+    }
+  },
+  onError: error => { if (!disposed) report(error); },
+});
 const wave = $('waveform');
 const ctx = wave.getContext('2d');
+const theme = getComputedStyle(document.body);
+const colors = Object.fromEntries(['violet','lilac','wave-bg','wave-region','wave-loop'].map(key => [key, theme.getPropertyValue(`--esi-${key}`).trim()]));
 const isWaxMidiOnly = () => document.documentElement.dataset.morphazoidWaxOutputMode === 'midi';
 
 function report(error) {
@@ -47,9 +76,85 @@ function report(error) {
 function syncAudio() {
   $('audioButton').setAttribute('aria-pressed', String(state.audioOn));
   $('audioState').textContent = state.audioOn ? 'on' : 'off';
-  for (const id of ['sampleFile', 'bankFile', 'saveBank', 'exportSample']) $(id).disabled = !state.audioOn || fileOperation;
+  for (const id of ['sampleFile', 'bankFile', 'saveBank', 'exportSample']) $(id).disabled = !state.audioOn || fileOperation || recordingBusy() || applyingRecording;
   audio.setOutput(state.audioOn ? Number($('output').value) : 0);
   $('lcdStatus').textContent = state.audioOn ? 'Ready · hold a key to play' : 'Enable Audio · play the keys';
+  syncInput();
+}
+
+function recordingBusy() { return ['starting','recording','stopping'].includes(sampleRecorder?.state); }
+
+function syncInput() {
+  const active = sampleRecorder?.state === 'recording';
+  const waiting = ['starting','stopping'].includes(sampleRecorder?.state) || applyingRecording;
+  $('recordSample').disabled = waiting || (!active && (!state.audioOn || !inputStream || fileOperation));
+  $('recordSample').setAttribute('aria-pressed', String(active));
+  $('recordSample').textContent = active ? '■ Stop recording' : waiting ? 'Preparing sample…' : `Record into slot ${state.selectedSlot + 1}`;
+  $('inputDevice').disabled = inputPending || recordingBusy() || applyingRecording;
+  $('recordingStatus').textContent = active ? `Recording into slot ${recordingSlot + 1} · ${sampleRecorder.elapsed.toFixed(1)} s / 60 s`
+    : waiting ? 'Finishing the recorded sample…'
+    : inputMessage || (inputStream ? 'Input connected · ready to record' : 'Enable Audio and connect your mic or audio input.');
+  inputControl?.refresh();
+}
+
+async function refreshInputDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    if (disposed) return;
+    const selected = $('inputDevice').value;
+    const defaultOption = new Option('Default audio input', '');
+    $('inputDevice').replaceChildren(defaultOption, ...devices.filter(device => device.kind === 'audioinput' && device.deviceId && device.deviceId !== 'default').map((device, index) => new Option(device.label || `Audio input ${index + 1}`, device.deviceId)));
+    if ([...$('inputDevice').options].some(option => option.value === selected)) $('inputDevice').value = selected;
+  } catch { /* The default device remains usable if enumeration is unavailable. */ }
+}
+
+async function startInput() {
+  if (disposed || inputStream || inputPending) return;
+  if (!state.audioOn || audio.context?.state !== 'running') throw new Error('Enable Audio before connecting your input.');
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error('Audio input needs a secure browser with microphone support.');
+  const generation = ++inputGeneration;
+  inputPending = true; inputMessage = ''; syncInput();
+  let stream;
+  try {
+    const deviceId = $('inputDevice').value;
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { ...(deviceId ? { deviceId: { exact: deviceId } } : {}), channelCount: { ideal: 2 }, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    if (disposed || generation !== inputGeneration || !state.audioOn) { stream.getTracks().forEach(track => track.stop()); return; }
+    const source = audio.context.createMediaStreamSource(stream);
+    const gain = inputControl.createGain(audio.context);
+    source.connect(gain);
+    inputStream = stream; inputSource = source; inputGain = gain;
+    for (const track of stream.getAudioTracks()) track.addEventListener('ended', () => { if (inputStream === stream) { void stopInput(); inputMessage = 'Audio input disconnected.'; syncInput(); } }, { once: true });
+    await refreshInputDevices();
+  } catch (error) { stream?.getTracks().forEach(track => track.stop()); throw error; }
+  finally { if (generation === inputGeneration) { inputPending = false; syncInput(); } }
+}
+
+async function stopInput() {
+  inputGeneration++; inputPending = false;
+  const finishing = sampleRecorder.stop();
+  const stream = inputStream; inputStream = null;
+  stream?.getTracks().forEach(track => track.stop());
+  inputSource?.disconnect(); inputSource = null;
+  inputGain?.disconnect(); inputGain = null;
+  syncInput();
+  await finishing;
+}
+
+async function applyRecordedSample(blob, slot, generation) {
+  applyingRecording = true; syncAudio();
+  try {
+    const context = audio.context;
+    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+    if (disposed || generation !== recordingGeneration || context !== audio.context) return;
+    audio.setSample(slot, buffer);
+    state.names[slot] = `Input take ${String(slot + 1).padStart(2, '0')}`;
+    state.patches[slot] = sanitizeEsi32Patch({ ...state.patches[slot], start:0, end:1, loopStart:0, loopEnd:1 });
+    refreshSlots();
+    if (slot === state.selectedSlot) { syncPatch(); refreshWave(); }
+    inputMessage = `${buffer.duration.toFixed(2)} s recorded into slot ${slot + 1} · play the keys to listen`;
+  } catch (error) { report(new Error(`Could not load recording: ${error.message}`)); }
+  finally { applyingRecording = false; if (!disposed) syncAudio(); }
 }
 
 async function enableAudio() {
@@ -142,7 +247,7 @@ function refreshSlots() {
 
 function selectSlot(slot) {
   state.selectedSlot = slot;
-  refreshSlots(); syncPatch(); refreshWave();
+  refreshSlots(); syncPatch(); refreshWave(); syncInput();
 }
 
 function refreshWave() {
@@ -172,16 +277,16 @@ function drawWave() {
   if (wave.width !== width || wave.height !== height) { wave.width = width; wave.height = height; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const w = rect.width; const h = rect.height; const p = patch();
-  ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#171d18'; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#263724'; ctx.fillRect(p.start * w, 0, (p.end - p.start) * w, h);
-  if (p.loopMode === 'forward') { ctx.fillStyle = '#a3c77b20'; ctx.fillRect(p.loopStart * w, 0, (p.loopEnd - p.loopStart) * w, h); }
-  ctx.strokeStyle = '#c7e6a0'; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.clearRect(0, 0, w, h); ctx.fillStyle = colors['wave-bg']; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = colors['wave-region']; ctx.fillRect(p.start * w, 0, (p.end - p.start) * w, h);
+  if (p.loopMode === 'forward') { ctx.fillStyle = colors['wave-loop']; ctx.fillRect(p.loopStart * w, 0, (p.loopEnd - p.loopStart) * w, h); }
+  ctx.strokeStyle = colors.violet; ctx.lineWidth = 1; ctx.beginPath();
   for (let x = 0; x < w; x++) {
     const peak = peaks[Math.min(peaks.length - 1, Math.floor(x / w * peaks.length))] * h * .39;
     ctx.moveTo(x + .5, h / 2 - peak); ctx.lineTo(x + .5, h / 2 + peak);
   }
   ctx.stroke();
-  for (const [key, label, color, y] of [['start','START','#ec94ad',14],['end','END','#ec94ad',14],['loopStart','LOOP IN','#c7e6a0',h-10],['loopEnd','LOOP OUT','#c7e6a0',h-10]]) {
+  for (const [key, label, color, y] of [['start','START',colors.lilac,14],['end','END',colors.lilac,14],['loopStart','LOOP IN',colors.violet,h-10],['loopEnd','LOOP OUT',colors.violet,h-10]]) {
     if (key.startsWith('loop') && p.loopMode !== 'forward') continue;
     const x = clamp(p[key] * w, 1, w - 1);
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
@@ -262,10 +367,13 @@ for (const [id, delta] of [['octaveDown',-1],['octaveUp',1]]) listen($(id), 'cli
 
 listen($('audioButton'), 'click', () => {
   if (state.audioOn || starting) {
-    audioGeneration++; importGeneration++; state.audioOn = false;
+    const generation = ++audioGeneration;
+    importGeneration++; state.audioOn = false;
+    const inputStopped = stopInput();
     const auditionWasOn = state.audition; panic();
     if (auditionWasOn) { state.audition = true; held.set('audition',patch().rootNote); $('audition').setAttribute('aria-pressed','true'); $('audition').textContent = '■ Stop audition'; }
-    audio.setOutput(0); void audio.stop(); syncAudio();
+    audio.setOutput(0); syncAudio();
+    void inputStopped.finally(() => { if (!state.audioOn && generation === audioGeneration) void audio.stop(); });
   } else void enableAudio();
 });
 listen($('output'), 'input', () => { $('outputOut').textContent = percent(Number($('output').value)); audio.setOutput(state.audioOn ? Number($('output').value) : 0); });
@@ -401,10 +509,31 @@ function handleMidi(message) {
 const unregisterMidi = midi.registerClient({id:'esi-32',computerKeyboard:false,onPrepareEnable:() => { void enableAudio(); },onMessage:handleMidi,onEnabledChange:enabled => { if (!enabled) { for (const id of [...held.keys()]) if (id.startsWith('m:')) release(id); sustainedChannels.clear(); audio.setPitchBend(0); } }});
 
 const observer = new ResizeObserver(requestDraw); observer.observe(wave);
+inputControl = mountAudioInputControl({
+  container: $('sampleInputControls'),
+  gainValue: 1,
+  onStart: startInput,
+  onStop: stopInput,
+  getState: () => ({ active: Boolean(inputStream), pending: inputPending, supported: Boolean(navigator.mediaDevices?.getUserMedia) && !isWaxMidiOnly() }),
+  getSignal: () => ({ node: inputGain, stream: inputStream }),
+});
+listen($('recordSample'), 'click', async () => {
+  if (sampleRecorder.state === 'recording') { await sampleRecorder.stop(); return; }
+  if (recordingBusy() || applyingRecording || !state.audioOn || !inputGain || !inputStream || fileOperation) return;
+  recordingSlot = state.selectedSlot; recordingGeneration++; inputMessage = ''; report(null);
+  const channels = inputStream.getAudioTracks()[0]?.getSettings?.().channelCount === 2 ? 2 : 1;
+  await sampleRecorder.start(audio.context, inputGain, channels);
+});
+listen($('inputDevice'), 'change', async () => {
+  const reconnect = Boolean(inputStream);
+  await stopInput();
+  if (reconnect && state.audioOn) { try { await startInput(); } catch (error) { report(error); } }
+});
 refreshSlots(); syncPatch(); refreshWave(); renderKeyboard(); syncAudio();
-window.__esi32 = { audio, getState:() => ({...captureBank(),audioOn:state.audioOn,audition:state.audition,held:[...held.entries()]}) };
+window.__esi32 = { audio, sampleRecorder, getState:() => ({...captureBank(),audioOn:state.audioOn,audition:state.audition,held:[...held.entries()],inputActive:Boolean(inputStream),inputPending,applyingRecording}) };
 listen(window,'pagehide', () => {
   disposed = true; audioGeneration++; importGeneration++; panic(); state.audioOn = false; cancelAnimationFrame(raf); raf = 0;
+  recordingGeneration++; inputControl.destroy(); sampleRecorder.dispose();
   observer.disconnect(); unregisterMidi(); fullPresets.destroy(); for (const field of fields.values()) field.destroy(); abort.abort(); void audio.dispose();
 });
 window.addEventListener('pageshow',event => { if (event.persisted) window.location.reload(); });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#101212" />
+  <meta name="theme-color" content="#090e24" />
   <meta name="description" content="An ESI-32-inspired sample instrument. Load, trim, loop and play local sounds with envelopes, resonant filtering and MIDI." />
   <title>ESI-32 Sampler — Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -38,6 +38,14 @@
       <div class="esi-key-section"><div class="esi-section-label"><span>KEYBOARD</span><div class="esi-octaves"><button id="octaveDown" type="button" aria-label="Lower keyboard octave">−</button><output id="octaveLabel">C3–B4</output><button id="octaveUp" type="button" aria-label="Raise keyboard octave">+</button></div></div><div id="keyboard" class="esi-keyboard" role="group" aria-label="Two octave sample keyboard"></div><p class="esi-hint">Hold a key to play · release to fade · computer keys work with Audio on · MIDI in Settings</p></div>
     </section>
     <aside class="esi-panel" data-instrument-preset-host aria-label="Sampler controls">
+      <section class="esi-recording" aria-label="Sample recording">
+        <h2>AUDIO INPUT</h2>
+        <div id="sampleInputControls"></div>
+        <label class="esi-device"><span>Audio input device</span><select id="inputDevice"><option value="">Default audio input</option></select></label>
+        <div class="esi-recording-actions"><button id="recordSample" type="button" aria-pressed="false" disabled>Record into slot 1</button></div>
+        <p id="recordingStatus" class="esi-hint" role="status">Enable Audio and connect your mic or audio input.</p>
+        <p class="esi-hint">Up to 60 seconds into the selected slot. Use the input meter to set gain, then record. Playback starts when you play the keys.</p>
+      </section>
       <details class="esi-control-section" open><summary>Tuning &amp; output</summary><div id="tuningControls" class="esi-controls"></div></details>
       <details class="esi-control-section" open><summary>Resonant lowpass</summary><div id="filterControls" class="esi-controls"></div></details>
       <details class="esi-control-section" open><summary>Amplitude envelope</summary><div id="envelopeControls" class="esi-controls"></div></details>

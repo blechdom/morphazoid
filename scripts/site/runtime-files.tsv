@@ -2235,6 +2235,7 @@ copy+require	src/instruments/esi-32/esi-32-app.js
 copy+require	src/instruments/esi-32/esi-32-audio.js
 copy+require	src/instruments/esi-32/esi-32-model.js
 copy+require	src/instruments/esi-32/esi-32-files.js
+copy+require	src/instruments/esi-32/esi-32-recorder.js
 copy+require	src/instruments/esi-32/esi-32.css
 copy+require	assets/instruments/esi-32.webp
 copy+require	docs/esi-32.md
