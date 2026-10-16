@@ -1,0 +1,239 @@
+@import url("../../ui/index.css");
+
+html.wobblini-document { height: auto; min-height: 100%; overflow: auto; background: #0a1016; }
+body.wobblini-page { height: auto; min-height: 100dvh; display: block; overflow: visible; background: #0a1016; color: #e5edf1; }
+.wobblini-page .masthead { background: #0a1016; }
+.wb-shell { max-width: 1920px; margin: auto; padding: 14px 24px 32px; font-family: var(--font-ui, system-ui, sans-serif); }
+.wb-shell *, .wb-dialog * { box-sizing: border-box; }
+.wb-shell [hidden] { display: none !important; }
+.wb-shell h1, .wb-shell h2, .wb-shell h3, .wb-shell p { margin: 0; }
+.wb-shell button, .wb-shell select, .wb-shell input, .wb-dialog button { font: inherit; }
+.wb-shell button, .wb-shell select, .wb-dialog button { min-height: 32px; padding: 6px 9px; border: 1px solid #3c4854; border-radius: 5px; color: #dce6ed; background: #18222c; font-size: 11px; cursor: pointer; font-weight: 600; }
+.wb-shell button:hover, .wb-shell select:hover, .wb-dialog button:hover { border-color: #8d9eac; background: #263541; }
+.wb-shell button:disabled { cursor: default; opacity: .45; }
+.wb-shell button[aria-pressed="true"] { background: var(--deck-color, #c5f078); border-color: var(--deck-color, #c5f078); color: #10191b; }
+.wb-shell :is(button, input, select, summary, canvas, a):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.wb-shell input[type="range"] { display: block; accent-color: var(--deck-color, #c5f078); width: 100%; min-width: 0; height: 22px; margin: 0; cursor: ew-resize; }
+.wb-shell input[type="number"] { color: #edf3f6; background: #0b1118; border: 1px solid #3c4854; padding: 5px 6px; min-height: 31px; border-radius: 4px; width: 70px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.wb-shell output { font-variant-numeric: tabular-nums; }
+.wb-heading { display: flex; align-items: center; gap: 22px; padding: 4px 0 18px; }
+.wb-title { display: flex; align-items: baseline; gap: 16px; margin-right: auto; }
+.wb-title h1 { color: #c5f078; font: 750 38px/1 var(--font-ui, system-ui, sans-serif); letter-spacing: -.055em; }
+.wb-edition { color: #9cabb9; font: 600 9px/1 ui-monospace, monospace; letter-spacing: .17em; white-space: nowrap; }
+.wb-view { display: flex; gap: 3px; }
+.wb-view button { border: 0; background: #151f28; padding: 8px 14px; }
+.wb-view button[aria-pressed="true"] { color: #e8f0f6; background: #35434f; }
+.wb-help { position: relative; font-size: 11px; }
+.wb-help summary { cursor: pointer; color: #bdc9d2; padding: 8px 0 8px 6px; }
+.wb-help > div { position: absolute; z-index: 50; right: 0; top: 33px; width: min(340px, 86vw); padding: 20px; border: 1px solid #4e6273; border-radius: 8px; background: #18232d; box-shadow: 0 20px 50px #000b; line-height: 1.6; }
+.wb-help p + p { margin-top: 10px; }
+.wb-help a { display: inline-block; margin-top: 12px; color: #c5f078; }
+.wb-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-bottom: 16px; }
+.wb-toolbar .wb-play-all { min-width: 106px; min-height: 38px; color: #c5f078; border-color: #70804d; }
+.wb-toolbar .wb-play-all[aria-pressed="true"] { color: #10191b; }
+.wb-toolbar-space { flex: 1; }
+.wb-master-tempo { display: flex; align-items: center; gap: 7px; margin-left: 14px; }
+.wb-master-tempo > span { font-size: 9px; letter-spacing: .1em; color: #a4b5c3; }
+.wb-master-tempo input { font-size: 16px !important; width: 78px !important; }
+.wb-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 20px; align-items: start; }
+.wb-decks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; min-width: 0; }
+.wb-deck { --deck-color: #c5f078; background: #131d27; border-top: 2px solid var(--deck-color); border-radius: 6px; min-width: 0; padding: 12px; transition: background .15s; }
+.wb-deck.is-playing { background: #192531; }
+.wb-deck.is-muted { opacity: .68; }
+.wb-deck.is-dragover { outline: 2px dashed var(--deck-color); outline-offset: -5px; background: #283b43; }
+.wb-deck.is-selected { box-shadow: 0 0 0 1px #92a9b8; }
+.wb-deck-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wb-deck-number { color: var(--deck-color); font: 650 21px/1 ui-monospace, monospace; }
+.wb-track { flex: 1; min-width: 0; }
+.wb-track h2 { font-size: 12px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-track span { display: block; color: #acbac5; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-deck .wb-load { min-height: 29px; padding: 4px 6px; font-size: 10px; background: transparent; }
+.wb-visual { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.wb-disc { width: 62px; height: 62px; flex-shrink: 0; border-radius: 50%; position: relative; background: repeating-radial-gradient(circle, #1a2834 0 1px, #0b121a 2px 4px); box-shadow: 0 0 0 1px #354550; }
+.wb-disc::before { content: ''; position: absolute; inset: 20px; background: var(--deck-color); border-radius: 50%; opacity: .85; }
+.wb-disc::after { content: ''; position: absolute; width: 4px; height: 4px; top: 29px; left: 29px; border-radius: 50%; background: #09131c; }
+.wb-disc-needle { position: absolute; inset: 4px; border-radius: 50%; border-top: 2px solid var(--deck-color); transform: rotate(var(--disc-angle, 0deg)); }
+.wb-disc-needle::after { content: ''; width: 2px; height: 13px; top: 0; left: calc(50% - 1px); position: absolute; background: var(--deck-color); }
+.wb-wave-wrap { min-width: 0; flex: 1; }
+.wb-wave { display: block; width: 100%; height: 56px; cursor: crosshair; touch-action: none; }
+.wb-time { display: flex; justify-content: space-between; gap: 4px; color: #b4c4d0; font: 10px/1.5 ui-monospace, monospace; margin: 4px 0 2px; }
+.wb-seek { height: 14px !important; opacity: .8; }
+.wb-deck-transport { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 5px; margin-top: 10px; }
+.wb-deck-transport .wb-deck-play { color: var(--deck-color); }
+.wb-deck-transport .wb-deck-play[aria-pressed="true"] { color: #10191b; }
+.wb-loop-row { display: flex; align-items: center; gap: 7px; margin-top: 9px; }
+.wb-loop-row label { color: #b5c3ce; font-size: 10px; display: flex; gap: 5px; align-items: center; flex: 1; }
+.wb-loop-row select { width: 100%; max-width: 88px; min-height: 28px; padding: 3px; font-size: 10px; }
+.wb-effective { color: var(--deck-color); font: 600 14px/1 ui-monospace, monospace; white-space: nowrap; }
+.wb-effective small { font: 8px/1 var(--font-ui, sans-serif); color: #a9b9c6; }
+.wb-level-row { display: grid; grid-template-columns: minmax(55px, 1fr) 30px 30px; gap: 5px; align-items: center; margin-top: 8px; }
+.wb-level-row label { min-width: 0; }
+.wb-level-row label > span { display: flex; justify-content: space-between; color: #aebfcb; font-size: 9px; }
+.wb-level-row button { font-size: 10px; padding: 4px; }
+.wb-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; }
+.wb-footer label { color: #aebfcb; font-size: 9px; display: flex; align-items: center; gap: 5px; }
+.wb-footer select { font-size: 10px; padding: 2px 4px; min-height: 26px; }
+.wb-edit { font-size: 10px !important; min-height: 26px !important; padding: 3px 6px !important; background: transparent !important; color: #bacbd7 !important; }
+.wb-detail { margin-top: 10px; }
+.wb-detail summary { cursor: pointer; color: #b8c8d4; font-size: 10px; padding: 7px 0; }
+.wb-detail-body { display: grid; gap: 10px; padding-top: 6px; }
+.wb-control { display: block; min-width: 0; }
+.wb-control > span { display: flex; align-items: center; justify-content: space-between; gap: 5px; color: #b5c5d0; font-size: 10px; margin-bottom: 3px; }
+.wb-control output { color: #e1ebf2; }
+.wb-source-tempo { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.wb-source-tempo label { color: #b5c5d0; font-size: 10px; display: flex; align-items: center; gap: 4px; }
+.wb-source-tempo input { width: 63px !important; }
+.wb-source-tempo button { font-size: 10px; padding-inline: 6px; }
+.wb-eq { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.wb-eq .wb-control > span { flex-direction: column; }
+.wb-mixer { min-width: 0; background: #0e1720; border-radius: 6px; padding: 16px; }
+.wb-mixer-section + .wb-mixer-section { border-top: 1px solid #263642; padding-top: 20px; margin-top: 22px; }
+.wb-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wb-section-heading h2 { font-size: 12px; font-weight: 650; }
+.wb-small { background: transparent !important; padding: 4px 6px !important; min-height: 26px !important; font-size: 9px !important; color: #bccbd6 !important; }
+.wb-bus-labels { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; color: #c5f078; font: 600 16px/1 ui-monospace, monospace; }
+.wb-bus-labels output { color: #acbecd; font-size: 10px; font-weight: 400; }
+.wb-bus-labels span:last-child { color: #c5a0ff; }
+#crossfader { height: 38px; }
+.wb-routing { display: flex; justify-content: space-between; color: #a7bac7; font: 9px/1.6 ui-monospace, monospace; gap: 5px; }
+.wb-routing span { max-width: 50%; overflow-wrap: anywhere; }
+.wb-pad-wrap { position: relative; margin: 12px 0 15px; }
+#wobble-pad { display: block; width: 100%; height: 154px; touch-action: none; cursor: crosshair; background: #09121a; border-radius: 5px; }
+.wb-pad-axis { position: absolute; bottom: 7px; left: 9px; color: #a0b7c6; font: 8px/1 ui-monospace, monospace; letter-spacing: .12em; pointer-events: none; }
+.wb-wobble > label + label { margin-top: 12px; }
+.wb-session-info { color: #b1c3d0; font-size: 11px; }
+.wb-live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #61717b; margin-right: 5px; }
+.wb-live-dot.is-on { background: #c5f078; box-shadow: 0 0 10px #c5f07760; }
+.wb-session-info p { margin-top: 9px; line-height: 1.6; font-size: 10px; }
+#errorMessage { color: #ffb7a7; font-size: 11px; line-height: 1.5; margin-top: 12px; overflow-wrap: anywhere; }
+.wb-dialog { max-width: min(420px, 90vw); color: #e7eef5; background: #19242e; border: 1px solid #526778; border-radius: 8px; padding: 24px; font: 13px/1.6 system-ui, sans-serif; }
+.wb-dialog::backdrop { background: #0009; }
+.wb-dialog h2 { font-size: 19px; }
+.wb-dialog form { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.wb-dialog button { min-height: 40px; }
+/* Tiny decks retain live transport/level controls. The selected deck expands in
+   place, preserving the same DOM, file picker, focus, and audio state. */
+.wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.wb-shell.is-tiny .wb-deck { padding: 10px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) :is(.wb-loop-row, .wb-detail, .wb-cue, .wb-set-cue, .wb-load, .wb-seek, .wb-track-kind) { display: none; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-visual { margin-top: 8px; gap: 7px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { width: 42px; height: 42px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc::before { inset: 13px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc::after { left: 19px; top: 19px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-wave { height: 35px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-deck-transport { grid-template-columns: 1fr; margin-top: 5px; }
+.wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-deck-play { min-height: 30px; padding: 4px; }
+.wb-shell.is-tiny .wb-deck.is-selected { grid-column: span 2; grid-row: span 2; }
+.wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr 1fr; }
+.wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo, .wb-shell.is-tiny .wb-deck.is-selected .wb-eq { grid-column: 1 / -1; }
+@media (min-width: 1200px) {
+  .wb-shell.is-tiny .wb-workspace { grid-template-columns: 1fr; }
+  .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
+  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-track h2 { font-size: 10px; }
+  .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: minmax(0, 1fr) 25px 25px; gap: 3px; }
+  .wb-shell.is-tiny .wb-mixer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, .8fr); gap: 28px; padding: 20px; }
+  .wb-shell.is-tiny .wb-mixer-section + .wb-mixer-section { border-top: 0; padding-top: 0; margin-top: 0; }
+  .wb-shell.is-tiny .wb-wobble { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px 18px; }
+  .wb-shell.is-tiny .wb-wobble .wb-section-heading { grid-column: 1 / -1; }
+  .wb-shell.is-tiny .wb-pad-wrap { grid-row: span 2; margin: 0; }
+  .wb-shell.is-tiny #wobble-pad { height: 100px; }
+  .wb-shell.is-tiny .wb-wobble > label + label { margin-top: 0; }
+  .wb-shell.is-tiny .wb-session-info { padding-top: 8px; }
+  .wb-shell.is-tiny #errorMessage { grid-column: 1 / -1; }
+}
+@media (min-width: 1500px) { .wb-deck { padding: 16px; } .wb-visual { margin-top: 18px; } .wb-disc { width: 76px; height: 76px; } .wb-disc::before { inset: 24px; } .wb-disc::after { left: 36px; top: 36px; } .wb-wave { height: 70px; } }
+@media (max-width: 1199px) { .wb-workspace { grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; } .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 759px) { .wb-shell { padding: 12px 12px 28px; } .wb-heading { gap: 10px; flex-wrap: wrap; padding-bottom: 14px; } .wb-title h1 { font-size: 32px; } .wb-title { gap: 10px; } .wb-edition { font-size: 8px; } .wb-view { order: 3; } .wb-help { margin-left: auto; } .wb-toolbar { gap: 6px; } .wb-master-tempo { margin-left: 0; } .wb-master-tempo > span { width: 36px; font-size: 8px; } .wb-toolbar-space { display: none; } .wb-workspace { grid-template-columns: 1fr; } .wb-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 14px; } .wb-mixer-section + .wb-mixer-section { border: 0; margin: 0; padding: 0; } .wb-session-info, #errorMessage { grid-column: 1 / -1; } #wobble-pad { height: 104px; } .wb-decks { gap: 10px; } .wb-deck { padding: 10px; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-disc { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-track h2 { font-size: 10px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-footer label { display: none; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-level-row { grid-template-columns: 1fr 27px; } .wb-shell.is-tiny .wb-deck:not(.is-selected) .wb-solo { display: none; } }
+@media (max-width: 479px) { .wb-decks { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wb-shell.is-tiny .wb-deck.is-selected { grid-column: 1 / -1; grid-row: auto; } .wb-toolbar { padding-bottom: 12px; } .wb-toolbar > button { flex: 1; } .wb-toolbar .wb-master-tempo { order: 2; flex: 1; } #matchAll { order: 2; } .wb-toolbar .wb-play-all { flex: 1.6; } .wb-master-tempo > span { width: auto; } .wb-mixer { gap: 12px; } .wb-shell.is-tiny .wb-deck.is-selected .wb-detail-body { grid-template-columns: 1fr; } .wb-shell.is-tiny .wb-deck.is-selected .wb-eq, .wb-shell.is-tiny .wb-deck.is-selected .wb-source-tempo { grid-column: auto; } }
+@media (pointer: coarse) { .wb-shell button, .wb-shell select { min-height: 40px; } .wb-shell :is(#playButton, .wb-deck-play) { min-height: 48px !important; min-width: 48px; } .wobblini-page #audioButton { min-width: 48px; min-height: 48px; } .wb-shell input[type="range"] { height: 32px; } .wb-shell .wb-seek { height: 24px !important; } .wb-detail summary { padding-block: 13px; } }
+@media (prefers-reduced-motion: reduce) { .wb-deck { transition: none; } }
+
+/* Compact, icon-only controls share accessible labels and hover titles. */
+.wb-shell button, .wb-dialog button { display: inline-flex; align-items: center; justify-content: center; gap: 0; }
+.wb-shell button svg, .wb-dialog button svg, .wb-shell summary svg { display: block; width: 18px; height: 18px; flex-shrink: 0; }
+.wb-shell button:not(.wb-deck-play) { min-width: 32px; }
+.wb-heading { gap: 12px; padding-bottom: 12px; }
+.wb-title h1 { font-size: 28px; }
+.wb-title { gap: 10px; }
+.wb-view button { padding: 6px 9px; }
+.wb-help summary, .wb-detail summary { display: flex; align-items: center; justify-content: center; list-style: none; }
+.wb-help summary::-webkit-details-marker, .wb-detail summary::-webkit-details-marker { display: none; }
+.wb-help summary { width: 32px; height: 32px; padding: 0; }
+.wb-detail summary { justify-content: flex-start; padding: 5px 0; }
+.wb-toolbar { gap: 6px; padding-bottom: 12px; }
+.wb-toolbar .wb-play-all { min-width: 40px; min-height: 34px; }
+.wb-deck { padding: 10px; }
+.wb-deck-transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wb-deck-transport button { padding: 4px; }
+.wb-deck-header { gap: 6px; }
+.wb-disc { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.wb-disc:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
+.wb-disc * { pointer-events: none; }
+.wb-record-label { display: none; }
+.is-scratching .wb-disc { cursor: grabbing; box-shadow: 0 0 0 2px var(--deck-color), 0 0 25px #ffffff0a; }
+.wb-shell .mz-tap-tempo { padding: 4px !important; min-width: 26px; }
+.wb-shell .mz-tap-tempo svg { width: 15px; height: 15px; }
+/* Records is a performance surface. Hidden controls remain in the same DOM so
+   view changes preserve audio, native values, file inputs, and transport state. */
+.wb-shell.is-records { max-width: 1320px; padding-top: 10px; }
+.is-records .wb-workspace { display: block; }
+.is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(18px, 3vw, 42px); max-width: 1160px; margin: 18px auto 0; }
+.wb-shell.is-records :is(.wb-mixer, .wb-deck-header, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail, .wb-cue, .wb-set-cue) { display: none; }
+.is-records .wb-deck { position: relative; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; }
+.is-records .wb-deck.is-dragover { outline-offset: 8px; }
+.is-records .wb-visual { display: block; margin: 0; }
+.is-records .wb-disc {
+  width: 100%; height: auto; aspect-ratio: 1; border: 5px solid #263039;
+  background: conic-gradient(from 30deg, #ffffff00, #ffffff0e 15%, #ffffff00 26%, #ffffff00 50%, #ffffff0b 63%, #ffffff00 76%), repeating-radial-gradient(circle, #10151b 0 1px, #1b232a 1px 2px, #0c1116 2px 4px);
+  box-shadow: 0 0 0 1px #57616a, inset 0 0 0 2px #080b10, 0 8px 24px #0006;
+}
+.is-records .wb-disc::before { inset: 30%; opacity: 1; background: radial-gradient(circle at 35% 25%, color-mix(in srgb, var(--deck-color) 46%, #29303a), color-mix(in srgb, var(--deck-color) 22%, #111922)); border: 1px solid #ffffff1a; }
+.is-records .wb-disc::after { display: none; }
+.is-records .wb-disc-needle { inset: 7px; border: 0; }
+.is-records .wb-disc-needle::after { top: 0; left: calc(50% - 1px); width: 2px; height: 22%; background: linear-gradient(var(--deck-color), var(--deck-color) 72%, transparent); }
+.is-records .wb-record-label { position: absolute; inset: 31%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 3px; text-align: center; overflow: hidden; color: #e9f1f3; }
+.is-records .wb-record-label > :first-child { font: 600 clamp(9px, 1.1vw, 14px)/1 ui-monospace, monospace; letter-spacing: .16em; }
+.is-records .wb-record-label > :last-child { font: 500 clamp(6px, .65vw, 9px)/1.2 var(--font-ui, sans-serif); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.is-records .wb-deck-transport { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; pointer-events: none; }
+.is-records .wb-deck-play { pointer-events: auto; border: 0; border-radius: 50%; width: 38px; height: 38px; min-height: 38px; padding: 10px; color: #eff7fa; background: #0c141abb; }
+.is-records .wb-deck-play[aria-pressed="true"] { background: #0c141abb; color: var(--deck-color); }
+.is-records .wb-deck-play:hover { background: #060a0fee; color: #fff; }
+.is-records .is-playing .wb-disc { border-color: #35434c; box-shadow: 0 0 0 1px color-mix(in srgb, var(--deck-color) 65%, #57616a), inset 0 0 0 2px #080b10, 0 8px 24px #0006; }
+.is-records .is-scratching .wb-disc { box-shadow: 0 0 0 2px var(--deck-color), inset 0 0 0 2px #080b10, 0 0 30px #ffffff12; }
+@media (max-width: 759px) {
+  .wb-heading { flex-wrap: nowrap; gap: 6px; }
+  .wb-title h1 { font-size: 25px; }
+  .wb-edition { display: none; }
+  .wb-view { order: initial; }
+  .wb-help { margin-left: 0; }
+  .wb-shell.is-records { padding-inline: 14px; }
+  .is-records .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; margin-top: 10px; }
+  .is-records .wb-record-label { inset: 22%; padding: 8px 3px; }
+  .is-records .wb-disc::before { inset: 22%; }
+  .is-records .wb-record-label > :first-child { font-size: 9px; }
+  .is-records .wb-record-label > :last-child { font-size: 7px; }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: 8px; }
+  .is-records .wb-record-label { inset: 22%; padding: 8px 3px; }
+  .is-records .wb-disc::before { inset: 22%; }
+}
+@media (pointer: coarse) { .is-records .wb-deck-play { width: 48px; height: 48px; } }
+
+/* The master strip stays within reach while record view hides deck editing. */
+.wb-record-crossfade, .wb-record-wave { display: none; }
+.is-records .wb-toolbar { max-width: 1160px; margin: 2px auto 0; padding-bottom: 0; }
+.is-records .wb-toolbar :is(#loadDemos, #resetMix) { display: none; }
+.is-records .wb-record-crossfade { display: flex; align-items: center; gap: 9px; width: clamp(140px, 24vw, 240px); margin-left: 16px; color: #b9c9d6; font: 600 10px/1 ui-monospace, monospace; }
+.is-records .wb-record-crossfade input { flex: 1; }
+.is-records .wb-record-wave { display: block; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
+.is-records .wb-disc-needle { inset: 22%; }
+.is-records .wb-disc-needle::after { height: 14%; }
+@media (max-width: 479px) {
+  .is-records .wb-toolbar { gap: 6px; }
+  .is-records .wb-toolbar > button { flex: 0; }
+  .is-records .wb-toolbar .wb-master-tempo { order: initial; flex: 1; margin-left: auto; }
+  .is-records .wb-toolbar #matchAll { order: initial; }
+  .is-records .wb-toolbar .wb-play-all { flex: 0; }
+  .is-records .wb-record-crossfade { width: 100%; margin-left: 0; gap: 14px; }
+}
