@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { readAudioStatus, sampleAudioEnvelope } from "./helpers/audio-probe.mjs";
+import { collectControlInventory, exerciseRangeMathematics } from "./helpers/control-inventory.mjs";
 
 const APP = "/src/instruments/wobblini/wobblini-app.js";
 const state = (page) => page.evaluate(async (url) => (await import(url)).engine.getState(), APP);
@@ -77,6 +78,20 @@ async function loadTone(page, deck = 0) {
   await expect.poll(async () => (await state(page)).decks[deck].loading).toBe(false);
   await expect(page.locator(`#deck${deck}`)).toContainText(`QA tone ${deck + 1}.wav`);
 }
+
+test("Wobblini exposes named controls and finite, reversible native ranges", async ({ page }, testInfo) => {
+  await ready(page);
+  const inventory = await collectControlInventory(page);
+  const ranges = await exerciseRangeMathematics(page);
+  await testInfo.attach("wobblini-controls.json", { body: JSON.stringify({ inventory, ranges }, null, 2), contentType: "application/json" });
+  expect(inventory.duplicateIds).toEqual([]);
+  expect(inventory.controls.filter(({ numericValid }) => !numericValid)).toEqual([]);
+  expect(inventory.controls.filter(({ options }) => options && options.length === 0)).toEqual([]);
+  expect(inventory.summary.unlabeledVisible).toBe(0);
+  expect(ranges.filter(({ skipped, finite, bounded, restored }) => !skipped && (!finite || !bounded || !restored))).toEqual([]);
+  expect((await state(page)).armed).toBe(false);
+  expect((await state(page)).decks.some((deck) => deck.playing)).toBe(false);
+});
 
 test("eight decks play silently until Audio is armed; Audio off and mixer reset preserve the running session", async ({ page }) => {
   const errors = diagnostics(page);
