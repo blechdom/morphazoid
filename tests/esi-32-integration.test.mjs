@@ -8,6 +8,32 @@ import { graphonicCalculatorMathSiteChanges, restoreGraphonicCalculatorMathSite 
 const root = new URL('../', import.meta.url);
 const digest = source => createHash('sha256').update(source).digest('hex');
 
+// Wobblini's later mixer amendment (9d24c0fe) extends the runtime manifest
+// independently of the frozen ESI-32 baseline. Keep its original rows intact.
+const wobbliniRows = names => names.map(name => `copy+require\tsrc/instruments/wobblini/wobblini-${name}.js\n`).join('');
+const wobbliniBefore = wobbliniRows(['model', 'scratch-model']);
+const wobbliniAfter = wobbliniRows(['model', 'geometry-model', 'mixer', 'scratch-model']);
+function restoreLaterWobbliniMixer(source, file) {
+  if (file !== 'scripts/site/runtime-files.tsv') return source;
+  assert.equal(source.split(wobbliniAfter).length - 1, 1, 'exact later Wobblini mixer amendment');
+  return source.replace(wobbliniAfter, () => wobbliniBefore);
+}
+
+test('later Wobblini mixer rows peel exactly without hiding unrelated manifest drift', async () => {
+  const file = 'scripts/site/runtime-files.tsv';
+  const source = await readFile(new URL(file, root), 'utf8');
+  const restored = restoreLaterWobbliniMixer(source, file);
+  assert.equal(restored.split(wobbliniBefore).length - 1, 1);
+  assert.equal(restored.replace(wobbliniBefore, () => wobbliniAfter), source);
+  for (const changed of [restored, source + wobbliniAfter, source.replace('wobblini-geometry-model.js', 'unreviewed.js')]) {
+    assert.throws(() => restoreLaterWobbliniMixer(changed, file), /exact later Wobblini mixer amendment/);
+  }
+  const drift = '\n# unrelated manifest drift\n';
+  assert.equal(restoreLaterWobbliniMixer(source + drift, file), restored + drift);
+  assert.notEqual(digest(restoreLaterWobbliniMixer(source + drift, file)), digest(restored));
+  assert.equal(restoreLaterWobbliniMixer('unchanged', 'unrelated.js'), 'unchanged');
+});
+
 test('ESI-32 additions preserve the independently captured publication baseline', async () => {
   assert.equal(esi32SiteChanges.baseCommit, '958ff9aeda623b8580be0d041476d8e37c943309');
   assert.deepEqual(esi32SiteChanges.changes.map(({ file }) => file).sort(), [
@@ -18,7 +44,7 @@ test('ESI-32 additions preserve the independently captured publication baseline'
   ]);
   for (const change of esi32SiteChanges.changes) {
     // The parallel Math amendment has its own independent proof and baseline.
-    const source = restoreGraphonicCalculatorMathSite(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true });
+    const source = restoreGraphonicCalculatorMathSite(restoreLaterWobbliniMixer(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file, { allowRestored: true });
     const restored = restoreEsi32Site(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     const reapplied = change.replacements.reduce((current, { before, after }) => {
