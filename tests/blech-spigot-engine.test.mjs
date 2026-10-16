@@ -50,7 +50,7 @@ test('closing a valve finishes its current pass and leaves an editable retrigger
   await q.engine.dispose();
 });
 
-test('one captured drawing streams immutable future rows through one slot, skips idle backlog and ends at its real length', async () => {
+test('one captured drawing keeps finished gates, skips idle backlog and loops at its captured length', async () => {
   const q = setup(), id = q.sources.brushStart({ pitch: 60, delayBeats: 0, prepared: { settings: { loop: false, gain: .4, channel: 2, program: '16' } } });
   const sampleId = q.sources.getLayers()[0].sampleId;
   q.at(.2); assert.ok(q.sources.brushMove(id, { pitch: 64, delayBeats: 0 }));
@@ -60,7 +60,8 @@ test('one captured drawing streams immutable future rows through one slot, skips
   assert.equal(q.engine.state.samples.length, 1); assert.equal(appended.id, sampleId); assert.equal(appended.analysis.notes.length, early.length + 1, 'stalled input emits one current row, never backlog');
   assert.deepEqual(appended.analysis.notes.slice(0, early.length), early, 'old notes keep timing and stable IDs');
   q.sources.brushEnd(id); assert.ok(q.engine.state.samples[0].analysis.durationBeats < 12);
-  q.at(8); assert.equal(q.engine.state.samples.length, 0); assert.equal(q.sources.getLayers().length, 1);
+  q.at(8); assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.samples[0].loop, true);
+  q.sources.loop(id, false); q.at(12); assert.equal(q.engine.state.samples.length, 0); assert.equal(q.sources.getLayers().length, 1);
   assert.equal(q.contexts(), 0); await q.engine.dispose();
 });
 
@@ -245,4 +246,81 @@ test('replaying an adopted source restores mixer settings even when the saved-pa
   for (const key of ['gain', 'channel', 'pan', 'muted', 'solo', 'sync', 'loop']) assert.equal(replay[key], before[key], key);
   assert.deepEqual(replay.midi, before.midi); assert.equal(replay.positionBeats, 0); assert.equal(replay.paused, false);
   assert.equal(q.contexts(), 0); sources.dispose(); await q.engine.dispose();
+});
+
+test('layer instrument changes and Original restore the current voice and replay without disturbing its sibling', async () => {
+  const q = setup(), first = q.sources.create(score(), { loop: true }), other = q.sources.create(score(), { loop: true, program: 19 });
+  q.at(.25); const position = q.engine.state.samples[0].positionBeats, sibling = q.engine.state.samples[1];
+  q.sources.configure(first.id, { program: 40, midi: { program: 40, controllers: { 74: 45 } } });
+  let sample = q.engine.state.samples[0];
+  assert.equal(sample.program, 40); assert.equal(sample.midi.program, 40); assert.equal(sample.positionBeats, position);
+  q.sources.configure(first.id, { program: 'original', midi: { ...sample.midi, program: null } });
+  sample = q.engine.state.samples[0];
+  assert.equal(sample.program, null); assert.equal(Object.hasOwn(sample.midi, 'program'), false); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(q.sources.getLayers()[0].settings.program, 'original'); assert.deepEqual(q.engine.state.samples[1], sibling);
+  q.engine.stopSample(first.sampleId); q.sources.togglePlay(first.id);
+  sample = q.engine.state.samples.find(item => item.id !== other.sampleId);
+  assert.equal(sample.program, null); assert.equal(Object.hasOwn(sample.midi, 'program'), false); assert.equal(sample.midi.controllers[74], 45);
+  assert.equal(q.contexts(), 0); await q.engine.dispose();
+});
+
+
+test('click, one-beat hold and longer hold produce independent loops at the captured rhythm', async () => {
+  for (const [seconds, expectedBeats] of [[.01, 1 / 16], [.5, 1], [2, 4]]) {
+    const q = setup(), id = q.sources.brushStart({ pitch: 60 });
+    for (let now = .02; now < seconds; now += .02) { q.at(now); q.sources.brushMove(id, { pitch: 60 }); }
+    q.at(seconds); q.sources.brushEnd(id);
+    const layer = q.sources.getLayers()[0], sample = q.engine.state.samples[0];
+    assert.equal(layer.score.analysis.noteCount, 1);
+    assert.equal(layer.score.analysis.durationBeats, expectedBeats);
+    assert.equal(layer.score.analysis.notes[0].duration, expectedBeats);
+    assert.equal(sample.loop, true); assert.equal(sample.analysis.noteCount, 1);
+    const count = q.engine.state.generatedNoteCount; q.at(seconds + expectedBeats / 2 + .2);
+    assert.ok(q.engine.state.generatedNoteCount > count, 'the same captured note repeats at its phrase boundary');
+    q.sources.remove(id); assert.equal(q.engine.state.samples.length, 0); await q.engine.dispose();
+  }
+});
+
+test('a fast pitch sweep spaces crossed notes through time and each new gesture owns its own source', async () => {
+  const q = setup(), first = q.sources.brushStart({ pitch: 60, delayBeats: 2 });
+  q.at(.1); q.sources.brushMove(first, { pitch: 64, delayBeats: 2 });
+  q.at(.2); q.sources.brushMove(first, { pitch: 67, delayBeats: 2 }); q.sources.brushEnd(first);
+  const notes = q.sources.getLayers()[0].score.analysis.notes;
+  assert.deepEqual(notes.map(note => note.note), [60, 61, 62, 63, 64, 65, 66, 67]);
+  for (let index = 1; index < notes.length; index++) {
+    assert.ok(notes[index].beat > notes[index - 1].beat);
+    assert.ok(Math.abs(notes[index - 1].beat + notes[index - 1].duration - notes[index].beat) < .003);
+  }
+  const before = q.engine.state.samples[0];
+  const second = q.sources.brushStart({ pitch: 72, delayBeats: 0 }); q.at(.3); q.sources.brushEnd(second);
+  assert.notEqual(first, second); assert.equal(q.sources.getLayers().length, 2);
+  assert.equal(q.engine.state.samples[0].id, before.id); assert.equal(q.engine.state.samples[0].loop, true);
+  q.sources.edit(second, { transpose: 5, heightBeats: 2 });
+  assert.deepEqual(q.sources.getLayers()[0].score.analysis.notes, notes);
+  await q.engine.dispose();
+});
+
+test('eraser changes only its selected layer, preserves its phrase length and can clear it completely', async () => {
+  const q = setup(), first = q.sources.create(score(), { loop: true, delayBeats: 2, name: 'Erase me' });
+  q.sources.create(score(), { loop: true, name: 'Keep me' }); q.at(.2);
+  const sibling = q.engine.state.samples[1];
+  const eraser = q.sources.brushStart({ mode: 'erase', sourceId: first.id, pitch: 48, delayBeats: 2.25 });
+  assert.equal(eraser, first.id);
+  assert.deepEqual(q.sources.getLayers()[0].score.analysis.notes.map(note => note.note), [60]);
+  assert.equal(q.sources.getLayers()[0].score.analysis.durationBeats, 2);
+  assert.deepEqual(q.engine.state.samples[1], sibling);
+  q.sources.brushMove(eraser, { pitch: 60, delayBeats: 3.25 }); q.sources.brushEnd(eraser);
+  assert.equal(q.sources.getLayers().length, 1); assert.equal(q.engine.state.samples.length, 1);
+  assert.equal(q.sources.getLayers()[0].name, 'Keep me'); await q.engine.dispose();
+});
+
+test('a latched source survives its score length and replay retains the latch', async () => {
+  const q = setup(), held = q.sources.create(blechStrokeScore([note(60, 0, 1)], 1), { hold: true, loop: false });
+  q.at(900); assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.samples[0].hold, true);
+  assert.equal(q.engine.state.generatedNoteCount, 1); assert.equal(q.sources.getLayers()[0].settings.hold, true);
+  q.sources.edit(held.id, { transpose: 7 });
+  assert.equal(q.engine.state.samples[0].analysis.notes[0].note, 67);
+  q.engine.stopSample(held.sampleId); q.sources.togglePlay(held.id); q.at(1800);
+  assert.equal(q.engine.state.samples[0].hold, true); assert.equal(q.engine.state.samples.length, 1);
+  q.sources.remove(held.id); assert.equal(q.engine.state.samples.length, 0); await q.engine.dispose();
 });

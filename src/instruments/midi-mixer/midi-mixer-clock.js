@@ -54,6 +54,13 @@ function tempoSegment(data, value, key = 'beat') {
 export const sampleSecondsAt = (data, beat) => { const point = tempoSegment(data, beat); return point.seconds + (beat - point.beat) * 60 / point.bpm; };
 export const sampleBeatAt = (data, seconds) => { const point = tempoSegment(data, seconds, 'seconds'); return point.beat + (seconds - point.seconds) * point.bpm / 60; };
 export const sampleTempoAt = (data, beat) => tempoSegment(data, beat).bpm;
+// A latched, single-note source waits immediately before its key release. Its
+// MIDI remains finite, and other sources still advance on the shared clock.
+function sampleHoldPosition(data, options) {
+  if (!options.hold || data.held?.ids.length !== 1) return null;
+  const start = data.held.start[0], end = data.held.keyEnd[0];
+  return end - Math.min(1 / 480, (end - start) / 2);
+}
 export function advanceSampleTiming(timing, data, options, beats, seconds) {
   if (options.paused) return { ...timing };
   const next = { ...timing }, delay = Math.min(next.pendingBeats, Math.max(0, beats));
@@ -61,6 +68,11 @@ export function advanceSampleTiming(timing, data, options, beats, seconds) {
   const elapsed = options.sync !== false ? Math.max(0, beats - delay) : Math.max(0, seconds) * (beats > 0 ? 1 - delay / beats : 1);
   const length = options.sync !== false ? data.durationBeats : sampleSecondsAt(data, data.durationBeats);
   const position = (options.sync !== false ? next.positionBeats : sampleSecondsAt(data, next.positionBeats)) + elapsed;
+  const holdPosition = sampleHoldPosition(data, options);
+  if (holdPosition !== null) {
+    next.positionBeats = Math.max(timing.positionBeats, Math.min(holdPosition, options.sync !== false ? position : sampleBeatAt(data, position)));
+    next.ended = false; return next;
+  }
   const epsilon = Math.min(1e-10, length * 1e-9);
   const cycles = options.loop ? Math.floor((position + epsilon) / length) : 0;
   let coordinate = options.loop ? Math.max(0, position - cycles * length) : Math.min(length, position);
@@ -82,7 +94,7 @@ export function liveSampleReplacementTiming(timing, previous, next, options = {}
 
 /** Fraction of an elapsed interval at which the current pass ends. */
 export function sampleReplacementBoundary(timing, data, options, beats, seconds) {
-  if (options.paused || !options.loop) return null;
+  if (options.paused || !options.loop || sampleHoldPosition(data, options) !== null) return null;
   const delay = Math.min(timing.pendingBeats, Math.max(0, beats));
   const remaining = options.sync !== false
     ? timing.pendingBeats + data.durationBeats - timing.positionBeats
@@ -120,9 +132,10 @@ export class MidiSampleClock {
     sample.rejoinedReleases = notes.filter(event => event.keyReleased && event.sostenutoHeld).map(event => ({ ...event, kind: 8, b: 0, beat: event.beat + event.durationBeats }));
     this.rehydrate(slot + 2, notes, frame);
   }
-  setOptions(slot, { loop, sync, revision } = {}) {
+  setOptions(slot, { loop, hold, sync, revision } = {}) {
     const sample = this.samples[slot]; if (!sample) return;
     if (loop !== undefined) { sample.loop = Boolean(loop); if (!sample.loop) sample.pendingReplacement = null; }
+    if (hold !== undefined) sample.hold = Boolean(hold) && sample.data.held?.ids.length === 1 && sample.data.held.keyEnd[0] > sample.timing.positionBeats;
     if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
     if (revision !== undefined) sample.revision = revision;
   }
@@ -139,9 +152,16 @@ export class MidiSampleClock {
     else return false;
     return true;
   }
-  appendScore(slot, data, revision) {
+  appendScore(slot, data, revision, { allowGateEdits = false } = {}) {
     const sample = this.samples[slot];
     if (!sample || sample.loop || sample.timing.cycle) return false;
+    const previousOffs = new Map(), previousOns = new Map();
+    sample.data.events.forEach((event, index) => {
+      if (event.kind === 8) previousOffs.set(event.noteId, { event, index });
+      if (event.kind === 9) previousOns.set(event.noteId, index);
+    });
+    const changedEnds = data.events.filter(event => event.kind === 8 && previousOffs.has(event.noteId) && previousOffs.get(event.noteId).event.beat !== event.beat);
+    if (changedEnds.length && !allowGateEdits) return false;
     if (data.durationBeats <= sample.timing.positionBeats) {
       // Finalization may arrive after its requested endpoint. Acknowledge the
       // new revision and finish now; never leave the UI waiting on old telemetry.
@@ -156,6 +176,23 @@ export class MidiSampleClock {
     const late = new Set(data.events.filter(event => event.kind === 9 && !oldIds.has(event.noteId) && event.beat < sample.timing.positionBeats).map(event => event.noteId));
     sample.skippedAppendNotes ??= new Set();
     for (const id of late) sample.skippedAppendNotes.add(id);
+    for (const event of changedEnds) {
+      const oldOff = previousOffs.get(event.noteId);
+      if (oldOff.index < sample.cursor) {
+        // Its original release already crossed the audio clock. A late producer
+        // may retain the new score, but cannot bring that gate back on resume.
+        sample.skippedAppendNotes.add(event.noteId);
+      } else if (event.beat <= sample.timing.positionBeats && previousOns.get(event.noteId) < sample.cursor) {
+        // Moving a held gate's end behind the cursor needs one immediate release;
+        // resetting the event cursor alone would lose that release indefinitely.
+        if (!sample.paused && !sample.timing.pendingBeats && !sample.skippedAppendNotes.has(event.noteId)) this.emit(slot + 2, event, 0);
+        sample.skippedAppendNotes.add(event.noteId);
+      }
+    }
+    if (changedEnds.length && sample.rejoinedReleases?.length) {
+      const changedIds = new Set(changedEnds.map(event => event.noteId));
+      sample.rejoinedReleases = sample.rejoinedReleases.filter(event => !changedIds.has(event.noteId));
+    }
     sample.data = data;
     sample.cursor = lowerBound(sample.data.events, sample.timing.positionBeats);
     sample.revision = revision;
@@ -247,10 +284,12 @@ export class MidiSampleClock {
       const toBeat = value => sample.sync ? value : sampleBeatAt(sample.data, value);
       const increment = sample.sync ? beatIncrement : 1 / sampleRate;
       let length = coordinate(sample.data.durationBeats);
+      const holdPosition = sampleHoldPosition(sample.data, sample);
+      const holdEnd = holdPosition === null ? Infinity : coordinate(Math.max(initial.positionBeats, holdPosition));
       let position = coordinate(initial.positionBeats), crossings = 0;
       const frameAt = value => Math.max(0, Math.min(frames - 1, Math.round(value)));
       while (frameStart < frames - 1e-9) {
-        const finish = Math.min(length, position + (frames - frameStart) * increment);
+        const finish = Math.min(length, holdEnd, position + (frames - frameStart) * increment);
         const endIndex = lowerBound(sample.data.events, toBeat(finish) - 1e-10);
         const available = Math.max(0, endIndex - sample.cursor), count = Math.min(available, budget);
         for (let index = 0; index < count; index++) {

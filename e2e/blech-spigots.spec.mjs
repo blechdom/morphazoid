@@ -22,7 +22,7 @@ async function open(page) {
 }
 
 async function number(page, selector, value) {
-  if (selector.startsWith('[data-spigot-field')) await page.locator('.blech-spigot-move').focus();
+  if (selector.startsWith('[data-layer-field') && !await page.locator('#blechLayerEditor').isVisible()) await page.locator('.blech-live-layer[data-selected="true"] [data-layer-settings]').click();
   await page.locator(selector).fill(String(value)); await page.locator(selector).press('Tab');
 }
 const sources = page => page.evaluate(() => __spigotQA.layers().map(layer => ({
@@ -38,7 +38,13 @@ async function point(page, x = .5, y = .5) {
   const rect = await page.locator('.blech-spigot-paint').boundingBox();
   return { x: rect.x + rect.width * x, y: rect.y + rect.height * y };
 }
-const tool = (page, mode) => page.locator(`[data-spigot-mode="${mode}"]`).click();
+const tool = async (page, mode) => {
+  await page.locator(`[data-spigot-mode="${mode}"]`).click();
+  if (mode === 'stamp') {
+    await page.locator('.blech-spigot-stamp-grid [data-stamp-id="heart"]').click();
+    await expect(page.locator('.blech-spigot-overlay')).toHaveAttribute('data-mode', 'stamp');
+  }
+};
 const failures = new WeakMap();
 test.beforeEach(({ page }) => { failures.set(page, []); page.on('pageerror', error => failures.get(page).push(error.message)); });
 test.afterEach(({ page }) => expect(failures.get(page)).toEqual([]));
@@ -79,7 +85,7 @@ test('selected layer edits alter the current MIDI pass while another layer keeps
   await expect(page.locator('.blech-spigot-selection')).toHaveAttribute('data-spigot-id', initial[0].id);
   await expect(page.locator('.blech-drop-overlay')).toBeHidden();
   await expect.poll(async () => (await sampleState(page))[0]?.position).toBeGreaterThan(.05);
-  await number(page, '[data-spigot-field="rotationDegrees"]', 90);
+  await number(page, '[data-layer-field="rotationDegrees"]', 90);
   const edited = await sources(page); expect(edited[0].notes).not.toEqual(initial[0].notes); expect(edited[0].notes.length).toBe(initial[0].notes.length);
   expect(edited[1]).toEqual(initial[1]);
   expect((await sampleState(page))[0].id).toBe(samples[0].id);
@@ -87,7 +93,7 @@ test('selected layer edits alter the current MIDI pass while another layer keeps
   expect((await sampleState(page))[0].cycle).toBe(0);
   expect((await sampleState(page))[0].pending).toBe(false);
   expect((await sampleState(page))[0].position).toBeGreaterThan(.05);
-  await number(page, '[data-spigot-field="heightBeats"]', 1);
+  await number(page, '[data-layer-field="heightBeats"]', 1);
   await page.locator('[data-spigot-loop]').click();
   expect((await sources(page)).find(source => source.id === initial[0].id).settings.loop).toBe(false);
   expect((await sampleState(page)).find(sample => sample.id === samples[1].id).loop).toBe(true);
@@ -96,7 +102,7 @@ test('selected layer edits alter the current MIDI pass while another layer keeps
   expect((await sources(page)).length).toBe(2);
   // Keep the replay observable on a busy browser; the short pass above can
   // naturally finish before a polling assertion gets its first sample.
-  await number(page, '[data-spigot-field="heightBeats"]', 8);
+  await number(page, '[data-layer-field="heightBeats"]', 8);
   await page.locator('[data-spigot-play]').click();
   await expect.poll(async () => (await sampleState(page)).length).toBe(2);
   await page.locator('[data-spigot-remove]').click();
@@ -109,7 +115,7 @@ test('layer selection reveals one rectangle and pointer gestures reshape the liv
   await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click(); await page.locator('#blechDropSend').click();
   const initial = await sources(page), first = page.locator(`.blech-live-layer[data-spigot-id="${initial[0].id}"]`), second = page.locator(`.blech-live-layer[data-spigot-id="${initial[1].id}"]`);
   await tool(page, 'draw'); await first.locator('[data-layer-select]').click();
-  await expect(page.locator('[data-spigot-mode="select"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.blech-spigot-overlay')).toHaveAttribute('data-mode', 'select');
   await expect(page.locator('.blech-spigot-selection:not([hidden])')).toHaveCount(1);
   await expect(page.locator('.blech-spigot-move')).toBeVisible();
   await expect(page.locator('.blech-spigot-emitter')).toHaveCount(0);
@@ -128,8 +134,7 @@ test('layer selection reveals one rectangle and pointer gestures reshape the liv
   expect((await sources(page))[1]).toEqual(initial[1]);
   expect((await sampleState(page)).length).toBe(2);
   await expect(first).toHaveAttribute('data-selected', 'true');
-  await expect(page.locator('.blech-spigot-editor')).toHaveCSS('opacity', '1');
-  await expect(page.locator('[data-spigot-details]')).toContainText('Acoustic Grand Piano');
+  await expect(page.locator('.blech-spigot-editor')).toHaveCount(0);
   const cancelBox = await move.boundingBox();
   await page.mouse.move(cancelBox.x + 20, cancelBox.y + 18); await page.mouse.down();
   const beforeCancel = (await sources(page))[0].settings;
@@ -149,43 +154,23 @@ test('layer selection reveals one rectangle and pointer gestures reshape the liv
 });
 
 
-test('only the rectangle opens its editor; transport hover and focus stay clear', async ({ page }) => {
+test('canvas and transport never open an editor; layer settings own its parameters', async ({ page }) => {
   await open(page);
   await number(page, '#blechDropWidth', 40); await number(page, '#blechDropHeight', 8); await number(page, '#blechDropDelay', 1);
   await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
-  const move = page.locator('.blech-spigot-move'), editor = page.locator('.blech-spigot-editor');
-  await expect(editor).toBeHidden();
-  for (const control of ['play', 'loop', 'remove', 'deselect']) {
-    const button = page.locator(`[data-spigot-${control}]`);
-    await button.hover(); await expect(editor).toBeHidden();
-    await button.focus(); await expect(editor).toBeHidden();
+  await expect(page.locator('[data-spigot-mode="select"]')).toHaveCount(0);
+  for (const selector of ['.blech-spigot-move', '[data-spigot-play]', '[data-spigot-loop]']) {
+    await page.locator(selector).hover(); await page.locator(selector).focus();
+    await expect(page.locator('.blech-spigot-editor')).toHaveCount(0);
+    await expect(page.locator('#blechLayerEditor')).toBeHidden();
   }
-  for (const control of ['play', 'loop']) {
-    await move.hover(); await expect(editor).toBeVisible();
-    await page.locator(`[data-spigot-${control}]`).hover(); await expect(editor).toBeHidden();
-    await page.locator(`[data-spigot-${control}]`).click(); await expect(editor).toBeHidden();
-  }
-  await move.hover(); await expect(editor).toBeVisible();
-  await editor.hover(); await page.waitForTimeout(260); await expect(editor).toBeVisible();
-  await page.locator('[data-spigot-field="transpose"]').fill('3');
-  await page.locator('[data-spigot-field="transpose"]').press('Tab');
+  const gear = page.locator('.blech-live-layer [data-layer-settings]');
+  await gear.focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('#blechLayerEditor')).toBeVisible();
+  await number(page, '[data-layer-field="transpose"]', 3);
   expect((await sources(page))[0].settings.transpose).toBe(3);
-  // A short floating shape still has a direct mouse route into the popup;
-  // the route must not cross transport buttons and dismiss the editor.
-  await number(page, '[data-spigot-field="heightBeats"]', 1);
-  await number(page, '[data-spigot-field="delayBeats"]', 6);
-  await page.locator('[data-spigot-play]').focus();
-  await move.hover(); await expect(editor).toBeVisible();
-  const popup = await editor.boundingBox();
-  await page.mouse.move(popup.x + popup.width / 2, popup.y + popup.height / 2, { steps: 8 });
-  await page.waitForTimeout(260); await expect(editor).toBeVisible();
-  // Keyboard users enter the same editor from the rectangle, without crossing
-  // transport buttons or tabbing through invisible fields.
-  await move.focus();
-  await page.locator('[data-spigot-play]').focus(); await expect(editor).toBeHidden();
-  await move.focus(); await expect(editor).toBeVisible();
-  await page.keyboard.press('Tab'); await expect(page.locator('[data-spigot-field="transpose"]')).toBeFocused();
-  await page.locator('[data-spigot-play]').focus(); await expect(editor).toBeHidden();
+  await page.locator('[data-layer-editor-close]').click();
+  await expect(page.locator('#blechLayerEditor')).toBeHidden();
   expect(await page.evaluate(() => __spigotQA.contexts)).toBe(0);
 });
 
@@ -203,7 +188,7 @@ test('a replayed saved drop becomes an editable layer without restarting or dupl
   const selected = (await sampleState(page))[0];
   expect(selected.id).toBe(before.id); expect(selected.version).toBe(before.version); expect(selected.position).toBeGreaterThanOrEqual(before.position);
   await expect(page.locator('.blech-spigot-move')).toBeVisible();
-  await number(page, '[data-spigot-field="rotationDegrees"]', 90);
+  await number(page, '[data-layer-field="rotationDegrees"]', 90);
   await expect.poll(async () => (await sampleState(page))[0].version).toBeGreaterThan(before.version);
   expect((await sampleState(page)).length).toBe(1);
   expect((await sampleState(page))[0].id).toBe(before.id);
@@ -225,22 +210,18 @@ test('drawing sounds with explicit Audio and pointer cancellation stops new emis
   await expect(page.locator('.blech-spigot-overlay')).toHaveCount(0);
 });
 
-test.describe('touch inspector', () => {
+test.describe('touch layer settings', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
-  test('tapping the square keeps its fields available and transport dismisses them', async ({ page }) => {
+  test('the layer gear edits parameters without a canvas hover popup', async ({ page }) => {
     await open(page);
     await number(page, '#blechDropWidth', 40); await number(page, '#blechDropHeight', 8); await number(page, '#blechDropDelay', 1);
     await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
-    await page.locator('.blech-spigot-move').scrollIntoViewIfNeeded();
-    const square = await page.locator('.blech-spigot-move').boundingBox();
-    await page.touchscreen.tap(square.x + 20, square.y + 5);
-    await page.waitForTimeout(300);
-    await expect(page.locator('.blech-spigot-editor')).toBeVisible();
-    await page.locator('[data-spigot-field="transpose"]').fill('4');
-    await page.locator('[data-spigot-field="transpose"]').press('Tab');
+    await page.locator('.blech-live-layer [data-layer-settings]').tap();
+    await expect(page.locator('#blechLayerEditor')).toBeVisible();
+    await number(page, '[data-layer-field="transpose"]', 4);
     expect((await sources(page))[0].settings.transpose).toBe(4);
-    await page.locator('[data-spigot-play]').tap();
-    await expect(page.locator('.blech-spigot-editor')).toBeHidden();
+    await expect(page.locator('.blech-spigot-editor')).toHaveCount(0);
+    await page.locator('[data-layer-editor-close]').tap();
     expect(await page.evaluate(() => __spigotQA.contexts)).toBe(0);
   });
 });
@@ -252,8 +233,8 @@ for (const [name, width, height] of [['phone', 390, 844], ['landscape', 844, 390
     await number(page, '#blechDropWidth', 21); await number(page, '#blechDropHeight', 1);
     await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
     await expect(page.locator('.blech-live-layer')).toHaveCount(1); await page.locator('[data-layer-select]').click();
-    await number(page, '[data-spigot-field="rotationDegrees"]', 90);
-    await expect(page.locator('[data-spigot-field="rotationDegrees"]')).toHaveValue('90');
+    await number(page, '[data-layer-field="rotationDegrees"]', 90);
+    await expect(page.locator('[data-layer-field="rotationDegrees"]')).toHaveValue('90');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     const canvas = await page.locator('#blackMidiViewport').boundingBox(); expect(canvas.height).toBeGreaterThanOrEqual(48);
     await page.locator('#blechMasterPlay').scrollIntoViewIfNeeded();

@@ -19,9 +19,9 @@ for (const angle of [0, 90]) test(`Text Apply keeps source pitch, resize and ${a
   expect(await capture()).toEqual(before);
   // Live spigot edits must also update the authored Text Apply transform.
   await layer.locator('[data-layer-select]').click();
-  await page.locator('.blech-spigot-move').focus();
+  await layer.locator('[data-layer-settings]').click();
   for (const [field, value] of [['transpose', 12], ['widthNotes', 24], ['heightBeats', 6]]) {
-    await page.locator(`[data-spigot-field="${field}"]`).fill(String(value)); await page.locator(`[data-spigot-field="${field}"]`).press('Tab');
+    await page.locator(`[data-layer-field="${field}"]`).fill(String(value)); await page.locator(`[data-layer-field="${field}"]`).press('Tab');
   }
   await page.locator('#blechTextApply').click();
   const edited = await capture(); expect(edited.duration).toBe(6); expect(edited.notes).not.toEqual(before.notes); expect(edited.paused).toBe(true);
