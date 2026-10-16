@@ -85,12 +85,17 @@ export function beatPhase(position, state, period = 1) {
 }
 
 /** Half-beat loops lock a subdivision; arbitrary clipped loops cannot preserve
- * a beat phase after wrapping, even when their playback rates match. */
-export function syncLoopPeriod(state) {
+ * beat phase. Allow one source frame of decoder rounding, which can still
+ * accumulate a tiny phase offset over repeated wraps. */
+export function syncLoopPeriod(state, sampleRate) {
   if (!state.loopEnabled) return 1;
   const beats = (state.loopEnd - state.loopStart) * state.bpm / 60;
-  if (beats <= 0 || Math.abs(beats * 2 - Math.round(beats * 2)) > 1e-4) return null;
-  return Math.abs(beats - Math.round(beats)) <= 1e-4 ? 1 : 0.5;
+  const halfBeats = Math.round(beats * 2);
+  const epsilon = Number.EPSILON * Math.max(1, Math.abs(state.loopStart), Math.abs(state.loopEnd)) * 8;
+  const tolerance = Number.isFinite(sampleRate) && sampleRate > 0
+    ? (1 / sampleRate + epsilon) * state.bpm / 60 : 5e-5;
+  if (!Number.isFinite(beats) || halfBeats < 1 || Math.abs(beats - halfBeats / 2) > tolerance) return null;
+  return halfBeats % 2 === 0 ? 1 : 0.5;
 }
 
 /** Match tempo without silently clamping an impossible ratio. */
