@@ -136,6 +136,16 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
   await arm(page);
   await expect.poll(async () => (await state(page)).scratchReady).toBe(true);
   const { platter, point } = await ring(page);
+  await platter.evaluate(async (node, url) => {
+    const { engine } = await import(url);
+    node.scratchVelocities = [];
+    // Inspect at delivery time: held scratch velocity intentionally decays to zero
+    // after 100 ms, so a later browser round trip cannot prove gesture direction.
+    node.addEventListener("pointermove", () => {
+      const deck = engine.getDeckState(0);
+      if (deck.scratching) node.scratchVelocities.push(deck.scratchVelocity);
+    });
+  }, APP);
   const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
   await expect.poll(async () => (await state(page)).decks[0].scratching).toBe(true);
   let peak = 0;
@@ -144,7 +154,9 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
     peak = Math.max(peak, (await readAudioStatus(page)).rms);
   }
   const forward = (await state(page)).decks[0];
-  expect(forward.position).toBeGreaterThan(2.5); expect(forward.scratchVelocity).toBeGreaterThan(0);
+  expect(forward.position).toBeGreaterThan(2.5);
+  expect(await platter.evaluate((node) => node.scratchVelocities.some((velocity) => velocity > 0))).toBe(true);
+  await platter.evaluate((node) => { node.scratchVelocities = []; });
   expect(peak).toBeGreaterThan(0.0001);
   peak = 0;
   for (let i = 7; i >= 0; i--) {
@@ -152,7 +164,8 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
     peak = Math.max(peak, (await readAudioStatus(page)).rms);
   }
   const backward = (await state(page)).decks[0];
-  expect(backward.position).toBeLessThan(forward.position - 0.5); expect(backward.scratchVelocity).toBeLessThan(0);
+  expect(backward.position).toBeLessThan(forward.position - 0.5);
+  expect(await platter.evaluate((node) => node.scratchVelocities.some((velocity) => velocity < 0))).toBe(true);
   expect(peak).toBeGreaterThan(0.0001);
   await page.mouse.up();
   expect((await state(page)).decks[0].scratching).toBe(false);
@@ -167,6 +180,60 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
   expect((await state(page)).decks[0].scratching).toBe(false);
   expect((await state(page)).decks[0].playing).toBe(true);
   await audible(page, 250);
+  expect(errors).toEqual([]);
+});
+
+test("two real touch contacts retain separate platter ownership until cancellation", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  try {
+    const errors = diagnostics(page);
+    await ready(page, { view: "records" });
+    const first = await ring(page, 0), second = await ring(page, 1);
+    for (const { platter } of [first, second]) await platter.evaluate((node) => {
+      node.addEventListener("pointerdown", (event) => { node.dataset.testPointer = String(event.pointerId); }, { once: true });
+    });
+    const session = await context.newCDPSession(page);
+    const contact = (ring, angle, id) => ({ ...ring.point(angle), id });
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [contact(first, 0, 1)] });
+    await expect.poll(async () => (await state(page)).decks[0].scratching).toBe(true);
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [contact(first, 0, 1), contact(second, 0, 2)] });
+    expect((await state(page)).decks.slice(0, 2).map((deck) => deck.scratching)).toEqual([true, true]);
+    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [contact(first, Math.PI / 2, 1), contact(second, -Math.PI / 2, 2)] });
+    const moved = await state(page);
+    expect(moved.decks[0].position).toBeCloseTo(0.45, 1);
+    expect(moved.decks[1].position).toBeCloseTo(moved.decks[1].duration - 0.45, 1);
+    expect(moved.decks.slice(0, 2).map((deck) => deck.scratching)).toEqual([true, true]);
+    for (const { platter } of [first, second]) expect(await platter.evaluate((node) => node.hasPointerCapture(Number(node.dataset.testPointer)))).toBe(true);
+    await session.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    expect((await state(page)).decks.some((deck) => deck.scratching)).toBe(false);
+    for (const { platter } of [first, second]) expect(await platter.evaluate((node) => node.hasPointerCapture(Number(node.dataset.testPointer)))).toBe(false);
+    expect((await state(page)).armed).toBe(false);
+    expect((await state(page)).decks.some((deck) => deck.playing)).toBe(false);
+    expect((await readAudioStatus(page)).connectionCount).toBe(0);
+    expect(errors).toEqual([]);
+    await session.detach();
+  } finally { await context.close(); }
+});
+
+test("a non-looping file reverses immediately after the hand reaches its end", async ({ page }) => {
+  const errors = diagnostics(page);
+  await ready(page); await loadTone(page);
+  await page.locator("#d0Loop").selectOption("off");
+  await slider(page, "#d0Seek", 7.8);
+  await page.locator("#recordsView").click();
+  const { point } = await ring(page);
+  let p = point(0); await page.mouse.move(p.x, p.y); await page.mouse.down();
+  for (const angle of [Math.PI / 2, Math.PI]) { p = point(angle); await page.mouse.move(p.x, p.y); }
+  expect((await state(page)).decks[0].position).toBeCloseTo(8, 2);
+  p = point(Math.PI * 7 / 8); await page.mouse.move(p.x, p.y);
+  const reversed = (await state(page)).decks[0];
+  expect(reversed.position).toBeGreaterThan(7.8);
+  expect(reversed.position).toBeLessThan(7.95);
+  await page.mouse.up();
+  expect((await state(page)).decks[0].scratching).toBe(false);
+  expect((await state(page)).decks[0].playing).toBe(false);
+  expect((await state(page)).armed).toBe(false);
   expect(errors).toEqual([]);
 });
 
