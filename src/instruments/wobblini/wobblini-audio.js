@@ -2,6 +2,7 @@ import { connectAudioOutput } from "../../audio-output-manager.js";
 import { WOBBLINI_DECK_COUNT, WOBBLINI_DEMOS, WOBBLINI_LOOP_BEATS, createDeckState,
   sanitizeDeckPatch, sanitizeMasterPatch, crossfadeGains, deckPosition, beatLoop,
   createDemoSamples, waveformPeaks, wobbleAt, clamp } from "./wobblini-model.js";
+import { scratchPosition, SCRATCH_MAX_SPEED, SCRATCH_HOLD_SECONDS } from "./wobblini-scratch-model.js";
 
 const FADE = 0.008;
 export const WOBBLINI_FILE_LIMIT = 64 * 1024 * 1024;
@@ -32,23 +33,33 @@ export class WobbliniAudio {
       if (!Constructor) throw new Error("This browser cannot decode local audio files.");
       return new Constructor(2, 1, 48000);
     }, outputConnector = connectAudioOutput,
+    scratchFactory = async context => {
+      if (!context.audioWorklet || !globalThis.AudioWorkletNode) return null;
+      await context.audioWorklet.addModule(new URL("./wobblini-scratch-processor.js", import.meta.url));
+      return new AudioWorkletNode(context, "morphazoid-wobblini-scratch", {
+        numberOfInputs: 0, numberOfOutputs: 8, outputChannelCount: Array(8).fill(2),
+      });
+    },
   } = {}) {
     this.onChange = onChange; this.onError = onError; this.wallTime = now;
     this.contextFactory = contextFactory; this.decodeContextFactory = decodeContextFactory; this.outputConnector = outputConnector;
     this.context = null; this.graph = null; this.release = null; this.armed = false;
     this.requestedAudio = false; this.disposed = false; this.generation = 0; this.armPromise = null;
     this.decodeQueue = Promise.resolve(); this.wobbleClock = null;
+    this.scratchFactory = scratchFactory; this.scratchNode = null; this.scratchPromise = null; this.scratchError = null;
     this.master = { gain: 0.65, crossfader: 0, wobbleAmount: 0, wobbleRate: 2 };
     this.decks = Array.from({ length: WOBBLINI_DECK_COUNT }, (_, id) => {
       const demo = createDemoSamples(id);
       return { state: { ...createDeckState(id), anchorTime: this.wallTime() },
         samples: demo.samples, sampleRate: demo.sampleRate, buffer: null,
-        peaks: waveformPeaks([demo.samples]), graph: null, source: null, retiring: new Set(), generation: 0 };
+        peaks: waveformPeaks([demo.samples]), graph: null, source: null, retiring: new Set(), generation: 0,
+        scratch: null, scratchGeneration: 0 };
     });
     this.handleContextState = () => {
       if (!this.armed || this.disposed || this.context?.state === "running") return;
       this._switchClock(false); this.requestedAudio = false; ++this.generation;
       for (const deck of this.decks) this._stopSource(deck, true);
+      this.scratchNode?.port.postMessage({ type: "clear" });
       this.release?.(); this.release = null;
       this._notify(); this._error(new Error("Audio was interrupted. Enable Audio to rejoin the mix."));
     };
@@ -65,7 +76,7 @@ export class WobbliniAudio {
     const state = deck.state;
     state.position = deckPosition(state, time);
     state.anchorTime = state.playing ? Math.max(state.anchorTime, time) : time;
-    if (!state.loopEnabled && state.position >= state.duration) state.playing = false;
+    if (!state.scratching && !state.loopEnabled && state.position >= state.duration) state.playing = false;
     return state;
   }
   _switchClock(audio) {
@@ -79,10 +90,11 @@ export class WobbliniAudio {
     const deck = this._deck(index), state = deck.state, position = deckPosition(state, this._now());
     const { anchorTime: _anchor, ...snapshot } = state;
     return { ...snapshot, eq: { ...state.eq }, position,
-      playing: state.playing && (state.loopEnabled || position < state.duration),
+      playing: state.playing && (state.scratching || state.loopEnabled || position < state.duration),
+      scratchVelocity: deck.scratch && this._now() - deck.scratch.moveTime <= SCRATCH_HOLD_SECONDS ? state.scratchVelocity : 0,
       effectiveBpm: state.bpm * state.rate, peaks: deck.peaks };
   }
-  getState() { return { armed: this.armed, master: { ...this.master }, decks: this.decks.map((_, id) => this.getDeckState(id)) }; }
+  getState() { return { armed: this.armed, scratchReady: Boolean(this.scratchNode), master: { ...this.master }, decks: this.decks.map((_, id) => this.getDeckState(id)) }; }
   getWobbleState() {
     return this.wobbleClock && this.context ? wobbleAt(this.wobbleClock, this.context.currentTime)
       : { phase: 0, value: 0, frequency: this.master.wobbleRate };
@@ -173,7 +185,7 @@ export class WobbliniAudio {
   }
   _render(deck, when = this._now()) {
     this._stopSource(deck);
-    if (!this.armed || !deck.graph || this.disposed) return;
+    if (!this.armed || !deck.graph || this.disposed || deck.state.scratching) return;
     when = Math.max(when, deck.state.playing ? deck.state.anchorTime : when);
     const state = this._capture(deck, when), buffer = this._buffer(deck);
     if (!state.playing || !buffer) return;
@@ -190,6 +202,28 @@ export class WobbliniAudio {
   }
 
   arm() { return this.setAudioEnabled(true); }
+  async _prepareScratch() {
+    if (this.scratchNode) return;
+    if (this.scratchPromise) return this.scratchPromise;
+    const pending = (async () => {
+      try {
+        const node = await this.scratchFactory(this.context);
+        if (this.disposed) { disconnect(node); node?.port.close?.(); return; }
+        if (!node) return;
+        this.scratchNode = node;
+        for (let index = 0; index < 8; index++) node.connect(this.decks[index].graph.low, index);
+        node.onprocessorerror = () => {
+          disconnect(node); node.port.close?.();
+          if (this.scratchNode !== node || this.disposed) return;
+          this.scratchNode = null; this.scratchError = new Error("The scratch engine stopped. Turn Audio off and on to retry.");
+          for (let index = 0; index < 8; index++) this.endScratch(index);
+          this._error(this.scratchError); this._notify();
+        };
+      } catch (error) { this.scratchError = error; }
+    })();
+    this.scratchPromise = pending;
+    try { await pending; } finally { if (this.scratchPromise === pending) this.scratchPromise = null; }
+  }
   async setAudioEnabled(enabled) {
     if (this.disposed) return false;
     if (enabled && this.requestedAudio) return this.armPromise ?? this.armed;
@@ -198,10 +232,12 @@ export class WobbliniAudio {
       this._switchClock(false);
       if (this.graph) smooth(this.graph.output.gain, 0, this.context.currentTime);
       for (const deck of this.decks) this._stopSource(deck);
+      this.scratchNode?.port.postMessage({ type: "release" });
       this._notify();
       if (this.context) await new Promise(resolve => setTimeout(resolve, FADE * 1000 + 4));
       if (attempt !== this.generation || this.disposed) return false;
       this.release?.(); this.release = null;
+      this.scratchNode?.port.postMessage({ type: "clear" });
       try { if (this.context?.state === "running") await this.context.suspend(); } catch { /* Already interrupted. */ }
       return false;
     }
@@ -218,9 +254,14 @@ export class WobbliniAudio {
           if (!this.requestedAudio && context.state === "running") await context.suspend();
           return false;
         }
-        this._createGraph(); this._switchClock(true);
+        this._createGraph(); await this._prepareScratch();
+        if (attempt !== this.generation || this.disposed) {
+          if (!this.requestedAudio && context.state === "running") await context.suspend();
+          return false;
+        }
+        this._switchClock(true);
         this.release ??= this.outputConnector(context, this.graph.output);
-        for (const deck of this.decks) this._render(deck);
+        for (const deck of this.decks) { this._render(deck); if (deck.scratch) this._startScratchAudio(deck); }
         smooth(this.graph.output.gain, 1, context.currentTime); this._notify(); return true;
       } catch (error) {
         if (attempt !== this.generation || this.disposed) return false;
@@ -267,9 +308,52 @@ export class WobbliniAudio {
     const deck = this._deck(index); this._capture(deck).playing = false; this._stopSource(deck); this._notify();
   }
   toggle(index) { if (this.getDeckState(index).playing) this.pause(index); else this.play(index); }
+  _startScratchAudio(deck) {
+    if (!this.armed || !this.scratchNode || !deck.scratch) return;
+    const buffer = this._buffer(deck);
+    const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel).slice());
+    const state = deck.state;
+    this.scratchNode.port.postMessage({ type: "begin", index: state.id, generation: deck.scratch.generation,
+      channels, sampleRate: buffer.sampleRate, duration: state.duration, position: deck.scratch.handPosition,
+      loopEnabled: state.loopEnabled, loopStart: state.loopStart, loopEnd: state.loopEnd }, channels.map(channel => channel.buffer));
+  }
+  beginScratch(index) {
+    if (this.disposed) return false;
+    const deck = this._deck(index);
+    if (deck.scratch) return false;
+    if (this.armed && !this.scratchNode) {
+      this._error(new Error(this.scratchError?.message || "Vinyl scratching needs AudioWorklet support on HTTPS or localhost.")); return false;
+    }
+    const state = this._capture(deck);
+    deck.scratch = { generation: ++deck.scratchGeneration, handPosition: state.position, moveTime: this._now() };
+    state.scratching = true; state.scratchVelocity = 0;
+    this._stopSource(deck); this._startScratchAudio(deck); this._notify(); return true;
+  }
+  scratchTo(index, seconds) {
+    if (this.disposed || !Number.isFinite(seconds)) return;
+    const deck = this._deck(index), scratch = deck.scratch;
+    if (!scratch) return;
+    const state = deck.state, time = this._now();
+    const target = state.loopEnabled ? seconds : clamp(seconds, 0, state.duration);
+    state.scratchVelocity = clamp((target - scratch.handPosition) / Math.max(0.004, time - scratch.moveTime), -SCRATCH_MAX_SPEED, SCRATCH_MAX_SPEED);
+    scratch.handPosition = target; scratch.moveTime = time;
+    state.position = scratchPosition(target, state); state.anchorTime = time;
+    if (this.armed) this.scratchNode?.port.postMessage({ type: "move", index, generation: scratch.generation, position: target });
+    this._notify();
+  }
+  _cancelScratch(deck) {
+    if (!deck.scratch) return;
+    this.scratchNode?.port.postMessage({ type: "end", index: deck.state.id, generation: deck.scratch.generation });
+    deck.scratch = null; deck.state.scratching = false; deck.state.scratchVelocity = 0; deck.state.anchorTime = this._now();
+  }
+  endScratch(index) {
+    if (this.disposed) return;
+    const deck = this._deck(index); if (!deck.scratch) return;
+    this._cancelScratch(deck); this._render(deck); this._notify();
+  }
   seek(index, seconds) {
     if (this.disposed) return;
-    const deck = this._deck(index), state = this._capture(deck);
+    const deck = this._deck(index); this._cancelScratch(deck); const state = this._capture(deck);
     state.position = clamp(seconds, 0, state.duration, state.position); state.anchorTime = this._now();
     if (state.loopEnabled && (state.position < state.loopStart || state.position >= state.loopEnd)) state.loopEnabled = false;
     this._render(deck); this._notify();
@@ -281,7 +365,7 @@ export class WobbliniAudio {
   cue(index) { if (this.disposed) return; this.pause(index); this.seek(index, this._deck(index).state.cuePoint); }
   setLoop(index, beats) {
     if (this.disposed) return;
-    const deck = this._deck(index), state = this._capture(deck);
+    const deck = this._deck(index); this._cancelScratch(deck); const state = this._capture(deck);
     if (beats === null || beats === 0 || beats === false) state.loopEnabled = false;
     else {
       if (!WOBBLINI_LOOP_BEATS.includes(Number(beats))) throw new RangeError("Choose a loop between half a beat and 32 beats.");
@@ -296,6 +380,7 @@ export class WobbliniAudio {
     const deck = this._deck(index), state = this._capture(deck), changes = sanitizeDeckPatch(patch, state);
     Object.assign(state, changes);
     if (Object.hasOwn(changes, "bpm") && state.loopEnabled) {
+      this._cancelScratch(deck);
       Object.assign(state, beatLoop(state.position, state.loopBeats, state.bpm, state.duration)); this._render(deck);
     } else if (Object.hasOwn(changes, "rate") && deck.source) {
       // A step in playback rate preserves source phase and matches the model exactly.
@@ -310,6 +395,7 @@ export class WobbliniAudio {
   }
 
   _replace(deck, { buffer = null, samples = null, sampleRate, name, kind, bpm, duration, peaks }) {
+    this._cancelScratch(deck);
     const state = this._capture(deck), wasPlaying = state.playing;
     this._stopSource(deck); deck.buffer = buffer; deck.samples = samples; deck.sampleRate = sampleRate; deck.peaks = peaks;
     Object.assign(state, { name, kind, bpm, duration, position: 0, anchorTime: this._now(), cuePoint: 0,
@@ -383,12 +469,15 @@ export class WobbliniAudio {
     if (this.disposed) return;
     this._switchClock(false); this.disposed = true; this.requestedAudio = false; ++this.generation;
     for (const deck of this.decks) {
+      this._cancelScratch(deck);
       ++deck.generation; deck.state.playing = false; deck.state.loading = false;
       this._stopSource(deck, true);
       for (const record of [...deck.retiring]) { try { record.source.stop(); } catch { /* Ended. */ } this._releaseSource(deck, record); }
       for (const node of Object.values(deck.graph ?? {})) disconnect(node);
       deck.buffer = deck.samples = deck.graph = null;
     }
+    this.scratchNode?.port.postMessage({ type: "dispose" });
+    disconnect(this.scratchNode); this.scratchNode?.port.close?.(); this.scratchNode = null;
     try { this.graph?.lfo.stop(); } catch { /* Already stopped. */ }
     for (const node of Object.values(this.graph ?? {})) if (node?.disconnect) disconnect(node);
     this.release?.(); this.release = null;

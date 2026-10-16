@@ -23,7 +23,7 @@ export function createDeckState(id) {
     position: 0, anchorTime: 0, playing: false, rate: 1, bpm: demo.bpm,
     cuePoint: 0, loopBeats: 16, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
     gain: 0.7, pan: 0, mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 },
-    filter: 0, assignment: id < 4 ? "A" : "B", loading: false };
+    filter: 0, assignment: id < 4 ? "A" : "B", loading: false, scratching: false, scratchVelocity: 0 };
 }
 
 /** Only musical mix fields can be patched; callers cannot mutate live clocks. */
@@ -61,7 +61,7 @@ export function crossfadeGains(value) {
 
 /** Audio-clock projection also works with the silent monotonic clock. */
 export function deckPosition(state, time) {
-  const elapsed = state.playing ? Math.max(0, time - state.anchorTime) * state.rate : 0;
+  const elapsed = state.playing && !state.scratching ? Math.max(0, time - state.anchorTime) * state.rate : 0;
   let position = state.position + elapsed;
   if (state.loopEnabled && state.loopEnd > state.loopStart && position >= state.loopEnd - 1e-9) {
     position = state.loopStart + (Math.max(position, state.loopEnd) - state.loopStart) % (state.loopEnd - state.loopStart);

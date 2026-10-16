@@ -39,6 +39,8 @@ function harness(options = {}) {
   };
   const engine = new WobbliniAudio({ contextFactory: () => { creates++; return context; },
     decodeContextFactory: () => { decodes++; return { decodeAudioData: async () => buffer() }; },
+    scratchFactory: async () => add({ port: { messages: [], closed: false,
+      postMessage(message) { this.messages.push(message); }, close() { this.closed = true; } } }),
     outputConnector: (...args) => { outputs.push(args); return () => releases++; },
     now: () => wall, onError: error => errors.push(error), ...options });
   return { engine, context, sources, nodes, errors, outputs, setWall(value) { wall = value; },
@@ -217,4 +219,65 @@ test("Wobblini rapid seeks keep at most two retiring sources per deck and dispos
   await engine.dispose(); await engine.dispose();
   assert.ok(h.sources.every(source => source.disconnected)); assert.equal(h.context.listener, null);
   assert.equal(engine.play(0), false); assert.equal(await engine.arm(), false);
+});
+
+test("Wobblini silent scratch never creates audio and preserves paused/playing transport intent", async () => {
+  const h = harness(), { engine } = h;
+  assert.equal(engine.beginScratch(0), true); assert.equal(engine.beginScratch(0), false);
+  engine.scratchTo(0, -0.25); near(engine.getDeckState(0).position, 7.75);
+  assert.equal(engine.getDeckState(0).scratching, true); assert.equal(engine.getDeckState(0).playing, false);
+  h.setWall(102); near(engine.getDeckState(0).position, 7.75); assert.equal(engine.getDeckState(0).scratchVelocity, 0);
+  engine.endScratch(0); assert.equal(engine.getDeckState(0).playing, false); assert.equal(h.creates, 0);
+  engine.play(1); h.setWall(103); engine.beginScratch(1); near(engine.getDeckState(1).position, 1);
+  h.setWall(105); near(engine.getDeckState(1).position, 1); assert.equal(engine.getDeckState(1).playing, true);
+  engine.scratchTo(1, 2); engine.endScratch(1); h.setWall(106); near(engine.getDeckState(1).position, 3);
+  assert.equal(h.creates, 0); await engine.dispose();
+});
+
+test("Wobblini armed scratch routes copied stereo PCM through deck EQ and resumes at hand position", async () => {
+  const h = harness(), { engine, context } = h; await engine.loadFile(0, file()); await engine.arm(); engine.play(0);
+  context.currentTime = 6; engine.beginScratch(0);
+  const node = engine.scratchNode, begin = node.port.messages.at(-1);
+  assert.equal(engine.getState().scratchReady, true); assert.equal(node.connections.length, 8);
+  assert.equal(node.connections[0].target, engine.decks[0].graph.low); assert.equal(begin.type, "begin");
+  assert.equal(begin.channels.length, 2); assert.notEqual(begin.channels[0], engine.decks[0].buffer.getChannelData(0));
+  near(begin.position, 1); assert.equal(engine.decks[0].source, null);
+  context.currentTime = 6.05; engine.scratchTo(0, 0.75);
+  assert.ok(engine.getDeckState(0).scratchVelocity < 0); near(engine.getDeckState(0).position, 0.75);
+  context.currentTime = 7; near(engine.getDeckState(0).position, 0.75); assert.equal(engine.getDeckState(0).playing, true);
+  engine.endScratch(0); assert.equal(node.port.messages.at(-1).type, "end"); near(h.sources.at(-1).offset, 0.75);
+  context.currentTime = 8; near(engine.getDeckState(0).position, 1.75);
+  engine.pause(0); engine.beginScratch(0); engine.scratchTo(0, 0.5); engine.endScratch(0);
+  assert.equal(engine.decks[0].source, null); assert.equal(engine.getDeckState(0).playing, false);
+  await engine.dispose(); assert.equal(node.port.closed, true);
+});
+
+test("Wobblini Audio-off during a held platter releases sound without losing hand ownership", async () => {
+  const h = harness(), { engine, context } = h; await engine.arm(); engine.play(0); engine.beginScratch(0);
+  context.currentTime += 0.05; engine.scratchTo(0, 0.2); await engine.setAudioEnabled(false);
+  assert.equal(engine.getDeckState(0).scratching, true); assert.equal(engine.scratchNode.port.messages.at(-1).type, "clear");
+  h.setWall(102); engine.scratchTo(0, 0.1); near(engine.getDeckState(0).position, 0.1);
+  await engine.arm(); assert.equal(engine.scratchNode.port.messages.at(-1).type, "begin");
+  assert.equal(engine.decks[0].source, null); engine.endScratch(0); near(h.sources.at(-1).offset, 0.1);
+  await engine.dispose();
+});
+
+test("Wobblini replacement and explicit seek invalidate stale scratch gestures", async () => {
+  const { engine } = harness(); engine.beginScratch(0); engine.scratchTo(0, 2);
+  engine.loadDemo(0); engine.scratchTo(0, 5); near(engine.getDeckState(0).position, 0);
+  assert.equal(engine.getDeckState(0).scratching, false);
+  engine.beginScratch(0); engine.scratchTo(0, 3); engine.seek(0, 1); engine.scratchTo(0, 6);
+  near(engine.getDeckState(0).position, 1); assert.equal(engine.getDeckState(0).scratching, false);
+  await engine.loadFile(0, file()); engine.beginScratch(0); engine.scratchTo(0, -100);
+  near(engine.getDeckState(0).position, 0); engine.scratchTo(0, 100); near(engine.getDeckState(0).position, 8);
+  engine.endScratch(0); await engine.dispose();
+});
+
+test("Wobblini delayed worklet preparation cannot arm after Audio-off or disposal", async () => {
+  const prepared = deferred(), h = harness({ scratchFactory: () => prepared.promise });
+  const pending = h.engine.arm(); await new Promise(resolve => setImmediate(resolve));
+  await h.engine.setAudioEnabled(false);
+  const scratch = node({ port: { postMessage() {}, close() { this.closed = true; } } }); prepared.resolve(scratch);
+  assert.equal(await pending, false); assert.equal(h.engine.armed, false); assert.equal(h.outputs.length, 0);
+  await h.engine.dispose(); assert.equal(scratch.port.closed, true);
 });
