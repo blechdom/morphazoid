@@ -100,7 +100,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         const timing = message.timing ? { ...message.timing } : undefined;
         if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat) + Math.max(0, Math.min(512, Number(message.delayBeats) || 0));
         this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, pausedEpoch: message.pausedEpoch, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, scoreVersion: message.scoreVersion, replacedAt: message.replacedAt, replacedEpoch: message.replacedEpoch, config, channels });
-        if (message.pendingReplacement) this.sampleClock.replaceScore(slot, this.sampleReplacement(message.pendingReplacement, message.program), { revision: message.revision });
+        if (message.pendingReplacement) this.sampleClock.replaceScore(slot, this.sampleReplacement(message.pendingReplacement, message.program), { defer: true, revision: message.revision });
         this.updateSampleMix();
         break;
       }
@@ -142,7 +142,14 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         if (!sample || sample.id !== message.id || !Number.isInteger(message.revision) || message.revision <= (sample.revision ?? -1)) break;
         if (!message.replacement?.data?.channels || message.replacement.data.channels.length > 16) break;
         this.sampleClock.confirmScore(message.slot, message.scoreVersion);
-        this.sampleClock.replaceScore(message.slot, this.sampleReplacement(message.replacement, message.program), { restart: message.restart, revision: message.revision });
+        this.sampleClock.replaceScore(message.slot, this.sampleReplacement(message.replacement, message.program), { restart: message.restart, defer: message.defer, revision: message.revision });
+        break;
+      }
+      case 'sampleAppend': {
+        const sample = this.sampleClock.samples[message.slot];
+        if (!sample || sample.id !== message.id || !Number.isInteger(message.revision) || message.revision <= sample.revision || !message.data?.events) break;
+        this.sampleClock.appendScore(message.slot, message.data, message.revision);
+        this.updateSampleMix();
         break;
       }
       case 'samplePaused': {

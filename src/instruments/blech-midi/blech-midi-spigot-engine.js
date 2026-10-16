@@ -28,14 +28,15 @@ export function blechStrokeScore(notes, durationBeats, name = 'Drawn stream') {
 
 export function transformBlechSpigot(score, settings = {}) {
   const rotated = rotateMidiStamp(score.buffer, { rotationDegrees: settings.rotationDegrees ?? 0, pitchWidth: settings.widthNotes ?? null, heightBeats: settings.heightBeats ?? null });
-  const routed = transformMidiStamp(rotated.buffer, { transpose: settings.transpose ?? 0, channel: settings.channel ?? null });
-  return { ...score, ...routed, notes: routed.analysis.notes, pixels: undefined, durationBeats: routed.analysis.durationBeats, noteCount: routed.analysis.noteCount };
+  const transpose = Math.round(clamp(settings.transpose ?? 0, -rotated.pitchLow, 127 - rotated.pitchHigh, 0));
+  const routed = transformMidiStamp(rotated.buffer, { transpose, channel: settings.channel ?? null });
+  return { ...score, ...rotated, ...routed, pitchLow: rotated.pitchLow + routed.appliedTranspose, pitchHigh: rotated.pitchHigh + routed.appliedTranspose, pitchWidth: rotated.pitchWidth, notes: routed.analysis.notes, pixels: undefined, durationBeats: routed.analysis.durationBeats, noteCount: routed.analysis.noteCount };
 }
 
 /** Persistent emitter identity is independent of the four audible clip slots.
  * Parameter edits replace a looping phrase at its next boundary. A closed valve
  * finishes the current pass; opening it later launches the retained source. */
-export function createBlechSpigotEngine({ engine, sendScore = (score, settings) => ({ ...score, sampleId: engine.triggerSample(score.buffer, settings)?.id }), onChange = () => {} } = {}) {
+export function createBlechSpigotEngine({ engine, sendScore = (score, settings) => ({ ...score, sampleId: engine.triggerSample(score.buffer, settings)?.id }), onChange = () => {}, onTransform = () => {} } = {}) {
   const sources = new Map(), strokes = new Map(); let serial = 0, disposed = false;
   const sampleFor = record => engine.state.samples.find(sample => sample.id === record.sampleId);
   function notify() { onChange(); }
@@ -43,7 +44,7 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     const settings = record.settings;
     // Pitch/routing are already in these bytes; retain width/height for the
     // existing Text editor's authored-layout resize contract.
-    const sent = sendScore(record.score, { ...settings, name: record.name, source: record.source, transpose: 0, channel: settings.channel, quantize: false });
+    const sent = sendScore(record.score, { ...settings, name: record.name, source: record.source, transpose: 0, authoredTranspose: settings.transpose, sourceRotationDegrees: settings.rotationDegrees, channel: settings.channel, quantize: false });
     if (!sent?.sampleId) return null;
     record.sampleId = sent.sampleId; record.lastSample = sampleFor(record); record.pendingEdit = false; return sent;
   }
@@ -86,7 +87,7 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
       record.expectedVersion = next?.pendingReplacement?.token ?? next?.scoreVersion;
       record.pendingEdit = Boolean(next?.pendingReplacement);
     } else record.pendingEdit = Boolean(sample);
-    record.settings = settings; record.score = transformed; notify(); return record;
+    record.settings = settings; record.score = transformed; onTransform(record); notify(); return record;
   }
   function loop(id, enabled) {
     const record = sources.get(id); if (!record || disposed) return false;
@@ -120,20 +121,28 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     const oldBeats = record.sourceScore.textSettings?.beats, newBeats = score.textSettings?.beats;
     if (oldBeats && newBeats && record.settings.heightBeats != null) record.settings.heightBeats *= newBeats / oldBeats;
     record.sourceScore = copy(score); record.score = transformBlechSpigot(score, record.settings);
-    if (record.settings.rotationDegrees) edit(record.id, {});
+    const sample = sampleFor(record); record.pendingEdit = Boolean(sample?.pendingReplacement); record.expectedVersion = sample?.pendingReplacement?.token ?? sample?.scoreVersion; onTransform(record);
   }
   function brushStart({ mode = 'draw', pitch = 60, delayBeats = 0, prepared } = {}) {
     if (disposed) return null;
     const settings = { ...(prepared?.settings ?? {}), source: 'frames', name: mode === 'stamp' ? `${prepared?.settings?.name || 'Stamp'} stream` : 'Drawn stream', delayBeats: 0, transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, loop: false };
     const shape = mode === 'stamp' && prepared?.score ? transformBlechSpigot(prepared.score, prepared.settings) : null;
     if (mode === 'stamp' && !shape) throw new Error('Choose a shape before painting stamps.');
-    if (shape?.analysis.notes.length > MAX_STROKE_NOTES) throw new Error('This stamp is too dense for a brush. Place it once to retain all its notes.');
+    if (shape && (shape.analysis.notes.length > MAX_STROKE_NOTES || shape.analysis.durationBeats > 511 || shape.analysis.notes.some(note => note.channel > 15))) {
+      // Large/full MIDI artwork remains placeable with all events and metadata.
+      // It owns one source; this gesture cannot multiply it into a brush stream.
+      const center = (shape.pitchLow + shape.pitchHigh) / 2;
+      return create(prepared.score, { ...prepared.settings, transpose: (prepared.settings.transpose ?? 0) + Math.round(pitch - center),
+        delayBeats: clamp(delayBeats, 0, 64), quantize: false })?.id ?? null;
+    }
     const state = engine.state, lead = Math.max(.125, state.tempo / 60 * .06), start = Math.min(500, clamp(delayBeats, 0, 64) + lead);
-    const points = brushNotes(shape, pitch, start);
+    settings.delayBeats = start;
+    const points = brushNotes(shape, pitch, 0);
     if (!points.length) throw new Error('Shorten this stamp before painting a stream.');
     const score = blechStrokeScore(points, 512, settings.name), sent = create(score, settings); if (!sent) return null;
     const record = sources.get(sent.id); record.stroke = true;
-    const stroke = { id: sent.id, notes: points, shape, pitch: Math.round(pitch), origin: state.sampleBeat, last: 0, interval: shape ? Math.max(.25, Math.min(4, shape.analysis.durationBeats)) : .125,
+    record.settings.delayBeats = clamp(delayBeats, 0, 64);
+    const stroke = { id: sent.id, notes: points, shape, pitch: Math.round(pitch), origin: state.sampleBeat, initialDelay: start, last: 0, interval: shape ? Math.max(.25, Math.min(4, shape.analysis.durationBeats)) : .125,
       loop: Boolean(prepared?.settings?.loop), lastEnd: Math.max(...points.map(note => note.beat + note.duration)) };
     strokes.set(record.id, stroke); record.score = blechStrokeScore(points, stroke.lastEnd, record.name); notify(); return record.id;
   }
@@ -153,7 +162,7 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     const state = engine.state, sample = state.samples.find(item => item.id === record.sampleId); if (!sample || sample.paused) return false;
     const elapsed = Math.max(0, state.sampleBeat - stroke.origin);
     if (elapsed - stroke.last < stroke.interval - 1e-9) return false;
-    const lead = Math.max(.125, state.tempo / 60 * .06), at = Math.ceil((elapsed + lead) * 8) / 8 + clamp(delayBeats, 0, 64);
+    const lead = Math.max(.125, state.tempo / 60 * .06), at = Math.max(0, Math.ceil((elapsed + lead - stroke.initialDelay) * 8) / 8 + clamp(delayBeats, 0, 64));
     if (at >= 510 || stroke.notes.length >= MAX_STROKE_NOTES) { brushEnd(id); return false; }
     const extra = brushNotes(stroke.shape, pitch, at, stroke.pitch);
     if (!extra.length || extra.length + stroke.notes.length > MAX_STROKE_NOTES) { brushEnd(id); return false; }
@@ -162,14 +171,14 @@ export function createBlechSpigotEngine({ engine, sendScore = (score, settings) 
     stroke.notes = next; stroke.last = elapsed; stroke.pitch = Math.round(pitch); stroke.lastEnd = Math.max(stroke.lastEnd, ...extra.map(note => note.beat + note.duration));
     record.sourceScore = score; record.score = blechStrokeScore(next, stroke.lastEnd, record.name); notify(); return true;
   }
-  function brushEnd(id) {
+  function brushEnd(id, { cancelled = false } = {}) {
     const stroke = strokes.get(id), record = sources.get(id); if (!stroke || !record) return false;
     strokes.delete(id); record.stroke = false;
     const sample = sampleFor(record), duration = Math.min(512, Math.max(stroke.lastEnd, (sample?.positionBeats ?? 0) + .125));
     const score = blechStrokeScore(stroke.notes, duration, record.name);
-    if (sample && !sample.paused) engine.appendSample(record.sampleId, score.buffer);
+    if (sample) engine.appendSample(record.sampleId, score.buffer);
     record.sourceScore = score; record.score = score;
-    if (stroke.loop) loop(id, true);
+    if (stroke.loop && !cancelled) loop(id, true);
     notify(); return true;
   }
   return { create, edit, configure, loop, togglePlay, remove, bySample, forgetSample, adoptText, stopAll, getLayers, brushStart, brushMove, brushEnd,

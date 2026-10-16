@@ -79,7 +79,9 @@ test('source edits alter real MIDI at the next loop, leaving another layer and t
   expect((await sampleState(page))[0].id).toBe(samples[0].id);
   await expect.poll(async () => (await sampleState(page))[0]?.version).toBeGreaterThan(samples[0].version);
   await page.locator('[data-spigot-loop]').click();
-  expect((await sampleState(page))[0].loop).toBe(false); expect((await sampleState(page))[1].loop).toBe(true);
+  expect((await sources(page)).find(source => source.id === initial[0].id).settings.loop).toBe(false);
+  expect((await sampleState(page)).find(sample => sample.id === samples[1].id).loop).toBe(true);
+  expect((await sampleState(page)).find(sample => sample.id === samples[0].id)?.loop ?? false).toBe(false);
   await expect.poll(async () => (await sampleState(page)).length).toBe(1);
   expect((await sources(page)).length).toBe(2);
   await page.locator('[data-spigot-play]').click();
@@ -105,6 +107,7 @@ test('drawing sounds with explicit Audio and pointer cancellation stops new emis
 
 for (const [name, width, height] of [['phone', 390, 844], ['landscape', 844, 390]]) {
   test(`spigot controls and keyboard remain reachable on ${name}`, async ({ page }) => {
+    test.setTimeout(60000);
     await page.setViewportSize({ width, height }); await open(page);
     await number(page, '#blechDropWidth', 21); await number(page, '#blechDropHeight', 1);
     await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
@@ -113,9 +116,13 @@ for (const [name, width, height] of [['phone', 390, 844], ['landscape', 844, 390
     await expect(page.locator('[data-spigot-field="rotationDegrees"]')).toHaveValue('90');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     const canvas = await page.locator('#blackMidiViewport').boundingBox(); expect(canvas.height).toBeGreaterThanOrEqual(48);
+    await page.locator('#blechMasterPlay').scrollIntoViewIfNeeded();
     await expect(page.locator('#blechMasterPlay')).toBeInViewport();
+    await page.locator('#blechMasterPlay').click();
+    await expect(page.locator('#blechMasterPlay')).toHaveAttribute('aria-pressed', 'false');
     await tool(page, 'draw');
     const paint = await page.locator('.blech-spigot-paint').boundingBox();
-    expect(paint.y + paint.height).toBeLessThan(canvas.y + canvas.height);
+    const currentCanvas = await page.locator('#blackMidiViewport').boundingBox();
+    expect(paint.y + paint.height).toBeLessThan(currentCanvas.y + currentCanvas.height);
   });
 }

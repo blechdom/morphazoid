@@ -1,0 +1,48 @@
+.blech-spigot-controls { min-width: 0; flex: 0 0 auto; color: #d8e6df; font-size: 10px; }
+.blech-spigot-mode { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.blech-spigot-controls button { min-height: 28px; padding: 3px 8px; color: #d8e6df; background: #101b16; border: 1px solid #394b3f; border-radius: 0; font: inherit; }
+.blech-spigot-controls button[aria-pressed="true"] { background: #c94420; color: #fff; border-color: #ee724b; }
+.blech-spigot-mode output { flex: 1; min-width: 0; color: #9eafa6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blech-spigot-editor { display: flex; align-items: end; gap: 5px; min-width: 0; padding-top: 4px; }
+.blech-spigot-editor[hidden] { display: none; }
+.blech-spigot-editor > b { min-width: 0; flex: 1 1 60px; align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blech-spigot-editor label { display: grid; gap: 2px; width: 55px; min-width: 42px; color: #a8b9b0; }
+.blech-spigot-editor input { box-sizing: border-box; width: 100%; min-width: 0; height: 26px; padding: 2px 3px; border: 1px solid #394b3f; border-radius: 0; background: #101b16; color: #e6eee9; font: inherit; }
+.blech-spigot-overlay { position: absolute; inset: 0; z-index: 4; overflow: hidden; pointer-events: none; }
+.blech-spigot-preview { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.blech-spigot-paint { position: absolute; inset: 0 0 auto; pointer-events: none; touch-action: none; outline-offset: -3px; }
+.blech-spigot-overlay[data-mode="stamp"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="draw"] .blech-spigot-paint { pointer-events: auto; cursor: crosshair; }
+.blech-spigot-paint:focus-visible { outline: 2px solid #f1a388; }
+.blech-spigot-emitter { position: absolute; z-index: 2; transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; box-sizing: border-box; min-width: 30px; min-height: 26px; height: 26px; padding: 2px 4px; background: #111c17e6; border: 1px solid #b25033; border-radius: 0; color: #ff996e; font: 10px monospace; }
+.blech-spigot-emitter[data-open="false"] { color: #a5aaa7; border-color: #5b6660; }
+.blech-spigot-emitter[aria-pressed="true"] { background: #c94420; border-color: #ffb494; color: #fff; }
+.blech-spigot-overlay:not([data-mode="select"]) .blech-spigot-emitter { pointer-events: none; opacity: .5; }
+.blech-spigot-selection[hidden] { display: none; }
+.blech-spigot-move { position: absolute; pointer-events: auto; touch-action: none; cursor: move; background: #ff9d6810; border: 1px dashed #ff8752; border-radius: 0; padding: 0; min-height: 0; }
+.blech-spigot-move:focus-visible { outline: 2px solid #ffe0cf; outline-offset: -3px; }
+.blech-spigot-selection .blech-spigot-grip { position: absolute; z-index: 3; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); box-sizing: border-box; width: 12px; height: 12px; min-width: 12px; min-height: 12px; padding: 0; border: 1px solid #ffd7bd; border-radius: 0; background: #c94420; }
+.blech-spigot-grip[data-spigot-resize="left"], .blech-spigot-grip[data-spigot-resize="right"] { cursor: ew-resize; }
+.blech-spigot-grip[data-spigot-resize="top"], .blech-spigot-grip[data-spigot-resize="bottom"] { cursor: ns-resize; }
+.blech-spigot-grip[data-spigot-resize="top-left"], .blech-spigot-grip[data-spigot-resize="bottom-right"] { cursor: nwse-resize; }
+.blech-spigot-grip[data-spigot-resize="top-right"], .blech-spigot-grip[data-spigot-resize="bottom-left"] { cursor: nesw-resize; }
+.blech-spigot-rotate { position: absolute; z-index: 4; pointer-events: auto; touch-action: none; cursor: grab; transform: translate(-50%, -50%); box-sizing: border-box; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; border: 1px solid #dd734f; border-radius: 0; background: #16231ced; color: #ffad85; font-size: 20px; }
+.blech-spigot-valves { position: absolute; z-index: 4; display: flex; gap: 3px; pointer-events: auto; background: #09130ee8; }
+.blech-spigot-valves button { box-sizing: border-box; width: 34px; height: 30px; min-width: 34px; min-height: 30px; padding: 0; background: #122018; color: #e2ede5; border: 1px solid #6e4b36; border-radius: 0; font-size: 17px; }
+.blech-spigot-valves button[aria-pressed="true"] { background: #c94420; color: #fff; }
+.blech-spigot-overlay button:focus-visible { outline: 2px solid #fff0e4; outline-offset: 2px; }
+@media (max-width: 700px) {
+  .blech-spigot-editor > b { display: none; }
+  .blech-spigot-editor label { flex: 1; width: auto; }
+  .blech-spigot-mode output { font-size: 9px; }
+}
+@media (pointer: coarse) {
+  .blech-spigot-controls .blech-spigot-mode button { min-width: 48px; min-height: 48px; }
+  .blech-spigot-overlay .blech-spigot-emitter, .blech-spigot-overlay .blech-spigot-rotate { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
+  .blech-spigot-selection .blech-spigot-grip { width: 28px; height: 28px; min-width: 28px; min-height: 28px; border: 8px solid transparent; background-clip: padding-box; }
+  .blech-spigot-overlay .blech-spigot-valves button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
+  .blech-spigot-editor input { min-height: 36px; }
+}
+@media (max-height: 500px), (max-width: 700px) {
+  .blech-spigot-controls { max-height: 110px; overflow-y: auto; overscroll-behavior: contain; }
+  .blech-spigot-mode output { display: none; }
+}

@@ -250,7 +250,7 @@ function mountBlechMidi() {
     onNoteCount: ({ passed, total }) => { $('blechFileNotes').value = passed == null ? '—' : passed.toLocaleString(); $('blechFileTotal').value = total == null ? '—' : total.toLocaleString(); },
     onKeyboardNote: () => { keyboardNoteCount++; reflect(); },
   });
-  spigots = createBlechSpigotEngine({ engine, sendScore: (score, options) => performanceView.sendScore(score, options), onChange: () => reflect() });
+  spigots = createBlechSpigotEngine({ engine, sendScore: (score, options) => performanceView.sendScore(score, options), onChange: () => reflect(), onTransform: record => performanceView.setLayerSourceTransform(record.sampleId, record) });
   dropStage = mountBlechDropStage($('blechDropControls'), $('blackMidiViewport'), {
     getTempo: () => engine.state.tempo,
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
@@ -275,7 +275,7 @@ function mountBlechMidi() {
     onRemove: id => spigots.remove(id),
     onBrushStart: options => spigots.brushStart(options),
     onBrushMove: (id, point) => spigots.brushMove(id, point),
-    onBrushEnd: id => spigots.brushEnd(id),
+    onBrushEnd: (id, options) => spigots.brushEnd(id, options),
     onModeChange: mode => dropStage.suspendInteractions(Boolean(selectedSpigot) || mode !== 'select'),
     onSelectionChange: id => { selectedSpigot = id; dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
   });

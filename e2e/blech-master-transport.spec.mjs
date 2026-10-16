@@ -39,7 +39,7 @@ async function drop(page) {
   await page.locator('#blechDropSend').click();
 }
 function midi(note = 60) {
-  const track = [0, 192, 16, 0, 144, note, 100, 152, 0, 128, note, 0, 0, 255, 47, 0];
+  const track = [0, 192, 16, 0, 144, note, 100, 129, 192, 0, 128, note, 0, 0, 255, 47, 0];
   const bytes = Buffer.alloc(22 + track.length);
   bytes.set([77,84,104,100,0,0,0,6,0,0,0,1,0,96,77,84,114,107]); bytes.writeUInt32BE(track.length,18); bytes.set(track,22);
   return bytes;
@@ -108,6 +108,7 @@ test('master freezes and resumes sounding file, layers and evolution without cha
   // A later master pause must not adopt sources paused through their own controls.
   await page.locator('#automataMidiPlayPause').click();
   await tab(page, 'files'); await page.locator('#blackPlayButton').click();
+  await expect.poll(async () => (await state(page)).file.playing).toBe(false);
   const independent = await state(page);
   await master(page).click(); await master(page).click();
   expect((await state(page)).file).toEqual(independent.file);

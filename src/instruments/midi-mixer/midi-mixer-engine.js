@@ -297,11 +297,12 @@ export class MidiMixerEngine {
     if (this._disposed) return false;
     const sample = this._samples.find(item => item.id === id); if (!sample) return false;
     const state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
-    if (sample.loop || sample.paused || timing.ended || timing.cycle || sample.pendingReplacement) return false;
+    if (sample.loop || timing.ended || timing.cycle || sample.pendingReplacement) return false;
     if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('MIDI stamps must be 2 MB or smaller.');
     const sourceBuffer = buffer instanceof ArrayBuffer ? buffer.slice(0) : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
     const analysis = sample.channel == null ? parseMidi(sourceBuffer) : transformMidiStamp(sourceBuffer, { channel: sample.channel }).analysis;
     if (analysis.notes.length > MIDI_SAMPLE_LIMITS.notes || analysis.events.length > MIDI_SAMPLE_LIMITS.events || analysis.channels.length > MIDI_SAMPLE_LIMITS.channels || analysis.durationBeats > MIDI_SAMPLE_LIMITS.beats) throw new Error('This drawing reached its MIDI limit.');
+    if (sample.paused && analysis.notes.length !== sample.analysis.notes.length) return false;
     if (analysis.durationBeats <= timing.positionBeats || analysis.channels.map(channel => channel.channel).join(',') !== sample.analysis.channels.map(channel => channel.channel).join(',')) return false;
     const controls = value => value.events.filter(event => event.kind !== 8 && event.kind !== 9).map(({ beat, kind, channel, a, b }) => [beat, kind, channel, a, b]);
     if (JSON.stringify(controls(analysis)) !== JSON.stringify(controls(sample.analysis))) return false;

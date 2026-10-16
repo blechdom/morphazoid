@@ -1,3 +1,4 @@
+import { restoreBlechSpigotRuntime } from './helpers/blech-spigot-runtime-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -12,7 +13,7 @@ test('header preset rollout amendments restore the exact preceding main source a
   assert.ok(headerPresetsBatchSiteChanges.changes.length > 100);
   for (const change of headerPresetsBatchSiteChanges.changes) {
     const url = new URL(change.file, root);
-    const source = await readFile(url, 'utf8');
+    const source = restoreBlechSpigotRuntime(await readFile(url, 'utf8'), change.file, { allowRestored: true });
     const restored = restoreHeaderPresetsBatchSite(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-rollout source preserved`);
     assert.equal(restoreHeaderPresetsBatchSite(source, 'unrelated.js'), source);

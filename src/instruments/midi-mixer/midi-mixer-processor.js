@@ -149,6 +149,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         const sample = this.sampleClock.samples[message.slot];
         if (!sample || sample.id !== message.id || !Number.isInteger(message.revision) || message.revision <= sample.revision || !message.data?.events) break;
         this.sampleClock.appendScore(message.slot, message.data, message.revision);
+        this.updateSampleMix();
         break;
       }
       case 'samplePaused': {

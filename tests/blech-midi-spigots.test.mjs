@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spigotGeometry, spigotPoint, spigotPlacement } from '../src/instruments/blech-midi/blech-midi-spigots.js';
+import { spigotGeometry, spigotPoint, spigotPlacement, spigotDimensions } from '../src/instruments/blech-midi/blech-midi-spigots.js';
 import { dropScoreDimensions, resizeDropScore } from '../src/instruments/blech-midi/blech-midi-drop-stage.js';
 import { encodeArtwork } from '../src/instruments/blech-midi/blech-midi-art.js';
 
@@ -41,4 +41,16 @@ test('rotating a temporal line opens width without making resize metadata disagr
     assert.equal(rotated.analysis.noteCount, line.analysis.noteCount);
   }
   assert.equal(dropScoreDimensions(line, { rotationDegrees: 180 }).width, 1);
+});
+
+test('persistent rotated source handles keep the transposed envelope around a collapsed chord', () => {
+  const chord = encodeArtwork([60,64,68].map(note => ({ note, beat: 0, duration: 1, velocity: 100 })), { durationBeats: 4 });
+  const rotated = resizeDropScore(chord, { rotationDegrees: 90 });
+  const source = { score: { ...rotated, pitchLow: 72, pitchHigh: 80 }, settings: { transpose: 12, delayBeats: 3 } };
+  const dimensions = spigotDimensions(source);
+  assert.deepEqual([dimensions.low, dimensions.high, dimensions.width], [72,80,9], 'settings transpose is not added to already transformed envelope');
+  assert.equal(dimensions.delayBeats, 3);
+  assert.equal(dimensions.heightBeats, 4);
+  const plain = spigotDimensions({ score: chord });
+  assert.deepEqual([plain.low, plain.high, plain.width], [60,68,9]);
 });

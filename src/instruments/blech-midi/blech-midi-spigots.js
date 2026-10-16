@@ -25,6 +25,14 @@ export function spigotPlacement(score, settings, point) {
   const transpose = Math.round(clamp(point.pitch - (pitch.low + pitch.high) / 2, -pitch.low, 127 - pitch.high, 0));
   return { ...settings, transpose, delayBeats: point.delayBeats };
 }
+export function spigotDimensions(source) {
+  const score = source.score, pitch = midiStampPitchBounds(score?.analysis?.notes ?? []), settings = source.settings ?? source;
+  // Rotating a chord into one column must retain its editable envelope. These
+  // score bounds already include routing/transposition, just like the notes.
+  const low = Number.isFinite(score?.pitchLow) ? score.pitchLow : pitch.low;
+  const high = Number.isFinite(score?.pitchHigh) ? score.pitchHigh : pitch.high;
+  return { ...pitch, low, high, width: high - low + 1, heightBeats: score?.analysis?.durationBeats ?? settings.heightBeats ?? 1, delayBeats: settings.delayBeats ?? 2 };
+}
 
 /** Persistent source handles; the owner owns all audio clocks, notes and source state. */
 export function mountBlechSpigots(viewport, {
@@ -51,10 +59,6 @@ export function mountBlechSpigots(viewport, {
   const act = callback => { try { return callback?.(); } catch (error) { status(error.message); return null; } };
   function setSelection(id) {
     selectedId = id; onSelectionChange?.(id); render();
-  }
-  function dimensions(source) {
-    const notes = source.score?.analysis?.notes ?? [], pitch = midiStampPitchBounds(notes), settings = source.settings ?? source;
-    return { ...pitch, heightBeats: source.score?.analysis?.durationBeats ?? settings.heightBeats ?? 1, delayBeats: settings.delayBeats ?? 2 };
   }
   function setMode(next) {
     if (!MODES.includes(next)) return;
@@ -84,7 +88,7 @@ export function mountBlechSpigots(viewport, {
         node = document.createElement('button'); node.type = 'button'; node.className = 'blech-spigot-emitter'; node.dataset.spigotId = source.id;
         listen(node, 'click', () => setSelection(source.id)); $('.blech-spigot-sources').append(node); nodes.set(source.id, node);
       }
-      const d = dimensions(source), key = g.layout[Math.round(clamp((d.low + d.high) / 2, 0, 127))];
+      const d = spigotDimensions(source), key = g.layout[Math.round(clamp((d.low + d.high) / 2, 0, 127))];
       const anchorX = (key.x + key.width / 2) * g.width, anchorY = g.present - d.delayBeats * g.pixelsPerBeat;
       let x = clamp(anchorX, targetSize / 2, Math.max(targetSize / 2, g.width - targetSize / 2));
       let y = clamp(anchorY, targetSize / 2, Math.max(targetSize / 2, g.present - targetSize / 2 - 2));
@@ -107,7 +111,7 @@ export function mountBlechSpigots(viewport, {
     for (const marker of centers) { context.beginPath(); context.moveTo(marker.x, marker.y); context.lineTo(marker.anchorX, clamp(marker.anchorY, 0, g.present)); context.stroke(); }
     const source = selected(); selection.hidden = !source || mode !== 'select'; editor.hidden = !source || mode !== 'select';
     if (!source) return;
-    const settings = source.settings ?? source, d = dimensions(source);
+    const settings = source.settings ?? source, d = spigotDimensions(source);
     c$('[data-spigot-title]').textContent = source.name || 'Source';
     for (const field of controlsHost.querySelectorAll('[data-spigot-field]')) {
       if (document.activeElement === field) continue;
@@ -201,7 +205,7 @@ export function mountBlechSpigots(viewport, {
       if (event.button !== 0 || !event.isPrimary || !selected()) return;
       event.preventDefault(); const source = selected(), rect = $('.blech-spigot-move').getBoundingClientRect();
       const centerX = rect.x + rect.width / 2, centerY = rect.y + rect.height / 2;
-      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, kind, ...source.settings, ...dimensions(source), transpose: source.settings?.transpose ?? 0, rotationDegrees: source.settings?.rotationDegrees ?? 0, centerX, centerY, angle: Math.atan2(centerY - event.clientY, event.clientX - centerX), g: geometry() };
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, kind, ...source.settings, ...spigotDimensions(source), transpose: source.settings?.transpose ?? 0, rotationDegrees: source.settings?.rotationDegrees ?? 0, centerX, centerY, angle: Math.atan2(centerY - event.clientY, event.clientX - centerX), g: geometry() };
       control.setPointerCapture(event.pointerId); control.focus({ preventScroll: true });
     });
     listen(control, 'pointermove', event => { if (drag?.id === event.pointerId) edit(transformDrag(drag, Math.round((event.clientX - drag.x) / drag.g.width * 128), (event.clientY - drag.y) / drag.g.pixelsPerBeat, event)); });
@@ -210,7 +214,7 @@ export function mountBlechSpigots(viewport, {
       const source = selected(); if (!source || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
       event.preventDefault(); const step = event.shiftKey ? 12 : 1, beat = event.shiftKey ? 1 : .25;
       if (kind === 'rotate') { edit({ rotationDegrees: degrees((source.settings?.rotationDegrees ?? 0) + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -step : step)) }); return; }
-      edit(transformDrag({ kind, ...source.settings, ...dimensions(source), transpose: source.settings?.transpose ?? 0 }, event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, event.key === 'ArrowUp' ? -beat : event.key === 'ArrowDown' ? beat : 0));
+      edit(transformDrag({ kind, ...source.settings, ...spigotDimensions(source), transpose: source.settings?.transpose ?? 0 }, event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, event.key === 'ArrowUp' ? -beat : event.key === 'ArrowDown' ? beat : 0));
     });
   }
   listen(globalThis, 'blur', () => { drag = null; endBrush(true); });

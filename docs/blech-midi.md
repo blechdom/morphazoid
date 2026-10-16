@@ -59,6 +59,11 @@ gestures start a source without a second Drop action. A higher placement gives
 notes more time to fall before sounding. The keyboard remains a separate
 playable surface.
 
+A gesture occupies one live layer. Repeating brushes retain up to 4,096 notes;
+dense, full-length or multiport patterns place one intact copy instead of
+repeating. Releasing normally honors Loop; cancelling the gesture finishes its
+committed notes once without starting a loop.
+
 Each source has a persistent **spigot** on the stage. Select one to move its
 pitch and delay, resize its pitch span and phrase length, or rotate its actual
 MIDI. Multiple spigots can share the same stage. A loop edit takes effect on the
@@ -235,6 +240,8 @@ existing layers. Stop ends a loop immediately.
 The rack holds four active, queued or paused layers. A fifth Drop replaces the
 oldest playing layer; paused layers are retained. If all four are paused, stop
 one before adding another. **Stop all** remains the page-wide recovery action.
+Up to 16 spigots retain their source for replay; adding more replaces an idle
+spigot first. This does not increase the four simultaneous playback slots.
 
 ## Drawing, stamps and Text
 
