@@ -280,6 +280,17 @@ export class MidiMixerEngine {
     this._sampleBuffers.set(sample, sourceBuffer);
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
+  /** A detached copy of a dropped layer's current routed score. Reading it does
+   * not retrigger, revise, or reconfigure the active sample. */
+  getSampleScore(id) {
+    if (this._disposed) return null;
+    const sample = this._samples.find(item => item.id === id);
+    if (!sample || !this.state.samples.some(item => item.id === id)) return null;
+    const source = this._sampleBuffers.get(sample); if (!source) return null;
+    const buffer = sample.channel == null ? source.slice(0) : transformMidiStamp(source, { channel: sample.channel }).buffer;
+    const analysis = parseMidi(buffer);
+    return { buffer, analysis, notes: analysis.notes, durationBeats: analysis.durationBeats, noteCount: analysis.noteCount, text: sample.name };
+  }
   replaceSample(id, buffer, { name, when = 'next-loop', delayBeats = 0 } = {}) {
     if (this._disposed) return false;
     const sample = this._samples.find(item => item.id === id); if (!sample) return false;

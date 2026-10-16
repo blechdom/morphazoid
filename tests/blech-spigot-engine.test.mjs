@@ -185,3 +185,44 @@ test('a dense stamp still places every note as one source and never becomes a tr
   assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.samples[0].analysis.noteCount, 5120);
   await q.engine.dispose();
 });
+
+test('selecting an unowned saved-pad replay adopts its current score without changing playback, mix, counters or Audio', async () => {
+  const q = setup(), original = score();
+  const replay = q.engine.triggerSample(original.buffer, { name: 'Saved shape', source: 'math', loop: true, delayBeats: 1,
+    channel: 5, gain: .37, pan: -.4, muted: true, solo: true, program: null, midi: { program: 17, controllers: { 74: 89 } }, sync: false });
+  q.at(1); q.engine.setSamplePaused(replay.id, true);
+  const before = q.engine.state, exported = q.engine.getSampleScore(replay.id);
+  assert.equal(exported.analysis.channels[0].channel, 5, 'export follows current channel routing');
+  new Uint8Array(exported.buffer).fill(0); exported.analysis.notes[0].note = 127;
+  assert.equal(q.engine.getSampleScore(replay.id).analysis.notes[0].note, 48, 'caller receives detached MIDI bytes and score metadata');
+  const metadata = { textSettings: { message: 'A', beats: 2 }, buffer: new Uint8Array([0]).buffer };
+  const adopted = q.sources.adoptSample(replay.id, metadata);
+  assert.ok(adopted); assert.equal(adopted.sampleId, replay.id); assert.deepEqual(q.engine.state, before);
+  assert.equal(q.sources.getLayers().length, 1); assert.equal(q.sources.getLayers()[0].paused, true);
+  assert.equal(adopted.settings.delayBeats, 1); assert.equal(adopted.settings.rotationDegrees, 0); assert.equal(adopted.settings.transpose, 0);
+  assert.equal(adopted.settings.widthNotes, null); assert.equal(adopted.settings.heightBeats, null);
+  assert.deepEqual(adopted.sourceScore.textSettings, metadata.textSettings);
+  metadata.textSettings.message = 'B'; assert.equal(adopted.sourceScore.textSettings.message, 'A');
+  assert.equal(q.sources.adoptSample(replay.id).id, adopted.id, 'repeated selection does not duplicate the layer');
+  assert.equal(q.engine.state.samples.length, 1); assert.equal(q.engine.state.generatedNoteCount, before.generatedNoteCount);
+  q.sources.edit(adopted.id, { transpose: 12, heightBeats: 4 });
+  const edited = q.engine.state.samples[0]; assert.equal(edited.id, replay.id); assert.equal(edited.paused, true);
+  assert.equal(edited.analysis.notes[0].note, 60); assert.equal(edited.gain, .37); assert.equal(edited.pan, -.4);
+  assert.equal(edited.channel, 5); assert.equal(edited.muted, true); assert.equal(edited.solo, true);
+  assert.deepEqual(edited.midi, before.samples[0].midi); assert.equal(edited.sync, false);
+  q.engine.stopSample(replay.id); q.sources.togglePlay(adopted.id);
+  const relaunched = q.engine.state.samples[0]; assert.notEqual(relaunched.id, replay.id); assert.equal(q.engine.state.samples.length, 1);
+  assert.equal(relaunched.analysis.notes[0].note, 60); assert.equal(relaunched.loop, true); assert.equal(relaunched.gain, .37);
+  assert.equal(relaunched.pan, -.4); assert.equal(relaunched.channel, 5); assert.equal(relaunched.muted, true); assert.equal(relaunched.solo, true);
+  assert.deepEqual(relaunched.midi, before.samples[0].midi); assert.equal(relaunched.sync, false);
+  assert.equal(q.contexts(), 0); await q.engine.dispose();
+});
+
+test('adoption rejects finished or missing samples and preserves file-program playback on replay', async () => {
+  const q = setup(), original = score(), sample = q.engine.triggerSample(original.buffer, { program: null, loop: false });
+  const source = q.sources.adoptSample(sample.id); assert.equal(source.settings.program, 'original');
+  q.at(2); assert.equal(q.engine.getSampleScore(sample.id), null); assert.equal(q.sources.adoptSample(9876), null);
+  q.sources.togglePlay(source.id); assert.equal(q.engine.state.samples[0].program, null);
+  q.sources.dispose(); assert.equal(q.sources.adoptSample(q.engine.state.samples[0].id), null);
+  await q.engine.dispose();
+});
