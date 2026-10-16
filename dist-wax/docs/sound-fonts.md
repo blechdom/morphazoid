@@ -59,9 +59,10 @@ are validated against both key and velocity ranges.
 
 The page uses the shared SpessaSynth SoundFont player for SF2/SF3 decoding,
 modulators, filters, envelopes, looping and effects. Original bank bytes remain
-intact. Fonts created or imported here are also available in Midiophilia's
-**MIDI Mixer** and **Blech MIDI**, under **SoundFont & live effects → SoundFont
-bank**. Accepted imports in either instrument appear here too. Other instruments
+intact. Fonts created or imported here are also available in **BLECH MIDI →
+Files → GM SoundFonts → SoundFont bank** and **Midiophilia → MIDI Mixer →
+SoundFont & live effects → SoundFont bank**. Accepted imports in either instrument
+appear here too. Other instruments
 can adopt the [shared picker, library service and playback adapter](shared-sound-fonts.md).
 
 MIDI Mixer supports choosing a program from the active bank for each MIDI
@@ -74,6 +75,15 @@ fonts per track/channel, or an editor that adds the custom preset to a GM bank,
 can combine a single-instrument font with other sounds. Downloading itself does
 not assign any channel. The page's **Using SoundFonts: MIDI channels and
 downloads** guide explains these distinctions alongside the collection.
+
+The lower-page **Use your sounds in other instruments** section links to the
+existing BLECH MIDI and Midiophilia shared-bank controls. It also shows a
+clearly labelled future example: GM piano on channel 1, a created sample
+instrument on channel 2, and GM drums on channel 10. SpessaSynth supports loading
+multiple banks and assigning their presets independently, but Morphazoid still
+needs per-channel font selection, routing and saved state in its shared utility
+and consumers. The example is explanatory, not an active routing control or a
+claim that separate fonts per channel have shipped.
 
 ## Create a Sound Font
 
