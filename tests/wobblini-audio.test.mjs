@@ -240,7 +240,8 @@ test("Wobblini armed scratch routes copied stereo PCM through deck EQ and resume
   const node = engine.scratchNode, begin = node.port.messages.at(-1);
   assert.equal(engine.getState().scratchReady, true); assert.equal(node.connections.length, 8);
   assert.equal(node.connections[0].target, engine.decks[0].graph.low); assert.equal(begin.type, "begin");
-  assert.equal(begin.channels.length, 2); assert.notEqual(begin.channels[0], engine.decks[0].buffer.getChannelData(0));
+  assert.equal(begin.window.chunks[0].channels.length, 2);
+  assert.notEqual(begin.window.chunks[0].channels[0], engine.decks[0].buffer.getChannelData(0));
   near(begin.position, 1); assert.equal(engine.decks[0].source, null);
   context.currentTime = 6.05; engine.scratchTo(0, 0.75);
   assert.ok(engine.getDeckState(0).scratchVelocity < 0); near(engine.getDeckState(0).position, 0.75);
@@ -292,4 +293,51 @@ test("Wobblini delayed worklet preparation cannot arm after Audio-off or disposa
   const scratch = node({ port: { postMessage() {}, close() { this.closed = true; } } }); prepared.resolve(scratch);
   assert.equal(await pending, false); assert.equal(h.engine.armed, false); assert.equal(h.outputs.length, 0);
   await h.engine.dispose(); assert.equal(scratch.port.closed, true);
+});
+
+
+test("Wobblini constrained imports use 32 kHz decoding and enforce per-track and aggregate memory without replacing tracks", async () => {
+  let decodeRate;
+  const h = harness({ resourceProfile: "constrained", decodeContextFactory: sampleRate => {
+    decodeRate = sampleRate; return { decodeAudioData: async () => buffer(60, sampleRate) };
+  } });
+  const { engine } = h;
+  assert.equal(engine.getState().resourceProfile, "constrained");
+  assert.equal(engine.getState().limits.bufferBytes, 64 * 1024 * 1024);
+  await engine.loadFile(0, file("Mobile.wav")); assert.equal(decodeRate, 32000); assert.equal(h.creates, 0);
+  await assert.rejects(engine.loadFile(0, { ...file(), size: 17 * 1024 * 1024 }), /16 MB/);
+  assert.equal(engine.getDeckState(0).name, "Mobile.wav");
+  engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(70, 32000) });
+  await assert.rejects(engine.loadFile(0, file()), /16 MB decoded/);
+  assert.equal(engine.getDeckState(0).name, "Mobile.wav");
+  engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(60, 32000) });
+  for (const index of [1, 2, 3]) await engine.loadFile(index, file());
+  await assert.rejects(engine.loadFile(4, file()), /64 MB/);
+  assert.equal(engine.getDeckState(4).kind, "demo"); assert.equal(engine.getDeckState(4).loading, false);
+  assert.equal(await engine.decodeQueue, undefined, "queue does not retain the previous decoded buffer");
+  await engine.dispose();
+});
+
+test("Wobblini long-track scratch transfers stay bounded and stale refill requests cannot revive replaced gestures", async () => {
+  const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => buffer(60, 48000) }) });
+  const { engine } = h; await engine.loadFile(0, file()); await engine.arm(); engine.seek(0, 30); engine.beginScratch(0);
+  const port = engine.scratchNode.port, begin = port.messages.at(-1);
+  const bytes = message => message.window.chunks.reduce((sum, chunk) => sum + chunk.channels.reduce((sum, channel) => sum + channel.byteLength, 0), 0);
+  assert.ok(bytes(begin) <= (48000 * 2 + 8) * 2 * 4); assert.equal(begin.channels, undefined);
+  port.onmessage({ data: { type: "window-request", index: 0, generation: begin.generation, position: 31 } });
+  assert.equal(port.messages.at(-1).type, "window"); assert.ok(bytes(port.messages.at(-1)) <= bytes(begin) + 64);
+  engine.endScratch(0); const count = port.messages.length;
+  port.onmessage({ data: { type: "window-request", index: 0, generation: begin.generation, position: 32 } });
+  assert.equal(port.messages.length, count);
+  engine.beginScratch(0); const newCount = port.messages.length;
+  port.onmessage({ data: { type: "window-request", index: 0, generation: begin.generation, position: 32 } });
+  assert.equal(port.messages.length, newCount); await engine.dispose();
+});
+
+test("Wobblini cannot claim Audio is armed when a browser remains interrupted after resume", async () => {
+  const h = harness(); h.context.resume = async () => { h.context.state = "interrupted"; };
+  await assert.rejects(h.engine.arm(), /Audio is unavailable/);
+  assert.equal(h.engine.armed, false); assert.equal(h.outputs.length, 0);
+  h.context.resume = async () => { h.context.state = "running"; };
+  assert.equal(await h.engine.arm(), true); await h.engine.dispose();
 });
