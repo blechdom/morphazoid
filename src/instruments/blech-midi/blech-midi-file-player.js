@@ -157,7 +157,8 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     request?.abort(); request = new AbortController(); const signal = request.signal;
     preparedScore = null; preparationError = '';
     loading = true; ready = false; error = ''; selected = song; tempo = null; timingKind = 'unknown'; freeTempo = null; tempoChanges = 0; preparedSongId = '';
-    stop(); noteCounter.setScore(null); view.clear('Loading MIDI score…'); renderList(); credit(song); setTempo(); reflect();
+    const resume = resumeAfterSelection; stop(); resumeAfterSelection = resume;
+    noteCounter.setScore(null); view.clear('Loading MIDI score…'); renderList(); credit(song); setTempo(); reflect();
     songDescription.textContent = ''; notifyPrepared();
     try {
       let binary = null, preview = null;
