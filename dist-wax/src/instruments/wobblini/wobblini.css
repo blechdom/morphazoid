@@ -260,11 +260,14 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-shell .wb-master-select[aria-pressed="true"] { background: var(--deck-color); color: #10191b; }
 .wb-shell .wb-track-sync { min-width: 40px !important; min-height: 24px !important; height: 24px; padding: 2px 4px; font: 700 9px/1 var(--font-ui, system-ui, sans-serif); }
 .wb-shell #syncAll { padding-inline: 7px; white-space: nowrap; font-size: 10px; min-width: 65px; }
-.wb-shell .wb-master-tempo { margin-left: 0; gap: 3px; flex: 0 0 auto; }
+.wb-shell .wb-master-tempo { margin-left: 0; gap: 7px; flex: 0 0 auto; padding-inline: 4px; }
+/* Keep the shared Tap controller intact, after the BPM readout visually. */
+.wb-master-tempo > .mz-tap-tempo-field { display: contents; }
+.wb-master-tempo .mz-tap-tempo { order: 2; margin-left: 3px; }
 .wb-shell .wb-tempo-knob.mz-range-knob { width: 36px; min-width: 36px; height: 40px; }
 .wb-shell .wb-tempo-knob input { width: 100% !important; height: 100%; }
 .wb-tempo-knob .mz-range-knob__dial { width: 28px; height: 28px; top: 6px; }
-.wb-master-tempo .wb-tempo-readout { display: flex; flex-direction: column; align-items: center; gap: 3px; width: auto; min-width: 36px; font: 600 13px/1 ui-monospace, monospace; color: #dce6ed; letter-spacing: 0; }
+.wb-master-tempo .wb-tempo-readout { display: flex; order: 1; flex-direction: column; align-items: center; gap: 3px; width: auto; min-width: 36px; font: 600 13px/1 ui-monospace, monospace; color: #dce6ed; letter-spacing: 0; }
 .wb-tempo-readout small { font: 8px/1 system-ui, sans-serif; color: #a4b5c3; }
 .is-records .wb-deck-identity { position: absolute; top: 2px; left: 2px; z-index: 4; flex-direction: column; align-items: flex-start; gap: 3px; margin: 0; }
 .is-records .wb-deck-number { font-size: 18px; }
@@ -298,7 +301,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-crossfade { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 12px auto; color: #c5f078; font: 650 11px ui-monospace, monospace; }
 .wb-crossfade input[type="range"] { height: 40px; flex: 1; }
 .wb-crossfade button { flex: 0 0 32px; }
-.wb-toolbar { position: relative; }
+.wb-shell .wb-toolbar { position: relative; gap: 10px; padding-block: 6px 10px; }
 .wb-sync-options { margin-left: auto; }
 .wb-sync-options summary { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; cursor: pointer; list-style: none; }
 .wb-sync-options summary::-webkit-details-marker { display: none; }

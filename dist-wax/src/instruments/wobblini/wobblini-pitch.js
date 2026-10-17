@@ -64,7 +64,7 @@ class WobbliniPitch {
     this.context = context; this.output = output; this.stretchFactory = stretchFactory; this.offlineFactory = offlineFactory;
     this.memoryLimit = Math.max(0, finite(memoryLimit, DEFAULT_MEMORY_LIMIT)); this.getBaseBytes = getBaseBytes;
     this.onError = onError; this.timeoutMs = Math.max(1, finite(timeoutMs, 12000)); this.account = accountFor(context);
-    this.node = null; this.gain = null; this.buffer = null; this.requestedBuffer = null; this.loopDuration = 0;
+    this.node = null; this.gain = null; this.buffer = null; this.requestedBuffer = null; this.loopDuration = 0; this.bufferOffset = 0;
     this.latency = 0; this.disposed = false; this.revision = 0; this.pending = null; this.lease = null; this.slot = null;
   }
 
@@ -94,7 +94,7 @@ class WobbliniPitch {
   _clearNode() {
     close(this.node); this.node = null; disconnect(this.gain); this.gain = null;
     if (this.slot) this.account.slots.delete(this.slot);
-    this.slot = null; this.buffer = null; this.latency = 0; this.loopDuration = 0; this._release(this.lease);
+    this.slot = null; this.buffer = null; this.latency = 0; this.loopDuration = 0; this.bufferOffset = 0; this._release(this.lease);
   }
   _fail(error) {
     this._clearNode();
@@ -136,10 +136,10 @@ class WobbliniPitch {
     }
     const channels = buffer.numberOfChannels, resample = buffer.sampleRate !== this.context.sampleRate;
     const sourceLength = resample ? Math.ceil(buffer.duration * this.context.sampleRate) : buffer.length;
-    const repeats = Math.max(1, Math.ceil(MIN_REPEAT_FRAMES / sourceLength)), length = sourceLength * repeats;
-    const bytes = length * channels * Float32Array.BYTES_PER_ELEMENT;
+    const repeats = Math.max(1, Math.ceil(MIN_REPEAT_FRAMES / sourceLength)), repeatLength = sourceLength * repeats;
+    const channelBytes = channels * Float32Array.BYTES_PER_ELEMENT, resampleBytes = resample ? sourceLength * channelBytes : 0;
     const lease = { rendering: false, released: false }; this.lease = lease;
-    this._reserve(lease, bytes + (resample ? sourceLength * channels * Float32Array.BYTES_PER_ELEMENT : 0));
+    this._reserve(lease, repeatLength * channelBytes + resampleBytes);
     if (!this.node) {
       if (this.account.slots.size >= MAX_VOICES) throw new Error("All eight pitch voices are in use. Try again after a deck stops.");
       const slot = {}; this.account.slots.add(slot);
@@ -167,6 +167,12 @@ class WobbliniPitch {
       this.gain = this.context.createGain(); this.gain.gain.value = 0;
       node.connect(this.gain); this.gain.connect(this.output);
     }
+    // Buffer-mode analysis reads both before and after its projected input.
+    // Circular guards prevent zero padding from attenuating each loop seam,
+    // including sources shorter than the processor's analysis window.
+    const guardLength = Math.ceil(this.latency * this.context.sampleRate) + MIN_REPEAT_FRAMES;
+    const length = repeatLength + 2 * guardLength, bytes = length * channelBytes;
+    this._reserve(lease, bytes + resampleBytes);
     let matching = buffer;
     if (resample) {
       const offline = this.offlineFactory(channels, sourceLength, this.context.sampleRate);
@@ -180,9 +186,14 @@ class WobbliniPitch {
     if (!this._valid(revision)) { this._release(lease); return false; }
     const copies = Array.from({ length: channels }, (_, channel) => {
       const copy = new Float32Array(length);
-      if (matching.copyFromChannel) matching.copyFromChannel(copy, channel, 0);
-      else copy.set(matching.getChannelData(channel));
-      for (let offset = sourceLength; offset < length; offset += sourceLength) copy.set(copy.subarray(0, sourceLength), offset);
+      const source = copy.subarray(guardLength, guardLength + sourceLength);
+      if (matching.copyFromChannel) matching.copyFromChannel(source, channel, 0);
+      else source.set(matching.getChannelData(channel));
+      for (let offset = sourceLength; offset < repeatLength; offset += sourceLength) copy.set(source, guardLength + offset);
+      for (let frame = 0; frame < guardLength; frame++) {
+        copy[frame] = source[((frame - guardLength) % sourceLength + sourceLength) % sourceLength];
+        copy[guardLength + repeatLength + frame] = source[frame % sourceLength];
+      }
       return copy;
     });
     await this._bounded(this.node.addBuffers(copies, copies.map(copy => copy.buffer)), "Loading pitch audio");
@@ -190,7 +201,10 @@ class WobbliniPitch {
     // preparation drops it. Retain its reservation throughout that interval.
     if (!this._valid(revision)) return false;
     this._reserve(lease, bytes); this.buffer = buffer;
-    this.loopDuration = repeats > 1 ? length / this.context.sampleRate : buffer.duration;
+    // This offset addresses guard storage only; source transport time remains
+    // unchanged, and the repeat span contains an exact whole number of files.
+    this.bufferOffset = guardLength / this.context.sampleRate;
+    this.loopDuration = repeats > 1 ? repeatLength / this.context.sampleRate : buffer.duration;
     return true;
   }
 
@@ -201,8 +215,9 @@ class WobbliniPitch {
     const sourcePosition = finite(state.position, 0), rate = rateFor(state);
     const position = looping ? ((sourcePosition % duration) + duration) % duration : clamp(sourcePosition, 0, duration, 0);
     if (!looping && position >= duration) return this.stop(when, true).then(() => false);
-    const command = { active: true, output: when, input: position, rate,
-      semitones: pitchOutputSemitones(state), loopStart: 0, loopEnd: looping ? this.loopDuration : 0 };
+    const command = { active: true, output: when, input: position + this.bufferOffset, rate,
+      semitones: pitchOutputSemitones(state), loopStart: looping ? this.bufferOffset : 0,
+      loopEnd: looping ? this.bufferOffset + this.loopDuration : 0 };
     const result = this._bounded(node.schedule(command), "Scheduling pitch playback");
     // Repeat on the worklet's audio clock, without a main-thread restart or
     // end gate. Hold also cancels a previous finite playback's pending fade.
