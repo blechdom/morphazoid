@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { createWobbliniPitch, needsPitchProcessing, pitchOutputSemitones,
   wobbliniPitchMemoryBytes } from "../src/instruments/wobblini/wobblini-pitch.js";
 
+// The harness reports 80 ms total latency; guards also cover the fastest render quantum.
+const GUARD_FRAMES = 4064, BUFFER_OFFSET = GUARD_FRAMES / 48000;
+const stereoBytes = frames => (frames + 2 * GUARD_FRAMES) * 8;
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 function node(extra = {}) {
@@ -57,7 +60,7 @@ test("constructing, preparing and controlling pitch never creates or resumes Aud
   assert.equal(await h.helper.prepare(pcm), true); assert.equal(h.nodes.length, 1);
   assert.equal(h.nodes[0].copies[0][0], 0.25); assert.equal(h.nodes[0].copies[1][0], 0.5);
   assert.deepEqual(h.nodes[0].transfer, h.nodes[0].copies.map(copy => copy.buffer));
-  assert.equal(wobbliniPitchMemoryBytes(h.context), pcm.length * 8);
+  assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(pcm.length));
   h.helper.dispose(); assert.equal(wobbliniPitchMemoryBytes(h.context), 0);
 });
 
@@ -65,7 +68,7 @@ test("pitch commands use the projected source position once and exact output bou
   const h = harness(); await h.helper.prepare(buffer({ frames: 480000 }));
   assert.equal(h.helper.latency, 0.08);
   await h.helper.play({ when: 5.1, position: 2.15, rate: 1.5, keyLock: true, pitchSemitones: -4 });
-  assert.deepEqual(h.nodes[0].schedules.at(-1), { active: true, output: 5.1, input: 2.15, rate: 1.5,
+  assert.deepEqual(h.nodes[0].schedules.at(-1), { active: true, output: 5.1, input: 2.15 + BUFFER_OFFSET, rate: 1.5,
     semitones: -4, loopStart: 0, loopEnd: 0 });
   const expectedEnd = 5.1 + (10 - 2.15) / 1.5;
   assert.deepEqual(h.gains[0].gain.events.at(-1), ["ramp", 0, expectedEnd]);
@@ -92,8 +95,8 @@ test("full-file repeat wraps projected positions and never schedules an end gate
   for (const [position, wrapped] of [[0.875, 0.875], [1, 0], [3.25, 0.25], [-0.125, 0.875]]) {
     await h.helper.play({ when: 5.1, position, rate: 1.5, keyLock: true, pitchSemitones: -4,
       loopEnabled: true, loopStart: 0.2, loopEnd: 0.4 });
-    assert.deepEqual(h.nodes[0].schedules.at(-1), { active: true, output: 5.1, input: wrapped,
-      rate: 1.5, semitones: -4, loopStart: 0, loopEnd: 1 });
+    assert.deepEqual(h.nodes[0].schedules.at(-1), { active: true, output: 5.1, input: wrapped + BUFFER_OFFSET,
+      rate: 1.5, semitones: -4, loopStart: BUFFER_OFFSET, loopEnd: 1 + BUFFER_OFFSET });
     assert.deepEqual(h.gains[0].gain.events.slice(-2), [["hold", 5.1], ["ramp", 1, 5.108]]);
   }
   assert.equal(h.gains[0].gain.events.some(event => event[0] === "ramp" && event[1] === 0), false);
@@ -116,12 +119,15 @@ test("sub-quantum files tile within the PCM budget and retain their finite playb
   const h = harness(), pcm = buffer({ frames: 48, channels: 1 });
   pcm.copyFromChannel = target => { for (let frame = 0; frame < pcm.length; frame++) target[frame] = frame / pcm.length; };
   await h.helper.prepare(pcm);
-  assert.equal(h.nodes[0].copies[0].length, 240);
-  assert.equal(wobbliniPitchMemoryBytes(h.context), 240 * 4);
-  for (let frame = 0; frame < 240; frame++) assert.ok(Math.abs(h.nodes[0].copies[0][frame] - frame % 48 / 48) < 1e-7);
+  assert.equal(h.nodes[0].copies[0].length, 240 + 2 * GUARD_FRAMES);
+  assert.equal(wobbliniPitchMemoryBytes(h.context), (240 + 2 * GUARD_FRAMES) * 4);
+  for (let frame = 0; frame < h.nodes[0].copies[0].length; frame++) {
+    const expected = ((frame - GUARD_FRAMES) % 48 + 48) % 48 / 48;
+    assert.ok(Math.abs(h.nodes[0].copies[0][frame] - expected) < 1e-7);
+  }
   await h.helper.play({ when: 5.1, position: pcm.duration, rate: 1.75, loopEnabled: true });
-  assert.equal(h.nodes[0].schedules.at(-1).input, 0);
-  assert.equal(h.nodes[0].schedules.at(-1).loopEnd, 240 / 48000);
+  assert.equal(h.nodes[0].schedules.at(-1).input, BUFFER_OFFSET);
+  assert.equal(h.nodes[0].schedules.at(-1).loopEnd, BUFFER_OFFSET + 240 / 48000);
   await h.helper.play({ when: 5.2, position: 0, rate: 1, loopEnabled: false });
   assert.deepEqual(h.gains[0].gain.events.at(-1), ["ramp", 0, 5.2 + pcm.duration]);
   h.helper.dispose();
@@ -137,7 +143,7 @@ test("scratch handoff immediately gates pitch, cancels end automation, then resu
   assert.deepEqual(h.gains[0].gain.events.slice(-2), [["hold", 5.2], ["set", 0, 5.2]]);
   assert.deepEqual(h.nodes[0].schedules.at(-1), { active: false, output: 5.2 });
   await h.helper.play({ when: 5.5, position: 1.3, rate: 1.5, keyLock: true });
-  assert.equal(h.nodes[0].schedules.at(-1).input, 1.3); assert.equal(h.nodes.length, 1);
+  assert.equal(h.nodes[0].schedules.at(-1).input, 1.3 + BUFFER_OFFSET); assert.equal(h.nodes.length, 1);
   h.helper.dispose();
 });
 
@@ -146,18 +152,27 @@ test("eight helpers share the native-plus-extra PCM budget and a ninth worklet i
   for (let index = 1; index < 9; index++) helpers.push(createWobbliniPitch(h.options));
   await Promise.all(helpers.slice(0, 8).map(helper => helper.prepare(buffer())));
   await assert.rejects(helpers[8].prepare(buffer()), /eight pitch voices/);
-  assert.equal(h.nodes.length, 8); assert.equal(wobbliniPitchMemoryBytes(h.context), 8 * 48000 * 8);
+  assert.equal(h.nodes.length, 8); assert.equal(wobbliniPitchMemoryBytes(h.context), 8 * stereoBytes(48000));
   helpers[0].dispose(); assert.equal(await helpers[8].prepare(buffer()), true);
   helpers.forEach(helper => helper.dispose()); assert.equal(wobbliniPitchMemoryBytes(h.context), 0);
 });
 
 test("memory preflight rejects aggregate copies before any allocation and releases failed reservation", async () => {
-  const h = harness({ memoryLimit: 700000, getBaseBytes: () => 300000 });
+  const h = harness({ memoryLimit: 800000, getBaseBytes: () => 300000 });
   await h.helper.prepare(buffer());
   const second = createWobbliniPitch(h.options);
   await assert.rejects(second.prepare(buffer()), /audio memory/);
-  assert.equal(h.nodes.length, 1); assert.equal(wobbliniPitchMemoryBytes(h.context), 384000);
+  assert.equal(h.nodes.length, 1); assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(48000));
   h.helper.dispose(); await second.prepare(buffer()); second.dispose();
+});
+
+test("circular guards must fit the shared budget before copying or resampling PCM", async () => {
+  const h = harness({ memoryLimit: stereoBytes(48000) - 1 });
+  await assert.rejects(h.helper.prepare(buffer()), /audio memory/);
+  assert.equal(h.nodes.length, 1);
+  assert.equal(h.nodes[0].copies.length, 0);
+  assert.equal(h.nodes[0].port.closed, true);
+  assert.equal(wobbliniPitchMemoryBytes(h.context), 0);
 });
 
 test("resampling accounts for intermediate and transferable PCM without changing source time", async () => {
@@ -166,12 +181,12 @@ test("resampling accounts for intermediate and transferable PCM without changing
     offlineFactory(channels, length, rate) {
       allocated++; assert.equal(channels, 2); assert.equal(length, 48000); assert.equal(rate, 48000);
       return { destination: node(), createBufferSource: () => node({ start() {} }),
-        async startRendering() { assert.equal(wobbliniPitchMemoryBytes(h.context), 768000); return buffer(); } };
+        async startRendering() { assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(48000) + 384000); return buffer(); } };
     } });
   const pcm = buffer({ frames: 32000, rate: 32000 });
-  await h.helper.prepare(pcm); assert.equal(allocated, 1); assert.equal(wobbliniPitchMemoryBytes(h.context), 384000);
+  await h.helper.prepare(pcm); assert.equal(allocated, 1); assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(48000));
   await h.helper.play({ when: 5.1, position: 0.2, rate: 1.25, keyLock: true });
-  assert.equal(h.nodes[0].schedules.at(-1).input, 0.2); h.helper.dispose();
+  assert.equal(h.nodes[0].schedules.at(-1).input, 0.2 + BUFFER_OFFSET); h.helper.dispose();
   const small = harness({ memoryLimit: 700000, offlineFactory() { throw new Error("Must reject before resampling"); } });
   await assert.rejects(small.helper.prepare(pcm), /audio memory/); assert.equal(small.nodes.length, 0);
 });
@@ -180,7 +195,7 @@ test("disposing during offline rendering keeps its reservation until the uncance
   const job = deferred();
   const h = harness({ offlineFactory: () => ({ destination: node(), createBufferSource: () => node({ start() {} }), startRendering: () => job.promise }) });
   const pending = h.helper.prepare(buffer({ frames: 32000, rate: 32000 })); await flush();
-  h.helper.dispose(); assert.equal(wobbliniPitchMemoryBytes(h.context), 768000);
+  h.helper.dispose(); assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(48000) + 384000);
   job.resolve(buffer()); assert.equal(await pending, false); assert.equal(wobbliniPitchMemoryBytes(h.context), 0);
   assert.equal(h.nodes[0].copies.length, 0); assert.equal(h.nodes[0].port.closed, true);
 });
@@ -193,7 +208,7 @@ test("superseded preparation cannot load an old track into the newest voice", as
   created.resolve(late); assert.equal(await first, false); assert.equal(await second, true);
   assert.equal(late.port.closed, true); assert.equal(late.copies.length, 0);
   assert.ok(Math.abs(next.copies[0][0] - 0.7) < 1e-6); assert.equal(h.helper.isReady(current), true);
-  assert.equal(wobbliniPitchMemoryBytes(h.context), 384000); h.helper.dispose();
+  assert.equal(wobbliniPitchMemoryBytes(h.context), stereoBytes(48000)); h.helper.dispose();
 });
 
 test("late factory arrival after disposal is closed and never connects", async () => {

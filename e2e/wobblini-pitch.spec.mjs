@@ -2,9 +2,9 @@ import { test, expect } from "@playwright/test";
 
 // Isolate the real vendored DSP from app transport/UI so frequency, end gates
 // and eight-voice rendering are measured independently of model assertions.
-async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false, duration = 6 } = {}) {
+async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false, duration = 6, frequency = 220 } = {}) {
   await page.goto("/wobblini.html");
-  await page.evaluate(({ decks, sourceRate, pulse, duration }) => {
+  await page.evaluate(({ decks, sourceRate, pulse, duration, frequency }) => {
     const button = document.createElement("button"); button.id = "pitchProbeStart"; button.textContent = "Start pitch probe";
     document.body.prepend(button);
     button.onclick = () => {
@@ -21,7 +21,7 @@ async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false, dur
           for (let frame = 0; frame < data.length; frame++) {
             const time = frame / sourceRate;
             const envelope = pulse ? Math.exp(-(((time - 1) / 0.025) ** 2)) : 1;
-            data[frame] = envelope * 0.2 * Math.sin(frame * Math.PI * 2 * (220 + index * 30) / sourceRate);
+            data[frame] = envelope * 0.2 * Math.sin(frame * Math.PI * 2 * (frequency + index * 30) / sourceRate);
           }
           return pcm;
         });
@@ -66,7 +66,7 @@ async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false, dur
         };
       })();
     };
-  }, { decks, sourceRate, pulse, duration });
+  }, { decks, sourceRate, pulse, duration, frequency });
   await page.locator("#pitchProbeStart").click();
   await page.evaluate(() => window.__pitchReady);
 }
@@ -92,8 +92,10 @@ test("real pitch output preserves original frequency and applies independent tra
     ]) {
       const when = await play(page, state);
       await expect.poll(() => page.evaluate(() => window.__pitch.context.currentTime)).toBeGreaterThan(when + 0.55);
-      const measured = await page.evaluate(() => window.__pitch.frequency());
-      expect(Math.abs(measured - frequency)).toBeLessThan(4);
+      // The FFT window can still straddle a live rate/pitch transition. Allow
+      // that analysis window to settle without relaxing frequency accuracy.
+      await expect.poll(async () => Math.abs(await page.evaluate(() => window.__pitch.frequency()) - frequency),
+        { timeout: 2000 }).toBeLessThan(4);
     }
     expect(await page.evaluate(() => window.__pitch.errors)).toEqual([]);
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
@@ -114,7 +116,9 @@ test("eight real pitch voices remain finite and audible through a main-thread st
     expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.rms))).toBe(true);
     expect(Math.min(...blocks.map(block => block.rms))).toBeGreaterThan(0.001);
     expect(Math.max(...blocks.map(block => block.peak))).toBeLessThan(0.5);
-    expect(await page.evaluate(() => window.__pitch.memory())).toBe(8 * 48000 * 6 * 4);
+    const memory = await page.evaluate(() => window.__pitch.memory());
+    expect(memory).toBeGreaterThan(8 * 48000 * 6 * 4);
+    expect(memory).toBeLessThan(8 * 48000 * 6.25 * 4);
     expect(await page.evaluate(() => window.__pitch.errors)).toEqual([]);
   } finally { await page.evaluate(() => window.__pitch?.dispose()); }
   expect(await page.evaluate(() => window.__pitch.memory())).toBe(0);
@@ -152,7 +156,9 @@ test("eight pitch voices repeat full sources through their ends during a UI stal
     expect(Math.min(...blocks.map(block => block.rms))).toBeGreaterThan(0.001);
     expect(Math.max(...blocks.map(block => block.peak))).toBeLessThan(0.5);
     expect(await page.evaluate(() => window.__pitch.errors)).toEqual([]);
-    expect(await page.evaluate(() => window.__pitch.memory())).toBe(8 * 48000 * 0.5 * 4);
+    const memory = await page.evaluate(() => window.__pitch.memory());
+    expect(memory).toBeGreaterThan(8 * 48000 * 0.5 * 4);
+    expect(memory).toBeLessThan(8 * 48000 * 0.75 * 4);
     await info.attach("pitch-full-file-repeat", { body: JSON.stringify({ when, rates, blocks }), contentType: "application/json" });
   } finally { await page.evaluate(() => window.__pitch?.dispose()); }
 });
@@ -170,6 +176,28 @@ for (const duration of [0.02, 0.001]) test(`a ${duration * 1000} ms source keeps
     const stopped = await page.evaluate(() => window.__pitch.capture(0.1));
     expect(Math.max(...stopped.slice(2).map(block => block.rms))).toBeLessThan(1e-7);
   } finally { await page.evaluate(() => window.__pitch?.dispose()); }
+});
+
+test("short repeated sources retain the level of the equivalent longer waveform", async ({ page }, info) => {
+  test.setTimeout(45000);
+  const levels = [];
+  for (const duration of [0.001, 0.02, 1]) {
+    await fixture(page, { duration, frequency: 1000 });
+    try {
+      const when = await play(page, { loopEnabled: true, rate: 1.75, pitchSemitones: 7 });
+      await expect.poll(() => page.evaluate(() => window.__pitch.context.currentTime)).toBeGreaterThan(when + 0.3);
+      const blocks = await page.evaluate(() => window.__pitch.capture(0.5));
+      expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.rms))).toBe(true);
+      levels.push({ duration, mean: blocks.reduce((total, block) => total + block.rms, 0) / blocks.length,
+        min: Math.min(...blocks.map(block => block.rms)) });
+    } finally { await page.evaluate(() => window.__pitch?.dispose()); }
+  }
+  await info.attach("pitch-repeat-levels", { body: JSON.stringify(levels), contentType: "application/json" });
+  for (const level of levels) {
+    expect(level.mean / levels.at(-1).mean).toBeGreaterThan(0.85);
+    expect(level.mean / levels.at(-1).mean).toBeLessThan(1.15);
+    expect(level.min).toBeGreaterThan(0.08);
+  }
 });
 
 test("real pitch places a source transient on the projected audible timeline at different speeds", async ({ page }, info) => {
