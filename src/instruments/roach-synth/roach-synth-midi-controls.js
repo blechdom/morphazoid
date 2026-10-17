@@ -10,12 +10,12 @@ const KEY = 'morphazoid:roach-midi:v1';
 const PARAMS = [
   ['intensity', 'Movement'], ['tempo', 'Tempo'], ['pitch', 'Pitch'], ['brightness', 'Filter'],
   ['resonance', 'Resonance'], ['crunch', 'Crust'], ['vowel', 'Vowel'], ['wingRate', 'Wing rate'],
-  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['level', 'Master level'],
+  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['voiceSpeed', 'Voice speed'], ['level', 'Master level'],
 ];
 const ACTIONS = [
-  ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],
-  ['nextMotion', 'Next animation'], ['previousMotion', 'Previous animation'],
-  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'], ['randomPose', 'Random body pose'],
+  ['speakButton', 'Say phrase'], ['motionButton', 'Play / pause'],
+  ['nextMotion', 'Next animation'], ['nextSound', 'Next sound preset'],
+  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'],
 ];
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, Number(value) || 0));

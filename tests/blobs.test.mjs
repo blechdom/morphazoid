@@ -9,6 +9,7 @@ import { BLOB_PRESETS, randomizeBlobs } from '../src/instruments/blobs/presets.j
 import { createShapeReaderModel } from '../src/families/geometry-presets/shape-readers.js';
 import { blobsSiteChanges, restoreBlobsSite } from './helpers/blobs-site-reference.mjs';
 import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 
 const square = { tool: 'line', points: [{ x: .2, y: .2 }, { x: .8, y: .2 }, { x: .8, y: .8 }, { x: .2, y: .8 }] };
@@ -125,7 +126,7 @@ test('Blobs registration preserves all pre-existing catalogue source bytes', asy
   for (const { file, addition, sha256 } of blobsSiteChanges) {
     const source = restoreFractalDelaySite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
     const preserved = value => assert.equal(createHash('sha256').update(
-      restoreLSystemRecordedInputSite(restoreBlobsSite(value, file), file),
+      restoreLSystemRecordedInputSite(restoreBlobsSite(restoreRoachPerformance(value, file), file), file),
     ).digest('hex'), sha256, 'pre-Blobs source preserved');
     preserved(source);
     assert.throws(() => restoreBlobsSite(source + addition, file), /exact Blobs addition/);

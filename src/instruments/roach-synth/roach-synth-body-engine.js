@@ -1,10 +1,11 @@
 import { RoachZing, RoachRecordingGrains } from './roach-synth-textures.js';
-import { ROACH_BODY_SOURCE_INDEX, ROACH_BODY_SOURCES, normalizeRoachBodyMix } from './roach-synth-body.js';
+import { ROACH_BODY_SOURCE_INDEX, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, normalizeRoachBodyMix } from './roach-synth-body.js';
 import { RoachPercussion } from './roach-synth-percussion.js';
 
 const TAU = Math.PI * 2;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const percussionFamily = (source) => source >= 12 && source <= 15 ? source - 12 : source === 17 ? 4 : source === 18 ? 5 : -1;
+const FIRST_VOICE_SOURCE = ROACH_BODY_SOURCE_INDEX.get(ROACH_VOICE_PRESETS[0].bodySource);
 function mode() { return { re: 0, im: 0, c: 1, s: 0, r: .99 }; }
 function tune(m, f, decay, rate) {
   const angle = TAU * clamp(f, 20, rate * .43) / rate;
@@ -28,7 +29,7 @@ function blep(phase, step) {
 // One owned instrument per anatomical group. Its random stream, filters,
 // envelopes, modal state and waveguide never borrow motion from another row.
 class BodyVoice {
-  constructor(rate, index) {
+  constructor(rate, index, voiceSamples) {
     this.rate = rate; this.index = index; this.source = 0; this.oldSource = 0; this.sourceFade = 1;
     this.level = 0; this.targetLevel = 0; this.manual = 0; this.motion = 0; this.motionTarget = 0; this.distance = 0;
     this.x = 0; this.y = 0; this.z = 0; this.side = 0; this.frequency = 100; this.frequencyTarget = 100;
@@ -49,6 +50,10 @@ class BodyVoice {
     this.particleDecay = Math.exp(-1 / (rate * .004));
     this.output = new Float64Array(ROACH_BODY_SOURCES.length); this.releaseContacts = false;
     this.midiGate = 0; this.midiGateTarget = 0; this.midiFrequency = 0;
+    this.voiceSamples = voiceSamples;
+    this.voicePositions = new Float64Array(ROACH_VOICE_PRESETS.length).fill(-1);
+    this.voiceStrengths = new Float64Array(ROACH_VOICE_PRESETS.length);
+    this.voiceReleasing = false; this.voiceActive = false; this.voiceSpeed = 1;
   }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
@@ -63,20 +68,33 @@ class BodyVoice {
     this.targetLevel = row.level;
     if (initial) this.level = row.level;
   }
+  strikeVoice(amount) {
+    const index = this.source - FIRST_VOICE_SOURCE, buffer = this.voiceSamples[index];
+    if (!buffer) return;
+    const position = this.voicePositions[index];
+    // Real displacement starts a syllable. Repeated sub-control movements
+    // cannot endlessly rewind its attack or create extra sample players.
+    if (position >= 0 && position < buffer.sampleRate * .14) return;
+    this.voicePositions[index] = 0; this.voiceStrengths[index] = clamp(amount, 0, 1);
+    this.voiceReleasing = false; this.voiceActive = true;
+  }
   excite(amount) {
     this.manual = Math.min(1, Math.max(this.manual, amount));
     this.zing.excite(amount * .65);
     this.particle = Math.min(1.5, this.particle + amount * .4);
     if (percussionFamily(this.source) >= 0) this.percussion.strike(amount);
+    this.strikeVoice(amount);
   }
   foot(index, amount) {
     this.contact[index] = Math.min(1.3, this.contact[index] + amount);
     this.footAge[index] = 0; this.footParticle[index] = amount;
     this.releaseContacts = false; this.zing.excite(amount * .55); this.particle = Math.min(1.2, this.particle + amount * .4);
     if (percussionFamily(this.source) >= 0) this.percussion.strike(amount, index);
+    this.strikeVoice(amount);
   }
   control(x, y, z, side, velocity, sound, mods, offset, midiFrequency = 0, midiGate = 0, midiPan = 0) {
     this.x = x; this.y = y; this.z = z; this.side = side;
+    this.voiceSpeed = clamp(sound.voiceSpeed ?? 1, .5, 2);
     const firstMidi = midiFrequency > 0 && this.midiFrequency === 0;
     this.midiFrequency = midiFrequency; this.midiGateTarget = clamp(midiGate, 0, 1);
     const pitchMod = mods[offset] || 0; const brightMod = mods[offset + 2] || 0;
@@ -172,6 +190,24 @@ class BodyVoice {
     // The neck's clean source exposes joint pitch/filter/pan without shell
     // noise. A small second harmonic makes its higher-frequency poses legible.
     out[16] = (sine * .18 + Math.sin(TAU * this.phase * 2) * this.brightness * .025) * sustained;
+    out.fill(0, FIRST_VOICE_SOURCE);
+    let voiceActive = false;
+    if (this.voiceActive) for (let i = 0; i < this.voicePositions.length; i += 1) {
+      const source = FIRST_VOICE_SOURCE + i, position = this.voicePositions[i], buffer = this.voiceSamples[i];
+      out[source] = 0;
+      if (position < 0 || !buffer) continue;
+      if (source !== this.source && (source !== this.oldSource || this.sourceFade >= 1)) {
+        this.voicePositions[i] = -1; continue;
+      }
+      const index = Math.floor(position), fraction = position - index;
+      const edge = Math.max(0, Math.min(1, position / (buffer.sampleRate * .006), (buffer.samples.length - position) / (buffer.sampleRate * .012)));
+      out[source] = ((buffer.samples[index] || 0) * (1 - fraction) + (buffer.samples[index + 1] || 0) * fraction) * edge * this.voiceStrengths[i] * .32;
+      this.voicePositions[i] += buffer.sampleRate / this.rate * clamp(this.frequency / 140, .5, 2) * this.voiceSpeed;
+      if (this.voiceReleasing) this.voiceStrengths[i] *= this.contactRelease;
+      if (this.voicePositions[i] >= buffer.samples.length || this.voiceStrengths[i] < 1e-7) this.voicePositions[i] = -1;
+      else voiceActive = true;
+    }
+    this.voiceActive = voiceActive;
     this.sourceFade = Math.min(1, this.sourceFade + 1 / (this.rate * .035));
     const raw = out[this.source] * this.sourceFade + out[this.oldSource] * (1 - this.sourceFade);
     const drive = 1 + this.crunch * 3;
@@ -183,17 +219,25 @@ class BodyVoice {
 
 export class RoachBodyEngine {
   constructor(rate) {
-    this.rate = rate; this.voices = Array.from({ length: 8 }, (_, i) => new BodyVoice(rate, i));
+    this.rate = rate; this.voiceSamples = new Array(ROACH_VOICE_PRESETS.length).fill(null);
+    this.voices = Array.from({ length: 8 }, (_, i) => new BodyVoice(rate, i, this.voiceSamples));
     this.recordings = new RoachRecordingGrains(rate, { groups: 8, voices: 16 });
     this.recordingOutput = new Float64Array(8); this.left = 0; this.right = 0;
     this.wasMoving = false;
     this.setMix(normalizeRoachBodyMix(), true);
   }
   setMix(mix, initial = false) { for (let i = 0; i < 8; i += 1) this.voices[i].assign(mix[i], initial); }
+  setVoiceSample(source, samples, sampleRate) {
+    const index = ROACH_VOICE_PRESETS.findIndex((preset) => preset.bodySource === source);
+    if (index < 0 || !(samples instanceof Float32Array) || !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000 || !samples.length || samples.length > sampleRate * 4 || !samples.every(Number.isFinite)) throw new Error('Body voice exceeds its fixed sample budget.');
+    this.voiceSamples[index] = { samples, sampleRate };
+    for (const voice of this.voices) voice.voicePositions[index] = -1;
+  }
   releaseMidi(group) {
     const voice = this.voices[group];
     voice.releaseContacts = true; voice.percussionDistance = 0; voice.distance = 0;
     voice.percussion.releaseAll();
+    voice.voiceReleasing = true;
     for (const recording of this.recordings.voices) if (recording.group === group) recording.releasing = true;
   }
   retuneMidiRecordings(group, frequency) {
@@ -225,6 +269,7 @@ export class RoachBodyEngine {
     voice.distance += deltaDegrees;
     if (voice.distance >= 3) {
       voice.distance %= 3; voice.zing.excite(Math.min(1, deltaDegrees / 5 + .1));
+      voice.strikeVoice(Math.min(1, deltaDegrees / 6 + .35));
       if (voice.source === 8) this.recordings.trigger(group === 0 ? 0 : 1, Math.min(1, deltaDegrees / 6 + .35), (voice.random() + 1) * .5, group);
     }
   }
@@ -232,11 +277,14 @@ export class RoachBodyEngine {
     for (const voice of this.voices) {
       voice.manual = 0; voice.motionTarget = 0; voice.distance = 0; voice.releaseContacts = true;
       voice.percussionDistance = 0; voice.percussion.releaseAll();
+      voice.voiceReleasing = true;
     }
     this.recordings.release();
   }
   sample(stillGate, moving) {
-    if (this.wasMoving && !moving) for (const voice of this.voices) if (voice.midiGateTarget < .0001) voice.percussion.releaseAll();
+    if (this.wasMoving && !moving) for (const voice of this.voices) if (voice.midiGateTarget < .0001) {
+      voice.percussion.releaseAll(); voice.voiceReleasing = true;
+    }
     this.wasMoving = moving;
     this.recordings.sample(this.recordingOutput);
     this.left = 0; this.right = 0;

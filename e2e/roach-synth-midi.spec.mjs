@@ -150,10 +150,13 @@ test('Program Change recalls all sound presets while retaining held body notes a
   await open(page); await enable(page);
   await sendMidi(page, MIDI_BYTES.noteOn(48)); await sendMidi(page, MIDI_BYTES.noteOn(60)); await gate(page, 'legs');
   expect((await state(page)).midi.heldCount).toBe(2); expect(players(await state(page))).toEqual({ sound: false, animation: false });
-  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+  await page.locator('#motionButton').click();
   const before = await state(page), presets = await page.locator('#soundPreset option').evaluateAll(options => options.map(option => option.value));
-  expect(presets).toHaveLength(42);
-  for (const program of [0, 17, 18, 41]) {
+  expect(presets).toHaveLength(39);
+  expect(presets.filter(id => id.startsWith('body-voice-'))).toEqual(['body-voice-kal']);
+  expect(presets).toEqual(expect.arrayContaining(['motion:side_jump', 'motion:top_wing_fan', 'motion:top_flight', 'motion:wings_alarm']));
+  expect(presets.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].some(retired => id === `motion:${retired}`))).toEqual([]);
+  for (const program of [0, 17, 18, presets.length - 2, presets.length - 1]) {
     await sendMidi(page, [0xc0, program]); await expect(page.locator('#soundPreset')).toHaveValue(presets[program]);
     const after = await state(page); expect(after.motionChoice).toBe(before.motionChoice); expect(players(after)).toEqual(players(before));
     expect(after.time).toBeGreaterThanOrEqual(before.time); expect(after.camera).toEqual(before.camera); expect(after.midi.heldCount).toBe(2);
@@ -162,12 +165,12 @@ test('Program Change recalls all sound presets while retaining held body notes a
   expect(players(await state(page))).toEqual({ sound: true, animation: true });
 });
 
-test('CC macro routes control body axes, presets and Voice while standard CCs retain their intended destinations', async ({ page }) => {
+test('CC macro routes control body axes, presets, voice speed and speech while standard CCs retain their intended destinations', async ({ page }) => {
   await open(page); await enable(page);
   const before = await state(page);
   await sendMidi(page, MIDI_BYTES.controlChange(15, 127)); expect((await state(page)).sound.brightness).toBeGreaterThan(before.sound.brightness);
   await sendMidi(page, MIDI_BYTES.controlChange(71, 0)); expect((await state(page)).sound.resonance).toBe(0);
-  await sendMidi(page, MIDI_BYTES.controlChange(7, 63)); expect((await state(page)).sound.level).toBeCloseTo(.8 * 63 / 127, 2);
+  await sendMidi(page, MIDI_BYTES.controlChange(7, 63)); expect((await state(page)).sound.level).toBeCloseTo(63 / 127, 2);
   await chooseRoute(page, 0, 'joint:head:x'); const head = quaternion(await state(page), 'head'), sound = (await state(page)).sound;
   await sendMidi(page, MIDI_BYTES.controlChange(14, 127)); await expect.poll(async () => quaternion(await state(page), 'head')).not.toEqual(head);
   expect((await state(page)).sound).toEqual(sound);
@@ -176,6 +179,10 @@ test('CC macro routes control body axes, presets and Voice while standard CCs re
   await chooseRoute(page, 0, 'select:soundPreset'); const preset = await page.locator('#soundPreset').inputValue();
   await sendMidiSequence(page, [{ data: MIDI_BYTES.controlChange(14, 0) }, { data: MIDI_BYTES.controlChange(14, 127) }]);
   await expect(page.locator('#soundPreset')).not.toHaveValue(preset);
+  await chooseRoute(page, 7, 'param:voiceSpeed');
+  await sendMidi(page, MIDI_BYTES.controlChange(21, 0)); await expect(page.locator('#voiceSpeed')).toHaveValue('0.5');
+  await sendMidi(page, MIDI_BYTES.controlChange(21, 127)); await expect(page.locator('#voiceSpeed')).toHaveValue('2');
+  await page.locator('#voiceSpeed').fill('1');
   await chooseRoute(page, 7, 'action:speakButton'); await page.locator('#phrase').fill('hello from MIDI');
   await sendMidiSequence(page, [{ data: MIDI_BYTES.controlChange(21, 0) }, { data: MIDI_BYTES.controlChange(21, 127) }]);
   await expect.poll(async () => (await state(page)).audio.speechEnvelope, { timeout: 15000 }).toBeGreaterThan(.0001);
@@ -217,7 +224,7 @@ test('turning Audio off prevents later MIDI notes from rearming it; MIDI Off and
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   await sendMidi(page, MIDI_BYTES.noteOff(69)); await silentMidi(page);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
-  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+  await page.locator('#motionButton').click();
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');
   await page.locator('#midiPanic').click(); await silentMidi(page); expect(players(await state(page))).toEqual({ sound: true, animation: true });
   await sendMidi(page, MIDI_BYTES.noteOn(69)); await gate(page, 'head');

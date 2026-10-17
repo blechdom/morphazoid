@@ -1,0 +1,9 @@
+{
+  "reason": "Owner-requested Roach Synth performance controls, mouse/touch gestures and native Voicesaurus voices; preserve the historical catalogue fixtures and every other instrument record.",
+  "updates": {
+    "roach-synth": {
+      "description": "A grounded cockroach scan with 31 playable joints, 20 animations, a body-part mixer, real movement recordings and a Low KAL16 speech voice with adjustable speed.",
+      "start": "Turn Audio on and press Play to animate. Drag a body part at any time, scroll to zoom, choose independent animation and sound presets, or type words for the roach to say."
+    }
+  }
+}

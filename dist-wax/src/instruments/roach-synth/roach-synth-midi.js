@@ -1,5 +1,5 @@
-import { ROACH_BODY_GROUPS, getRoachJointBodyGroup } from './roach-synth-body.js?v=7608886131fe';
-import { constrainRoachPose } from './roach-synth-motion.js?v=7608886131fe';
+import { ROACH_BODY_GROUPS, getRoachJointBodyGroup } from './roach-synth-body.js?v=999609d02db2';
+import { constrainRoachPose } from './roach-synth-motion.js?v=999609d02db2';
 
 const AXES = ['x', 'y', 'z'];
 const MAX_SCOPES = 64;
@@ -272,7 +272,7 @@ export class RoachMidiPerformance {
     constrainRoachPose(neutral, joints, neutral);
     return this;
   }
-  applyPose(pose, joints, now = this.now, tempo = 120, intensity = 1) {
+  applyPose(pose, joints, now = this.now, tempo = 120, intensity = 1, project = true) {
     if (joints !== this.joints) this.setJoints(joints);
     if (!pose || pose.length < joints.length * 3) throw new RangeError('MIDI pose needs XYZ values for every joint.');
     this.sample(now, tempo);
@@ -305,7 +305,7 @@ export class RoachMidiPerformance {
       pose[k + 1] += y * scale + this.controlValues[c + 1] * controlAmount * (group === 1 || group === 2 ? sign : 1);
       pose[k + 2] += z * scale + this.controlValues[c + 2] * controlAmount * (group === 1 || group === 2 ? sign : 1);
     }
-    return constrainRoachPose(pose, joints, pose);
+    return project ? constrainRoachPose(pose, joints, pose) : pose;
   }
   getState(now = this.now) {
     this.sample(now); const heldNotes = []; let activeCount = 0;

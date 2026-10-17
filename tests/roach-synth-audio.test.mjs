@@ -59,8 +59,8 @@ function solo(groupId, source, level = 1) {
 }
 const muted = () => createDefaultRoachBodyMix().map((row) => ({ ...row, level: 0 }));
 
-test('eight anatomical groups own nineteen sources and normalized immutable assignments', () => {
-  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 19);
+test('eight anatomical groups own synthesis, percussion and native voice sources with immutable assignments', () => {
+  assert.equal(ROACH_BODY_GROUPS.length, 8); assert.equal(ROACH_BODY_SOURCES.length, 20);
   assert.equal(getRoachBodyGroupId(joints[2]), 'head'); assert.equal(getRoachBodyGroupId(joints[3]), 'neck');
   assert.equal(getRoachBodyGroupId(joints[4]), 'covers'); assert.equal(getRoachBodyGroupId(joints[29]), 'hindwings');
   assert.equal(getRoachBodyGroupId(joints[30]), 'hindwings'); assert.equal(getRoachBodyGroupId(joints[7]), 'legs');
@@ -72,9 +72,9 @@ test('eight anatomical groups own nineteen sources and normalized immutable assi
   assert.equal(normalizeRoachBodyMix([{ groupId: 'legs', source: 'drone', level: 0 }])[0].level, 0);
 });
 
-test('24 animation companions cover distinct instruments and reserve scuttle for one routine', () => {
+test('20 animation companions cover distinct instruments and reserve scuttle for one routine', () => {
   assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.map((item) => item.motionId).sort(), ROACH_MOTION_PRESETS.map((item) => item.id).sort());
-  assert.equal(new Set(ROACH_MOTION_SOUND_PRESETS.map((item) => JSON.stringify(item.bodyMix))).size, 24);
+  assert.equal(new Set(ROACH_MOTION_SOUND_PRESETS.map((item) => JSON.stringify(item.bodyMix))).size, 20);
   assert.deepEqual(ROACH_MOTION_SOUND_PRESETS.filter((item) => item.bodyMix.some((row) => row.source === 'skuttle')).map((item) => item.motionId), ['side_skitter']);
   assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[0].source, 'footsteps');
   assert.equal(ROACH_SOUND_PRESETS[0].bodyMix[5].source, 'sine');
@@ -83,6 +83,25 @@ test('24 animation companions cover distinct instruments and reserve scuttle for
   assert.notEqual(getRoachMotionSound('side_walk').sound.pitch, 999);
   assert.equal(getRoachMotionSound('side_walk').bodyMix[0].source, 'footsteps');
   assert.deepEqual(ROACH_SOUND_PRESETS.find((item) => item.id === 'wing-radio').bodyMix.map((row) => row.level), [.85,.48,.65,.68,.6,.36,.36,.24]);
+});
+
+test('retired dance companions disappear while jump and flying sounds retain their authored articulation', () => {
+  for (const id of ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz']) {
+    assert.ok(!ROACH_MOTION_SOUND_PRESETS.some((item) => item.motionId === id));
+    assert.equal(getRoachMotionSound(id).motionId, 'side_walk');
+  }
+  const jump = getRoachMotionSound('side_jump');
+  assert.deepEqual([jump.sound.pitch, jump.sound.vowel, jump.sound.wingRate, jump.sound.rhythm, jump.sound.voiceSpeed, jump.sound.pan],
+    [90, .13, 88, .88, .9, 0]);
+  assert.deepEqual(jump.bodyMix.map(({ source, level }) => [source, level]),
+    [['footsteps', .8], ['rattle', .32], ['rustle', .28], ['fm', .45], ['sub', .28], ['sine', .4], ['pluck', .35], ['shimmer', .14]]);
+  const wingRadio = ROACH_SOUND_PRESETS.find((item) => item.id === 'wing-radio');
+  for (const id of ['top_wing_fan', 'top_flight', 'wings_alarm']) {
+    const patch = getRoachMotionSound(id);
+    assert.equal(patch.motionId, id);
+    assert.deepEqual(patch.sound, wingRadio.sound);
+    assert.deepEqual(patch.bodyMix.slice(1, 3).map(({ source, level }) => [source, level]), [['buzz', .48], ['rustle', .65]]);
+  }
 });
 
 test('percussion source changes do not freeze and resurrect a previous strike', () => {
@@ -198,6 +217,8 @@ test('every movement-only source is exactly silent for held poses even when Soun
 test('each source actually sounds from its assigned group and resets on still pose changes', () => {
   for (const source of ROACH_BODY_SOURCES) {
     const dsp = engine({ playing: false, soundPlaying: !source.motionOnly, motion: { presetId: 'none', antennae: false }, bodyMix: solo('head', source.id) });
+    if (source.id.startsWith('voice-')) dsp.setBodyVoice(source.id,
+      Float32Array.from({ length: RATE / 2 }, (_, i) => Math.sin(i * Math.PI * 2 * 210 / RATE) * .35), RATE);
     dsp.setSampleBank(recordingFixture()); render(dsp, .1);
     if (source.motionOnly) dsp.interact({ jointId: joints[2].id, active: true, velocity: 1 });
     assert.ok(rms(render(dsp, .15).left) > .003, `${source.id} has no assigned source signal`);
@@ -315,7 +336,7 @@ test('eighteen sound patches and seeded random sounds retain body routing and sa
 
 test('random sound and authored presets vary every consumed global control; wing rate and rhythm are audible', () => {
   const random = Array.from({ length: 32 }, (_, i) => createRandomRoachSound((i + 1) * 2654435761 >>> 0));
-  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice']) {
+  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice', 'voiceSpeed']) {
     assert.ok(new Set(random.map((item) => item.sound[key])).size >= 16, `${key} was not randomized`);
     assert.ok(new Set(ROACH_SOUND_PRESETS.map((item) => item.sound[key])).size >= 6, `${key} has no authored preset range`);
   }
@@ -483,6 +504,90 @@ test('joint collision metadata is bounded, immutable and refreshed when a same-I
   assert.equal(peak(render(dsp, .2).left), 0, 'geometry reinitialization must not be mistaken for a manual drag');
 });
 
+test('head contact metadata owns its geometry and refreshes a same-ID audio rig', () => {
+  const contact = { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  // A child can arrive before its parent at the worklet boundary.
+  const rig = [
+    { ...joints[2], parent: joints[3].id, headContact: contact, poseLimits: { x: [-50, 18], y: [-6, 6], z: [-8, 8] } },
+    { ...joints[0], parent: null },
+    { ...joints[3], parent: joints[0].id, poseLimits: { x: [-42, 12], y: [-3, 3], z: [-4, 4] } },
+  ];
+  const dsp = engine({ playing: false, joints: rig });
+  const original = dsp.joints[0];
+  assert.deepEqual(original.headContact, contact);
+  assert.notEqual(original.headContact, contact, 'the worklet owns its contact metadata');
+  contact.liftLimit = .3; contact.parentLiftSign = 1;
+  assert.equal(original.headContact.liftLimit, .15);
+  assert.equal(original.headContact.parentLiftSign, -1);
+  dsp.update({ joints: rig });
+  assert.notEqual(dsp.joints[0], original, 'a contact change invalidates cached physical geometry');
+  assert.deepEqual(dsp.joints[0].headContact, contact);
+  assert.deepEqual(dsp.joints[0].poseLimits, { x: [-50, 18], y: [-6, 6], z: [-8, 8] });
+  assert.deepEqual(dsp.joints[2].poseLimits, { x: [-42, 12], y: [-3, 3], z: [-4, 4] });
+  assert.equal(dsp.time, 0);
+  assert.equal(peak(render(dsp, .2).left), 0, 'changing a contact rule must not synthesize a drag');
+  dsp.update({ joints: rig.map(({ headContact, ...joint }) => joint) });
+  assert.equal(dsp.joints[0].headContact, null, 'a replacement legacy rig clears the old rule');
+});
+
+test('head contact normalization rejects malformed or foreign chains and bounds finite travel', () => {
+  const valid = { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  const normalize = (headContact, patch = {}, parent = joints[3]) => {
+    const dsp = new RoachSynthDsp(RATE);
+    dsp.update({ joints: [{ ...joints[2], parent: joints[3].id, headContact, ...patch }, parent] });
+    return dsp.joints[0].headContact;
+  };
+  for (const malformed of [
+    null, [], {}, { ...valid, parentId: '' }, { ...valid, parentId: 'missing' },
+    { ...valid, liftSign: 0 }, { ...valid, liftSign: '-1' }, { ...valid, parentLiftSign: 2 },
+    ...[0, -1, NaN, Infinity, -Infinity].map((liftLimit) => ({ ...valid, liftLimit })),
+  ]) assert.equal(normalize(malformed), null, `accepted invalid metadata ${JSON.stringify(malformed)}`);
+  assert.equal(normalize(valid, { parent: joints[0].id }), null, 'the declared contact must name the actual direct parent');
+  assert.equal(normalize(valid, { jointId: 'abdomen', name: 'Abdomen' }), null, 'only a head owns head/plate contact');
+  assert.equal(normalize(valid, {}, { ...joints[3], jointId: 'wing_cover', name: 'Wing cover' }), null, 'the plate must be the neck parent');
+  assert.equal(normalize({ ...valid, parentId: joints[2].id }, { parent: joints[2].id }), null, 'a self-parent is invalid');
+  assert.deepEqual(normalize({ ...valid, liftSign: 1, parentLiftSign: 1, liftLimit: 1e6 }),
+    { ...valid, liftSign: 1, parentLiftSign: 1, liftLimit: 180 });
+});
+
+test('MIDI pulls back raw head pressure before contact carry and keeps a separately projected baseline', () => {
+  const rig = [
+    { ...joints[2], parent: joints[3].id, offset: { x: -20, y: 0, z: 0 },
+      headContact: { parentId: joints[3].id, liftSign: -1, parentLiftSign: -1, liftLimit: .15 },
+      poseLimits: { x: [-50, 18], y: [-6, 6], z: [-8, 8] } },
+    { ...joints[3], poseLimits: { x: [-42, 12], y: [-3, 3], z: [-4, 4] } },
+  ];
+  const dsp = engine({ playing: false, soundPlaying: false, joints: rig, motion: { presetId: 'none', antennae: false } });
+  const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < .00001, `${actual} != ${expected}`);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -19.85);
+  dsp.control();
+  assert.deepEqual(dsp.pose, dsp.basePose, 'without MIDI the animation baseline and audible geometry agree');
+  dsp.midiPerformance.setControl('head', 'x', .5, 0);
+  dsp.audioTime = .1;
+  dsp.control();
+  near(dsp.basePose[0], -.15); near(dsp.basePose[3], -19.85);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -5.85);
+  assert.equal(dsp.joints[0].offset.x, -20, 'derived contact carry cannot overwrite saved pressure');
+  assert.equal(dsp.joints[1].offset.x, 0);
+
+  // The edit comparison must use the same raw composition as control(), both
+  // before and after replacing offsets under an unchanged physical rig.
+  const inputs = [];
+  const applyPose = dsp.midiPerformance.applyPose.bind(dsp.midiPerformance);
+  dsp.midiPerformance.applyPose = (...args) => {
+    inputs.push({ head: args[0][0], neck: args[0][3], project: args[5] });
+    return applyPose(...args);
+  };
+  dsp.update({ joints: rig.map((joint, i) => i === 0 ? { ...joint, offset: { x: -22, y: 0, z: 0 } } : joint) });
+  assert.deepEqual(inputs, [{ head: -20, neck: 0, project: false }, { head: -22, neck: 0, project: false }]);
+  near(dsp.editedPose[0], -.15); near(dsp.editedPose[3], -5.85);
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -7.85);
+  dsp.update({ motion: { intensity: 0 } });
+  dsp.control();
+  near(dsp.pose[0], -.15); near(dsp.pose[3], -21.85);
+  assert.deepEqual(dsp.pose, dsp.basePose, 'zero-strength MIDI keeps the projected manual baseline');
+});
+
 test('grounded foot events follow shared contacts, stay quiet in flight and never fire on stationary offsets', () => {
   const dsp = engine({ motion: { presetId: 'side_run', antennae: false }, mappings: [] });
   const scene = createRoachSceneState(); let expected = 0;
@@ -523,8 +628,8 @@ test('a repeating individual leg score makes keyed contacts and rests without sw
   assert.equal(peak(render(inactive, 2).left), 0); assert.equal(inactive.contactEvents, 0);
 });
 
-test('all 24 static pose presets produce distinct sound without moving their body or animation clock', () => {
-  assert.equal(ROACH_STATIC_POSES.length, 24);
+test('all 18 public static pose presets produce distinct sound without moving their body or animation clock', () => {
+  assert.equal(ROACH_STATIC_POSES.length, 18);
   const outputs = [];
   for (const preset of ROACH_STATIC_POSES) {
     const shape = getRoachStaticPose(preset.id, joints);

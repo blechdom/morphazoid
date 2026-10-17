@@ -13,7 +13,7 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const positiveMod = (value, modulus) => ((value % modulus) + modulus) % modulus;
 const smooth = (value) => value * value * (3 - 2 * value);
 const safeTime = (time) => clamp(finite(time), 0, 1_000_000_000);
-const beatsAt = (time, settings) => safeTime(time) * clamp(finite(settings?.tempo, 108), 30, 240) / 60;
+const beatsAt = (time, settings) => safeTime(time) * clamp(finite(settings?.tempo, 108), 2, 4400) / 60;
 export const ROACH_SEQUENCE_STEPS = 16;
 export const ROACH_MAX_JOINT_TRACKS = 384;
 export const ROACH_TRACK_SUBSTEPS = 4;
@@ -67,24 +67,20 @@ const preset = (id, label, category, mode, soundFlavor, gaitRate, groundSpeed, r
 export const ROACH_MOTION_PRESETS = Object.freeze([
   preset('side_walk', 'Floor creep', 'Scuttle', 0, 'scuttle', 1.25, .28, 'low', 'Low tripod crawl with close-to-floor returning feet.'),
   preset('top_wing_fan', 'Wing twitter', 'Wings', 3, 'wing', .25, 0, 'low', 'Asymmetric cover twitches and rapid hindwing twitter over a shifting stance.'),
-  preset('dance_upright', 'Back-leg boogie', 'Dance', 16, 'stomp', 1, 0, 'upright', 'Stands on the rear pair, stepping while four arms wave.'),
+  preset('top_body_wave', 'Rock and roach', 'Dance', 4, 'growl', .5, 0, 'low', 'Rocking shell rolls and head bobs over a low six-leg groove.'),
   preset('face_curious', "Who's there?", 'Face', 9, 'creak', .125, 0, 'low', 'Looks toward the viewer with asymmetric head tilts and searching feelers.'),
   preset('side_run', 'Panic sprint', 'Scuttle', 1, 'pitter', 3, .62, 'low', 'Fast tripod steps, fluttering feelers and a low body.'),
-  preset('top_body_wave', 'Rock and roach', 'Dance', 4, 'growl', .5, 0, 'low', 'Rocking shell rolls and head bobs over a low six-leg groove.'),
   preset('face_chatter', 'Kitchen gossip', 'Face', 10, 'voice', .25, 0, 'low', 'Syllabic head and neck nods with busy antennae.'),
   preset('top_flight', 'Flutter flight', 'Wings', 5, 'wing', .25, .05, 'flight', 'A repeating supported takeoff mime with tucked legs and moving covers.'),
   preset('side_skitter', 'Dash and freeze', 'Scuttle', 12, 'scuttle', 1.5, .32, 'low', 'Nervous bursts accelerate into little rests without resetting phase.'),
-  preset('dance_boxer', 'Tiny shadow boxer', 'Dance', 17, 'growl', 1.5, 0, 'upright', 'Rear-leg footwork and alternating front-leg punches.'),
   preset('face_sing', 'Crooner', 'Face', 11, 'voice', .25, 0, 'low', 'Long head bows with short nods and antenna flourishes.'),
   preset('bottom_wiggle', 'Leg noodles', 'Dance', 6, 'scrape', .75, 0, 'low', 'Six staggered loose curls and an abdomen wiggle.'),
   preset('side_tiptoe', 'Quiet sneak', 'Scuttle', 13, 'pitter', 1, .14, 'low', 'Six individually staggered toe taps and a raised head.'),
   preset('wings_alarm', 'Wing alarm', 'Wings', 21, 'wing', 2, .1, 'low', 'Rapid wing-cover tremolo over a frightened scuttle.'),
-  preset('dance_can_can', 'Six-leg can-can', 'Dance', 18, 'metal', 1, 0, 'upright', 'High alternating kicks and a jaunty shell sway.'),
   preset('face_growl', 'Tiny house monster', 'Face', 22, 'growl', .25, 0, 'low', 'A low shell growl, threatening head dips and spiky feelers.'),
   preset('side_zigzag', 'Zigzag panic', 'Scuttle', 15, 'scuttle', 2.25, .46, 'low', 'Rapid scuttles and sharp alternating body turns.'),
   preset('bottom_rave', 'Bug rave', 'Dance', 8, 'metal', 2, 0, 'low', 'Syncopated leg fans with a fast body shimmy.'),
   preset('face_serenade', 'Antenna serenade', 'Face', 23, 'voice', .125, 0, 'low', 'Direct-address head phrases and wide fluttering antenna arcs.'),
-  preset('dance_waltz', 'Cupboard waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Triple rear-foot accents with sweeping front arms over an eight-beat phrase.'),
   preset('side_backpedal', 'Reverse gear', 'Scuttle', 14, 'scrape', 1.25, -.23, 'low', 'Backwards tripod travel with backward-looking head turns.'),
   preset('dance_robot', 'Broken robot', 'Dance', 19, 'metal', 1, 0, 'low', 'Rounded mechanical ticks, held poses and quick antenna snaps.'),
   preset('side_jump', 'Pogo jump', 'Dance', 2, 'stomp', .25, .03, 'jump', 'Crouch, lift all six feet, then land together every four beats.'),
@@ -92,6 +88,15 @@ export const ROACH_MOTION_PRESETS = Object.freeze([
 ]);
 const POSE_ONLY = preset('none', 'Held pose', 'Pose', -1, 'creak', 0, 0, 'low', 'Manual offsets and enabled independent joint motion.');
 const PRESETS_BY_ID = new Map(ROACH_MOTION_PRESETS.map((item) => [item.id, item]));
+// Retired two-leg dances are evaluated only when restoring a frozen saved pose.
+// The private token never survives public motion normalization or track baking.
+const STATIC_PRESET = Symbol('retired static preset');
+const RETIRED_PRESETS_BY_ID = new Map([
+  preset('dance_upright', 'Back-leg boogie', 'Dance', 16, 'stomp', 1, 0, 'upright', 'Stands on the rear pair, stepping while four arms wave.'),
+  preset('dance_boxer', 'Tiny shadow boxer', 'Dance', 17, 'growl', 1.5, 0, 'upright', 'Rear-leg footwork and alternating front-leg punches.'),
+  preset('dance_can_can', 'Six-leg can-can', 'Dance', 18, 'metal', 1, 0, 'upright', 'High alternating kicks and a jaunty shell sway.'),
+  preset('dance_waltz', 'Cupboard waltz', 'Dance', 20, 'pitter', .75, .04, 'upright', 'Triple rear-foot accents with sweeping front arms over an eight-beat phrase.'),
+].map((item) => [item.id, item]));
 const EMPTY_TRACKS = Object.freeze([]);
 export const ROACH_MOTION_DEFAULTS = Object.freeze({
   presetId: 'side_walk', tempo: 108, intensity: 1, antennae: true,
@@ -126,7 +131,7 @@ export function normalizeRoachMotion(settings = {}) {
   }
   const normalized = {
     presetId: source.presetId === 'none' || PRESETS_BY_ID.has(source.presetId) ? source.presetId : ROACH_MOTION_DEFAULTS.presetId,
-    tempo: clamp(finite(source.tempo, 108), 30, 240),
+    tempo: clamp(finite(source.tempo, 108), 2, 4400),
     intensity: clamp(finite(source.intensity, 1), 0, 2),
     antennae: source.antennae !== false,
     sequenceEnabled: source.sequenceEnabled === true,
@@ -139,6 +144,12 @@ export function normalizeRoachMotion(settings = {}) {
     sceneContactCounts: source.sceneContactCounts?.length === 6 ? Array.from(source.sceneContactCounts, (count) => clamp(Math.floor(finite(count)), 0, 1024)) : null,
     staticScene: source.staticScene && typeof source.staticScene === 'object' ? normalizeSceneSnapshot(source.staticScene, true) : null,
   };
+  // Older saved poses carry only head gaze. Camera lift can also articulate
+  // the neck without changing those poses or the performer's manual offsets.
+  if (source.gaze?.neck && typeof source.gaze.neck === 'object') {
+    normalized.gaze.neck = { x: clamp(finite(source.gaze.neck.x), -45, 45),
+      y: clamp(finite(source.gaze.neck.y), -45, 45), z: clamp(finite(source.gaze.neck.z), -45, 45) };
+  }
   if (source.randomSeed != null && Number.isFinite(Number(source.randomSeed))) {
     normalized.randomSeed = Math.floor(Number(source.randomSeed)) >>> 0;
     normalized.randomSourceId = PRESETS_BY_ID.has(source.randomSourceId) ? source.randomSourceId : normalized.presetId;
@@ -149,7 +160,7 @@ export function normalizeRoachMotion(settings = {}) {
 }
 /** Camera changes never select or sequence an animation. */
 export function activeRoachPreset(_timeSeconds, settings = ROACH_MOTION_DEFAULTS) {
-  return settings?.presetId === 'none' ? POSE_ONLY : PRESETS_BY_ID.get(settings?.presetId) ?? ROACH_MOTION_PRESETS[0];
+  return settings?.[STATIC_PRESET] ?? (settings?.presetId === 'none' ? POSE_ONLY : PRESETS_BY_ID.get(settings?.presetId) ?? ROACH_MOTION_PRESETS[0]);
 }
 export function roachSequencePosition(timeSeconds, settings = ROACH_MOTION_DEFAULTS) {
   const position = beatsAt(timeSeconds, settings) / clamp(finite(settings?.stepBeats, .25), 1 / 16, 4);
@@ -565,7 +576,7 @@ function addPreset(beats, item, mode, amount, out, index, antennae, scene, indep
   out[index] += x * amount; out[index + 1] += y * amount; out[index + 2] += z * amount;
 }
 /** Fill caller-owned XYZ degree rotations, including manual and score offsets. */
-export function writeRoachPose(timeSeconds, settings, joints, out) {
+export function writeRoachPose(timeSeconds, settings, joints, out, project = true) {
   if (!out || out.length < joints.length * 3) throw new RangeError('A pose buffer needs three values per joint.');
   const controls = settings ?? ROACH_MOTION_DEFAULTS;
   const time = safeTime(timeSeconds);
@@ -614,14 +625,16 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
       } else out[index + axis] += value;
     }
     // Apply camera gaze once after track composition; sound and graphics share it.
-    if (item.kind === 'head') {
-      out[index] += clamp(finite(controls.gaze?.x), -22, 22);
-      out[index + 1] += clamp(finite(controls.gaze?.y), -22, 22);
-      out[index + 2] += clamp(finite(controls.gaze?.z), -22, 22);
+    if (item.kind === 'head' || item.kind === 'neck') {
+      const gaze = item.kind === 'neck' ? controls.gaze?.neck : controls.gaze;
+      const limit = item.kind === 'neck' ? 45 : 22;
+      out[index] += clamp(finite(gaze?.x), -limit, limit);
+      out[index + 1] += clamp(finite(gaze?.y), -limit, limit);
+      out[index + 2] += clamp(finite(gaze?.z), -limit, limit);
     }
     out[index] = clamp(out[index], -180, 180); out[index + 1] = clamp(out[index + 1], -180, 180); out[index + 2] = clamp(out[index + 2], -180, 180);
   }
-  return constrainRoachPose(out, joints, out);
+  return project ? constrainRoachPose(out, joints, out) : out;
 }
 
 const SPEECH_POSE_BUFFERS = new WeakMap();
@@ -630,7 +643,7 @@ const SPEECH_POSE_BUFFERS = new WeakMap();
  * absolute audio-clock seconds, independent of the animation transport. The
  * caller owns envelope smoothing; amount zero leaves the buffer exactly alone.
  */
-export function applyRoachSpeechPose(timeSeconds, amount, joints, pose) {
+export function applyRoachSpeechPose(timeSeconds, amount, joints, pose, project = true) {
   const strength = clamp(finite(amount), 0, 1);
   if (strength === 0) return pose;
   if (!pose || pose.length < joints.length * 3 || joints.length > 128) throw new RangeError('Speech pose needs XYZ values for at most 128 joints.');
@@ -658,7 +671,7 @@ export function applyRoachSpeechPose(timeSeconds, amount, joints, pose) {
       speech[index + 2] += Math.sin(time * TAU * 3.7 + side * 1.1) * side * 7 * strength;
     }
   }
-  constrainRoachPose(speech, joints, speech);
+  if (project) constrainRoachPose(speech, joints, speech);
   // Constraint projection can revisit a whole imported branch. Copy only the
   // expressive joints back so speech never changes a leg, wing or body angle.
   for (let i = 0; i < joints.length; i += 1) {
@@ -757,9 +770,6 @@ export const ROACH_STATIC_POSES = Object.freeze([
   staticPose('peek_left', 'Peeking left', 'face_curious', 1),
   staticPose('peek_right', 'Peeking right', 'face_curious', 3),
   staticPose('little_bow', 'A little bow', 'face_sing', 2, 'bow'),
-  staticPose('standing_tall', 'Standing tall', 'dance_upright', .5),
-  staticPose('boxer_guard', 'Tiny boxer', 'dance_boxer', .3),
-  staticPose('high_kick', 'High kick', 'dance_can_can', .25),
   staticPose('noodle_legs', 'Noodle legs', 'bottom_wiggle', .5),
   staticPose('low_prowl', 'Low prowl', 'side_tiptoe', .5),
   staticPose('listening', 'Listening closely', 'face_curious', 0, 'listening'),
@@ -770,13 +780,18 @@ export const ROACH_STATIC_POSES = Object.freeze([
   staticPose('wing_right', 'Right wing salute', 'none', 0, 'wing_right'),
   staticPose('hindwing_display', 'Hindwing display', 'none', 0, 'hindwing_display'),
   staticPose('tucked', 'Tucked little bug', 'top_flight', 1.5, 'tucked'),
-  staticPose('salute', 'Kitchen salute', 'dance_boxer', .25, 'salute'),
-  staticPose('lean_left', 'Leaning left', 'dance_waltz', 1, 'lean_left'),
-  staticPose('lean_right', 'Leaning right', 'dance_waltz', 2, 'lean_right'),
   staticPose('house_monster', 'House monster', 'face_growl', 2),
   staticPose('sleeping', 'Sleeping in the cupboard', 'none', 0, 'sleeping'),
 ]);
-const STATIC_POSES_BY_ID = new Map(ROACH_STATIC_POSES.map((item) => [item.id, item]));
+const RETIRED_STATIC_POSES = [
+  staticPose('standing_tall', 'Standing tall', 'dance_upright', .5),
+  staticPose('boxer_guard', 'Tiny boxer', 'dance_boxer', .3),
+  staticPose('high_kick', 'High kick', 'dance_can_can', .25),
+  staticPose('salute', 'Kitchen salute', 'dance_boxer', .25, 'salute'),
+  staticPose('lean_left', 'Leaning left', 'dance_waltz', 1, 'lean_left'),
+  staticPose('lean_right', 'Leaning right', 'dance_waltz', 2, 'lean_right'),
+];
+const STATIC_POSES_BY_ID = new Map([...ROACH_STATIC_POSES, ...RETIRED_STATIC_POSES].map((item) => [item.id, item]));
 function randomGenerator(seed) {
   let value = (Math.floor(finite(seed, 1)) >>> 0) || 0x91e10da5;
   return () => { value ^= value << 13; value ^= value >>> 17; value ^= value << 5; return (value >>> 0) / 4294967296; };
@@ -795,6 +810,8 @@ export function getRoachStaticPose(poseId, joints, options = {}) {
   }
   const settings = normalizeRoachMotion({ presetId: selected.presetId, tempo: 120, intensity: 1,
     antennae: selected.presetId !== 'none', sequenceEnabled: false, tracks: [] });
+  const retired = RETIRED_PRESETS_BY_ID.get(selected.presetId);
+  if (retired) settings[STATIC_PRESET] = retired;
   const time = selected.beat * .5;
   const output = writeRoachPose(time, settings, rig, new Float32Array(rig.length * 3));
   const scene = normalizeSceneSnapshot(writeRoachSceneState(time, settings, createRoachSceneState(), rig), true);
@@ -964,7 +981,23 @@ function constraintRig(joints) {
   CONSTRAINT_RIGS.set(joints, rig);
   return rig;
 }
-/** Degree output is clamped to joint limits and the conservative body core. */
+function headContactParent(joints, index) {
+  const joint = joints[index], contact = joint.headContact;
+  if (!contact || metadata(joint).kind !== 'head' || joint.parent !== contact.parentId
+    || !(Number.isFinite(contact.liftLimit) && contact.liftLimit > 0 && contact.liftLimit <= 180)
+    || (contact.liftSign !== -1 && contact.liftSign !== 1)
+    || (contact.parentLiftSign !== -1 && contact.parentLiftSign !== 1)) return -1;
+  for (let i = 0; i < joints.length; i++) if (i !== index && joints[i].id === contact.parentId
+    && metadata(joints[i]).kind === 'neck') return i;
+  return -1;
+}
+function jointLimit(value, joint, axis) {
+  const name = XYZ_AXES[axis], range = joint.poseLimits?.[name], rest = clamp(finite(joint.restOffset?.[name]), -145, 145);
+  const low = range?.length === 2 ? Math.max(-180, rest + finite(range[0], -180)) : -180;
+  const high = range?.length === 2 ? Math.min(180, rest + finite(range[1], 180)) : 180;
+  return clamp(value, Math.min(low, high), Math.max(low, high));
+}
+/** Degree output respects joint limits, head/plate contact and the body core. */
 export function constrainRoachPose(target, joints, out = target) {
   if (!out || out.length < joints.length * 3) throw new RangeError('A pose buffer needs three values per joint.');
   for (let i = 0; i < joints.length; i += 1) for (let axis = 0; axis < 3; axis += 1) {
@@ -973,6 +1006,24 @@ export function constrainRoachPose(target, joints, out = target) {
     const min = limits?.length === 2 ? Math.max(-180, rest + finite(limits[0], -180)) : -180;
     const max = limits?.length === 2 ? Math.min(180, rest + finite(limits[1], 180)) : 180;
     out[i * 3 + axis] = clamp(finite(target[i * 3 + axis]), Math.min(min, max), Math.max(min, max));
+  }
+  // The authored head is tucked directly beneath its parent's pronotum. Once
+  // it meets that surface, further lift belongs to the plate's neck hinge.
+  // Keep this derived carry out of saved offsets; projecting it again is inert.
+  for (let i = 0; i < joints.length; i++) {
+    const parent = headContactParent(joints, i);
+    if (parent < 0) continue;
+    const joint = joints[i], contact = joint.headContact, index = i * 3, parentIndex = parent * 3;
+    const rest = clamp(finite(joint.restOffset?.x), -145, 145);
+    const lift = (out[index] - rest) * contact.liftSign;
+    if (lift > contact.liftLimit) {
+      out[index] = rest + contact.liftSign * contact.liftLimit;
+      if (lift - contact.liftLimit > 1e-6) out[parentIndex] = jointLimit(out[parentIndex] + contact.parentLiftSign * (lift - contact.liftLimit), joints[parent], 0);
+    }
+    // This close-fitting head hinge bends vertically; the plate still supplies
+    // the small sideways movement allowed by the neck's existing limits.
+    out[index + 1] = jointLimit(finite(joint.restOffset?.y), joint, 1);
+    out[index + 2] = jointLimit(finite(joint.restOffset?.z), joint, 2);
   }
   const rig = constraintRig(joints);
   if (!rig) return out;
@@ -1073,11 +1124,13 @@ function branchFloorGap(rig, mask) {
   }
   return minimum;
 }
-function faceLimit(value, joint, axis) {
-  const name = XYZ_AXES[axis], range = joint.poseLimits?.[name], rest = clamp(finite(joint.restOffset?.[name]), -145, 145);
-  const low = range?.length === 2 ? Math.max(-180, rest + finite(range[0], -180)) : -180;
-  const high = range?.length === 2 ? Math.min(180, rest + finite(range[1], 180)) : 180;
-  return clamp(value, Math.min(low, high), Math.max(low, high));
+function faceLimit(value, joint, axis, contactActive = false) {
+  const bounded = jointLimit(value, joint, axis), contact = joint.headContact;
+  if (!contactActive) return bounded;
+  const rest = clamp(finite(joint.restOffset?.[XYZ_AXES[axis]]), -145, 145);
+  // Floor search is a projection, so it may stop head lift but must never
+  // generate additional plate carry while trying its synthetic candidates.
+  return axis === 0 ? rest + contact.liftSign * Math.min((bounded - rest) * contact.liftSign, contact.liftLimit) : rest;
 }
 /** Keep bounded head/feeler geometry above the same six-foot floor used by
  * graphics. Inputs are already degree poses; non-face angles are never edited.
@@ -1097,7 +1150,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
   for (let i = 0; i < count && same; i++) if (rig.input[i] !== out[i]) same = false;
   if (same) { copyFloorPose(rig.output, out, count); scene.floorLift = rig.lift; return out; }
   copyFloorPose(out, rig.input, count); rig.sceneKey.set(values); rig.precision = precision;
-  for (const i of rig.faces) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(finite(out[i * 3 + a]), joints[i], a);
+  for (const i of rig.faces) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(finite(out[i * 3 + a]), joints[i], a, headContactParent(joints, i) >= 0);
   rig.normal.set(rig.frame.dorsal);
   // R = left(-pitch) * forward(roll) * dorsal(yaw), matching the viewer's
   // quaternion multiplication. R^T applied to the normal reverses that order.
@@ -1119,7 +1172,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
     while (branch >= 0) {
       mask = rig.masks.get(branch);
       copyFloorPose(rig.current, out, count);
-      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(rig.core.neutral[i * 3 + a], joints[i], a);
+      for (const i of rig.faces) if (mask[i]) for (let a = 0; a < 3; a++) out[i * 3 + a] = faceLimit(rig.core.neutral[i * 3 + a], joints[i], a, headContactParent(joints, i) >= 0);
       forwardKinematics(rig.core, out, joints); gap = branchFloorGap(rig, mask);
       if (gap >= 0) break;
       let parent = rig.core.parents[branch];
@@ -1135,7 +1188,7 @@ export function constrainRoachFloorPose(pose, joints, scene, out = pose) {
       for (const i of rig.faces) if (mask[i] && metadata(joints[i]).kind !== 'antenna') {
         for (let axis = 0; axis < 3 && gap < 0; axis++) for (const angle of FLOOR_ANGLES) {
           copyFloorPose(rig.reference, out, count);
-          out[i * 3 + axis] = faceLimit(rig.reference[i * 3 + axis] + angle, joints[i], axis);
+          out[i * 3 + axis] = faceLimit(rig.reference[i * 3 + axis] + angle, joints[i], axis, headContactParent(joints, i) >= 0);
           forwardKinematics(rig.core, out, joints); const candidate = branchFloorGap(rig, mask);
           if (candidate > bestGap) { bestGap = candidate; copyFloorPose(out, rig.best, count); }
           if (candidate >= 0) { gap = candidate; break; }
