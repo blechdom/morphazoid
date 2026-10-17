@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  ROACH_MOTION_PRESETS, ROACH_MOTION_DEFAULTS, ROACH_SEQUENCE_STEPS, ROACH_MAX_JOINT_TRACKS,
+  ROACH_MOTION_PRESETS, ROACH_POSE_ANIMATION_PRESETS, ROACH_ANIMATION_PRESETS,
+  ROACH_MOTION_DEFAULTS, ROACH_SEQUENCE_STEPS, ROACH_MAX_JOINT_TRACKS,
   normalizeRoachMotion, activeRoachPreset, writeRoachPose, createRoachJointTrack,
   roachSequencePosition, createRoachSceneState, writeRoachSceneState, bakeRoachPresetTracks,
   evaluateRoachTrack, ROACH_STATIC_POSES, getRoachStaticPose, constrainRoachPose, createRandomRoachMotion, writeRoachBeatState, ROACH_CONTACT_GRID_BEATS, applyRoachSpeechPose,
@@ -339,6 +340,117 @@ test('24 static body poses are distinct, reproducible, frozen and relative to ca
   assert.equal(ROACH_STATIC_POSES.length, 24);
   assert.equal(signatures.size, 24);
   assert.ok(getRoachStaticPose('neutral', rig).offsets.every(({ x, y, z }) => x === 0 && y === 0 && z === 0));
+});
+
+test('the animation bank includes every former held pose while preserving the original motion IDs', () => {
+  assert.equal(ROACH_ANIMATION_PRESETS.length, 48);
+  assert.equal(new Set(ROACH_ANIMATION_PRESETS.map(({ id }) => id)).size, 48);
+  assert.deepEqual(ROACH_ANIMATION_PRESETS.slice(0, 24), ROACH_MOTION_PRESETS);
+  assert.deepEqual(ROACH_POSE_ANIMATION_PRESETS.map(({ poseId }) => poseId), ROACH_STATIC_POSES.map(({ id }) => id));
+  for (const item of ROACH_POSE_ANIMATION_PRESETS) {
+    const controls = normalizeRoachMotion({ presetId: item.id });
+    assert.equal(activeRoachPreset(0, controls).id, item.id);
+    assert.deepEqual(normalizeRoachMotion(JSON.parse(JSON.stringify(controls))), controls);
+    for (const key of ['view', 'side', 'camera', 'sound', 'bodyMix']) assert.equal(Object.hasOwn(controls, key), false);
+  }
+});
+
+test('former held poses retain their shapes and add distinct bounded body gestures over an eight-beat loop', () => {
+  const rig = wingRig(); const signatures = new Set();
+  rig[7].restOffset = { x: 45, y: -17, z: 8 };
+  const calibrated = structuredClone(rig);
+  for (const item of ROACH_POSE_ANIMATION_PRESETS) {
+    const shape = getRoachStaticPose(item.poseId, rig);
+    const settings = { presetId: item.id, tempo: 120, antennae: false };
+    const rest = rig.flatMap(({ restOffset }) => ['x', 'y', 'z'].map(axis => restOffset?.[axis] ?? 0));
+    const held = shape.offsets.flatMap(({ x, y, z }, i) => [x + rest[i * 3], y + rest[i * 3 + 1], z + rest[i * 3 + 2]]);
+    const outputs = [0, .25, .7, 1.4, 2.8].map(time => pose(time, settings, rig));
+    const bodyIndices = rig.flatMap((joint, i) => /antenna/.test(joint.jointId) ? [] : [i * 3, i * 3 + 1, i * 3 + 2]);
+    assert.ok(outputs.some(output => bodyIndices.some(i => Math.abs(output[i] - outputs[0][i]) > .1)), `${item.id} moves more than feelers`);
+    for (const [index, output] of outputs.entries()) {
+      assert.ok(output.every(Number.isFinite), item.id);
+      assert.ok(output.every(value => Math.abs(value) <= 180), item.id);
+      assert.ok(bodyIndices.every(i => Math.abs(output[i] - held[i]) <= 12.001), `${item.id} retains its held shape`);
+      assert.ok(maxDifference(output, pose([0, .25, .7, 1.4, 2.8][index] + 4, settings, rig)) < .0001, `${item.id} loops`);
+    }
+    assert.ok(maxDifference(pose(4 - 1e-7, settings, rig), pose(4, settings, rig)) < .01, `${item.id} continuous wrap`);
+    assert.ok(pose(.7, { ...settings, intensity: 2 }, rig).every(value => Number.isFinite(value) && Math.abs(value) <= 180));
+    signatures.add(JSON.stringify(outputs));
+  }
+  assert.equal(signatures.size, 24);
+  assert.deepEqual(rig, calibrated);
+});
+
+test('pose gestures keep fixed support, no invented foot contacts or ground travel, and tempo changes only speed', () => {
+  const rig = wingRig();
+  for (const item of ROACH_POSE_ANIMATION_PRESETS) {
+    const settings = { presetId: item.id, tempo: 120 };
+    const first = scene(0, settings, rig);
+    for (const time of [0, .173, .75, 2.19, 120]) {
+      const current = scene(time, settings, rig);
+      assert.deepEqual(current.feet, first.feet, `${item.id} holds support`);
+      assert.ok(current.feet.every(({ impact, contactCount }) => impact === 0 && contactCount === 0));
+      assert.equal(current.groundOffset, 0); assert.equal(current.groundSpeed, 0);
+      assert.equal(current.body.lift, 0); assert.equal(current.energy.scuttle, 0);
+    }
+    for (const beat of [.37, 1.9375, 7.8]) {
+      const slow = { ...settings, tempo: 60 }; const fast = { ...settings, tempo: 240 };
+      assert.ok(maxDifference(pose(beat, slow, rig), pose(beat / 4, fast, rig)) < .0001, item.id);
+      assert.deepEqual(scene(beat, slow, rig), scene(beat / 4, fast, rig));
+    }
+  }
+});
+
+test('zero pose-animation intensity restores rest and manual angles without leaving phantom lifted feet', () => {
+  const rig = wingRig();
+  rig[3].offset.x = 9; rig[7].restOffset = { x: 45, y: -17, z: 8 };
+  const rest = pose(.7, { presetId: 'none', antennae: false }, rig);
+  for (const item of ROACH_POSE_ANIMATION_PRESETS) {
+    const controls = { presetId: item.id, intensity: 0 };
+    assert.deepEqual(pose(.7, controls, rig), rest, item.id);
+    const current = scene(.7, controls, rig);
+    assert.ok(Object.values(current.body).every(value => value === 0), item.id);
+    assert.ok(Object.values(current.energy).every(value => value === 0), item.id);
+    assert.ok(current.feet.every(({ lift, stride, impact, contactCount }) => lift === 0 && stride === 0 && impact === 0 && contactCount === 0), item.id);
+  }
+});
+
+test('baked pose gestures match generated angles, support and body state at multiple intensities', () => {
+  const rig = wingRig(); rig[7].restOffset = { x: 45, y: -17, z: 8 };
+  const original = structuredClone(rig);
+  for (const item of ROACH_POSE_ANIMATION_PRESETS) {
+    const baked = bakeRoachPresetTracks(item.id, rig, { tempo: 120 });
+    assert.equal(baked.tracks.length, rig.length * 3);
+    assert.deepEqual(baked.sceneContactCounts, [0, 0, 0, 0, 0, 0]);
+    assert.equal(baked.sceneTravelPerLoop, 0);
+    for (const intensity of [0, .5, 1]) for (const sample of [0, 7, 16, 33, 63]) {
+      const time = sample / 16;
+      const controls = { presetId: item.id, tempo: 120, intensity };
+      assert.ok(maxDifference(pose(time, controls, rig), pose(time, { ...baked, intensity }, rig)) < .0002, `${item.id} sample ${sample}, intensity ${intensity}`);
+      const direct = scene(time, controls, rig); const sampled = scene(time, { ...baked, intensity }, rig);
+      for (const axis of ['lift', 'pitch', 'roll', 'yaw']) assert.ok(Math.abs(sampled.body[axis] - direct.body[axis]) < .0002, `${item.id} body ${axis}`);
+      for (let i = 0; i < 6; i += 1) {
+        assert.equal(sampled.feet[i].stance, direct.feet[i].stance, `${item.id} support`);
+        for (const key of ['lift', 'stride', 'impact', 'contactCount']) assert.ok(Math.abs(sampled.feet[i][key] - direct.feet[i][key]) < .0002, `${item.id} foot ${i} ${key}`);
+      }
+    }
+  }
+  assert.deepEqual(rig, original);
+});
+
+test('seeded motion variations draw from both original routines and former body poses without owning sound or view', () => {
+  const rig = joints().slice(0, 7); const bases = new Set(); const donors = new Set();
+  for (let seed = 1; seed <= 64; seed += 1) {
+    const motion = createRandomRoachMotion(seed, rig, { tempo: 120 });
+    assert.ok(ROACH_ANIMATION_PRESETS.some(({ id }) => id === motion.presetId));
+    assert.ok(ROACH_ANIMATION_PRESETS.some(({ id }) => id === motion.randomSourceId));
+    for (const key of ['view', 'side', 'camera', 'sound', 'bodyMix']) assert.equal(Object.hasOwn(motion, key), false);
+    bases.add(motion.presetId); donors.add(motion.randomSourceId);
+  }
+  assert.ok([...bases].some(id => id.startsWith('pose:')));
+  assert.ok([...bases].some(id => !id.startsWith('pose:')));
+  assert.ok([...donors].some(id => id.startsWith('pose:')));
+  assert.ok([...donors].some(id => !id.startsWith('pose:')));
 });
 
 test('random static positions are seeded, bounded and do not mutate caller poses or metadata', () => {
