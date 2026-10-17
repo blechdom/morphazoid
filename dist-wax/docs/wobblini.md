@@ -2,9 +2,9 @@
 
 Eight independent stereo sources for intercutting recordings and conversations.
 Audio starts off; playing, loading, cueing, scratching and changing views never
-arm it. Files and generated demo sources **play through once**. At the end the
-deck stops; Play starts it again from the beginning. Loop controls have been
-removed.
+arm it. Files and generated demo sources **automatically repeat in full**,
+returning from the end to the beginning until paused or stopped. There are no
+editable loop regions or beat-loop controls.
 
 ## Performance views
 
@@ -42,9 +42,9 @@ The separate position slider seeks without a scratch sound.
 
 Enable **Slip** to retain an inaudible uninterrupted timeline while scratching
 or holding Cue. Releasing returns a previously playing deck to where it would
-have reached. Slip does not wrap the file: if that timeline reaches the end,
-playback stops. An enabled beat-sync follower rejoins the master's grid after
-release when the master is available.
+have reached, wrapping from the end back to the beginning as often as needed.
+An enabled beat-sync follower rejoins the master's grid after release when the
+master is available and the full-file lengths permit beat alignment.
 
 Space toggles all decks, and keys 1–8 toggle individual decks when focus is
 outside controls. Stop pauses everything and returns all sources to zero.
@@ -107,8 +107,12 @@ actual matched speed. Impossible ratios report a warning.
 
 Sync never starts a paused deck or arms Audio. While the master is paused or
 being scratched, followers keep their matched tempo and suspend phase locking.
-They rejoin when it resumes. Manual follower speed edits, including Reset speed,
-release that follower from sync. A cue point alone is not a beat-grid correction.
+They rejoin when it resumes. Full-file lengths must contain a whole number of
+the selected beat/bar interval to preserve beat alignment across repeats. If
+either the master or follower does not, tempo is matched and a message offers
+Tempo only; playback still repeats the complete source without skipping words.
+Manual follower speed edits, including Reset speed, release that follower from
+sync. A cue point alone is not a beat-grid correction.
 There is no metronome, adaptive tempo grid or automatic master election.
 
 ## Source length and phone budgets
@@ -179,8 +183,8 @@ media or artwork.
 | A/B crossfade assignment | Decks assigned to crossfader sides; Thru bypass | A/B/Thru on every deck, equal-power curve |
 | Speed / Key Lock / pitch shift | Speed ranges, pitch preservation and key changes | ±8–±75% ranges; Key Lock; independent ±12-semitone pitch |
 | BPM analysis / SYNC | Analysis plus tempo/beat sync options | Worker analysis, editable grid, 120 fallback; optional per-deck tempo/beat sync and 1-beat/1-bar alignment |
-| Beat loops | Beat-length loops | Intentionally removed; sources play once |
-| Slip | Background timeline resumes after manipulation | Timeline continues during scratching and Cue; file end stops playback |
+| Beat loops | Beat-length loops | Editable beat loops removed; complete sources repeat automatically |
+| Slip | Background timeline resumes after manipulation | Timeline continues during scratching and Cue, wrapping at the file end |
 | Geometric group mixer | No equivalent required for this workflow | Removed; gain, volume, pan and A/B remain |
 | Maximum source length | No fixed duration ceiling stated in the cited import documentation | Whole-file decoding with the explicit phone and standard byte limits above; no partial import |
 | Continuous master recording | Built-in mix recording; no fixed ceiling stated in the cited guide | Storage-backed capture, numbered WAV parts; storage and browser interruptions bound duration |
