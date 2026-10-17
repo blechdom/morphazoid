@@ -13,6 +13,27 @@ const dimensions = [
 ];
 const ratios = [undefined, 0, -1, 0.5, 1, 1.25, 2, 3, Infinity, Number.NaN];
 
+// Throat Singer now keeps anatomy in fixed coordinates at the owner's request.
+// Preserve the frozen pixel-allocation/lifecycle evidence and separately verify
+// its uniformly scaled view; do not rewrite the historical callback fixture.
+function compareThroatSingerResize(actual, expected) {
+  const { viewTransform, ...preserved } = actual;
+  assert.equal(actual.cssWidth, 900);
+  assert.equal(actual.cssHeight, 720);
+  assert.equal(viewTransform.width, expected.cssWidth);
+  assert.equal(viewTransform.height, expected.cssHeight);
+  assert.equal(viewTransform.scale, Math.min(expected.cssWidth / 900, expected.cssHeight / 720));
+  assert.equal(Number(viewTransform.dataset.viewScaleX), viewTransform.scale);
+  assert.equal(Number(viewTransform.dataset.viewScaleY), viewTransform.scale);
+  assert.equal(viewTransform.dataset.modelWidth, "900");
+  assert.equal(viewTransform.dataset.modelHeight, "720");
+  preserved.cssWidth = expected.cssWidth;
+  preserved.cssHeight = expected.cssHeight;
+  preserved.calls = actual.calls.map(call => call[0] === "width"
+    ? [call[0], call[1], expected.cssWidth, expected.cssHeight, call[4]] : call);
+  assert.deepEqual(preserved, expected);
+}
+
 for (const entry of reference.entries) {
   const current = await readFile(new URL(`../${currentSourcePath(entry.file)}`, import.meta.url), "utf8");
   // Respect the function's indentation, including nested graph controllers.
@@ -20,6 +41,9 @@ for (const entry of reference.entries) {
   assert.ok(callback, `${entry.file} callback must exist`);
   assert.match(current, /import \{ canvasSizing \}/, `${entry.file} must use the shared sizing module`);
   assert.match(callback, /canvasSizing\(/, `${entry.file} must not reintroduce an inline sizing implementation`);
+
+  const throatSinger = entry.file === "throat-singing-app.js";
+  const modelOptions = throatSinger ? { modelSize: { width: 900, height: 720 } } : {};
 
   test(`${entry.file}: existing sizing policy and callback effects are preserved`, () => {
     for (const [width, height] of dimensions) {
@@ -34,7 +58,9 @@ for (const entry of reference.entries) {
           cssWidth: expected.cssWidth, cssHeight: expected.cssHeight, pixelRatio: expected.pixelRatio,
           width: expected.backing.width, height: expected.backing.height,
         }, `policy at ${width}x${height}, DPR ${dpr}`);
-        assert.deepEqual(runCanvasResize(callback, bounds, dpr).execute(canvasSizing), expected);
+        const actual = runCanvasResize(callback, bounds, dpr, modelOptions).execute(canvasSizing);
+        if (throatSinger) compareThroatSingerResize(actual, expected);
+        else assert.deepEqual(actual, expected);
       }
     }
   });
@@ -46,10 +72,10 @@ for (const entry of reference.entries) {
       { activeGesture: true, scheduledFrame: 17, repetitions: 2 },
     ]) {
       const bounds = { width: 801.25, height: 605.75 };
-      assert.deepEqual(
-        runCanvasResize(callback, bounds, 1.5, scene).execute(canvasSizing),
-        runCanvasResize(entry.source, bounds, 1.5, scene).execute(canvasSizing),
-      );
+      const actual = runCanvasResize(callback, bounds, 1.5, { ...scene, ...modelOptions }).execute(canvasSizing);
+      const expected = runCanvasResize(entry.source, bounds, 1.5, scene).execute(canvasSizing);
+      if (throatSinger) compareThroatSingerResize(actual, expected);
+      else assert.deepEqual(actual, expected);
     }
   });
 }

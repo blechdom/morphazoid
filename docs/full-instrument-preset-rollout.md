@@ -580,7 +580,9 @@ captures. Ignored logs and screenshots are not included in the branch commit.
    preset must not silently arm Audio, ask for microphone access, or destroy
    user recordings. Shape is the owner-requested transport-state exception:
    full scenes restore Playhead/Rotate on/off, but preserve current phase and
-   Audio state. Do not turn that into a site-wide automatic-Play policy.
+   Audio state. Throat Singer's owner-requested exception starts a paused Voice
+   only after successful preset/Next/dice recall; Audio arming stays unchanged.
+   Do not turn these into a site-wide automatic-Play policy.
 
 The seven existing labs are separately identified in the inventory. They are
 not silently counted as fully compliant instruments, nor assigned fictional

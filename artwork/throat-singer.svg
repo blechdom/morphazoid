@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Throat Singer</title>
+  <desc>A simple profile with a broad vocal airway and one flowing overtone.</desc>
+  <rect width="512" height="512" fill="#07110f"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M145 432V349C105 325 89 287 92 230C87 142 126 81 196 77C256 72 288 110 294 164L335 207Q342 218 327 221L309 223L312 249L335 262"
+          stroke="#87bca7" stroke-width="12"/>
+    <path d="M335 288L313 292Q303 324 272 328L266 432"
+          stroke="#87bca7" stroke-width="12"/>
+    <path d="M196 427V318C196 280 209 269 239 271L313 277"
+          stroke="#62f0c5" stroke-width="32"/>
+    <path d="M196 427V318C196 280 209 269 239 271L313 277"
+          stroke="#122a22" stroke-width="12"/>
+    <path d="M320 277H339C352 277 352 250 363 250S374 304 386 304S398 234 410 234S424 277 439 277"
+          stroke="#f779a6" stroke-width="10"/>
+  </g>
+</svg>

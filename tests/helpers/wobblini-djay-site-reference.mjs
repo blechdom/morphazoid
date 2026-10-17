@@ -1,3 +1,4 @@
+import { restoreThroatSingerMetadata, restoreThroatSingerView } from "./throat-singer-reference.mjs";
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -8,6 +9,8 @@ export const wobbliniDjaySiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed performance/recorder amendments for older proofs. */
 export function restoreWobbliniDjaySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreThroatSingerView(source, file);
+  source = restoreThroatSingerMetadata(source, file, { allowRestored: true });
   for (const change of wobbliniDjaySiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {
       const count = source.split(after).length - 1;

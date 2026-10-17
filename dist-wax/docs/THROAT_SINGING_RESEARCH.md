@@ -203,3 +203,76 @@ The model accepts true-fold frequency `50–360 Hz`, integer period division `1�
 - UNESCO Intangible Cultural Heritage, “Mongolian traditional art of Khöömei,” Representative List No. 00396 (inscribed 2010): <https://ich.unesco.org/en/RL/mongolian-traditional-art-of-khoomei-00396> — nomination form <https://ich.unesco.org/doc/src/07531-EN.pdf>
 - Avataq Cultural Institute lexicon, `katajjaq, katajjait`: <https://www.avataq.qc.ca/en/Nunavimmiuts/The-land/Lexicon>
 - Avataq Cultural Institute, “Katajjaniq, the Inuit throat singing, designated as the first element of Québec’s intangible heritage” (2014): <https://www.avataq.qc.ca/en/content/view/full/2949>
+
+
+## Authored performance patterns
+
+The display name is Throat Singer; the `throat-singing` ID and URL remain stable.
+The 28 complete presets include source, tract, ornament, melody, breathing,
+portamento, polyphony and effects. Main dice randomizes the full musical state,
+preserving output level and Audio arming. Successful main preset, Next and dice
+recall starts a paused Voice, while an already-playing Voice keeps its envelope
+and clock. This success-only behavior excludes startup, failed recall and
+rollback; Voice and Audio begin off. The original
+named approaches remain local source/tract starting points in the Voice menu.
+
+The 18 ornaments and 12 moving pitch contours are authored synthesis gestures,
+not cultural transcriptions. Ornament phase changes the upper pharynx, oral
+constriction, front cavity, mouth aperture, lip rounding and pressure; drawing
+and synthesis consume the same articulation. Ornament and melody each have an
+independent play latch, direction, ping-pong, repeat, speed and range. Their
+clocks keep moving in silent preview; pausing one does not pause the other or
+change the voice latch. A single pass returns to the authored drone/pose.
+Cycle positions accumulate at the current rate, so changing speed preserves
+the phrase position and a zero speed holds it. Vibrato, pulse and automatic
+breathing use the same rate integration. The current melody note retains its
+glide contour through a tempo edit; subsequent notes use the new tempo.
+The keyboard shows the shared 24-key two-row piano mapping and latches drone
+tuning. Glide controls exponential pitch interpolation and melody transitions;
+source pitch retains the engine's 50–360 Hz limit. A shallow nasal branch follows
+lip rounding through the existing waveguide model. Anatomy has a fixed 900×720
+coordinate system and one uniform viewport scale, including inverse pointer
+coordinates, so resizing preserves its proportions.
+The profile keeps a larger, raised upright nose bridge and rear head/neck edge,
+with no eyebrow or nostril mark and the crown open.
+The spectrum sits to the left of an expanded focus movement field, and the
+bottom-right readout box is removed. The tongue-shaped mouth body has a visible
+soft pink fill, with a brighter pink outline and handle.
+Direct mouth and lip handles mirror oral constriction and lip rounding; a vertical lip drag
+also opens the mouth. Focus drag leaves oral constriction independent. Airflow
+controls the original 0–100% pressure range with nearly three times the visible
+travel, matching its drag distance; false-fold dragging controls coupling and period.
+Drags use deltas from the authored state so grabbing an animated handle does not
+rewrite its parameter, and hit areas retain at least a 48-pixel screen diameter.
+Controls use aligned playback rows, adjoining square motion buttons, native
+speed and glide sliders and compact single-line knob captions with nearby
+readouts. Buttons and selectors match the shared preset control height.
+
+Voice onset uses a 350 ms smooth envelope and release uses 220 ms. Breath pauses
+have a 220 ms release, 280 ms inhalation gap and 350 ms return. The manual button
+and automatic 1–30 breaths/min setting use the same contour; Never disables
+scheduled pauses. These timings are artistic synthesis settings, not measured
+technique. Throat singers use respiratory airflow for phonation: the ventricular
+phonation study linked above includes Kargyraa. General singing research also
+observes separate inspiration and expiration/phonation phases ([Salomoni et al.
+2016](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0155084)).
+Never represents an endless synthetic source rather than a human breathing claim.
+
+Polyphony adds at most three independently pitched glottal-source layers, with
+bounded pitch spread. These are additional synthesized voices, not a claim that
+one singer produces several independent fundamentals. Up to three extra
+bandpasses extract different harmonics from the main physical tract, using the
+heard drone as their fundamental even when ventricular division is active.
+Instability modulates source tuning. A deterministic 1.6-second stereo room and
+filtered delay with feedback capped at 0.65 are inserted before the existing
+compressor, soft clipper and master output. Source envelopes precede these
+effects, allowing their tails to ring after a release. Audio off mutes the master.
+Output level spans 0–100%; its full-scale master gain is 0.47 after the soft
+clipper, retaining the existing protected output chain.
+
+Audio modulation uses an independent 20 ms scheduling timer with 180 ms of
+AudioParam lookahead. Graphics sample the running AudioContext clock, falling
+back to a silent visual clock when Audio is off. Waveguide shape updates retain
+the processor's smoothing. Longer main-thread stalls can hold the last tract
+shape after lookahead expires; synthesis remains on the audio thread. None of
+the three Play buttons or the breath button implicitly arms Audio.

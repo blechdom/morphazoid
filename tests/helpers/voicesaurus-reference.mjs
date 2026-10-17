@@ -1,3 +1,4 @@
+import { restoreThroatSingerMetadata } from "./throat-singer-reference.mjs";
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -16,6 +17,7 @@ const sha = source => createHash('sha256').update(source).digest('hex');
 
 /** Restore the pre-Voicesaurus source before applying earlier frozen amendments. */
 export function restoreVoicesaurus(source, file, readShared = readImplementation) {
+  source = restoreThroatSingerMetadata(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });

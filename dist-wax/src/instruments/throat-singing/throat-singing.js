@@ -1,5 +1,5 @@
 /**
- * Pure control and geometry model for the Throat Singing instrument.
+ * Pure control and geometry model for the Throat Singer instrument.
  *
  * The named presets are playable approximations, not measurements of an
  * individual singer and not instructions for producing these vocal techniques.
@@ -56,7 +56,7 @@ const numericLimits = {
   motionRateHz: [0, 12],
   motionDepth: [0, 1],
   amplitudeMotionDepth: [0, 1],
-  level: [0, 0.8],
+  level: [0, 1],
 };
 
 export const THROAT_SINGING_LIMITS = deepFreeze(numericLimits);

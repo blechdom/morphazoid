@@ -7,6 +7,7 @@ export function runCanvasResize(source, bounds, devicePixelRatio, {
   activeGesture = false,
   scheduledFrame = 0,
   repetitions = 1,
+  modelSize = null,
 } = {}) {
   const calls = [];
   const backing = { width: 300, height: 150 };
@@ -24,7 +25,12 @@ export function runCanvasResize(source, bounds, devicePixelRatio, {
     runtime: { devicePixelRatio },
     devicePixelRatio,
   };
+  if (modelSize) {
+    runtime.cssWidth = modelSize.width;
+    runtime.cssHeight = modelSize.height;
+  }
   runtime.canvas = {
+    dataset: {},
     get width() { return backing.width; },
     set width(value) {
       backing.width = value;
@@ -64,6 +70,11 @@ export function runCanvasResize(source, bounds, devicePixelRatio, {
         visualizationDirty: runtime.visualizationDirty, tileEditorDirty: runtime.tileEditorDirty,
         currentSpatialCell: runtime.currentSpatialCell, activePointerGesture: runtime.activePointerGesture,
         scheduledFrame: runtime.scheduledFrame,
+        ...(modelSize ? { viewTransform: {
+          width: runtime.viewWidth, height: runtime.viewHeight,
+          scale: runtime.viewScale, x: runtime.viewX, y: runtime.viewY,
+          dataset: runtime.canvas.dataset,
+        } } : {}),
       });
     },
   };

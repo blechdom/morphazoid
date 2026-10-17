@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 51,
-    "fullPresets": 2143,
+    "implemented": 52,
+    "fullPresets": 2171,
     "favesImplemented": 18,
-    "activeRemaining": 60,
-    "regularRemaining": 131
+    "activeRemaining": 59,
+    "regularRemaining": 130
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -474,12 +474,13 @@
     },
     {
       "id": "throat-singing",
-      "label": "Throat Singing",
+      "label": "Throat Singer",
       "href": "throat-singing.html",
       "category": "physical-model",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 28,
+      "status": "implemented-verification-pending",
+      "evidence": "Owner-requested 28-scene full-state bank; 18 ornaments and 12 moving pitch melodies, independent track direction/repeat, breathing and portamento, bounded pitched/overtone polyphony, room and echo. Pure model and focused Chromium tests cover finite audio, exact recall, full randomization, envelopes and responsive reach. Successful main preset/Next/dice recall starts paused Voice while preserving Audio arming and output level; startup and failed recall stay transport-neutral. Human listening and physical touch remain unperformed."
     },
     {
       "id": "monstroid",
@@ -1859,7 +1860,6 @@
       "simd-resonator",
       "throatazoid",
       "pink-trombonazoid",
-      "throat-singing",
       "monstroid",
       "harmonica",
       "julie-saw",

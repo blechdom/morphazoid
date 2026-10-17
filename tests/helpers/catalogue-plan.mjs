@@ -5,7 +5,8 @@ const originalPlan = JSON.parse(readFileSync(new URL('../../docs/catalogue-updat
 export const removedInstrumentIds = new Set(['morphazoidical']);
 // October 16 owner request: a Math category, placed before Work in Progress, for the Graphonic Calculator.
 export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.categoryOrder.flatMap(id => (id === 'wip' ? ['math', 'wip'] : [id])), rows: originalPlan.rows.filter(row => !removedInstrumentIds.has(row.id)).map(row =>
-  row.id === 'spelling-synthesizer' ? { ...row, categoryId: 'voice', categoryLabel: 'Voice' } : row) };
+  row.id === 'spelling-synthesizer' ? { ...row, categoryId: 'voice', categoryLabel: 'Voice' }
+  : row.id === 'throat-singing' ? { ...row, label: 'Throat Singer' } : row) };
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [

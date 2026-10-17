@@ -6,7 +6,7 @@
     <!-- morphazoid-social-preview:start -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
-    <meta property="og:title" content="Throat Singing · Morphazoid" />
+    <meta property="og:title" content="Throat Singer · Morphazoid" />
     <meta property="og:description" content="A research-informed physical-model synthesizer for Tuvan throat-singing acoustics, overtone focusing, and ventricular-fold period division." />
     <meta property="og:url" content="https://morphazoid.com/throat-singing.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -16,7 +16,7 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Throat Singing · Morphazoid" />
+    <meta name="twitter:title" content="Throat Singer · Morphazoid" />
     <meta name="twitter:description" content="A research-informed physical-model synthesizer for Tuvan throat-singing acoustics, overtone focusing, and ventricular-fold period division." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
@@ -28,9 +28,11 @@
       name="description"
       content="A research-informed physical-model synthesizer for Tuvan throat-singing acoustics, overtone focusing, and ventricular-fold period division."
     />
-    <title>Throat Singing · Morphazoid</title>
+    <title>Throat Singer · Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/ui/primitives/button.css" />
+    <link rel="stylesheet" href="src/ui/primitives/range-knob.css" />
     <link rel="stylesheet" href="src/instruments/throat-singing/throat-singing.css" />
   </head>
   <body class="throat-singing-page">
@@ -43,7 +45,7 @@
       <nav class="tabs" aria-label="Instrument">
         <a class="tab" href="throatazoid.html">throatazoid</a>
         <a class="tab" href="pink-trombonazoid.html">pink trombonazoid</a>
-        <a class="tab active" href="throat-singing.html" aria-current="page">throat singing</a>
+        <a class="tab active" href="throat-singing.html" aria-current="page">throat singer</a>
         <a class="tab" href="hybrinx.html">hybrinx</a>
         <a class="tab" href="jaw-harp.html">jaw harp</a>
       </nav>
@@ -53,7 +55,7 @@
         <select class="mobile-instrument-select" aria-label="Instrument">
           <option value="throatazoid.html">throatazoid</option>
           <option value="pink-trombonazoid.html">pink trombonazoid</option>
-          <option value="throat-singing.html" selected>throat singing</option>
+          <option value="throat-singing.html" selected>throat singer</option>
           <option value="hybrinx.html">hybrinx</option>
           <option value="jaw-harp.html">jaw harp</option>
         </select>
@@ -68,10 +70,10 @@
           <span><b>Output</b><output id="levelOut" for="level">28%</output></span>
           <input
             id="level"
-            aria-label="Throat singing output level"
+            aria-label="Throat Singer output level"
             type="range"
             min="0"
-            max="0.7"
+            max="1"
             step="0.01"
             value="0.28"
           />
@@ -80,13 +82,13 @@
     </header>
 
     <main class="shell throat-shell" id="throatSinging">
-      <h1 class="sr-only">Throat Singing physical-model synthesizer</h1>
       <section class="stage throat-stage" aria-label="Interactive throat-singing anatomy and spectrum">
         <div class="stage-wrap" id="stageWrap">
+          <h1 class="throat-title">Throat Singer</h1>
           <canvas
             id="stage"
             tabindex="0"
-            aria-label="Interactive side-view vocal tract. Drag the violet overtone focus, amber pharynx, or coral false-fold handle. Move the focus field horizontally to choose a harmonic and vertically to sharpen it."
+            aria-label="Interactive side-view vocal tract. Drag overtone focus horizontally for harmonic and vertically for sharpness; pharynx or mouth vertically for constriction; lips horizontally for rounding and vertically for opening; false folds vertically for coupling and horizontally for period; airflow vertically for pressure."
             aria-describedby="canvasInstructions liveStatus"
           >
             A side-view vocal tract with a harmonic spectrum, two constrictions, and true and false vocal folds.
@@ -98,100 +100,192 @@
             <span><i class="is-formant"></i> tract envelope</span>
           </div>
 
-          <div class="throat-stage-status">
-            <span><small>heard drone</small><output id="stageDroneOut">110 Hz</output></span>
-            <span><small>focused overtone</small><output id="stageOvertoneOut">H8 · 880 Hz</output></span>
-            <span><small>duplex formant</small><output id="stageFormantOut">F2 ↔ F3</output></span>
-          </div>
-
           <p class="throat-drag-hint" aria-hidden="true">
-            DRAG OVERTONE FOCUS ↔ HARMONIC / ↕ SHARPNESS · DRAG PHARYNX ↕ CAVITY · DRAG FALSE FOLDS ↕ COUPLING
+            DRAG FOCUS · PHARYNX · MOUTH · LIPS · FOLDS · AIRFLOW
           </p>
           <p class="throat-audio-error" id="audioError" role="alert" hidden></p>
         </div>
 
       </section>
 
-      <aside class="panel throat-panel" aria-label="Throat singing controls">
-        <div data-instrument-preset-host></div>
-        <div class="throat-transport" aria-label="Performance transport">
-          <button id="singButton" type="button" aria-pressed="false" aria-keyshortcuts="Space" data-primary-transport>
-            <span class="throat-sing-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span><b id="singButtonLabel">Begin drone</b><small id="singState">space · click to latch</small></span>
-          </button>
-          <button id="gestureButton" type="button">
-            <span aria-hidden="true">↝</span>
-            <span><b>Ornament</b><small id="gestureState">one phrase</small></span>
-          </button>
-        </div>
-
-        <section class="throat-style-deck" aria-labelledby="styleTitle">
-          <div class="throat-style-heading">
-            <span><small>Explore first · named approaches</small><b id="styleTitle">Singing approach</b></span>
-            <output id="traditionOut">Synthetic exploration · Open drone</output>
+      <aside class="panel throat-panel" data-instrument-preset-host aria-label="Throat Singer controls">
+        <section class="throat-performance-track throat-voice-track" aria-label="Voice">
+          <div class="throat-track-heading">
+            <button id="singButton" class="play-button mz-button--play" type="button" aria-label="Play voice" title="Play voice" aria-pressed="false" aria-keyshortcuts="Space" data-primary-transport>
+              <span aria-hidden="true" class="mz-button__transport-icon">
+                <svg class="transport-play" viewBox="0 0 24 24">
+                  <path d="M8 5.5 18 12 8 18.5Z" />
+                </svg>
+                <svg class="transport-pause" viewBox="0 0 24 24">
+                  <path d="M8 6v12M16 6v12" />
+                </svg>
+              </span>
+            </button>
+            <label class="throat-track-select">
+              <span>Voice</span>
+              <select id="styleSelect" aria-label="Singing approach">
+              </select>
+            </label>
+            <button id="breathButton" class="throat-icon-button throat-breath-button" type="button" aria-label="Take a breath" title="Take a breath">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 7h11c5 0 5-6 1-5M3 12h16M3 17h10c5 0 5 6 1 5" />
+              </svg>
+            </button>
+            <label class="control" for="breathRate">
+              <span>
+                <b>Breaths</b>
+                <output id="breathRateOut" for="breathRate">
+                </output>
+              </span>
+              <input id="breathRate" aria-label="Breath frequency" type="range" min="0" max="30" step="0.1" value="0" />
+            </label>
           </div>
-          <div class="throat-style-buttons" id="styleButtons" role="group" aria-label="Singing approach presets"></div>
-          <p id="styleDescription">
-            A gentler open drone with the tongue lowered and a broad focus; shape the airway to uncover upper harmonics.
-          </p>
         </section>
-
-        <div class="throat-model-hud">
-          <span><small>true folds</small><output id="foldReadout">110 Hz · modal</output></span>
-          <span><small>ventricular folds</small><output id="ventricularReadout">folds open</output></span>
-          <span><small>focus peak</small><output id="focusReadout">880 Hz · 300 Hz BW</output></span>
-          <span><small>tract shape</small><output id="tractReadout">split F2/F3 · 18.0 cm</output></span>
-        </div>
-
-        <section class="throat-note-bank" aria-labelledby="noteBankTitle">
-          <div>
-            <b id="noteBankTitle">Drone pitch</b>
-            <small>A S D F G H J K · equal-tempered convenience control</small>
+        <section class="throat-performance-track" aria-label="Ornament">
+          <div class="throat-track-heading">
+            <button id="gestureButton" class="play-button mz-button--play" type="button" aria-label="Play ornament" title="Play ornament" aria-pressed="false">
+              <span aria-hidden="true" class="mz-button__transport-icon">
+                <svg class="transport-play" viewBox="0 0 24 24">
+                  <path d="M8 5.5 18 12 8 18.5Z" />
+                </svg>
+                <svg class="transport-pause" viewBox="0 0 24 24">
+                  <path d="M8 6v12M16 6v12" />
+                </svg>
+              </span>
+            </button>
+            <label class="throat-track-select">
+              <span>Ornament</span>
+              <select id="ornamentSelect" aria-label="Ornament pattern">
+              </select>
+            </label>
+            <div class="throat-mode-buttons" role="group" aria-label="Ornament direction and repeat">
+              <button id="ornamentNext" class="throat-icon-button" type="button" aria-label="Next ornament" title="Next ornament"><span aria-hidden="true">▶</span></button>
+              <button id="ornamentDirection" type="button" aria-label="Ornament direction: forward" title="Reverse ornament" aria-pressed="false">
+                <span aria-hidden="true">→</span>
+              </button>
+              <button id="ornamentPingPong" type="button" aria-label="Ornament ping-pong" title="Ornament ping-pong" aria-pressed="false">
+                <span aria-hidden="true">↔</span>
+              </button>
+              <button id="ornamentRepeat" type="button" aria-label="Loop ornament" title="Loop ornament" aria-pressed="true">
+                <span aria-hidden="true">⟳</span>
+              </button>
+            </div>
           </div>
-          <div id="noteButtons" role="group" aria-label="Drone notes"></div>
+          <div class="throat-track-motion">
+            <label class="control throat-slider" for="ornamentRate">
+              <span>
+                <b>Speed</b>
+                <output id="ornamentRateOut" for="ornamentRate">
+                </output>
+              </span>
+              <input id="ornamentRate" aria-label="Ornament speed" type="range" min="0" max="12" step="0.1" value="0.75" />
+            </label>
+            <label class="control" for="ornamentDepth">
+              <span>
+                <b>Range</b>
+                <output id="ornamentDepthOut" for="ornamentDepth">
+                </output>
+              </span>
+              <input id="ornamentDepth" aria-label="Ornament pitch range" title="Pitch range" type="range" min="0" max="3" step="0.1" value="0.5" />
+            </label>
+          </div>
+        </section>
+        <section class="throat-performance-track throat-melody-track" aria-label="Melody">
+          <div class="throat-track-heading">
+            <button id="melodyButton" class="play-button mz-button--play" type="button" aria-label="Play melody" title="Play melody" aria-pressed="false">
+              <span aria-hidden="true" class="mz-button__transport-icon">
+                <svg class="transport-play" viewBox="0 0 24 24">
+                  <path d="M8 5.5 18 12 8 18.5Z" />
+                </svg>
+                <svg class="transport-pause" viewBox="0 0 24 24">
+                  <path d="M8 6v12M16 6v12" />
+                </svg>
+              </span>
+            </button>
+            <label class="throat-track-select">
+              <span>Melody</span>
+              <select id="melodySelect" aria-label="Melody pattern">
+              </select>
+            </label>
+            <div class="throat-mode-buttons" role="group" aria-label="Melody direction and repeat">
+              <button id="melodyNext" class="throat-icon-button" type="button" aria-label="Next melody" title="Next melody"><span aria-hidden="true">▶</span></button>
+              <button id="melodyDirection" type="button" aria-label="Melody direction: forward" title="Reverse melody" aria-pressed="false">
+                <span aria-hidden="true">→</span>
+              </button>
+              <button id="melodyPingPong" type="button" aria-label="Melody ping-pong" title="Melody ping-pong" aria-pressed="false">
+                <span aria-hidden="true">↔</span>
+              </button>
+              <button id="melodyRepeat" type="button" aria-label="Loop melody" title="Loop melody" aria-pressed="true">
+                <span aria-hidden="true">⟳</span>
+              </button>
+            </div>
+          </div>
+          <div class="throat-track-motion">
+            <label class="control throat-slider" for="melodyRate">
+              <span>
+                <b>Speed</b>
+                <output id="melodyRateOut" for="melodyRate">
+                </output>
+              </span>
+              <input id="melodyRate" aria-label="Melody speed" type="range" min="0" max="4" step="0.01" value="0.12" />
+            </label>
+            <label class="control throat-slider" for="portamento">
+              <span>
+                <b>Glide</b>
+                <output id="portamentoOut" for="portamento"></output>
+              </span>
+              <input id="portamento" aria-label="Portamento" type="range" min="0" max="2" step="0.01" value="0.12" />
+            </label>
+            <label class="control" for="melodyDepth">
+              <span>
+                <b>Span</b>
+                <output id="melodyDepthOut" for="melodyDepth">
+                </output>
+              </span>
+              <input id="melodyDepth" aria-label="Melody pitch span" title="Pitch span" type="range" min="0" max="24" step="0.1" value="12" />
+            </label>
+          </div>
+        </section>
+        <section class="throat-note-bank" aria-labelledby="noteBankTitle">
+          <div class="throat-note-heading">
+            <b id="noteBankTitle">Drone pitch</b>
+          </div>
+          <div id="noteButtons" role="group" aria-label="Drone keyboard">
+          </div>
         </section>
 
         <details class="group control-section throat-source-section" data-section="sound" open>
           <summary class="group-summary">
             <h2 class="group-title">Laryngeal source</h2>
-            <span class="section-state" id="sourceSummary">110 Hz folds · one pulse</span>
           </summary>
           <div class="group-body">
             <label class="control" for="trueFoldHz">
-              <span><b>True-fold frequency</b><output id="trueFoldHzOut" for="trueFoldHz">110 Hz</output></span>
-              <input id="trueFoldHz" type="range" min="55" max="360" step="1" value="110" />
-              <small>The repeating vocal-fold source. Kargyraa can place the heard period below it.</small>
+              <span><b>Pitch</b><output id="trueFoldHzOut" for="trueFoldHz">110 Hz</output></span>
+              <input id="trueFoldHz" aria-label="True-fold frequency" title="True-fold frequency" type="range" min="50" max="360" step="1" value="110" />
             </label>
             <label class="control" for="sourcePressure">
-              <span><b>Source pressure</b><output id="sourcePressureOut" for="sourcePressure">62%</output></span>
-              <input id="sourcePressure" type="range" min="0" max="1" step="0.01" value="0.62" />
-              <small>Drives the voiced fold pulse and the visible source-flow display.</small>
+              <span><b>Pressure</b><output id="sourcePressureOut" for="sourcePressure">62%</output></span>
+              <input id="sourcePressure" aria-label="Source pressure" title="Source pressure" type="range" min="0" max="1" step="0.01" value="0.62" />
             </label>
             <label class="control" for="adduction">
-              <span><b>Adduction / pressedness</b><output id="adductionOut" for="adduction">56%</output></span>
-              <input id="adduction" type="range" min="0" max="1" step="0.01" value="0.56" />
-              <small>Strengthens closure and upper harmonics before the tract selects one.</small>
+              <span><b>Tension</b><output id="adductionOut" for="adduction">56%</output></span>
+              <input id="adduction" aria-label="Adduction / pressedness" title="Adduction / pressedness" type="range" min="0" max="1" step="0.01" value="0.56" />
             </label>
             <label class="control" for="vocalFry">
-              <span><b>Vocal fry / creak</b><output id="vocalFryOut" for="vocalFry">0%</output></span>
-              <input id="vocalFry" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Adds a five-cycle pattern of irregular true-fold timing and pulse strength. This is a creak proxy, not ventricular-fold growl.</small>
+              <span><b>Fry</b><output id="vocalFryOut" for="vocalFry">0%</output></span>
+              <input id="vocalFry" aria-label="Vocal fry / creak" title="Vocal fry / creak" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
             <label class="control" for="growlRoughness">
-              <span><b>Growl / source roughness</b><output id="growlRoughnessOut" for="growlRoughness">8%</output></span>
-              <input id="growlRoughness" type="range" min="0" max="1" step="0.01" value="0.08" />
-              <small>Fast pitch and amplitude perturbation. Pair it with ventricular coupling for broader growl-like color; growl mechanisms vary.</small>
+              <span><b>Growl</b><output id="growlRoughnessOut" for="growlRoughness">8%</output></span>
+              <input id="growlRoughness" aria-label="Growl / source roughness" title="Growl / source roughness" type="range" min="0" max="1" step="0.01" value="0.08" />
             </label>
-            <div class="throat-divider"><span>FALSE / VENTRICULAR FOLDS</span></div>
             <label class="control" for="ventricularCoupling">
-              <span><b>Ventricular-fold coupling</b><output id="ventricularCouplingOut" for="ventricularCoupling">4%</output></span>
-              <input id="ventricularCoupling" type="range" min="0" max="1" step="0.01" value="0.04" />
-              <small>Closes a synchronized supraglottal gate across the true-fold pulses. At 1:1 it changes color; at 2:1 or 3:1 it exposes a real subharmonic.</small>
+              <span><b>Fold mix</b><output id="ventricularCouplingOut" for="ventricularCoupling">4%</output></span>
+              <input id="ventricularCoupling" aria-label="Ventricular-fold coupling" title="Ventricular-fold coupling" type="range" min="0" max="1" step="0.01" value="0.04" />
             </label>
             <label class="control" for="periodDivision">
-              <span><b>Closure period</b><output id="periodDivisionOut" for="periodDivision">same period</output></span>
-              <input id="periodDivision" type="range" min="1" max="7" step="1" value="1" />
-              <small>1:1 color, 2:1 Kargyraa-like division, 3:1 experimental synthesis; 4:1–7:1 are extended rough-effect territory, not Tuvan defaults.</small>
+              <span><b>Period</b><output id="periodDivisionOut" for="periodDivision">same period</output></span>
+              <input id="periodDivision" aria-label="Closure period" title="Closure period" type="range" min="1" max="7" step="1" value="1" />
             </label>
           </div>
         </details>
@@ -199,103 +293,62 @@
         <details class="group control-section throat-focus-section" data-section="mapping" open>
           <summary class="group-summary">
             <h2 class="group-title">Overtone focus</h2>
-            <span class="section-state" id="focusSummary">H8 · 510 Hz split</span>
           </summary>
           <div class="group-body">
             <label class="control" for="harmonicNumber">
-              <span><b>Selected harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H8</output></span>
-              <input id="harmonicNumber" type="range" min="4" max="20" step="1" value="8" />
-              <small>The tongue, jaw, lips, and pharynx move a resonance between existing harmonics. “Whistle-like” describes the percept, not a separate whistle tone.</small>
+              <span><b>Harmonic</b><output id="harmonicNumberOut" for="harmonicNumber">H8</output></span>
+              <input id="harmonicNumber" aria-label="Selected harmonic" title="Selected harmonic" type="range" min="4" max="24" step="1" value="8" />
             </label>
             <label class="control" for="focusAmount">
-              <span><b>Formant convergence</b><output id="focusAmountOut" for="focusAmount">22%</output></span>
-              <input id="focusAmount" type="range" min="0" max="1" step="0.01" value="0.22" />
-              <small>Pulls F2 and F3 together and narrows the audible spectral window.</small>
+              <span><b>Focus</b><output id="focusAmountOut" for="focusAmount">22%</output></span>
+              <input id="focusAmount" aria-label="Formant convergence" title="Formant convergence" type="range" min="0" max="1" step="0.01" value="0.22" />
             </label>
             <label class="control" for="pharynxConstriction">
-              <span><b>Upper-pharynx / uvular</b><output id="pharynxConstrictionOut" for="pharynxConstriction">35%</output></span>
-              <input id="pharynxConstriction" type="range" min="0" max="1" step="0.01" value="0.35" />
-              <small>Reshapes the rear cavity and steers the center of the focused pair.</small>
+              <span><b>Pharynx</b><output id="pharynxConstrictionOut" for="pharynxConstriction">35%</output></span>
+              <input id="pharynxConstriction" aria-label="Upper-pharynx / uvular" title="Upper-pharynx / uvular" type="range" min="0" max="1" step="0.01" value="0.35" />
             </label>
             <label class="control" for="oralConstriction">
-              <span><b>Alveolar / oral</b><output id="oralConstrictionOut" for="oralConstriction">30%</output></span>
-              <input id="oralConstriction" type="range" min="0" max="1" step="0.01" value="0.3" />
-              <small>Forms the front constriction associated with a tightly focused sygyt spectrum.</small>
+              <span><b>Mouth</b><output id="oralConstrictionOut" for="oralConstriction">30%</output></span>
+              <input id="oralConstriction" aria-label="Alveolar / oral" title="Alveolar / oral" type="range" min="0" max="1" step="0.01" value="0.3" />
             </label>
             <label class="control" for="lipRounding">
-              <span><b>Lip rounding</b><output id="lipRoundingOut" for="lipRounding">12%</output></span>
-              <input id="lipRounding" type="range" min="0" max="1" step="0.01" value="0.12" />
-              <small>Lengthens the front cavity and darkens the broader vowel envelope.</small>
+              <span><b>Lips</b><output id="lipRoundingOut" for="lipRounding">12%</output></span>
+              <input id="lipRounding" aria-label="Lip rounding" title="Lip rounding" type="range" min="0" max="1" step="0.01" value="0.12" />
             </label>
             <label class="control" for="sublingualCoupling">
-              <span><b>Sublingual branch</b><output id="sublingualCouplingOut" for="sublingualCoupling">6%</output></span>
-              <input id="sublingualCoupling" type="range" min="0" max="1" step="0.01" value="0.06" />
-              <small>An exploratory short cavity below the tongue, informed by 2026 copy-synthesis work.</small>
+              <span><b>Cavity</b><output id="sublingualCouplingOut" for="sublingualCoupling">6%</output></span>
+              <input id="sublingualCoupling" aria-label="Sublingual branch" title="Sublingual branch" type="range" min="0" max="1" step="0.01" value="0.06" />
             </label>
           </div>
         </details>
 
         <details class="group control-section throat-motion-section" data-section="rotation">
           <summary class="group-summary">
-            <h2 class="group-title">Living phrase</h2>
-            <span class="section-state" id="motionSummary">subtle vibrato</span>
+            <h2 class="group-title">Voice motion</h2>
           </summary>
           <div class="group-body">
             <label class="control" for="vibratoDepth">
-              <span><b>Drone vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">9 cents</output></span>
-              <input id="vibratoDepth" type="range" min="0" max="80" step="1" value="9" />
+              <span><b>Vibrato</b><output id="vibratoDepthOut" for="vibratoDepth">9 cents</output></span>
+              <input id="vibratoDepth" aria-label="Drone vibrato" title="Drone vibrato" type="range" min="0" max="80" step="1" value="9" />
             </label>
             <label class="control" for="vibratoRate">
-              <span><b>Vibrato rate</b><output id="vibratoRateOut" for="vibratoRate">4.4 Hz</output></span>
-              <input id="vibratoRate" type="range" min="2" max="9" step="0.1" value="4.4" />
+              <span><b>Rate</b><output id="vibratoRateOut" for="vibratoRate">4.4 Hz</output></span>
+              <input id="vibratoRate" aria-label="Vibrato rate" title="Vibrato rate" type="range" min="0" max="12" step="0.1" value="4.4" />
             </label>
-            <label class="control" for="ornamentRate">
-              <span><b>Overtone ornament</b><output id="ornamentRateOut" for="ornamentRate">0.0 Hz</output></span>
-              <input id="ornamentRate" type="range" min="0" max="12" step="0.1" value="0" />
-              <small>Moves the focus between neighboring harmonics for borbangnadyr-like motion.</small>
-            </label>
-            <label class="control" for="ornamentDepth">
-              <span><b>Ornament span</b><output id="ornamentDepthOut" for="ornamentDepth">0.0 harmonics</output></span>
-              <input id="ornamentDepth" type="range" min="0" max="3" step="0.1" value="0" />
-            </label>
+
+
             <label class="control" for="pulseRate">
-              <span><b>Pressure pulse</b><output id="pulseRateOut" for="pulseRate">0.0 Hz</output></span>
-              <input id="pulseRate" type="range" min="0" max="10" step="0.1" value="0" />
-              <small>Rhythmic source-level emphasis for ezengileer-like motion; it is not a cultural transcription.</small>
+              <span><b>Pulse</b><output id="pulseRateOut" for="pulseRate">0.0 Hz</output></span>
+              <input id="pulseRate" aria-label="Pressure pulse" title="Pressure pulse" type="range" min="0" max="10" step="0.1" value="0" />
             </label>
             <label class="control" for="pulseDepth">
-              <span><b>Pulse depth</b><output id="pulseDepthOut" for="pulseDepth">0%</output></span>
-              <input id="pulseDepth" type="range" min="0" max="1" step="0.01" value="0" />
+              <span><b>Depth</b><output id="pulseDepthOut" for="pulseDepth">0%</output></span>
+              <input id="pulseDepth" aria-label="Pulse depth" title="Pulse depth" type="range" min="0" max="1" step="0.01" value="0" />
             </label>
           </div>
         </details>
 
-        <details class="group control-section throat-anatomy-section" data-section="experimental">
-          <summary class="group-summary">
-            <h2 class="group-title">Beyond anatomy</h2>
-            <span class="section-state" id="anatomySummary">human model intact</span>
-          </summary>
-          <div class="group-body">
-            <p class="throat-experimental-note">
-              <b>Speculative sound lab.</b> These deliberately impossible extensions do not describe Tuvan, Mongolian, Western overtone, or Inuit practices.
-            </p>
-            <label class="control" for="phantomAirways">
-              <span><b>Parallel airways</b><output id="phantomAirwaysOut" for="phantomAirways">1 airway</output></span>
-              <input id="phantomAirways" type="range" min="1" max="4" step="1" value="1" />
-              <small>Forks one source through as many as four coupled 44-section outlets—a fictional multi-mouth anatomy.</small>
-            </label>
-            <label class="control" for="impossibleFocus">
-              <span><b>Supra-human focus</b><output id="impossibleFocusOut" for="impossibleFocus">0%</output></span>
-              <input id="impossibleFocus" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Pushes overtone bandwidth and gain beyond the conservative human range while the limiter protects output.</small>
-            </label>
-            <label class="control" for="sourceInstability">
-              <span><b>Instability proxy</b><output id="sourceInstabilityOut" for="sourceInstability">0%</output></span>
-              <input id="sourceInstability" type="range" min="0" max="1" step="0.01" value="0" />
-              <small>Adds two incommensurate fold-rate perturbations. It evokes bifurcation and chaos, but is not a nonlinear tissue simulation.</small>
-            </label>
-          </div>
-        </details>
+        <details class="group control-section throat-polyphony-section" data-section="effects" open><summary class="group-summary"><h2 class="group-title">Polyphony &amp; effects</h2></summary><div class="group-body"><label class="control" for="pitchVoices"><span><b>Voices</b><output id="pitchVoicesOut" for="pitchVoices"></output></span><input id="pitchVoices" aria-label="Pitched voices" title="Pitched voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="pitchSpreadSemitones"><span><b>Spread</b><output id="pitchSpreadSemitonesOut" for="pitchSpreadSemitones"></output></span><input id="pitchSpreadSemitones" aria-label="Pitch spread" title="Pitch spread" type="range" min="0" max="24" step="0.1" value="7" /></label><label class="control" for="overtoneVoices"><span><b>Overtones</b><output id="overtoneVoicesOut" for="overtoneVoices"></output></span><input id="overtoneVoices" aria-label="Overtone voices" title="Overtone voices" type="range" min="1" max="4" step="1" value="1" /></label><label class="control" for="overtoneSpread"><span><b>Spacing</b><output id="overtoneSpreadOut" for="overtoneSpread"></output></span><input id="overtoneSpread" aria-label="Harmonic spread" title="Harmonic spread" type="range" min="1" max="6" step="0.1" value="2" /></label><label class="control" for="sourceInstability"><span><b>Unsteady</b><output id="sourceInstabilityOut" for="sourceInstability"></output></span><input id="sourceInstability" aria-label="Instability" title="Instability" type="range" min="0" max="1" step="0.01" value="0" /></label><label class="control" for="reverbMix"><span><b>Reverb</b><output id="reverbMixOut" for="reverbMix"></output></span><input id="reverbMix" aria-label="Reverb" title="Reverb" type="range" min="0" max="0.65" step="0.01" value="0" /></label><label class="control" for="delayMix"><span><b>Delay</b><output id="delayMixOut" for="delayMix"></output></span><input id="delayMix" aria-label="Delay" title="Delay" type="range" min="0" max="0.6" step="0.01" value="0" /></label><label class="control" for="delayTimeSeconds"><span><b>Time</b><output id="delayTimeSecondsOut" for="delayTimeSeconds"></output></span><input id="delayTimeSeconds" aria-label="Delay time" title="Delay time" type="range" min="0.06" max="1.5" step="0.01" value="0.3" /></label><label class="control" for="delayFeedback"><span><b>Feedback</b><output id="delayFeedbackOut" for="delayFeedback"></output></span><input id="delayFeedback" aria-label="Feedback" title="Feedback" type="range" min="0" max="0.65" step="0.01" value="0.25" /></label></div></details>
 
         <details class="group control-section throat-research-section" data-section="structure">
           <summary class="group-summary">
@@ -305,7 +358,7 @@
           <div class="group-body throat-research-copy">
             <p class="throat-cultural-note">
               <b>A model of acoustics, not a model of a culture.</b>
-              Khöömei is living Tuvan and Mongolian heritage with distinct lineages, aesthetics, and teaching practices. The named buttons are audible starting points, not claims of authentic performance.
+              Khöömei is living Tuvan and Mongolian heritage with distinct lineages, aesthetics, and teaching practices. The named approaches are audible starting points, not claims of authentic performance.
             </p>
 
             <div class="throat-signal-path" aria-label="Synthesizer signal path">
@@ -365,7 +418,7 @@
       </aside>
 
       <p class="sr-only" id="canvasInstructions">
-        Use the Selected harmonic control or number keys 4 through 9 to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Space begins or releases the drone. Keys A, S, D, F, G, H, J, and K select drone notes.
+        Use the Harmonic knob to choose an overtone. On the canvas, arrow keys move the overtone focus; hold Shift for larger steps. Drag Mouth vertically to shape the tongue, and Lips horizontally to round them or vertically to open them. Space begins or releases the drone. Two rows of labelled computer keys select drone pitches: Z through M and Q through U, including the labelled number keys. The Glide slider sets the pitch transition time.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>
