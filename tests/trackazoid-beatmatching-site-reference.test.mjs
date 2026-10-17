@@ -7,10 +7,11 @@ import { restoreTrackazoidBeatmatchingSite, trackazoidBeatmatchingChanges } from
 import { restoreMidiNoteEffectsRuntime } from './helpers/midi-note-effects-runtime-reference.mjs';
 import { restoreSoundFontsSite } from './helpers/sound-fonts-site-reference.mjs';
 import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const read = async file => {
-  let source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+  let source = restoreRoachPerformance(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
   for (const normalize of [restoreBlechLiveRuntime, restoreMidiNoteEffectsRuntime, restoreSoundFontsSite, restoreSpartialOrganRuntime]) {
     source = normalize(source, file, { allowRestored: true });
   }

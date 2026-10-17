@@ -5,6 +5,7 @@ import test from 'node:test';
 import { esi32SiteChanges, restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
 import { graphonicCalculatorMathSiteChanges, restoreGraphonicCalculatorMathSite } from './helpers/graphonic-calculator-math-site-reference.mjs';
 import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
@@ -45,7 +46,7 @@ test('ESI-32 additions preserve the independently captured publication baseline'
   ]);
   for (const change of esi32SiteChanges.changes) {
     // The parallel Math amendment has its own independent proof and baseline.
-    const source = restoreGraphonicCalculatorMathSite(restoreLaterWobbliniMixer(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file, { allowRestored: true });
+    const source = restoreRoachPerformance(restoreGraphonicCalculatorMathSite(restoreLaterWobbliniMixer(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file, { allowRestored: true }), change.file);
     const restored = restoreEsi32Site(source, change.file);
     assert.equal(digest(restored, change.file), change.sha256, change.file);
     const reapplied = change.replacements.reduce((current, { before, after }) => {
@@ -81,7 +82,7 @@ test('parallel ESI-32 and Math amendments commute and reproduce all merged sourc
   for (const esi of shared) {
     const math = graphonicCalculatorMathSiteChanges.changes.find(change => change.file === esi.file);
     assert.equal(esi.sha256, math.sha256, `${esi.file}: independent journals agree on the common baseline`);
-    const merged = await readFile(new URL(esi.file, root), 'utf8');
+    const merged = restoreRoachPerformance(await readFile(new URL(esi.file, root), 'utf8'), esi.file);
     const esiFirst = restoreGraphonicCalculatorMathSite(restoreEsi32Site(merged, esi.file), esi.file);
     const mathFirst = restoreEsi32Site(restoreGraphonicCalculatorMathSite(merged, esi.file), esi.file);
     assert.equal(esiFirst, mathFirst, `${esi.file}: restoration order does not lose either feature`);

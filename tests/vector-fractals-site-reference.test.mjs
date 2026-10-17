@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readTrackazoidSiteReference as readFile } from './helpers/trackazoid-site-reference.mjs';
 import test from 'node:test';
 import { readVectorFractalsSiteReference, restoreVectorFractalsSite, vectorFractalsSiteChanges } from './helpers/vector-fractals-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 
@@ -15,11 +16,11 @@ test('Vector Fractals additions restore the exact preceding main source and reje
   ]);
   for (const change of vectorFractalsSiteChanges.changes) {
     const url = new URL(`../${change.file}`, import.meta.url);
-    const source = await readFile(url, 'utf8');
+    const source = restoreRoachPerformance(await readFile(url, 'utf8'), change.file);
     const restored = restoreVectorFractalsSite(source, change.file);
     assert.equal(restoreVectorFractalsSite(source, 'unrelated.js'), source);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-Vector Fractals source preserved`);
-    assert.equal(await readVectorFractalsSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreRoachPerformance(await readVectorFractalsSiteReference(url, 'utf8'), change.file), restored);
     assert.deepEqual(await readVectorFractalsSiteReference(url), await readFile(url), 'binary reads remain byte-for-byte');
     assert.notEqual(digest(restoreVectorFractalsSite(source + '\n// unrelated drift\n', change.file)), change.sha256);
     assert.throws(() => restoreVectorFractalsSite(restored, change.file), /exact Vector Fractals site amendment/);

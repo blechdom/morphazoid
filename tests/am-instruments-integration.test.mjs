@@ -3,6 +3,7 @@ import { fractalDelaySiteChanges, restoreFractalDelaySite } from "./helpers/frac
 import { restoreGraphDelayRustSite } from "./helpers/graph-delay-rust-site-reference.mjs";
 import { restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
+import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
 import assert from "node:assert/strict";
 import { readVectorFractalsSiteReference as readFile } from "./helpers/vector-fractals-site-reference.mjs";
 import test from "node:test";
@@ -19,7 +20,7 @@ import { chaoticDspReferenceForId } from "../src/instruments/chaotic-dsp-referen
 test("AM additions preserve the previous shared runtime bytes and reject unrelated changes", async () => {
   for (const change of amSharedAmendments.changes) {
     // Main independently added SPARTIAL and recording after this frozen baseline.
-    const beforeRename = restoreMidiophiliaRename(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
+    const beforeRename = restoreRoachPerformance(restoreMidiophiliaRename(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file), change.file);
     let current = restoreFractalDelaySite(beforeRename, change.file);
     if (change.file === "style.css") {
       const recorderStyle = '@import url("./src/site/output-recording-controls.css");\n';
@@ -45,9 +46,9 @@ test("Fractal Delay site amendments preserve genuine fresh-main bytes and reject
   assert.equal(fractalDelaySiteChanges.baseCommit, '5fcfd0a543866684bd3bf45749290a07d2156f08');
   const digest = value => createHash('sha256').update(value).digest('hex');
   for (const change of fractalDelaySiteChanges.changes) {
-    const source = restoreMidiophiliaRename(restoreGraphDelayRustSite(
+    const source = restoreRoachPerformance(restoreMidiophiliaRename(restoreGraphDelayRustSite(
       await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file, { allowRestored: true },
-    ), change.file);
+    ), change.file), change.file);
     const restored = restoreFractalDelaySite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file + ': reviewed main source preserved');
     assert.notEqual(digest(restoreFractalDelaySite(source + '\n// unrelated drift\n', change.file)), change.sha256);

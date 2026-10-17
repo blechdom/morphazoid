@@ -2,21 +2,29 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRoachFullPresets, captureRoachPreset, randomizeRoachPreset } from '../src/instruments/roach-synth/roach-synth-presets.js';
 import { validateFullPresetBank, presetStateKey } from '../src/site/header-presets.js';
-import { normalizeRoachMotion } from '../src/instruments/roach-synth/roach-synth-motion.js';
+import { normalizeRoachMotion, ROACH_MOTION_PRESETS } from '../src/instruments/roach-synth/roach-synth-motion.js';
 import { normalizeRoachSound, ROACH_BODY_SOURCES } from '../src/instruments/roach-synth/roach-synth-dsp.js';
 
 const joints = [{ id: 'head', name: 'Head', offset: { x: 0, y: 0, z: 0 },
   motion: { enabled: false, axis: 'x', amplitude: 12, speed: 1 } }];
 const bank = createRoachFullPresets(joints);
 
-test('all 24 complete scenes animate with antennae and exclude output controls', () => {
+test('all 20 complete scenes animate with antennae and exclude output controls and retired dances', () => {
   validateFullPresetBank(bank);
-  assert.equal(bank.length, 24);
-  for (const { snapshot } of bank) {
+  assert.equal(bank.length, 20);
+  assert.deepEqual(bank.map(({ id }) => id), ROACH_MOTION_PRESETS.map(({ id }) => id));
+  for (const { id, snapshot } of bank) {
+    assert.equal(snapshot.motionChoice, id);
+    assert.equal(snapshot.motion.presetId, id);
+    assert.equal(snapshot.soundPreset, `motion:${id}`);
+    assert.ok(!['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].includes(id));
     assert.equal(snapshot.playing, true); assert.equal(snapshot.motion.antennae, true);
     assert.equal(Object.hasOwn(snapshot.sound, 'level'), false);
     assert.equal(Object.hasOwn(snapshot.sound, 'voice'), false);
     assert.equal(Object.hasOwn(snapshot.motion, 'gaze'), false);
+  }
+  for (const id of ['side_jump', 'top_flight', 'top_wing_fan', 'wings_alarm']) {
+    assert.ok(bank.some((item) => item.id === id), `${id} retains its complete factory scene`);
   }
 });
 
@@ -44,8 +52,11 @@ test('dice is pure, varies tones and motion, stays bounded and always animates',
     assert.deepEqual(scene.sound, Object.fromEntries(Object.entries(normalizeRoachSound(scene.sound)).filter(([key]) => !['level', 'voice'].includes(key))));
     assert.ok(scene.bodyMix.every(row => ROACH_BODY_SOURCES.some(source => source.id === row.source) && row.level >= 0 && row.level <= 1));
     assert.equal(scene.soundPreset, 'custom');
+    assert.ok(ROACH_MOTION_PRESETS.some(item => item.id === scene.motion.presetId));
+    assert.ok(ROACH_MOTION_PRESETS.some(item => item.id === scene.motion.randomSourceId));
   }
-  for (const key of Object.keys(current.sound)) assert.ok(new Set(scenes.map(scene => scene.sound[key])).size > 1, key);
+  for (const key of Object.keys(current.sound).filter(key => key !== 'voicePreset')) assert.ok(new Set(scenes.map(scene => scene.sound[key])).size > 1, key);
+  assert.ok(scenes.every(scene => scene.sound.voicePreset === 'flite-kal16-native-4'), 'the only available voice stays Low KAL16');
   assert.ok(new Set(scenes.map(scene => scene.motion.tempo)).size > 1);
   assert.ok(new Set(scenes.map(scene => scene.motion.randomSeed)).size > 1);
 });

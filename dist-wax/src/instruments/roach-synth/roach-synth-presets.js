@@ -1,8 +1,8 @@
-import { normalizeRoachMotion, ROACH_MOTION_PRESETS, createRandomRoachMotion } from './roach-synth-motion.js?v=7608886131fe';
-import { normalizeRoachSound, getRoachMotionSound, createRandomRoachSound } from './roach-synth-dsp.js?v=7608886131fe';
+import { normalizeRoachMotion, ROACH_MOTION_PRESETS, createRandomRoachMotion } from './roach-synth-motion.js?v=999609d02db2';
+import { normalizeRoachSound, getRoachMotionSound, createRandomRoachSound } from './roach-synth-dsp.js?v=999609d02db2';
 import { clonePresetData, presetRandom } from '../../site/preset-random.js';
 
-// Gaze, output levels, Audio, Sound Play, devices and clocks belong to the live
+// Gaze, output levels, Audio, devices and clocks belong to the live
 // performance. Joint offsets and complete motion curves belong to the scene.
 export function captureRoachPreset(state, soundPreset) {
   const { gaze, ...motion } = normalizeRoachMotion(state.motion);

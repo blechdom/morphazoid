@@ -8,11 +8,12 @@ import { restoreTrackazoidBeatmatchingSite, trackazoidBeatmatchingChanges } from
 import { restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreBlackMidiArtRuntime } from './helpers/black-midi-art-runtime-reference.mjs';
 import { restoreSoundFontsShared, soundFontsSharedChanges } from './helpers/sound-fonts-shared-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 // The independent SoundFont registration postdates the captured pad baseline.
 // Peel only its reviewed bytes before exercising the unchanged pad guards.
-const read = async file => restoreSoundFontsShared(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
+const read = async file => restoreSoundFontsShared(restoreRoachPerformance(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file), file);
 
 test('pad and demo amendments restore exact captured main bytes without rewriting historical fixtures', async () => {
   assert.equal(trackazoidPadsChanges.baseCommit, '98bdd239757195367921d30c57e7457238ec8f87');
@@ -73,7 +74,7 @@ test('pad normalization leaves unrelated edits, unknown runtime additions and no
 test('shared historical reading peels this addition without weakening the old beatmatching guards', async () => {
   for (const change of trackazoidPadsChanges.changes) {
     const source = await read(change.file);
-    const historical = await readFractalImpulseRuntimeReference(new URL(`../${change.file}`, import.meta.url), 'utf8');
+    const historical = restoreRoachPerformance(await readFractalImpulseRuntimeReference(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
     assert.equal(historical, restoreFractalImpulseRuntime(restoreTrackazoidPadsSite(source, change.file), change.file));
     assert.equal(restoreTrackazoidSite(source, change.file), restoreTrackazoidSite(restoreTrackazoidPadsSite(source, change.file), change.file),
       'direct historical normalization peels pads before removing their older registration context');
@@ -88,7 +89,7 @@ test('shared historical reading peels this addition without weakening the old be
 
 test('independent SoundFont and pad amendments commute while retaining their exact captured hashes', async () => {
   for (const change of soundFontsSharedChanges.changes) {
-    const source = restoreBlackMidiArtRuntime(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
+    const source = restoreBlackMidiArtRuntime(restoreRoachPerformance(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file);
     const soundFontsOnly = restoreTrackazoidPadsSite(source, change.file);
     assert.equal(digest(soundFontsOnly), change.approvedSha256, change.file);
     const restored = restoreSoundFontsShared(soundFontsOnly, change.file);

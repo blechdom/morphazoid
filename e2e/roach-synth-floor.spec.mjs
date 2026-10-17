@@ -6,7 +6,7 @@ const tolerance = .0002;
 // Test-only access to actual posed scan vertices. Production clearance samples
 // are checked separately; this catches a proxy that misses real antenna tips.
 async function instrument(page) {
-  await page.route('**/src/roach-synth-viewer.js*', async route => {
+  await page.route('**/src/instruments/roach-synth/roach-synth-viewer.js*', async route => {
     const response = await route.fetch(), source = await response.text();
     const marker = 'return { loadUrl, loadArrayBuffer, getState,';
     expect(source).toContain(marker);
@@ -36,7 +36,7 @@ import {createRoachViewer} from './src/instruments/roach-synth/roach-synth-viewe
 import * as model from './src/instruments/roach-synth/roach-synth-motion.js';
 let joints=[],body={},contribution={};const motion={presetId:'none',intensity:1,antennae:false,tempo:108},scene=model.createRoachSceneState();
 const viewer=createRoachViewer({canvas:document.querySelector('canvas'),onRig:s=>{joints=s.bones},onPoseChange:()=>{joints=viewer.getState().bones;draw()}});
-function draw(){const pose=new Float32Array(joints.length*3);model.writeRoachPose(0,motion,joints,pose);joints.forEach((j,i)=>['x','y','z'].forEach((axis,a)=>{pose[i*3+a]+=contribution[j.jointId]?.[axis]||0}));model.writeRoachSceneState(0,motion,scene,joints);Object.assign(scene.body,body);viewer.setExternalPose(pose);viewer.setSceneState(scene)}
+function draw(){const raw=new Float32Array(joints.length*3);model.writeRoachPose(0,motion,joints,raw,false);joints.forEach((j,i)=>['x','y','z'].forEach((axis,a)=>{raw[i*3+a]+=contribution[j.jointId]?.[axis]||0}));const pose=raw.slice();model.constrainRoachPose(pose,joints);model.writeRoachSceneState(0,motion,scene,joints);Object.assign(scene.body,body);viewer.setExternalPose(pose,raw);viewer.setSceneState(scene)}
 function setPose(offsets={},nextBody={},nextContribution={}){body=nextBody;contribution=nextContribution;for(const j of joints){j.offset={x:0,y:0,z:0,...offsets[j.jointId]};viewer.setBoneOffset(j.id,j.offset)}draw()}
 window.roachFloorQA={viewer,setPose,draw,getJoints:()=>joints,getContribution:()=>structuredClone(contribution),ready:false};await viewer.loadUrl('./assets/roach-synth/cockroach-mobile.glb');setPose();roachFloorQA.ready=true;
 </script></body></html>`;
@@ -71,9 +71,9 @@ const quaternion = (state, part) => state.bones.find(j => j.jointId === part).qu
 test('head and both antenna meshes stop at the floor without lifting normal foot support', async ({ page, baseURL }, testInfo) => {
   await openFixture(page, baseURL); const initial = await measure(page); expectClear(initial, 'neutral');
   const cases = [
-    { head: { x: -90 } }, { head: { y: -90 } }, { head: { z: -90 } },
+    { head: { x: -90 } }, { head: { x: 90 } }, { head: { y: -90 } }, { head: { z: -90 } },
     { antenna_left: { y: -90 } }, { antenna_right: { y: 90 } },
-    { head: { x: -90, z: -25 }, antenna_left: { y: -90 }, antenna_right: { y: 90 } },
+    { head: { x: 90, z: -25 }, antenna_left: { y: -90 }, antenna_right: { y: 90 } },
   ];
   const records = [];
   for (const offsets of cases) {
@@ -117,7 +117,7 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
       const atWall = await measure(page); expectClear(atWall, `${part} continued downward`);
       expect(atWall.state.interaction).toMatchObject({ pointerCount: 1, active: { kind: 'joint', jointId, committed: true } });
       const qDown = quaternion(down.state, part), qWall = quaternion(atWall.state, part);
-      expect(Math.max(...qWall.map((v, i) => Math.abs(v - qDown[i]))), `${part}: floor boundary reached`).toBeLessThan(.001);
+      expect(Math.max(...qWall.map((v, i) => Math.abs(v - qDown[i]))), `${part}: safe downward limit reached`).toBeLessThan(.001);
       await move(wallX - (axis === 'x' ? 0 : sign * 10), wallY - (axis === 'x' ? 10 : 0));
       await page.waitForTimeout(100);
       const reversed = await measure(page); expectClear(reversed, `${part} reverse`);
@@ -127,7 +127,8 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
     // A preset or held MIDI/animation contribution can already request a pose
     // beyond the floor before the pointer starts. Accepted-delta persistence
     // must remove that existing overshoot too, without editing the contribution.
-    for (const external of [false, true]) for (const [part, axis, unsafe] of [['head', 'x', -35], ['antenna_left', 'y', -75], ['antenna_right', 'y', 75]]) {
+    // +18 is inside the new inward hinge bound but beyond the actual floor.
+    for (const external of [false, true]) for (const [part, axis, unsafe] of [['head', 'x', 18], ['antenna_left', 'y', -75], ['antenna_right', 'y', 75]]) {
       const input = { [part]: { [axis]: unsafe } }, contribution = external ? input : {};
       await page.evaluate(({ input, external }) => {
         roachFloorQA.setPose(external ? {} : input, {}, external ? input : {});
@@ -137,6 +138,11 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
       const point = await page.evaluate(part => __roachFloorViewer.getPartScreenPosition(part), part);
       expect(point, `${part}: already constrained ${external ? 'external' : 'static'} pose`).not.toBeNull();
       const before = await measure(page); expectClear(before, `${part} before reverse`);
+      if (part === 'head') {
+        const index = before.state.bones.findIndex(joint => joint.jointId === part);
+        expect(unsafe, 'fixture stays inside the inward hinge bound').toBeLessThanOrEqual(before.state.bones[index].poseLimits.x[1]);
+        expect(before.state.appliedPose[index * 3], 'fixture genuinely requests floor-rejected head travel').toBeLessThan(unsafe - 5);
+      }
       if (touch) await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: point.x, y: point.y }] });
       else { await page.mouse.move(point.x, point.y); await page.mouse.down(); }
       const selected = await page.evaluate(() => __roachFloorViewer.getState()), jointId = selected.bones.find(j => j.jointId === part).id;
@@ -155,10 +161,10 @@ for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} downward
   } finally { await context.close(); }
 });
 
-test('rotated body poses retain face clearance and actual app sound and animation players stay independent', async ({ page, baseURL }) => {
+test('rotated body poses retain face clearance and Audio remains independent of the animation Play button', async ({ page, baseURL }) => {
   await openFixture(page, baseURL);
   for (const body of [{ yaw: 60 }, { roll: -20 }, { roll: 20 }, { pitch: -30 }, { pitch: 30 }, { pitch: -20, roll: 15, yaw: 45 }]) {
-    await page.evaluate(body => roachFloorQA.setPose({ head: { x: -35 }, antenna_left: { y: -75 }, antenna_right: { y: 75 } }, body), body);
+    await page.evaluate(body => roachFloorQA.setPose({ head: { x: 35 }, antenna_left: { y: -75 }, antenna_right: { y: 75 } }, body), body);
     const report = await measure(page); expectClear(report, JSON.stringify(body));
     expect(Number.isFinite(report.state.ground.floorLift)).toBe(true);
     expect(report.state.ground.contacts.every(foot => foot.gap >= -tolerance)).toBe(true);
@@ -166,26 +172,27 @@ test('rotated body poses retain face clearance and actual app sound and animatio
   await page.goto(new URL('roach-synth.html', `${baseURL.replace(/\/$/, '')}/`).href);
   await page.waitForFunction(() => window.roachSynth?.getState().loaded);
   const state = () => page.evaluate(() => roachSynth.getState());
-  await page.locator('#soundPlayButton').click(); await page.locator('#audioButton').click();
-  await expect.poll(async () => (await state()).audio.peak).toBeGreaterThan(.0001);
-  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(true);
+  await page.locator('#audioButton').click();
+  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(false);
   await page.locator('[data-view="face"]').click(); await page.locator('#dragAxis').selectOption('x');
   const point = await page.evaluate(() => roachSynth.getPartScreenPosition('head'));
   expect(point).not.toBeNull();
-  const sounding = await state();
+  const held = await state();
   await page.mouse.move(point.x, point.y); await page.mouse.down();
   await page.mouse.move(point.x, point.y + 160, { steps: 4 }); await page.mouse.up();
-  expectClear(await measure(page), 'manual edit with sound only');
-  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(true);
-  expect((await state()).time).toBe(sounding.time);
-  await expect.poll(async () => (await state()).audio.renderedFrames).toBeGreaterThan(sounding.audio.renderedFrames);
+  expectClear(await measure(page), 'manual edit with Play held');
+  expect((await state()).playing).toBe(false); expect((await state()).soundPlaying).toBe(false);
+  expect((await state()).time).toBe(held.time);
+  await expect.poll(async () => (await state()).audio.renderedFrames).toBeGreaterThan(held.audio.renderedFrames);
   await page.locator('#motionButton').click();
   await expect.poll(async () => (await state()).playing).toBe(true);
-  const running = await state(); await page.locator('#soundPlayButton').click();
+  expect((await state()).soundPlaying).toBe(true);
+  const running = await state(); await page.locator('#audioButton').click();
   await expect.poll(async () => (await state()).time).toBeGreaterThan(running.time);
-  expect((await state()).soundPlaying).toBe(false); expect((await state()).audioOn).toBe(true);
-  expectClear(await measure(page), 'animation only');
+  expect((await state()).soundPlaying).toBe(true); expect((await state()).audioOn).toBe(false);
+  expectClear(await measure(page), 'animation with Audio off');
   await page.locator('#motionButton').click();
   const stopped = await state(); await page.waitForTimeout(150);
-  expect((await state()).time).toBe(stopped.time); expectClear(await measure(page), 'paused');
+  expect((await state()).time).toBe(stopped.time); expect((await state()).soundPlaying).toBe(false);
+  expectClear(await measure(page), 'paused');
 });

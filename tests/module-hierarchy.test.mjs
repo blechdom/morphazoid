@@ -6,6 +6,7 @@ import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
 import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
+import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
 import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -78,6 +79,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     current = restoreRubixMobile(current, record.after);
     current = restoreRubixColorKit(current, record.after);
     current = restoreTapTempo(current, record.after);
+    current = restoreRoachPerformance(current, record.after);
     current = restoreFabricFilter(current, record.after);
     current = restoreVoicesaurus(current, record.after);
     current = restoreHiccupHeadWebcam(current, record.after);

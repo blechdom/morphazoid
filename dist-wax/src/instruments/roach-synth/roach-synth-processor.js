@@ -1,4 +1,4 @@
-import { RoachSynthDsp } from './roach-synth-dsp.js?v=7608886131fe';
+import { RoachSynthDsp } from './roach-synth-dsp.js?v=999609d02db2';
 
 class RoachSynthProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -21,6 +21,8 @@ class RoachSynthProcessor extends AudioWorkletProcessor {
         else if (data?.type === 'midi-state') this.dsp.restoreMidi(data.snapshot);
         else if (data?.type === 'sample-bank') this.dsp.setSampleBank(data.samples, { transferred: true });
         else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
+        else if (data?.type === 'body-voice') this.dsp.setBodyVoice(data.source, data.samples, data.sampleRate);
+        else if (data?.type === 'speak-samples') this.dsp.speakSamples(data.samples, data.sampleRate);
         else if (data?.type === 'speak') this.dsp.speak(data.phones);
         else if (data?.type === 'stop-speech') this.dsp.stopSpeech();
         else if (data?.type === 'dispose') { this.disposed = true; this.dsp.stopSpeech(); this.dsp.resetMidi(); }

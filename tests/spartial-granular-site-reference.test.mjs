@@ -7,6 +7,7 @@ import { instrumentById } from '../src/site/instrument-catalog.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';
 import { restoreSpartialGranularSite, spartialGranularSiteChanges } from './helpers/spartial-granular-site-reference.mjs';
 import { restoreSpartialRecordingRuntime } from './helpers/spartial-recording-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const explorerRuntimeRow = 'copy+require\tsrc/instruments/fractal-delay/fractal-explorer.js\n';
@@ -30,10 +31,10 @@ test('SPARTIAL granular catalogue and packaging reverse exactly and preserve ind
   ]);
   for (const change of spartialGranularSiteChanges.changes) {
     assert.equal(change.replacements.length, 1);
-    const source = restoreSpartialRecordingRuntime(
+    const source = restoreRoachPerformance(restoreSpartialRecordingRuntime(
       restoreLaterExplorerRuntime(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file),
       change.file,
-    );
+    ), change.file);
     const restored = restoreSpartialGranularSite(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-granular source preserved`);
     assert.equal(restoreSpartialGranularSite(restored, change.file, { allowRestored: true }), restored);

@@ -11,14 +11,15 @@ import { instrumentById } from '../src/site/instrument-catalog.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { rustResonatorSiteChanges, restoreRustResonatorSite, readRustResonatorSiteReference } from './helpers/simd-resonator-rust-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const id = 'simd-resonator-rust';
 const digest = source => createHash('sha256').update(source).digest('hex');
 const urlFor = file => new URL(`../${file}`, import.meta.url);
 // Independent October 14 BLECH additions compose with the frozen Rust proof.
-const priorRustSource = async file => restoreProcessorSamplesSite(restoreBlechChannelTiming(
+const priorRustSource = async file => restoreRoachPerformance(restoreProcessorSamplesSite(restoreBlechChannelTiming(
   await readRezoidinatorSiteReference(urlFor(file), 'utf8'), file, { allowRestored: true },
-), file, { allowRestored: true });
+), file, { allowRestored: true }), file);
 
 test('Rezoidinator is a separate instrument immediately beside SIMD Resonator', () => {
   const group = TOOL_GROUPS.find(group => group.id === 'simd-audio');
@@ -62,7 +63,7 @@ test('new site additions reverse to exact fresh-main bytes without rewriting old
     const restored = restoreRustResonatorSite(source, change.file);
     assert.equal(digest(source), change.approvedSha256, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
-    assert.equal(restoreProcessorSamplesSite(restoreBlechChannelTiming(await readRustResonatorSiteReference(url, 'utf8'), change.file, { allowRestored: true }), change.file, { allowRestored: true }), restored);
+    assert.equal(restoreRoachPerformance(restoreProcessorSamplesSite(restoreBlechChannelTiming(await readRustResonatorSiteReference(url, 'utf8'), change.file, { allowRestored: true }), change.file, { allowRestored: true }), change.file), restored);
     assert.equal(restoreRustResonatorSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreRustResonatorSite(restored, change.file), /exact Rust Resonator/);
     let reapplied = restored;

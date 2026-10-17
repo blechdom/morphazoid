@@ -11,6 +11,7 @@ import { restoreTrackazoidSite, trackazoidSiteChanges } from './helpers/trackazo
 
 import { restoreBlechMidiSite } from './helpers/blech-midi-site-reference.mjs';
 import { restoreSpartialRecordingRuntime } from './helpers/spartial-recording-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const restoreConcurrent = (source, file) => restoreSpartialRecordingRuntime(
@@ -39,7 +40,7 @@ test('Trackazoid is a visible local-audio app with conservative MIDI and explici
 test('Trackazoid amendments preserve prior evidence and reject missing, duplicate or tampered additions', async () => {
   assert.equal(trackazoidSiteChanges.baseCommit, '25d3ed91');
   for (const change of trackazoidSiteChanges.changes) {
-    const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
+    const source = restoreRoachPerformance(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
     const restored = restoreTrackazoidSite(source, change.file);
     assert.equal(digest(restoreConcurrent(restored, change.file)), change.sha256, change.file);
     assert.equal(restoreTrackazoidSite(restored, change.file, { allowRestored: true }), restored);

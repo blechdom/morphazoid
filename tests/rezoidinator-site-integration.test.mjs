@@ -10,13 +10,15 @@ import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { restoreRustResonatorSite, rustResonatorSiteChanges } from './helpers/simd-resonator-rust-site-reference.mjs';
 import { restoreBlechChannelTiming } from './helpers/blech-channel-timing-reference.mjs';
 import { rezoidinatorSiteChanges, restoreRezoidinatorSite, readRezoidinatorSiteReference } from './helpers/rezoidinator-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const urlFor = file => new URL(`../${file}`, import.meta.url);
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Keep this branch's frozen evidence independent of the merged sample bank.
-const readFile = async (url, encoding) => restoreProcessorSamplesSite(
-  await readCurrentFile(url, encoding), relative(root, fileURLToPath(url)), { allowRestored: true },
-);
+const readFile = async (url, encoding) => {
+  const source = await readCurrentFile(url, encoding), file = relative(root, fileURLToPath(url));
+  return restoreProcessorSamplesSite(typeof source === 'string' ? restoreRoachPerformance(source, file) : source, file, { allowRestored: true });
+};
 const digest = source => createHash('sha256').update(source).digest('hex');
 const spatialRuntimePaths = [
   ...['spatial-model', 'surround-output', 'recording'].map(module => `src/instruments/simd-resonator-rust/${module}.js`),
@@ -45,7 +47,7 @@ test('the rename and spatial registration reverse exactly to merged fresh main',
     const restored = restoreRezoidinatorSite(source, change.file);
     assert.equal(digest(source), change.approvedSha256, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
-    assert.equal(restoreProcessorSamplesSite(await readRezoidinatorSiteReference(urlFor(change.file), 'utf8'), change.file, { allowRestored: true }), restored);
+    assert.equal(restoreRoachPerformance(restoreProcessorSamplesSite(await readRezoidinatorSiteReference(urlFor(change.file), 'utf8'), change.file, { allowRestored: true }), change.file), restored);
     assert.equal(restoreRezoidinatorSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreRezoidinatorSite(restored, change.file), /exact Rezoidinator/);
     let reapplied = restored;

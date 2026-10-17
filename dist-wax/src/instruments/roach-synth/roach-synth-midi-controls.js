@@ -1,6 +1,6 @@
 import { getSharedMidiManager } from '../../midi-manager.js';
-import { ROACH_BODY_GROUPS } from './roach-synth-body.js?v=7608886131fe';
-import { ROACH_MIDI_GESTURES } from './roach-synth-midi.js?v=7608886131fe';
+import { ROACH_BODY_GROUPS } from './roach-synth-body.js?v=999609d02db2';
+import { ROACH_MIDI_GESTURES } from './roach-synth-midi.js?v=999609d02db2';
 
 export const ROACH_MIDI_ROUTE_DEFAULTS = Object.freeze([
   'param:intensity', 'param:brightness', 'param:resonance', 'param:crunch',
@@ -10,12 +10,12 @@ const KEY = 'morphazoid:roach-midi:v1';
 const PARAMS = [
   ['intensity', 'Movement'], ['tempo', 'Tempo'], ['pitch', 'Pitch'], ['brightness', 'Filter'],
   ['resonance', 'Resonance'], ['crunch', 'Crust'], ['vowel', 'Vowel'], ['wingRate', 'Wing rate'],
-  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['level', 'Master level'],
+  ['rhythm', 'Rattle rate'], ['pan', 'Pan'], ['voice', 'Voice level'], ['voiceSpeed', 'Voice speed'], ['level', 'Master level'],
 ];
 const ACTIONS = [
-  ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],
-  ['nextMotion', 'Next animation'], ['previousMotion', 'Previous animation'],
-  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'], ['randomPose', 'Random body pose'],
+  ['speakButton', 'Say phrase'], ['motionButton', 'Play / pause'],
+  ['nextMotion', 'Next animation'], ['nextSound', 'Next sound preset'],
+  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'],
 ];
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const clamp = (value, low, high) => Math.max(low, Math.min(high, Number(value) || 0));

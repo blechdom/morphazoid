@@ -1,8 +1,8 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=7608886131fe';
-import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=7608886131fe';
+import { constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=999609d02db2';
+import { articulateRoachWings, updateRoachWingFans, roachWingDisplayPoints } from './roach-synth-wings.js?v=999609d02db2';
 
 const MAX_BYTES = 64 * 1024 * 1024;
 const MESHOPT = 'EXT_meshopt_compression';
@@ -156,6 +156,69 @@ function disposeObject(root) {
   skeletons.forEach((skeleton) => skeleton.dispose());
 }
 
+/** Measure the first new crown/plate contact once, before audio owns the rig. */
+export function measureRoachHeadContact({ headPoints, platePoints, plateIndices, headMatrix, frame,
+  liftSign = -1, maxLift = 50 }) {
+  if (!headPoints?.length || !platePoints?.length || !plateIndices?.length
+    || headPoints.length > 100_000 || platePoints.length > 100_000 || plateIndices.length > 150_000) return null;
+  const project = point => [point.dot(frame.left), point.dot(frame.forward), point.dot(frame.dorsal)];
+  const plate = platePoints.map(project), triangles = [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i + 2 < plateIndices.length; i += 3) {
+    const [a, b, c] = [plate[plateIndices[i]], plate[plateIndices[i + 1]], plate[plateIndices[i + 2]]];
+    if (!a || !b || !c) continue;
+    const denominator = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+    if (Math.abs(denominator) < 1e-12) continue;
+    const triangle = { a, b, c, denominator, minX: Math.min(a[0], b[0], c[0]), maxX: Math.max(a[0], b[0], c[0]),
+      minY: Math.min(a[1], b[1], c[1]), maxY: Math.max(a[1], b[1], c[1]) };
+    triangles.push(triangle);
+    minX = Math.min(minX, triangle.minX); maxX = Math.max(maxX, triangle.maxX);
+    minY = Math.min(minY, triangle.minY); maxY = Math.max(maxY, triangle.maxY);
+  }
+  if (!triangles.length || maxX - minX < 1e-9 || maxY - minY < 1e-9) return null;
+  // A projected triangle grid bounds the load-time search. Only its measured
+  // angle is sent to the sound engine; meshes never enter the audio callback.
+  const size = 64, grid = Array.from({ length: size * size }, () => []);
+  const cell = (value, min, max) => Math.max(0, Math.min(size - 1, Math.floor((value - min) / (max - min) * size)));
+  let entries = 0;
+  for (const triangle of triangles) for (let y = cell(triangle.minY, minY, maxY); y <= cell(triangle.maxY, minY, maxY); y += 1) {
+    for (let x = cell(triangle.minX, minX, maxX); x <= cell(triangle.maxX, minX, maxX); x += 1) {
+      if (++entries > 1_000_000) return null;
+      grid[y * size + x].push(triangle);
+    }
+  }
+  const clearance = point => {
+    const [x, y, z] = project(point);
+    if (x < minX || x > maxX || y < minY || y > maxY) return Infinity;
+    let underside = Infinity;
+    for (const { a, b, c, denominator } of grid[cell(y, minY, maxY) * size + cell(x, minX, maxX)]) {
+      const u = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (y - c[1])) / denominator;
+      const v = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (y - c[1])) / denominator;
+      const w = 1 - u - v;
+      if (u >= -1e-7 && v >= -1e-7 && w >= -1e-7) underside = Math.min(underside, u * a[2] + v * b[2] + w * c[2]);
+    }
+    return underside - z;
+  };
+  const point = new THREE.Vector3(), rotation = new THREE.Matrix4(), matrix = new THREE.Matrix4();
+  // Preserve the scan's existing seam overlap. Only vertices clearly below
+  // the plate at rest can establish a new upward collision.
+  const margin = frame.bodyLength * .0005;
+  const crown = headPoints.filter(local => clearance(point.copy(local).applyMatrix4(headMatrix)) > margin);
+  if (!crown.length) return null;
+  const clear = lift => {
+    matrix.copy(headMatrix).multiply(rotation.makeRotationX(lift * liftSign * RAD));
+    for (const local of crown) if (clearance(point.copy(local).applyMatrix4(matrix)) < 0) return false;
+    return true;
+  };
+  let low = 0, high = clamp(maxLift, 0, 50);
+  if (clear(high)) return high;
+  for (let i = 0; i < 16; i += 1) {
+    const middle = (low + high) * .5;
+    if (clear(middle)) low = middle; else high = middle;
+  }
+  return low;
+}
+
 /** Owns WebGL and model manipulation only; no audio or page controls. */
 export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {}, onSelect = () => {},
   onPoseChange = () => {}, onInteraction = () => {} }) {
@@ -164,7 +227,10 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const win = doc.defaultView;
   const motionQuery = win.matchMedia('(prefers-reduced-motion: reduce)');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090d12);
+  // Match the original textured floor's visible color after lighting and tone
+  // mapping, rather than its much brighter raw material color. The shadow-only
+  // floor keeps this dark ground continuous beyond its edge in every view.
+  scene.background = new THREE.Color(0x141211);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -198,20 +264,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   performer.add(content);
   scene.add(performer);
   const groundRoot = new THREE.Group();
-  const groundTextureData = new Uint8Array(128 * 128 * 4);
-  let groundSeed = 917;
-  for (let i = 0; i < 128 * 128; i += 1) {
-    groundSeed = (Math.imul(groundSeed, 1664525) + 1013904223) >>> 0;
-    const grain = 65 + (groundSeed >>> 27) + (i % 128 === 0 || i < 128 ? 12 : 0);
-    groundTextureData.set([grain + 5, grain + 2, grain, 255], i * 4);
-  }
-  const groundTexture = new THREE.DataTexture(groundTextureData, 128, 128);
-  groundTexture.colorSpace = THREE.SRGBColorSpace;
-  groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-  groundTexture.repeat.set(28, 28);
-  groundTexture.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({
-    color: 0x59514a, map: groundTexture, roughness: 0.96, metalness: 0, side: THREE.FrontSide,
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({
+    color: 0x080605, opacity: 0.46, depthWrite: false, side: THREE.FrontSide,
   }));
   ground.receiveShadow = true;
   groundRoot.add(ground);
@@ -262,10 +316,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let appliedPose = new Float32Array(0);
   let composedPose = new Float32Array(0);
   let editPose = new Float32Array(0);
+  let requestedPose = new Float32Array(0);
+  let editRequestedPose = new Float32Array(0);
   const defaultScene = { body: { lift: 0, pitch: 0, roll: 0, yaw: 0 }, floorLift: 0 };
   const editScene = { body: {}, floorLift: 0 };
   let floorParts = [];
   let externalPose = null;
+  let externalRawPose = null;
   let renderFps = 60;
   let renderPixelRatio = 1.75;
   let lastRenderTime = null;
@@ -297,12 +354,12 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   let size = '';
   let pointerMoved = false;
   let dragAxis = 'xy';
-  let touchInteraction = false;
+  let touchInteraction = true;
   let gesture = null;
   const pointers = new Map();
   const cleanups = [];
   const previousTouchAction = canvas.style.touchAction;
-  canvas.style.touchAction = 'pan-y';
+  canvas.style.touchAction = 'none';
 
   function listen(element, type, handler, options) {
     element.addEventListener(type, handler, options);
@@ -323,6 +380,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       wingLayer: item.bone.userData.wingLayer ?? null,
       authoredReconstruction: !!item.bone.userData.authoredReconstruction,
       poseLimits: item.poseLimits ?? null, collisionSamples: item.collisionSamples ?? null,
+      headContact: item.headContact ? { ...item.headContact } : null,
       bodyEllipsoid: item.bodyEllipsoid ?? null,
       floorBounds: item.floorBounds ?? null, groundFrame: item.groundFrame ?? null,
       screenPosition: { x: rect.left + (point.x + 1) * rect.width / 2,
@@ -443,6 +501,47 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     bellySamples.sort((a, b) => a - b);
     const bellyHeight = bellySamples[Math.floor(bellySamples.length * .025)] ?? bodyCenter.dot(dorsal);
     anatomy = { bounds, fitPoints, headBounds, center, bodyCenter, headCenter, forward, faceForward, dorsal, left, bodyLength, bellyHeight };
+    // The scan's approximate head hinge is in front of its shell. Rebase the
+    // face hinges at their rear attachments, preserving every resting mesh and
+    // child world transform, so a lift opens away from the chest and floor.
+    const neckItem = find('neck', /neck|pronotum/i);
+    if (headItem?.bone.userData.rigType === 'approximate rigid articulation'
+      && neckItem?.bone.userData.rigType === 'approximate rigid articulation' && !headBounds.isEmpty()) {
+      const facePoints = [];
+      headItem.bone.traverse(object => {
+        if (!object.geometry?.attributes?.position) return;
+        let owner = object;
+        while (owner && !jointObjects.has(owner)) owner = owner.parent;
+        if (owner !== headItem.bone) return;
+        const vertices = object.geometry.attributes.position;
+        for (let i = 0; i < vertices.count; i++) facePoints.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(object.matrixWorld));
+      });
+      if (facePoints.length) {
+        let rear = Infinity, low = Infinity, high = -Infinity;
+        for (const point of facePoints) {
+          rear = Math.min(rear, point.dot(forward));
+          low = Math.min(low, point.dot(dorsal)); high = Math.max(high, point.dot(dorsal));
+        }
+        const rebase = (item, pivot) => {
+          const children = item.bone.children.map(node => ({ node, world: node.matrixWorld.clone() }));
+          item.bone.position.copy(item.bone.parent.worldToLocal(pivot));
+          item.bone.updateMatrixWorld(true);
+          const inverse = item.bone.matrixWorld.clone().invert();
+          for (const { node, world } of children) inverse.clone().multiply(world).decompose(node.position, node.quaternion, node.scale);
+          item.bone.updateMatrixWorld(true);
+          for (const { node } of [{ node: item.bone }, ...children]) {
+            const rest = restNodes.find(entry => entry.node === node);
+            if (rest) { rest.position.copy(node.position); rest.quaternion.copy(node.quaternion); rest.scale.copy(node.scale); }
+          }
+        };
+        const neckPivot = neckItem.bone.getWorldPosition(new THREE.Vector3());
+        neckPivot.addScaledVector(forward, rear - bodyLength * .03 - neckPivot.dot(forward));
+        rebase(neckItem, neckPivot);
+        const headPivot = headCenter.clone().addScaledVector(forward, rear - bodyLength * .015 - headCenter.dot(forward))
+          .addScaledVector(dorsal, low + (high - low) * .72 - headCenter.dot(dorsal));
+        rebase(headItem, headPivot);
+      }
+    }
     captureFeet();
     // Lower the authored support posture by moving the grounded foot targets
     // toward the belly; do not push the rendered body through a fixed floor.
@@ -461,10 +560,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     poseJoints = bones.map((item) => ({ id: item.id, jointId: item.bone.userData.jointId,
       parent: item.parent, kinematics: item.kinematics, restOffset: item.restOffset,
       poseLimits: item.poseLimits, collisionSamples: item.collisionSamples,
+      headContact: item.headContact,
       bodyEllipsoid: item.bodyEllipsoid, floorBounds: item.floorBounds, groundFrame: item.groundFrame }));
     appliedPose = new Float32Array(bones.length * 3);
     composedPose = new Float32Array(appliedPose.length);
     editPose = new Float32Array(appliedPose.length);
+    requestedPose = new Float32Array(appliedPose.length);
+    editRequestedPose = new Float32Array(appliedPose.length);
     performer.updateMatrixWorld(true);
     anatomy.bounds.setFromObject(content);
     anatomy.center.copy(anatomy.bounds.getCenter(new THREE.Vector3()));
@@ -506,6 +608,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       item.kinematics = { position: position.toArray(), quaternion: quaternion.toArray(), scale: scale.toArray(),
         parentMatrix: parent ? null : parentWorld.toArray(), footTip: null };
       item.restWorldQuaternion = item.bone.getWorldQuaternion(new THREE.Quaternion());
+      item.restWorldPosition = item.bone.getWorldPosition(new THREE.Vector3());
       item.meshSamples = [];
       const face = /^(neck|head|antenna_left|antenna_right)$/.test(item.bone.userData.jointId);
       const floorVertices = [];
@@ -591,6 +694,17 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       if (/_(left|right)_proximal$/.test(id)) limit = 55;
       else if (/_(left|right)_middle$/.test(id)) limit = 70;
       item.poseLimits = { x: [-limit, limit], y: [-limit, limit], z: [-limit, limit] };
+      if (id === 'head' || id === 'neck') {
+        const radial = anatomy.headCenter.clone().sub(item.restWorldPosition);
+        const derivative = new THREE.Vector3(1, 0, 0).applyQuaternion(item.restWorldQuaternion).cross(radial).dot(anatomy.dorsal);
+        item.liftSign = derivative < 0 ? -1 : 1;
+        const outward = id === 'neck' ? 42 : 50, inward = id === 'neck' ? 12 : 18;
+        item.poseLimits.x = item.liftSign < 0 ? [-outward, inward] : [-inward, outward];
+        // Extra flexibility belongs to the lifting hinge; keep lateral turn
+        // and tilt small even when head and neck rotations add together.
+        item.poseLimits.y = id === 'neck' ? [-3, 3] : [-6, 6];
+        item.poseLimits.z = id === 'neck' ? [-4, 4] : [-8, 8];
+      }
       if (id === 'wings') item.poseLimits = { x: [-8, 8], y: [-10, 10], z: [-8, 8] };
       if (item.bone.userData.wingLayer) {
         const sign = item.bone.userData.wingOpenSign;
@@ -600,6 +714,31 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const outer = samples.slice(0, Math.max(8, Math.ceil(samples.length * .65)));
       item.collisionSamples = Array.from({ length: Math.min(8, outer.length) }, (_, i) => outer[Math.floor(i * outer.length / Math.min(8, outer.length))].toArray());
     }
+    const head = bones.find(item => item.bone.userData.jointId === 'head');
+    const neck = bones.find(item => item.bone.userData.jointId === 'neck');
+    if (head?.bone.userData.rigType !== 'approximate rigid articulation'
+      || neck?.bone.userData.rigType !== 'approximate rigid articulation' || head.parent !== neck.id) return;
+    const joints = new Set(bones.map(item => item.bone)), headPoints = [], platePoints = [], plateIndices = [];
+    for (const [item, points] of [[head, headPoints], [neck, platePoints]]) {
+      const inverse = item === head ? head.bone.matrixWorld.clone().invert() : new THREE.Matrix4();
+      item.bone.traverse(object => {
+        const vertices = object.geometry?.attributes?.position;
+        if (!vertices) return;
+        let owner = object;
+        while (owner && !joints.has(owner)) owner = owner.parent;
+        if (owner !== item.bone) return;
+        const matrix = inverse.clone().multiply(object.matrixWorld), offset = points.length;
+        for (let i = 0; i < vertices.count; i += 1) points.push(new THREE.Vector3().fromBufferAttribute(vertices, i).applyMatrix4(matrix));
+        if (item === neck) {
+          const indices = object.geometry.index;
+          for (let i = 0; i < (indices?.count ?? vertices.count); i += 1) plateIndices.push(offset + (indices ? indices.getX(i) : i));
+        }
+      });
+    }
+    const liftLimit = measureRoachHeadContact({ headPoints, platePoints, plateIndices, headMatrix: head.bone.matrixWorld,
+      frame: anatomy, liftSign: head.liftSign, maxLift: Math.max(...head.poseLimits.x.map(angle => angle * head.liftSign)) });
+    if (Number.isFinite(liftLimit)) head.headContact = { parentId: neck.id, liftSign: head.liftSign,
+      parentLiftSign: neck.liftSign, liftLimit };
   }
   function calibrateStance() {
     if (footJoints.length !== 6) return;
@@ -743,7 +882,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     } else if (viewPreset === 'bottom') {
       direction.copy(dorsal).negate(); up.copy(forward);
     } else {
-      direction.copy(anatomy.faceForward).addScaledVector(dorsal, -0.65).normalize();
+      direction.copy(forward).addScaledVector(dorsal, 0.4).normalize();
       up.copy(dorsal);
       viewBounds.expandByScalar(viewBounds.getSize(new THREE.Vector3()).length() * 0.16);
     }
@@ -800,6 +939,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     distance = clamp(distance * factor, 0.15, 16);
     updateCamera();
     invalidate();
+    onInteraction({ kind: 'orbit', phase: 'end', velocity: 0, active: false });
     return true;
   }
   function resize() {
@@ -845,6 +985,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       appliedPose[item.index * 3 + 1] = y;
       appliedPose[item.index * 3 + 2] = z;
     }
+    requestedPose.set(externalRawPose ?? appliedPose);
     constrainRoachPose(appliedPose, poseJoints);
     composedPose.set(appliedPose);
     constrainRoachFloorPose(appliedPose, poseJoints, sceneState ?? defaultScene);
@@ -906,7 +1047,6 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     groundRoot.worldToLocal(shadeCenter);
     contactShade.position.set(shadeCenter.x, shadeCenter.y, 0.001);
     contactShade.material.uniforms.opacity.value = 0.34 / (1 + Math.max(0, body?.lift ?? 0) * 7);
-    groundTexture.offset.y = ((sceneState?.groundOffset ?? 0) * bodyLength * 28 / 12) % 1;
     floorParts.length = 0;
     for (const item of bones) {
       if (!item.floorBounds?.length) continue;
@@ -968,6 +1108,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     selectedBone = null;
     selectedMarker.visible = false;
     externalPose = null;
+    externalRawPose = null;
     anatomy = null;
     sceneState = null;
     footJoints = [];
@@ -975,6 +1116,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     appliedPose = new Float32Array(0);
     composedPose = new Float32Array(0);
     editPose = new Float32Array(0);
+    requestedPose = new Float32Array(0);
+    editRequestedPose = new Float32Array(0);
     defaultScene.floorLift = 0;
     floorParts = [];
     contactEvidence = [];
@@ -1040,6 +1183,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   }
   function resetPose() {
     externalPose = null;
+    externalRawPose = null;
     playing = false;
     motionTime = 0;
     for (const item of bones) {
@@ -1050,12 +1194,17 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     const selected = bones.find((item) => item.id === selectedBone);
     if (selected) onSelect(boneState(selected));
   }
-  function setExternalPose(degreesArray) {
-    if (degreesArray === null) externalPose = null;
+  function setExternalPose(degreesArray, rawDegreesArray = null) {
+    if (degreesArray === null) { externalPose = null; externalRawPose = null; }
     else {
       if (!degreesArray || degreesArray.length !== bones.length * 3) throw new RangeError('External pose needs three degree values per joint.');
+      if (rawDegreesArray && rawDegreesArray.length !== degreesArray.length) throw new RangeError('Raw external pose needs three degree values per joint.');
       if (!externalPose || externalPose.length !== degreesArray.length) externalPose = new Float32Array(degreesArray.length);
       for (let i = 0; i < degreesArray.length; i += 1) externalPose[i] = clamp(degreesArray[i], -180, 180);
+      if (rawDegreesArray) {
+        if (!externalRawPose || externalRawPose.length !== degreesArray.length) externalRawPose = new Float32Array(degreesArray.length);
+        for (let i = 0; i < degreesArray.length; i += 1) externalRawPose[i] = clamp(rawDegreesArray[i], -180, 180);
+      } else externalRawPose = null;
     }
     invalidate();
   }
@@ -1315,12 +1464,30 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   function getGazeOffset() {
     const head = bones.find((item) => item.bone.userData.jointId === 'head');
     if (!head || !anatomy) return { x: 0, y: 0, z: 0 };
-    const inverse = head.restWorldQuaternion.clone().invert();
-    const facing = anatomy.faceForward.clone().applyQuaternion(inverse).normalize();
-    const desired = camera.position.clone().sub(head.bone.getWorldPosition(new THREE.Vector3())).applyQuaternion(inverse).normalize();
+    const neck = bones.find(item => item.bone.userData.jointId === 'neck');
+    const neckGaze = { x: 0, y: 0, z: 0 };
+    let headBasis = head.bone.parent.getWorldQuaternion(new THREE.Quaternion()).multiply(head.baseQuaternion);
+    let headPosition = head.bone.getWorldPosition(new THREE.Vector3());
+    if (neck && head.bone.parent === neck.bone) {
+      const neckBasis = neck.bone.parent.getWorldQuaternion(new THREE.Quaternion()).multiply(neck.baseQuaternion);
+      const inverse = neckBasis.clone().invert();
+      const facing = anatomy.headCenter.clone().sub(neck.restWorldPosition).applyQuaternion(neck.restWorldQuaternion.clone().invert()).normalize();
+      const desired = camera.position.clone().sub(neck.bone.getWorldPosition(new THREE.Vector3())).applyQuaternion(inverse).normalize();
+      const rotation = new THREE.Quaternion().setFromUnitVectors(facing, desired);
+      rotation.slerp(new THREE.Quaternion(), .5);
+      const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
+      neckGaze.x = clamp(angles.x / RAD, neck.liftSign < 0 ? -34 : -12, neck.liftSign < 0 ? 12 : 34);
+      neckGaze.y = clamp(angles.y / RAD, -2, 2); neckGaze.z = clamp(angles.z / RAD, -2, 2);
+      neckBasis.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(neckGaze.x * RAD, neckGaze.y * RAD, neckGaze.z * RAD, 'XYZ')));
+      headBasis = neckBasis.clone().multiply(head.baseQuaternion);
+      const neckMatrix = new THREE.Matrix4().compose(neck.bone.getWorldPosition(new THREE.Vector3()), neckBasis, neck.bone.getWorldScale(new THREE.Vector3()));
+      headPosition = new THREE.Vector3().fromArray(head.kinematics.position).applyMatrix4(neckMatrix);
+    }
+    const facing = anatomy.faceForward.clone().applyQuaternion(head.restWorldQuaternion.clone().invert()).normalize();
+    const desired = camera.position.clone().sub(headPosition).applyQuaternion(headBasis.invert()).normalize();
     const rotation = new THREE.Quaternion().setFromUnitVectors(facing, desired);
     const gaze = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
-    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -22, 22), z: clamp(gaze.z / RAD, -22, 22) };
+    return { x: clamp(gaze.x / RAD, -22, 22), y: clamp(gaze.y / RAD, -3, 3), z: clamp(gaze.z / RAD, -4, 4), neck: neckGaze };
   }
   function setDragAxis(value) {
     if (!['xy', 'x', 'y', 'z'].includes(value)) return false;
@@ -1357,15 +1524,49 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     // only accepted deltas. Animation, MIDI and speech retain their own state.
     applyPose(0);
     editPose.set(appliedPose);
+    const head = bones.find(joint => joint.headContact && (joint === item || joint.headContact.parentId === item.id));
+    const plate = head && bones.find(joint => joint.id === head.headContact.parentId);
+    const contact = plate && head.headContact;
+    const headIndex = head?.index * 3, plateIndex = plate?.index * 3;
+    const boundedX = (joint, angle) => clamp(angle,
+      (joint.restOffset?.x ?? 0) + joint.poseLimits.x[0], (joint.restOffset?.x ?? 0) + joint.poseLimits.x[1]);
+    const carry = angle => Math.max(0,
+      (boundedX(head, angle) - (head.restOffset?.x ?? 0)) * contact.liftSign - contact.liftLimit);
+    if (contact) {
+      if (item === head) {
+        // The plate lift belongs to this head request, not to a held neck edit.
+        // Recover that request from the displayed pair before adding the drag.
+        const rawPlate = boundedX(plate, requestedPose[plateIndex]);
+        editPose[plateIndex] = rawPlate;
+        if (carry(requestedPose[headIndex]) > 0) editPose[headIndex] +=
+          (appliedPose[plateIndex] - rawPlate) * contact.liftSign / contact.parentLiftSign;
+      } else {
+        // Editing the plate keeps the head's independent request intact, and
+        // removes its derived carry from the displayed neck baseline.
+        editPose[headIndex] = boundedX(head, requestedPose[headIndex]);
+        editPose[plateIndex] -= carry(editPose[headIndex]) * contact.parentLiftSign;
+      }
+    }
     for (let axis = 0; axis < 3; axis += 1) {
       const key = ['x', 'y', 'z'][axis];
       editPose[item.index * 3 + axis] += clamp(offset[key], -180, 180) - item.offset[key];
     }
+    editRequestedPose.set(editPose);
     Object.assign(editScene.body, (sceneState ?? defaultScene).body);
     constrainRoachPose(editPose, poseJoints);
     constrainRoachFloorPose(editPose, poseJoints, editScene);
     for (const joint of bones) for (let axis = 0; axis < 3; axis += 1) {
       const index = joint.index * 3 + axis;
+      if (contact && joint === head && axis > 0) continue;
+      if (contact && axis === 0 && (joint === head || joint === plate)) {
+        if (joint !== item) continue;
+        let accepted = editPose[index];
+        if (item === head && carry(editRequestedPose[headIndex]) > 0) accepted +=
+          (editPose[plateIndex] - boundedX(plate, editRequestedPose[plateIndex])) * contact.liftSign / contact.parentLiftSign;
+        else if (item === plate) accepted -= carry(editRequestedPose[headIndex]) * contact.parentLiftSign;
+        joint.offset.x += boundedX(joint, accepted) - requestedPose[index];
+        continue;
+      }
       if (joint === item || Math.abs(editPose[index] - appliedPose[index]) > 1e-7) {
         // The held offset must cancel any contribution the floor previously
         // rejected; measuring from the displayed angle would preserve a hidden
@@ -1388,7 +1589,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     if (pointers.size > 1) {
       // A second finger cancels direct manipulation. Keep every held pointer
       // tracked until release, so finger churn cannot restart a drag midway.
-      // Zoom is available only through the explicit API/buttons and +/- keys.
+      // Wheel zoom and the explicit controls stay independent of this gesture.
       interaction('cancel');
       gesture = null;
       pointerMoved = true;
@@ -1425,10 +1626,11 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       const offset = { ...gesture.offset };
       const axis = event.altKey ? 'z' : dragAxis;
       const touchY = gesture.scrollTouch ? 0 : totalY;
+      const vertical = -touchY * (item.liftSign ?? 1);
       if (axis === 'xy') {
         offset.y += totalX * 0.38;
-        offset.x -= touchY * 0.38;
-      } else offset[axis] += (totalX - (axis === 'x' ? touchY : 0)) * 0.38;
+        offset.x += vertical * 0.38;
+      } else offset[axis] += (totalX + (axis === 'x' ? vertical : 0)) * 0.38;
       for (const component of ['x', 'y', 'z']) offset[component] = clamp(offset[component], -90, 90);
       const velocity = clamp(Math.hypot(dx, dy) / Math.max(8, event.timeStamp - gesture.time) / 1.7, 0.04, 1);
       editJoint(item, offset, velocity);
@@ -1460,9 +1662,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   listen(canvas, 'pointercancel', pointerEnd);
   listen(canvas, 'lostpointercapture', (event) => { if (gesture && pointers.has(event.pointerId)) cancelPointers(); });
   listen(canvas, 'wheel', (event) => {
-    // Trackpad pinch arrives as Ctrl+wheel. Suppress that implicit zoom over
-    // the instrument; ordinary wheel scrolling still belongs to the page.
-    if (event.ctrlKey) event.preventDefault();
+    if (!Number.isFinite(event.deltaY) || disposed) return;
+    event.preventDefault();
+    // Mouse wheels may use pixels, lines, or pages. Bound a single event so a
+    // coarse wheel or trackpad pinch remains controllable at either zoom limit.
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2
+      ? Math.max(1, canvas.getBoundingClientRect().height) : 1;
+    zoom(Math.exp(clamp(event.deltaY * unit, -240, 240) * 0.002));
   }, { passive: false });
   listen(canvas, 'keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
