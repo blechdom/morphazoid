@@ -1,7 +1,7 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from '../spelling-synthesizer/spelling-diphone-atlas.js';
-import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
-import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix } from './roach-synth-dsp.js';
+import { spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
+import { normalizeRoachSound, ROACH_SOUND_DEFAULTS, normalizeRoachBodyMix, createDefaultRoachBodyMix, validateRoachSpeechBuffer } from './roach-synth-dsp.js';
 import { RoachMidiPerformance, normalizeRoachMidiMessage } from './roach-synth-midi.js';
 
 export { ROACH_SOUND_DEFAULTS, ROACH_SOUND_PRESETS, ROACH_MOD_TARGETS,
@@ -63,6 +63,7 @@ export class RoachSynthAudio {
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
     this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
+    this.cancelSpeechRender = null;
     this.samplesPromise = null; this.samplesAbort = null; this.samplesStatus = 'idle'; this.samplesLoaded = 0;
     this.state = { playing: false, soundPlaying: false, sound: { ...ROACH_SOUND_DEFAULTS }, bodyMix: createDefaultRoachBodyMix() };
     this.anchorTime = 0; this.anchorClock = this.clock();
@@ -236,7 +237,7 @@ export class RoachSynthAudio {
   }
   disable() {
     if (this.disposed) return;
-    this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    this.generation += 1; this.cancelSpeech(); this.enabled = false;
     // Audio is a mute, not MIDI panic: held notes and CC still animate.
     this.postState({ enabled: false }); this.post({ type: 'stop-speech' });
     if (this.master && this.context?.state !== 'closed') {
@@ -308,20 +309,62 @@ export class RoachSynthAudio {
     try { await this.atlasPromise; }
     finally { this.atlasPromise = null; this.speechAbort = null; }
   }
+  cancelSpeech() {
+    this.speechGeneration += 1;
+    this.cancelSpeechRender?.(); this.cancelSpeechRender = null;
+  }
+  renderSpeech(text) {
+    const Worker = this.runtime.Worker;
+    if (typeof Worker !== 'function') throw new Error('This browser does not support voice workers');
+    const worker = new Worker(new URL('./roach-synth-speech-worker.js', import.meta.url), { type: 'module' });
+    const setTimer = this.runtime.setTimeout?.bind(this.runtime) ?? setTimeout;
+    const clearTimer = this.runtime.clearTimeout?.bind(this.runtime) ?? clearTimeout;
+    return new Promise((resolve, reject) => {
+      let settled = false, timer;
+      const finish = (error, result) => {
+        if (settled) return; settled = true;
+        clearTimer(timer); worker.onmessage = null; worker.onerror = null; worker.onmessageerror = null; worker.terminate();
+        if (this.cancelSpeechRender === cancel) this.cancelSpeechRender = null;
+        if (error) reject(error); else resolve(result);
+      };
+      const cancel = () => finish(cancelled());
+      this.cancelSpeechRender = cancel;
+      timer = setTimer(() => finish(new Error('Voice rendering timed out')), 30000);
+      worker.onerror = event => finish(new Error(event.message || 'Voice worker failed'));
+      worker.onmessageerror = () => finish(new Error('Voice worker returned unreadable audio'));
+      worker.onmessage = ({ data }) => {
+        if (settled) return;
+        if (data?.type === 'error') { finish(new Error(data.message || 'Voice rendering failed')); return; }
+        if (data?.type !== 'ready') return;
+        try {
+          validateRoachSpeechBuffer(data.samples, data.sampleRate);
+          finish(null, { samples: data.samples, sampleRate: data.sampleRate });
+        } catch (error) { finish(error); }
+      };
+      try { worker.postMessage({ text }); }
+      catch (error) { finish(error); }
+    });
+  }
   async speak(value) {
     if (!this.enabled || !this.ready || this.disposed) {
       safeCall(this.onStatus, 'Turn Audio on before asking the roach to speak.'); return false;
     }
+    if (this.context?.state !== 'running') {
+      safeCall(this.onStatus, 'Audio is paused. Tap Audio again to speak.'); return false;
+    }
     const text = String(value ?? '').trim().slice(0, 180);
     if (!text) return false;
-    const generation = ++this.speechGeneration;
+    this.cancelSpeech();
+    const generation = this.speechGeneration, context = this.context, node = this.node;
     safeCall(this.onStatus, 'Preparing roach speech…');
     try {
-      const [pronunciations] = await Promise.all([
-        loadSpellingPronunciations(text, { fetcher: this.runtime.fetch?.bind(this.runtime) }), this.loadAtlas(),
-      ]);
-      if (!this.enabled || this.disposed || generation !== this.speechGeneration) return false;
-      this.post({ type: 'speak', phones: createRoachSpeechPlan(text, pronunciations) });
+      const { samples, sampleRate } = await this.renderSpeech(text);
+      if (!this.enabled || !this.ready || this.disposed || generation !== this.speechGeneration
+        || context !== this.context || node !== this.node) return false;
+      if (context.state !== 'running') {
+        safeCall(this.onStatus, 'Audio is paused. Tap Audio again to speak.'); return false;
+      }
+      this.post({ type: 'speech-buffer', samples, sampleRate }, [samples.buffer]);
       safeCall(this.onStatus, '');
       return true;
     } catch (error) {

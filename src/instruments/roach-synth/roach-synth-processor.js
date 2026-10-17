@@ -22,6 +22,7 @@ class RoachSynthProcessor extends AudioWorkletProcessor {
         else if (data?.type === 'sample-bank') this.dsp.setSampleBank(data.samples, { transferred: true });
         else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
         else if (data?.type === 'speak') this.dsp.speak(data.phones);
+        else if (data?.type === 'speech-buffer') this.dsp.speakBuffer(data.samples, data.sampleRate, { transferred: true });
         else if (data?.type === 'stop-speech') this.dsp.stopSpeech();
         else if (data?.type === 'dispose') { this.disposed = true; this.dsp.stopSpeech(); this.dsp.resetMidi(); }
       } catch (error) { this.port.postMessage({ type: 'error', message: String(error.message || error) }); }
