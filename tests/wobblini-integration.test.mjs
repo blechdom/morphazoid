@@ -13,6 +13,7 @@ import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { restoreWobbliniSite, wobbliniSiteChanges } from './helpers/wobblini-site-reference.mjs';
 import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
@@ -81,7 +82,7 @@ test('Wobblini has real original artwork, an incoming fallback route, and requir
 test('Wobblini additions preserve preceding source bytes and reject missing, repeated or altered amendments', async () => {
   assert.match(wobbliniSiteChanges.baseCommit, /^876f074b[0-9a-f]{32}$/);
   for (const change of wobbliniSiteChanges.changes) {
-    const source = restoreEsi32Site(restoreWipRolloutSite(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file, { allowRestored: true });
+    const source = restoreEsi32Site(restoreWipRolloutSite(restoreRoachPerformance(await readFile(new URL(change.file, root), 'utf8'), change.file), change.file), change.file, { allowRestored: true });
     const restored = restoreWobbliniSite(source, change.file);
     assert.equal(digest(restored, change.file), change.sha256, change.file);
     assert.equal(restoreWobbliniSite(restored, change.file, { allowRestored: true }), restored);
@@ -105,11 +106,11 @@ test('Wobblini controls copy peels to the exact previous publication without hid
   assert.match(wobbliniControlsSiteChanges.baseCommit, /^9e60847c[0-9a-f]{32}$/);
   for (const change of wobbliniControlsSiteChanges.changes) {
     const url = new URL(change.file, root);
-    const raw = await readFile(url, 'utf8');
+    const raw = restoreRoachPerformance(await readFile(url, 'utf8'), change.file);
     const source = restoreWobbliniDjaySite(raw, change.file);
     const restored = restoreWobbliniControlsSite(source, change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256, change.file);
-    assert.equal(await readWobbliniControlsSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreRoachPerformance(await readWobbliniControlsSiteReference(url, 'utf8'), change.file), restored);
     assert.deepEqual(await readWobbliniControlsSiteReference(url), await readFile(url));
     assert.equal(restoreWobbliniControlsSite(restored, change.file, { allowRestored: true }), restored);
     for (const { before, after } of change.replacements) {
@@ -129,7 +130,7 @@ test('Wobblini controls copy peels to the exact previous publication without hid
 test('Wobblini performance amendments preserve preceding bytes and expose unrelated drift', async () => {
   assert.equal(wobbliniDjaySiteChanges.baseCommit, '263f00b37166552d3714989ebdb8adf54d9ed4f7');
   for (const change of wobbliniDjaySiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), 'utf8');
+    const source = restoreRoachPerformance(await readFile(new URL(change.file, root), 'utf8'), change.file);
     const restored = restoreWobbliniDjaySite(source, change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256);
     assert.equal(restoreWobbliniDjaySite(restored, change.file, { allowRestored: true }), restored);

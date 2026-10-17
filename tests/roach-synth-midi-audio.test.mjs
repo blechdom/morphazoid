@@ -253,6 +253,8 @@ test('all movement-only body sources become quiet after the keyboard pose settle
   for (const { id, motionOnly } of ROACH_BODY_SOURCES) {
     if (!motionOnly) continue;
     const dsp = synth({ bodyMix: mix('head', id) });
+    if (id.startsWith('voice-')) dsp.setBodyVoice(id,
+      Float32Array.from({ length: 12000 }, (_, i) => Math.sin(i * Math.PI * 2 * 190 / 24000) * .35), 24000);
     if (id === 'rustle') {
       const data = new Float32Array(24000); for (let i = 0; i < data.length; i++) data[i] = Math.sin(i * .47) * .1;
       dsp.setSampleBank(['vivarium_scuttle', 'vivarium_rustle', 'vivarium_contact'].map(sampleId => ({ id: sampleId, data, sampleRate: 24000, cues: [0] })));

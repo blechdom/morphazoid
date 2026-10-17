@@ -8,6 +8,7 @@ import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capab
 import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { staircaseSiteChanges, restoreStaircaseSite } from './helpers/staircase-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const error = /exact Staircase Studies site amendment/;
@@ -43,10 +44,10 @@ test('the original staircase page, model, sound, styles and icon remain byte-for
 
 test('exact additive site and build changes restore prior bytes and reject missing, duplicate and changed additions', async () => {
   for (const change of staircaseSiteChanges.changes) {
-    const url = new URL(`../${change.file}`, import.meta.url), source = await readFile(url, 'utf8');
+    const url = new URL(`../${change.file}`, import.meta.url), source = restoreRoachPerformance(await readFile(url, 'utf8'), change.file);
     const restored = restoreStaircaseSite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
-    assert.equal(await readStaircaseSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreRoachPerformance(await readStaircaseSiteReference(url, 'utf8'), change.file), restored);
     assert.deepEqual(await readStaircaseSiteReference(url), await readFile(url));
     assert.equal(restoreStaircaseSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreStaircaseSite(restored, change.file), error);

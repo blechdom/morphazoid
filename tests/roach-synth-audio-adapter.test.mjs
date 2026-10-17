@@ -54,6 +54,43 @@ test('body mixer updates normalize and own rows without changing Audio or either
   } finally { audio.dispose(); }
 });
 
+test('head contact geometry crosses the audio boundary and survives disable and rearm', async () => {
+  const f = fixture(); const audio = new RoachSynthAudio({ runtime: f.runtime });
+  const contact = { parentId: 'neck', liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  const rig = [
+    { id: 'head', jointId: 'head', parent: 'neck', headContact: contact, offset: { x: 0, y: 0, z: 0 },
+      poseLimits: { x: [-50, 18], y: [-6, 6], z: [-8, 8] } },
+    { id: 'neck', jointId: 'neck', offset: { x: 0, y: 0, z: 0 },
+      poseLimits: { x: [-42, 12], y: [-3, 3], z: [-4, 4] } },
+  ];
+  audio.update({ joints: rig, playing: false, soundPlaying: false, time: 7 });
+  assert.equal(f.contexts.length, 0, 'contact geometry must not implicitly create Audio');
+  try {
+    await audio.enable();
+    const dsp = audio.node.dsp;
+    assert.deepEqual(dsp.joints[0].headContact, contact);
+    assert.notEqual(dsp.joints[0].headContact, contact);
+    assert.deepEqual(f.messages.find((message) => message.type === 'state').state.joints[0].headContact, contact);
+    const previous = dsp.joints[0]; const anchor = audio.anchorClock;
+    contact.liftLimit = .3;
+    assert.equal(previous.headContact.liftLimit, .15, 'caller mutations cannot change active worklet geometry');
+    audio.update({ joints: rig });
+    assert.notEqual(dsp.joints[0], previous);
+    assert.deepEqual(dsp.joints[0].headContact, contact);
+    assert.equal(audio.getTime(), 7); assert.equal(audio.anchorClock, anchor);
+    assert.equal(audio.getState().playing, false); assert.equal(audio.getState().soundPlaying, false);
+    assert.equal(energy(dsp, .1), 0);
+    audio.disable();
+    assert.equal(audio.enabled, false); assert.equal(dsp.enabled, false);
+    await audio.enable();
+    assert.deepEqual(dsp.joints[0].headContact, contact);
+    assert.deepEqual(dsp.joints[0].poseLimits, rig[0].poseLimits);
+    assert.deepEqual(dsp.joints[1].poseLimits, rig[1].poseLimits);
+    assert.equal(f.contexts.length, 1, 'rearming reuses the same AudioContext');
+    assert.equal(audio.getTime(), 7); assert.equal(energy(dsp, .1), 0);
+  } finally { audio.dispose(); }
+});
+
 test('resetActivity is an edge: a static teleport stays silent and the next real drag still sounds', async () => {
   const f = fixture(); const audio = new RoachSynthAudio({ runtime: f.runtime });
   const joints = [{ id: 'head', jointId: 'head', name: 'Head', offset: { x: 0, y: 0, z: 0 } }];

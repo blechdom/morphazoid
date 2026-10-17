@@ -6,14 +6,18 @@ import test from 'node:test';
 import { restoreSoundFontsSite, soundFontsSiteChanges } from './helpers/sound-fonts-site-reference.mjs';
 import { readTrackazoidSiteReference, restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 // Keep the published Sound Fonts evidence intact after the independent organ
 // registration and Trackazoid beatmatching; mutations retain exact guards.
-const read = async (file, encoding = 'utf8') => restoreTrackazoidBeatmatchingSite(
-  restoreSpartialOrganRuntime(await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true }),
-  file, { allowRestored: true },
-);
+const read = async (file, encoding = 'utf8') => {
+  const source = restoreTrackazoidBeatmatchingSite(
+    restoreSpartialOrganRuntime(await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true }),
+    file, { allowRestored: true },
+  );
+  return typeof source === 'string' ? restoreRoachPerformance(source, file) : source;
+};
 
 test('Sound Fonts amendments preserve exact shared files from the published parent', async () => {
   assert.equal(soundFontsSiteChanges.baseCommit, 'cedaf28dca962b0af0a885b7d301dc7211517ecd');
@@ -30,9 +34,9 @@ test('Sound Fonts amendments preserve exact shared files from the published pare
     assert.equal(restoreTrackazoidSite(source, change.file, { allowRestored: true }),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }),
       'the existing historical reader peels Sound Fonts before Trackazoid');
-    assert.equal(restoreSpartialOrganRuntime(
+    assert.equal(restoreRoachPerformance(restoreSpartialOrganRuntime(
       await readTrackazoidSiteReference(new URL(`../${change.file}`, import.meta.url), 'utf8'),
-      change.file, { allowRestored: true }),
+      change.file, { allowRestored: true }), change.file),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }));
   }
 });

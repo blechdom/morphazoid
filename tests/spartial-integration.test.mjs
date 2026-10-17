@@ -11,6 +11,7 @@ import { spartialSiteChanges, restoreSpartialSite } from "./helpers/spartial-sit
 import { restoreAmInstrumentAdditions } from "./helpers/am-instruments-reference.mjs";
 import { restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
 import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
+import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -21,7 +22,7 @@ test("SPARTIAL metadata additions preserve the independently captured published 
     "src/site/catalogue-taxonomy.js", "src/site/instrument-midi-capabilities.js",
   ]);
   for (const change of spartialSiteChanges.changes) {
-    const beforeRename = restoreMidiophiliaRename(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const beforeRename = restoreMidiophiliaRename(restoreRoachPerformance(await readFile(new URL(change.file, root), "utf8"), change.file), change.file);
     const source = restoreAmInstrumentAdditions(
       restoreFractalDelaySite(beforeRename, change.file), change.file,
     );

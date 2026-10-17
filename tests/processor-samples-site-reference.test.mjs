@@ -5,11 +5,12 @@ import { readStaircaseSiteReference as readFile } from './helpers/staircase-site
 import { processorSamplesSiteChanges, restoreProcessorSamplesSite } from './helpers/processor-samples-site-reference.mjs';
 import { restoreVectorMotifRuntime } from './helpers/vector-motif-runtime-reference.mjs';
 import { restoreRustResonatorSite } from './helpers/simd-resonator-rust-site-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 test('sample playback catalogue and required runtime additions reverse to exact main bytes', async () => {
   for (const change of processorSamplesSiteChanges.changes) {
-    const current = restoreRustResonatorSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file, { allowRestored: true });
+    const current = restoreRoachPerformance(restoreRustResonatorSite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file, { allowRestored: true }), change.file);
     const source = change.file === 'scripts/site/runtime-files.tsv'
       ? restoreVectorMotifRuntime(current, change.file) : current;
     const restored = restoreProcessorSamplesSite(source, change.file);

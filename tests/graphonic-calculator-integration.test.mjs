@@ -15,6 +15,7 @@ import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-referen
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { graphonicCalculatorSiteChanges, readGraphonicCalculatorSiteReference, restoreGraphonicCalculatorSite } from './helpers/graphonic-calculator-site-reference.mjs';
 import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 
 const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
 const root = new URL('../', import.meta.url);
@@ -59,11 +60,11 @@ test('Graphonic Calculator amendments restore the exact preceding main source an
   ]);
   for (const change of graphonicCalculatorSiteChanges.changes) {
     const url = new URL(change.file, root);
-    const source = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(url, 'utf8'), change.file), change.file), change.file);
+    const source = restoreRoachPerformance(restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(restoreWipRolloutSite(await readFile(url, 'utf8'), change.file), change.file), change.file), change.file);
     const restored = restoreGraphonicCalculatorSite(source, change.file);
     assert.equal(restoreGraphonicCalculatorSite(source, 'unrelated.js'), source);
     assert.equal(digest(restored, change.file), change.sha256, `${change.file}: pre-Graphonic Calculator source preserved`);
-    assert.equal(await readWipRolloutSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreRoachPerformance(await readWipRolloutSiteReference(url, 'utf8'), change.file), restored);
     assert.deepEqual(await readWipRolloutSiteReference(url), await readFile(url), 'binary reads remain byte-for-byte');
     assert.equal(restoreGraphonicCalculatorSite(restored, change.file, { allowRestored: true }), restored);
     assert.notEqual(digest(restoreGraphonicCalculatorSite(source + '\n// unrelated drift\n', change.file), change.file), change.sha256);
@@ -87,11 +88,11 @@ test('the Math category amendment restores the exact preceding main bytes and pe
   for (const change of math.changes) {
     const url = new URL(change.file, root);
     // The parallel ESI-32 addition is proved against the same independent baseline.
-    const source = restoreEsi32Site(await readFile(url, 'utf8'), change.file, { allowRestored: true });
+    const source = restoreRoachPerformance(restoreEsi32Site(await readFile(url, 'utf8'), change.file, { allowRestored: true }), change.file);
     const restored = restoreMath(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-Math source preserved`);
-    const mathOnly = await readGraphonicCalculatorMathSiteReference(url, 'utf8');
-    assert.equal(mathOnly, restoreMath(await readFile(url, 'utf8'), change.file), 'the Math reader preserves parallel feature additions');
+    const mathOnly = restoreRoachPerformance(await readGraphonicCalculatorMathSiteReference(url, 'utf8'), change.file);
+    assert.equal(mathOnly, restoreMath(restoreRoachPerformance(await readFile(url, 'utf8'), change.file), change.file), 'the Math reader preserves parallel feature additions');
     assert.equal(restoreEsi32Site(mathOnly, change.file, { allowRestored: true }), restored);
     assert.equal(restoreMath(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreMath(restored, change.file), /exact Graphonic Calculator Math site amendment/);

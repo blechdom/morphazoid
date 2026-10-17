@@ -5,7 +5,7 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
   await page.setContent(`<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;background:#090d12;min-height:1800px"><canvas id="specimen" tabindex="0" aria-label="Articulated roach" style="display:block;width:100%;height:${touch ? 460 : 700}px"></canvas></body></html>`);
   await page.evaluate(async (modelUrl) => {
     const { createRoachViewer } = await import('/src/instruments/roach-synth/roach-synth-viewer.js');
-    const { writeRoachPose, writeRoachSceneState, createRoachSceneState } = await import('/src/instruments/roach-synth/roach-synth-motion.js');
+    const { writeRoachPose, constrainRoachPose, writeRoachSceneState, createRoachSceneState } = await import('/src/instruments/roach-synth/roach-synth-motion.js');
     window.interactions = [];
     window.poseChanges = [];
     window.joints = [];
@@ -13,12 +13,14 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
     window.motion = { presetId: 'none', intensity: 1, antennae: false, tempo: 108 };
     window.motionTime = 0;
     const scene = createRoachSceneState();
-    let pose = null;
+    let pose = null, rawPose = null;
     window.drawSpecimen = () => {
       pose ??= new Float32Array(joints.length * 3);
-      writeRoachPose(motionTime, motion, joints, pose);
+      rawPose ??= new Float32Array(pose.length);
+      writeRoachPose(motionTime, motion, joints, rawPose, false);
+      pose.set(rawPose); constrainRoachPose(pose, joints);
       writeRoachSceneState(motionTime, motion, scene);
-      specimenViewer.setExternalPose(pose);
+      specimenViewer.setExternalPose(pose, rawPose);
       specimenViewer.setSceneState(scene);
     };
     window.specimenViewer = createRoachViewer({ canvas: document.querySelector('#specimen'),
@@ -26,12 +28,402 @@ async function specimen(page, { touch = false, modelUrl = '/assets/roach-synth/c
       onPoseChange(change) { poseChanges.push(change); joints = specimenViewer.getState().bones; drawSpecimen(); },
       onInteraction(change) { interactions.push(change); },
     });
+    specimenViewer.setRenderBudget({ fps: 20, pixelRatio: 1 });
     if (modelUrl) { await specimenViewer.loadUrl(modelUrl); drawSpecimen(); }
   }, modelUrl);
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(0);
 }
 
-test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen view through standing', async ({ page }) => {
+// Observe rendered scan vertices rather than accepting an offset/quaternion
+// change that could still fold the face into the chest or through the floor.
+async function observeHeadGeometry(page) {
+  await page.route('**/src/instruments/roach-synth/roach-synth-viewer.js*', async route => {
+    const response = await route.fetch(), source = await response.text();
+    const marker = 'return { loadUrl, loadArrayBuffer, getState,';
+    expect(source).toContain(marker);
+    await route.fulfill({ response, body: source.replace(marker, `let roachTestPlateProbeCache;
+    function measureActualPlateContact(plateCenter) {
+      const head = bones.find(item => item.bone.userData.jointId === 'head'), neck = bones.find(item => item.bone.userData.jointId === 'neck');
+      if (!head || !neck) throw new Error('Actual plate contact requires head and neck/pronotum meshes.');
+      const project = point => [point.dot(anatomy.left), point.dot(anatomy.forward), point.dot(anatomy.dorsal)];
+      if (!roachTestPlateProbeCache) {
+        const owners = new Set(bones.map(item => item.bone));
+        const readLocal = item => {
+          const points = [], triangles = [], inverse = item.bone.matrixWorld.clone().invert();
+          item.bone.traverse(object => {
+            const position = object.geometry?.attributes?.position; if (!position) return;
+            let owner = object; while (owner && !owners.has(owner)) owner = owner.parent;
+            if (owner !== item.bone) return;
+            const offset = points.length, matrix = inverse.clone().multiply(object.matrixWorld);
+            for (let i = 0; i < position.count; i++) points.push(new THREE.Vector3().fromBufferAttribute(position, i).applyMatrix4(matrix));
+            const indices = object.geometry.index;
+            for (let i = 0; i < (indices?.count ?? position.count); i += 3) triangles.push([0,1,2].map(a => offset + (indices ? indices.getX(i + a) : i + a)));
+          });
+          return { points, triangles };
+        };
+        const restMatrix = item => new THREE.Matrix4().compose(item.restWorldPosition, item.restWorldQuaternion, item.bone.getWorldScale(new THREE.Vector3()));
+        const plate = readLocal(neck), face = readLocal(head), restNeck = restMatrix(neck), restHead = restMatrix(head);
+        const plateWorld = plate.points.map(point => point.clone().applyMatrix4(restNeck));
+        const projected = plateWorld.map(project), bounds = new THREE.Box3().setFromPoints(plateWorld);
+        const triangles = plate.triangles.map(indices => {
+          const [a,b,c] = indices.map(i => projected[i]);
+          return { a,b,c,den:(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]),
+            minX:Math.min(a[0],b[0],c[0]),maxX:Math.max(a[0],b[0],c[0]),minY:Math.min(a[1],b[1],c[1]),maxY:Math.max(a[1],b[1],c[1]) };
+        }).filter(triangle => Math.abs(triangle.den) > 1e-12);
+        const minX = Math.min(...triangles.map(t => t.minX)), maxX = Math.max(...triangles.map(t => t.maxX));
+        const minY = Math.min(...triangles.map(t => t.minY)), maxY = Math.max(...triangles.map(t => t.maxY));
+        const resolution = 96, grid = Array.from({length:resolution*resolution},() => []);
+        const cell = (v,min,max) => Math.max(0,Math.min(resolution-1,Math.floor((v-min)/(max-min)*resolution)));
+        for (const triangle of triangles) for (let y = cell(triangle.minY,minY,maxY); y <= cell(triangle.maxY,minY,maxY); y++) {
+          for (let x = cell(triangle.minX,minX,maxX); x <= cell(triangle.maxX,minX,maxX); x++) grid[y*resolution+x].push(triangle);
+        }
+        const underside = ([x,y]) => {
+          if (x < minX || x > maxX || y < minY || y > maxY) return Infinity;
+          let height = Infinity;
+          for (const {a,b,c,den} of grid[cell(y,minY,maxY)*resolution+cell(x,minX,maxX)]) {
+            const u = ((b[1]-c[1])*(x-c[0])+(c[0]-b[0])*(y-c[1]))/den;
+            const v = ((c[1]-a[1])*(x-c[0])+(a[0]-c[0])*(y-c[1]))/den, w = 1-u-v;
+            if (u >= -1e-7 && v >= -1e-7 && w >= -1e-7) height = Math.min(height,u*a[2]+v*b[2]+w*c[2]);
+          }
+          return height;
+        };
+        // The scan has a small authored seam overlap. Track every head vertex
+        // originally clear of the real plate underside, rather than inventing
+        // an enclosing box that also collides with the neutral specimen.
+        const candidates = face.points.filter(point => {
+          const projected = project(point.clone().applyMatrix4(restHead)), gap = underside(projected)-projected[2];
+          return Number.isFinite(gap) && gap > anatomy.bodyLength*.0005;
+        });
+        roachTestPlateProbeCache = { candidates, underside, restNeck, restCenter:bounds.getCenter(new THREE.Vector3()), triangles:triangles.length };
+      }
+      const cache = roachTestPlateProbeCache;
+      // Cancelling the current parent frame makes carrying plate+head rigidly
+      // together preserve contact, independent of body or neck orientation.
+      const relative = cache.restNeck.clone().multiply(neck.bone.matrixWorld.clone().invert()).multiply(head.bone.matrixWorld);
+      let minimumClearance = Infinity, penetrating = 0, checked = 0;
+      for (const vertex of cache.candidates) {
+        const point = project(vertex.clone().applyMatrix4(relative)), gap = cache.underside(point)-point[2];
+        if (!Number.isFinite(gap)) continue;
+        minimumClearance = Math.min(minimumClearance,gap); checked++; if (gap < -.0002) penetrating++;
+      }
+      return { minimumClearance, penetrating, checked, candidates:cache.candidates.length, triangles:cache.triangles,
+        plateLift:new THREE.Vector3().fromArray(plateCenter).sub(cache.restCenter).dot(anatomy.dorsal),
+        plateQuaternion:neck.bone.getWorldQuaternion(new THREE.Quaternion()).toArray() };
+    }
+    return globalThis.__roachHeadPlateTestViewer = { measureHeadGeometry() {
+      applyPose(0); content.updateMatrixWorld(true);
+      const owners = new Set(bones.map(item => item.bone)), point = new THREE.Vector3(), parts = [];
+      for (const item of bones.filter(item => ['neck','head','antenna_left','antenna_right'].includes(item.bone.userData.jointId))) {
+        const bounds = new THREE.Box3(); let clearance = Infinity, count = 0;
+        item.bone.traverse(object => {
+          const positions = object.geometry?.attributes?.position; if (!positions) return;
+          let owner = object; while (owner && !owners.has(owner)) owner = owner.parent;
+          if (owner !== item.bone) return;
+          for (let i = 0; i < positions.count; i++) {
+            point.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld);
+            bounds.expandByPoint(point); clearance = Math.min(clearance, point.dot(anatomy.dorsal) - groundHeight); count++;
+          }
+        });
+        parts.push({ id: item.bone.userData.jointId, center: bounds.getCenter(new THREE.Vector3()).toArray(), clearance, count });
+      }
+      const head = bones.find(item => item.bone.userData.jointId === 'head');
+      const center = new THREE.Vector3().fromArray(parts.find(part => part.id === 'head').center);
+      const relative = center.clone().sub(anatomy.bodyCenter);
+      const facing = anatomy.faceForward.clone().applyQuaternion(head.restWorldQuaternion.clone().invert())
+        .applyQuaternion(head.bone.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      const cameraDirection = camera.position.clone().sub(center).normalize();
+      return { parts, lift: relative.dot(anatomy.dorsal), reach: relative.dot(anatomy.forward),
+        lateral: relative.dot(anatomy.left), facing: facing.toArray(), headWorldQuaternion: head.bone.getWorldQuaternion(new THREE.Quaternion()).toArray(),
+        facingUp: facing.dot(anatomy.dorsal), cameraUp: cameraDirection.dot(anatomy.dorsal),
+        alignment: facing.dot(cameraDirection), bodyLength: anatomy.bodyLength,
+        plate:measureActualPlateContact(parts.find(part => part.id === 'neck').center), state: getState() };
+    }, loadUrl, loadArrayBuffer, getState,`) });
+  });
+}
+
+function expectHeadClear(report, label) {
+  expect(report.parts.map(part => part.id)).toEqual(['neck', 'head', 'antenna_left', 'antenna_right']);
+  for (const part of report.parts) {
+    expect(part.count, `${label}: actual ${part.id} scan vertices`).toBeGreaterThan(100);
+    expect(part.clearance, `${label}: ${part.id} floor clearance`).toBeGreaterThanOrEqual(-.0002);
+  }
+  expect(report.state.ground.floorLift ?? 0, `${label}: no artificial body lift`).toBeLessThanOrEqual(1e-7);
+}
+
+const liftedFaceAngle = state => ['head', 'neck'].reduce((sum, part) => sum + state.appliedPose[state.bones.findIndex(joint => joint.jointId === part) * 3], 0);
+function expectPlateClear(report, label) {
+  expect(report.plate.candidates, `${label}: actual originally clear crown vertices`).toBeGreaterThan(20_000);
+  expect(report.plate.triangles, `${label}: actual pronotum triangles`).toBeGreaterThan(10_000);
+  expect(report.plate.checked, `${label}: crown stays below the plate footprint`).toBeGreaterThan(15_000);
+  expect(report.plate.minimumClearance, `${label}: no new head/plate penetration`).toBeGreaterThanOrEqual(-.0002);
+  expect(report.plate.penetrating).toBe(0);
+}
+
+for (const touch of [false, true]) test(`${touch ? 'phone' : 'desktop'} upward surface drags lift the head and flexible neck out of the chest`, async ({ browser }, testInfo) => {
+  test.setTimeout(60_000);
+  const context = await browser.newContext({ viewport: touch ? { width: 390, height: 844 } : { width: 1280, height: 800 }, isMobile: touch, hasTouch: touch });
+  try {
+    const page = await context.newPage(); await observeHeadGeometry(page);
+    await specimen(page, { touch, modelUrl: touch ? '/assets/roach-synth/cockroach-mobile.glb' : '/assets/roach-synth/cockroach.glb' });
+    const client = touch ? await context.newCDPSession(page) : null, records = [];
+    const measure = () => page.evaluate(() => specimenViewer.measureHeadGeometry());
+    for (const axis of ['xy', 'x']) for (const part of ['head', 'neck']) {
+      await page.evaluate(axis => {
+        for (const joint of joints) joint.offset = { x: 0, y: 0, z: 0 };
+        drawSpecimen(); specimenViewer.setViewPreset('side'); specimenViewer.setDragAxis(axis);
+      }, axis);
+      const before = await measure(); expectHeadClear(before, `${axis} neutral`);
+      const point = await page.evaluate(part => specimenViewer.getPartScreenPosition(part), part);
+      expect(point, `${axis}: ${part} is directly touchable`).not.toBeNull();
+      const move = async y => {
+        if (touch) await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: point.x, y }] });
+        else await page.mouse.move(point.x, y, { steps: 3 });
+      };
+      if (touch) await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: point.x, y: point.y }] });
+      else { await page.mouse.move(point.x, point.y); await page.mouse.down(); }
+      await move(point.y - 36);
+      // CDP touch dispatch can finish before Chromium delivers its pointermove.
+      await expect.poll(async () => liftedFaceAngle(await page.evaluate(() => specimenViewer.getState()))).toBeLessThan(-8);
+      const lifted = await measure(); expectHeadClear(lifted, `${axis} ${part} upward`);
+      expectPlateClear(lifted, `${axis} ${part} upward`);
+      const joint = lifted.state.bones.find(joint => joint.jointId === part);
+      expect(lifted.state.selectedBone).toBe(joint.id);
+      expect(liftedFaceAngle(lifted.state), `${axis} ${part}: useful combined outward hinge range`).toBeLessThan(-8);
+      expect(lifted.lift - before.lift, `${axis} ${part}: visible head rise`).toBeGreaterThan(before.bodyLength * .015);
+      expect(lifted.reach - before.reach, `${axis} ${part}: head extends out of chest`).toBeGreaterThan(before.bodyLength * .001);
+      expect(lifted.facingUp - before.facingUp, `${axis} ${part}: face turns upward`).toBeGreaterThan(.08);
+      expect(lifted.state.camera).toEqual(before.state.camera);
+      expect(lifted.state.playing).toBe(false);
+      expect(lifted.state.motionTime).toBe(before.state.motionTime);
+      const legs = state => state.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion);
+      expect(legs(lifted.state)).toEqual(legs(before.state));
+      expect(lifted.state.ground.contacts).toEqual(before.state.ground.contacts);
+      await move(point.y - 28);
+      await expect.poll(async () => liftedFaceAngle(await page.evaluate(() => specimenViewer.getState()))).toBeGreaterThan(liftedFaceAngle(lifted.state) + 2);
+      const reversed = await measure(); expectHeadClear(reversed, `${axis} ${part} reverse`);
+      expectPlateClear(reversed, `${axis} ${part} reverse`);
+      expect(lifted.lift - reversed.lift, `${axis} ${part}: short reverse responds immediately`).toBeGreaterThan(.004);
+      expect(liftedFaceAngle(reversed.state)).toBeGreaterThan(liftedFaceAngle(lifted.state) + 2);
+      if (touch) await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); else await page.mouse.up();
+      expect((await measure()).state.interaction.active).toBeNull();
+      records.push({ axis, part, before, lifted, reversed });
+    }
+    await testInfo.attach('head-neck-upward-geometry.json', { body: JSON.stringify(records), contentType: 'application/json' });
+    await client?.detach();
+  } finally { await context.close(); }
+});
+
+test('Face camera looks from above while shared head and neck gaze lifts outward and repeated solves remain stable', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); await observeHeadGeometry(page);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  const records = [];
+  for (const posed of [false, true]) {
+    await page.evaluate(posed => {
+      motion = { presetId: 'none', intensity: 1, antennae: false, tempo: 108 };
+      for (const joint of joints) joint.offset = { x: 0, y: 0, z: 0 };
+      if (posed) {
+        joints.find(joint => joint.jointId === 'body').offset = { x: 4, y: 6, z: -3 };
+        joints.find(joint => joint.jointId === 'head').offset = { x: -3, y: 2, z: 1 };
+        joints.find(joint => joint.jointId === 'neck').offset = { x: -4, y: 1, z: -1 };
+      }
+      drawSpecimen(); specimenViewer.setViewPreset('face');
+    }, posed);
+    const before = await page.evaluate(() => specimenViewer.measureHeadGeometry());
+    expect(before.cameraUp, 'Face camera is above the face').toBeGreaterThan(.1);
+    const refreshes = await page.evaluate(() => Array.from({ length: 4 }, () => {
+      motion.gaze = specimenViewer.getGazeOffset(); drawSpecimen();
+      return { gaze: structuredClone(motion.gaze), geometry: specimenViewer.measureHeadGeometry(), offsets: joints.map(joint => structuredClone(joint.offset)) };
+    }));
+    const after = refreshes.at(-1).geometry; expectHeadClear(after, `Face ${posed ? 'posed' : 'neutral'}`);
+    expectPlateClear(after, `Face ${posed ? 'posed' : 'neutral'}`);
+    expect(after.lift - before.lift, 'gaze raises face out of chest').toBeGreaterThan(before.bodyLength * .03);
+    expect(after.reach - before.reach, 'gaze extends neck forward').toBeGreaterThan(before.bodyLength * .04);
+    expect(after.alignment, 'rendered face points toward above-front camera').toBeGreaterThan(.95);
+    expect(after.facingUp - before.facingUp).toBeGreaterThan(.04);
+    expect(refreshes[0].gaze.neck.x, 'gaze uses outward neck range').toBeLessThan(-10);
+    expect(after.state.camera).toEqual(before.state.camera);
+    expect(after.state.playing).toBe(false);
+    for (const refresh of refreshes.slice(1)) {
+      expect(refresh.offsets, 'gaze never rewrites manual offsets').toEqual(refreshes[0].offsets);
+      expect(refresh.gaze, 'identical posed-body/camera solve never accumulates gaze').toEqual(refreshes[0].gaze);
+      expect(refresh.geometry.state.appliedPose).toEqual(refreshes[0].geometry.state.appliedPose);
+      expect(refresh.geometry.alignment).toBeCloseTo(refreshes[0].geometry.alignment, 10);
+    }
+    records.push({ posed, before, refreshes });
+  }
+  await testInfo.attach('distributed-stable-gaze.json', { body: JSON.stringify(records), contentType: 'application/json' });
+});
+
+test('large left-right gestures and hostile offsets keep combined head and neck lateral rotation small', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); await observeHeadGeometry(page);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  const records = [], measure = () => page.evaluate(() => specimenViewer.measureHeadGeometry());
+  const angle = (a, b, quaternion = false) => {
+    const dot = a.reduce((sum, value, i) => sum + value * b[i], 0);
+    return Math.acos(Math.min(1, Math.max(-1, quaternion ? Math.abs(dot) : dot))) * 180 / Math.PI * (quaternion ? 2 : 1);
+  };
+  const reset = async () => page.evaluate(() => {
+    motion = { presetId: 'none', intensity: 1, antennae: false, tempo: 108 };
+    specimenViewer.setExternalPose(null);
+    for (const joint of joints) specimenViewer.setBoneOffset(joint.id, { x: joint.jointId === 'head' ? -8 : joint.jointId === 'neck' ? -12 : 0, y: 0, z: 0 });
+    joints = specimenViewer.getState().bones;
+    drawSpecimen(); specimenViewer.setViewPreset('side');
+  });
+  function expectBounded(before, after, label) {
+    expectHeadClear(after, label);
+    expectPlateClear(after, label);
+    const limits = { head: { y: 6, z: 8 }, neck: { y: 3, z: 4 } };
+    for (const part of ['head', 'neck']) {
+      const index = after.state.bones.findIndex(joint => joint.jointId === part);
+      for (const [axis, position] of [['y', 1], ['z', 2]]) {
+        expect(Math.abs(after.state.appliedPose[index * 3 + position]), `${label}: ${part} ${axis}`).toBeLessThanOrEqual(limits[part][axis] + 1e-5);
+      }
+    }
+    expect(angle(before.headWorldQuaternion, after.headWorldQuaternion, true), `${label}: actual combined head orientation`).toBeLessThanOrEqual(15.1);
+    expect(angle(before.facing, after.facing), `${label}: rendered face stays near its pitched-up direction`).toBeLessThanOrEqual(15.1);
+    expect(Math.abs(after.lateral - before.lateral), `${label}: head stays near the chest centerline`).toBeLessThan(before.bodyLength * .1);
+    expect(after.state.camera).toEqual(before.state.camera);
+    expect(after.state.playing).toBe(false);
+    expect(after.state.motionTime).toBe(before.state.motionTime);
+    expect(after.state.ground.contacts).toEqual(before.state.ground.contacts);
+    const legs = state => state.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion);
+    expect(legs(after.state)).toEqual(legs(before.state));
+  }
+  for (const axis of ['y', 'z']) for (const sign of [-1, 1]) {
+    await reset(); const before = await measure();
+    await page.evaluate(axis => specimenViewer.setDragAxis(axis), axis);
+    for (const part of ['head', 'neck']) {
+      const point = await page.evaluate(part => specimenViewer.getPartScreenPosition(part), part);
+      expect(point, `${axis} ${sign}: ${part} is directly touchable`).not.toBeNull();
+      await page.mouse.move(point.x, point.y); await page.mouse.down();
+      await page.mouse.move(point.x + sign * 160, point.y, { steps: 4 }); await page.mouse.up();
+      const after = await measure(); expectBounded(before, after, `${axis} ${sign} ${part} drag`);
+      const joint = after.state.bones.find(joint => joint.jointId === part);
+      expect(after.state.selectedBone).toBe(joint.id);
+      if (part === 'head') {
+        const index = after.state.bones.findIndex(joint => joint.jointId === part);
+        expect(Math.abs(after.state.appliedPose[index * 3 + (axis === 'y' ? 1 : 2)]), `${axis} ${sign}: head remains a vertical hinge`).toBe(0);
+      } else expect(Math.abs(joint.offset[axis]), `${axis} ${sign}: carrying neck control still responds`).toBeGreaterThan(.25);
+      records.push({ kind: 'gesture', axis, sign, part, before, after });
+    }
+  }
+  for (const [y, z] of [[90, 90], [-90, -90], [90, -90], [-90, 90]]) {
+    await reset(); const before = await measure();
+    await page.evaluate(({ y, z }) => {
+      for (const joint of joints.filter(joint => ['head', 'neck'].includes(joint.jointId))) Object.assign(joint.offset, { y, z });
+      drawSpecimen();
+    }, { y, z });
+    const after = await measure(); expectBounded(before, after, `hostile ${y}/${z}`);
+    records.push({ kind: 'hostile-offset', y, z, before, after });
+  }
+  await reset();
+  for (const view of ['face', 'side', 'top', 'bottom']) {
+    await page.evaluate(view => specimenViewer.setViewPreset(view), view);
+    const gaze = await page.evaluate(() => specimenViewer.getGazeOffset());
+    expect(Math.abs(gaze.y), `${view}: camera head side tilt`).toBeLessThanOrEqual(3);
+    expect(Math.abs(gaze.z), `${view}: camera head turn`).toBeLessThanOrEqual(4);
+    expect(Math.abs(gaze.neck.y), `${view}: camera neck side tilt`).toBeLessThanOrEqual(2);
+    expect(Math.abs(gaze.neck.z), `${view}: camera neck turn`).toBeLessThanOrEqual(2);
+    records.push({ kind: 'camera-gaze', view, gaze });
+  }
+  await testInfo.attach('bounded-head-neck-lateral-geometry.json', { body: JSON.stringify(records), contentType: 'application/json' });
+});
+
+test('head meets the real upper plate, carries it through further lift, and releases immediately without saving neck carry', async ({ page }, testInfo) => {
+  test.setTimeout(60_000); await observeHeadGeometry(page);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  await page.evaluate(() => specimenViewer.setDragAxis('x'));
+  const measure = () => page.evaluate(() => specimenViewer.measureHeadGeometry()), before = await measure();
+  expectHeadClear(before, 'rest'); expectPlateClear(before, 'rest');
+  const point = await page.evaluate(() => specimenViewer.getPartScreenPosition('head')); expect(point).not.toBeNull();
+  const joint = (report, part) => report.state.bones.find(joint => joint.jointId === part);
+  const x = (report, part) => report.state.appliedPose[report.state.bones.findIndex(joint => joint.jointId === part) * 3];
+  const support = report => report.state.bones.filter(joint => /^(front|middle|hind)_/.test(joint.jointId)).map(joint => joint.quaternion);
+  async function checked(label) {
+    const report = await measure(); expectHeadClear(report, label); expectPlateClear(report, label);
+    expect(report.state.camera).toEqual(before.state.camera); expect(report.state.playing).toBe(false);
+    expect(report.state.motionTime).toBe(before.state.motionTime); expect(report.state.ground.contacts).toEqual(before.state.ground.contacts);
+    expect(support(report)).toEqual(support(before));
+    expect(joint(report, 'neck').offset, `${label}: derived plate carry never becomes a manual edit`).toEqual({x:0,y:0,z:0});
+    return report;
+  }
+  await page.screenshot({path:testInfo.outputPath('head-plate-rest.png')});
+  await page.mouse.move(point.x, point.y); await page.mouse.down();
+  await page.mouse.move(point.x, point.y - 24, {steps:4}); const contact = await checked('first contact');
+  expect(x(contact, 'head'), 'relative head stops at the measured crown contact').toBeGreaterThan(-.1);
+  expect(x(contact, 'head')).toBeLessThan(0);
+  expect(x(contact, 'neck')).toBeLessThan(-8);
+  expect(contact.plate.plateLift - before.plate.plateLift).toBeGreaterThan(.025);
+  await page.screenshot({path:testInfo.outputPath('head-plate-contact.png')});
+  await page.mouse.move(point.x, point.y - 48, {steps:4}); const lifted = await checked('continued lift');
+  expect(x(lifted, 'head')).toBeCloseTo(x(contact, 'head'), 6);
+  expect(x(lifted, 'neck')).toBeLessThan(x(contact, 'neck') - 8);
+  expect(lifted.plate.plateLift - contact.plate.plateLift).toBeGreaterThan(.025);
+  expect(lifted.lift - contact.lift).toBeGreaterThan(.025);
+  await page.screenshot({path:testInfo.outputPath('head-plate-lifted.png')});
+  await page.mouse.move(point.x, point.y - 40, {steps:3}); const reversed = await checked('short reverse');
+  expect(x(reversed, 'neck')).toBeGreaterThan(x(lifted, 'neck') + 2);
+  expect(lifted.plate.plateLift - reversed.plate.plateLift).toBeGreaterThan(.006);
+  expect(lifted.lift - reversed.lift).toBeGreaterThan(.006);
+  await page.screenshot({path:testInfo.outputPath('head-plate-reversed.png')});
+  await page.mouse.move(point.x, point.y, {steps:5}); await page.mouse.up(); const released = await checked('released below contact');
+  expect(Math.abs(x(released, 'head'))).toBeLessThan(1e-5); expect(Math.abs(x(released, 'neck'))).toBeLessThan(1e-5);
+  expect(released.plate.plateLift).toBeCloseTo(before.plate.plateLift, 7); expect(released.lift).toBeCloseTo(before.lift, 7);
+  const reports = {before,contact,lifted,reversed,released};
+  await testInfo.attach('real-head-plate-contact-carry.json', {body:JSON.stringify(reports),contentType:'application/json'});
+  await page.evaluate(() => specimenViewer.dispose());
+  // Preserve a plain diagnostic artifact alongside screenshots for review.
+  const {writeFile} = await import('node:fs/promises');
+  await writeFile(testInfo.outputPath('head-plate-contact.json'),JSON.stringify(reports));
+});
+
+test('held side-view speech carries the plate transiently, keeps real contact clear, and restores the saved gesture', async ({ page }, testInfo) => {
+  test.setTimeout(90_000); await observeHeadGeometry(page);
+  await page.goto('roach-synth.html');
+  await page.waitForFunction(() => window.roachSynth?.getState().loaded, undefined, {polling:50,timeout:45000});
+  const measure = () => page.evaluate(() => __roachHeadPlateTestViewer.measureHeadGeometry());
+  await page.locator('#dragAxis').selectOption('x');
+  const point = await page.evaluate(() => roachSynth.getPartScreenPosition('head')); expect(point).not.toBeNull();
+  await page.mouse.move(point.x,point.y); await page.mouse.down();
+  await page.mouse.move(point.x,point.y-15,{steps:3}); await page.mouse.up();
+  await page.locator('#audioButton').click();
+  await expect.poll(() => page.evaluate(() => roachSynth.getState().audio.ready)).toBe(true);
+  const before = await measure(), state = await page.evaluate(() => roachSynth.getState());
+  expectHeadClear(before,'manual baseline'); expectPlateClear(before,'manual baseline');
+  const offsets = state => state.bones.map(joint => ({id:joint.id,offset:joint.offset}));
+  const quaternions = state => state.bones.map(joint => ({id:joint.id,quaternion:joint.quaternion}));
+  await page.locator('#phrase').fill('hello little robot bug, hello little robot bug');
+  await page.locator('#speakButton').click();
+  await page.waitForFunction(() => roachSynth.getState().audio.speechEnvelope > .001 && roachSynth.getState().speechMotion > .001, undefined, {polling:50,timeout:15000});
+  const frames = await page.evaluate(async () => {
+    const frames=[], end=performance.now()+2800;
+    while(performance.now()<end) {
+      const geometry=__roachHeadPlateTestViewer.measureHeadGeometry(),state=roachSynth.getState();
+      frames.push({geometry,state}); await new Promise(resolve=>setTimeout(resolve,75));
+    }
+    return frames;
+  });
+  const voiced=frames.filter(frame=>frame.state.audio.speechEnvelope>.0001&&frame.state.speechMotion>.001);
+  expect(voiced.length).toBeGreaterThanOrEqual(2);
+  expect(Math.max(...voiced.map(frame=>frame.state.audio.peak))).toBeGreaterThan(.0001);
+  expect(Math.max(...voiced.map(frame=>Math.abs(frame.geometry.plate.plateLift-before.plate.plateLift))),'speech visibly moves the carrying plate up or down').toBeGreaterThan(.005);
+  expect(new Set(voiced.map(frame=>frame.geometry.plate.plateQuaternion.map(v=>v.toFixed(7)).join(','))).size).toBeGreaterThan(1);
+  for(const {geometry,state:spoken} of frames) {
+    expectHeadClear(geometry,'speech'); expectPlateClear(geometry,'speech');
+    expect(offsets(spoken),'temporary speech carry never rewrites saved offsets').toEqual(offsets(state));
+    expect(spoken.playing).toBe(false); expect(spoken.soundPlaying).toBe(false); expect(spoken.time).toBe(state.time);
+    expect(spoken.camera).toEqual(state.camera); expect(spoken.audio.peak).toBeLessThan(1);
+  }
+  await expect.poll(() => page.evaluate(() => roachSynth.getState().speechMotion),{timeout:20000}).toBe(0);
+  await expect.poll(() => page.evaluate(() => roachSynth.getState().bones.map(joint=>({id:joint.id,quaternion:joint.quaternion})))).toEqual(quaternions(state));
+  const after=await measure(); expectHeadClear(after,'restored'); expectPlateClear(after,'restored');
+  expect(after.plate.plateLift).toBeCloseTo(before.plate.plateLift,7);
+  expect(offsets(await page.evaluate(() => roachSynth.getState()))).toEqual(offsets(state));
+  await page.locator('[data-view="face"]').click(); await page.screenshot({path:testInfo.outputPath('head-plate-face.png')});
+  await testInfo.attach('speech-plate-carry.json',{body:JSON.stringify({before,frames,after}),contentType:'application/json'});
+});
+
+test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen view through jumping and flying', async ({ page }) => {
   await specimen(page);
   const initial = await page.evaluate(() => specimenViewer.getState());
   expect(initial.ground.visible).toBe(true);
@@ -42,13 +434,48 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
   for (const foot of initial.ground.contacts) expect(foot.gap).toBeLessThan(0.04);
   expect(initial.bones.filter((joint) => joint.gaitPose).length).toBe(20);
   expect(initial.bones.every((joint) => Object.values(joint.restOffset).every(Number.isFinite))).toBe(true);
-  await page.evaluate(() => { motion.presetId = 'dance_upright'; motionTime = 0.4; drawSpecimen(); });
-  await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.body.pitch)).toBeGreaterThan(40);
-  await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(initial.renderCount);
-  expect((await page.evaluate(() => specimenViewer.getState())).camera.viewPreset).toBe('side');
-  expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
+  for (const presetId of ['side_jump', 'top_flight']) {
+    await page.evaluate(presetId => { motion.presetId = presetId; motionTime = 1; drawSpecimen(); }, presetId);
+    await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.body.lift)).toBeGreaterThan(.1);
+    await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(initial.renderCount);
+    expect((await page.evaluate(() => specimenViewer.getState())).camera.viewPreset).toBe('side');
+    expect((await page.evaluate(() => specimenViewer.getState())).camera).toEqual(initial.camera);
+  }
   await page.evaluate(() => { motion.presetId = 'side_run'; motionTime = 1; drawSpecimen(); });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().ground.offset)).toBeGreaterThan(0);
+});
+
+test('the original dark ground color fills the complete graphic without a horizon in every view and at wide zoom', async ({ page }, testInfo) => {
+  await page.route('**/roach-synth-viewer.js', async route => {
+    const response = await route.fetch(), source = await response.text();
+    const marker = 'return { loadUrl, loadArrayBuffer, getState,';
+    expect(source).toContain(marker);
+    await route.fulfill({ response, body: source.replace(marker, `return { sampleStageEdges() {
+      applyPose(0); renderer.render(scene, camera);
+      const gl = renderer.getContext(), pixel = new Uint8Array(4), colors = [];
+      for (const x of [1, canvas.width - 2]) for (const portion of [.01, .25, .5, .75, .99]) {
+        gl.readPixels(x, Math.floor(canvas.height * portion), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        colors.push(Array.from(pixel));
+      }
+      return colors;
+    }, loadUrl, loadArrayBuffer, getState,`) });
+  });
+  await specimen(page);
+  const samples = [];
+  for (const view of ['side', 'top', 'bottom', 'face']) {
+    await page.evaluate(view => { specimenViewer.setViewPreset(view); specimenViewer.zoom(1.6); }, view);
+    const colors = await page.evaluate(() => specimenViewer.sampleStageEdges());
+    expect(colors.every(color => color.every((value, i) => value === colors[0][i])), view).toBe(true);
+    // The original textured, lit floor measured roughly RGB 18–24/16–22/15–21.
+    // Its raw material color (89/81/74) made the whole stage much too bright.
+    expect(colors[0]).toEqual([20, 18, 17, 255]);
+    samples.push({ view, colors });
+    await page.evaluate(() => specimenViewer.zoom(100));
+    const wide = await page.evaluate(() => specimenViewer.sampleStageEdges());
+    expect(wide).toEqual(colors);
+  }
+  expect(samples.every(sample => JSON.stringify(sample.colors) === JSON.stringify(samples[0].colors))).toBe(true);
+  await testInfo.attach('continuous-stage-color.json', { body: JSON.stringify(samples), contentType: 'application/json' });
 });
 
 test('calibrated walk and run keep a low body with moving, grounded feet across the stride', async ({ page }, testInfo) => {
@@ -82,7 +509,11 @@ test('calibrated walk and run keep a low body with moving, grounded feet across 
 });
 
 test('roach surface drags edit all three joint axes; background drags orbit and cancellation releases ownership', async ({ page }) => {
-  await specimen(page);
+  // Repeated fitted views while rendering playback need extra time on software WebGL.
+  test.setTimeout(60_000);
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
+  await page.evaluate(() => specimenViewer.setPlaying(true));
+  const startTime = await page.evaluate(() => specimenViewer.getPlaybackState().motionTime);
   for (const [jointId, view, axis] of [['wing_cover_left', 'top', 'z'], ['head', 'face', 'x'], ['middle_left_middle', 'bottom', 'y']]) {
     await page.evaluate(({ view, axis }) => { specimenViewer.setViewPreset(view); specimenViewer.setDragAxis(axis); }, { view, axis });
     const point = await page.evaluate((id) => specimenViewer.getPartScreenPosition(id), jointId);
@@ -105,6 +536,7 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
     expect(after.camera.position).toEqual(before.camera.position);
     expect(after.camera.target).toEqual(before.camera.target);
     expect(after.interaction.active).toBeNull();
+    expect(after.playing).toBe(true);
   }
   await page.evaluate(() => specimenViewer.setViewPreset('side'));
   const beforeOrbit = await page.evaluate(() => specimenViewer.getState().camera.quaternion);
@@ -113,16 +545,20 @@ test('roach surface drags edit all three joint axes; background drags orbit and 
   await page.mouse.move(95, 60, { steps: 3 });
   await page.mouse.up();
   expect(await page.evaluate(() => specimenViewer.getState().camera.quaternion)).not.toEqual(beforeOrbit);
-  await page.locator('#specimen').dispatchEvent('pointerdown', { pointerId: 42, pointerType: 'touch', clientX: 20, clientY: 25, button: 0 });
-  await page.locator('#specimen').dispatchEvent('pointercancel', { pointerId: 42, pointerType: 'touch' });
+  await page.mouse.down();
+  await page.locator('#specimen').dispatchEvent('pointercancel', { pointerId: 1, pointerType: 'mouse' });
+  await page.mouse.up();
   expect(await page.evaluate(() => specimenViewer.getState().interaction.active)).toBeNull();
   expect(await page.evaluate(() => interactions.filter((event) => event.kind === 'joint' && event.phase === 'change').length)).toBeGreaterThanOrEqual(9);
+  expect(await page.evaluate(() => specimenViewer.getPlaybackState().motionTime)).toBeGreaterThan(startTime);
+  expect(await page.evaluate(() => specimenViewer.getPlaybackState().playing)).toBe(true);
 });
 
-test('mobile vertical swipes on the roach canvas scroll the document; horizontal joint drags remain playable', async ({ browser }) => {
+test('mobile 3D touch is immediately playable vertically and horizontally; scrolling stays available outside the canvas', async ({ browser }) => {
+  test.setTimeout(60_000);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
-  await specimen(page, { touch: true });
+  await specimen(page, { touch: true, modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
   const client = await context.newCDPSession(page);
   const swipe = async (x0, y0, x1, y1) => {
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] });
@@ -132,22 +568,31 @@ test('mobile vertical swipes on the roach canvas scroll the document; horizontal
     }
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   };
-  expect(await page.locator('#specimen').evaluate((canvas) => canvas.style.touchAction)).toBe('pan-y');
-  await swipe(175, 380, 175, 130);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(80);
+  expect(await page.locator('#specimen').evaluate((canvas) => canvas.style.touchAction)).toBe('none');
+  const camera = await page.evaluate(() => specimenViewer.getState().camera);
+  await swipe(20, 380, 20, 130);
+  expect(await page.evaluate(() => specimenViewer.getState().camera.quaternion)).not.toEqual(camera.quaternion);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await page.evaluate(() => poseChanges.length)).toBe(0);
-  // A second touch stops the native fling before positioning the independent
-  // horizontal gesture. Otherwise scrollTo races the browser's inertial pan.
-  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 20, y: 700 }] });
-  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await page.evaluate(() => { scrollTo(0, 0); specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); });
-  await page.waitForTimeout(300);
+  await page.evaluate(() => { specimenViewer.setViewPreset('top'); specimenViewer.setDragAxis('z'); specimenViewer.setPlaying(true); });
   const point = await page.evaluate(() => specimenViewer.getPartScreenPosition('wing_cover_left'));
   expect(point).not.toBeNull();
   await swipe(point.x, point.y, point.x + 50, point.y);
   expect(await page.evaluate(() => poseChanges.length)).toBeGreaterThan(0);
   expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await page.evaluate(() => specimenViewer.getState().interaction.active)).toBeNull();
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.evaluate(() => { specimenViewer.setViewPreset('face'); specimenViewer.setDragAxis('x'); });
+  const head = await page.evaluate(() => specimenViewer.getPartScreenPosition('head'));
+  expect(head).not.toBeNull();
+  const changes = await page.evaluate(() => poseChanges.length);
+  await swipe(head.x, head.y, head.x, head.y - 40);
+  expect(await page.evaluate(() => poseChanges.length)).toBeGreaterThan(changes);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await swipe(175, 780, 175, 520);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(80);
+  await client.detach();
   await context.close();
 });
 
@@ -216,36 +661,49 @@ test('four textured/reconstructed wings articulate independently, camera fill is
   expect(constrained).toEqual({ y: 0, z: 0, finite: true });
 });
 
-test('only explicit zoom controls change camera distance; wheel scrolling, resizing and invalid factors do not', async ({ page }) => {
-  await specimen(page);
+test('wheel and trackpad zoom keep camera orientation and animation; resizing and invalid factors preserve the view', async ({ page }) => {
+  await specimen(page, { modelUrl: '/assets/roach-synth/cockroach-mobile.glb' });
   const before = await page.evaluate(() => specimenViewer.getState().camera);
   expect(await page.evaluate(() => [0, -1, NaN, Infinity, undefined, '0.8'].map((factor) => specimenViewer.zoom(factor)))).toEqual(Array(6).fill(false));
   expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  await page.evaluate(() => specimenViewer.setPlaying(true));
   const wheel = await page.evaluate(() => {
     const canvas = document.querySelector('#specimen');
-    return [false, true].map((ctrlKey) => {
-      const event = new WheelEvent('wheel', { deltaY: 150, ctrlKey, bubbles: true, cancelable: true });
+    return [false, true].map((ctrlKey, i) => {
+      const event = new WheelEvent('wheel', { deltaY: i ? -150 : 150, ctrlKey, bubbles: true, cancelable: true });
       canvas.dispatchEvent(event);
-      return event.defaultPrevented;
+      return { prevented: event.defaultPrevented, distance: specimenViewer.getState().camera.distance };
     });
   });
-  expect(wheel).toEqual([false, true]);
-  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(before);
+  expect(wheel.map(event => event.prevented)).toEqual([true, true]);
+  expect(wheel[0].distance).toBeCloseTo(before.distance * Math.exp(.3), 10);
+  expect(wheel[1].distance).toBeCloseTo(before.distance, 10);
   await page.mouse.move(20, 40);
-  await page.mouse.wheel(0, 250);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
-  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBe(before.distance);
-  await page.evaluate(() => { scrollTo(0, 0); document.querySelector('#specimen').focus({ preventScroll: true }); });
+  await page.mouse.wheel(0, -120);
+  await expect.poll(() => page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24), 10);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.evaluate(() => {
+    const canvas = document.querySelector('#specimen');
+    for (const deltaMode of [1, 2]) for (const deltaY of [1, -1]) canvas.dispatchEvent(new WheelEvent('wheel', { deltaY, deltaMode, cancelable: true }));
+  });
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24), 10);
+  await page.evaluate(() => document.querySelector('#specimen').focus({ preventScroll: true }));
   await page.keyboard.press('+');
-  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * .87, 10);
+  expect(await page.evaluate(() => specimenViewer.getState().camera.distance)).toBeCloseTo(before.distance * Math.exp(-.24) * .87, 10);
   expect(await page.evaluate(() => specimenViewer.zoom(.8))).toBe(true);
   await page.keyboard.press('-');
   const zoomed = await page.evaluate(() => specimenViewer.getState());
-  expect(zoomed.camera.distance).toBeCloseTo(before.distance * .87 * .8 * 1.15, 10);
+  expect(zoomed.camera.distance).toBeCloseTo(before.distance * Math.exp(-.24) * .87 * .8 * 1.15, 10);
   expect(zoomed.camera.quaternion).toEqual(before.quaternion);
   expect(zoomed.camera.target).toEqual(before.target);
   await page.setViewportSize({ width: 940, height: 720 });
   await expect.poll(() => page.evaluate(() => specimenViewer.getState().renderCount)).toBeGreaterThan(zoomed.renderCount);
+  expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(zoomed.camera);
+  expect(await page.evaluate(() => specimenViewer.getState().playing)).toBe(true);
+  await page.mouse.move(20, 710);
+  await page.mouse.wheel(0, 250);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(100);
   expect(await page.evaluate(() => specimenViewer.getState().camera)).toEqual(zoomed.camera);
 });
 

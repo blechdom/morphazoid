@@ -1,18 +1,20 @@
-import { RoachBodyEngine } from './roach-synth-body-engine.js?v=7608886131fe';
-import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup } from './roach-synth-body.js?v=7608886131fe';
-import { RoachMidiPerformance } from './roach-synth-midi.js?v=7608886131fe';
-export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=7608886131fe';
-import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachFloorPose } from './roach-synth-motion.js?v=7608886131fe';
+import { RoachBodyEngine } from './roach-synth-body-engine.js?v=999609d02db2';
+import { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, ROACH_VOICE_PRESETS, getRoachVoicePreset, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachJointBodyGroup, getRoachBodyGroupId } from './roach-synth-body.js?v=999609d02db2';
+import { RoachMidiPerformance } from './roach-synth-midi.js?v=999609d02db2';
+export { ROACH_BODY_GROUPS, ROACH_BODY_SOURCES, createDefaultRoachBodyMix, normalizeRoachBodyMix, getRoachBodyGroupId } from './roach-synth-body.js?v=999609d02db2';
+export { ROACH_VOICE_PRESETS, getRoachVoicePreset } from './roach-synth-body.js?v=999609d02db2';
+import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoachSceneState, constrainRoachPose, constrainRoachFloorPose } from './roach-synth-motion.js?v=999609d02db2';
 
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
 // Sound Play never manufactures scuttles, impulses, sample grains or footbeats.
-// Spoken KAL16 words remain independent of all body assignments and transports.
+// Native Voicesaurus phrases remain independent of body assignments/transports.
 const TAU = Math.PI * 2;
 const MAX_JOINTS = 128;
 const MAX_MAPPINGS = 128;
 const MAX_PHONES = 96;
 const EMPTY_PHONES = Object.freeze([]);
+const NATIVE_SPEECH_RELEASE_SECONDS = .015;
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, finite(value, low)));
 const clean = (value) => Number.isFinite(value) && Math.abs(value) > 1e-24 ? value : 0;
@@ -73,16 +75,18 @@ class ReconstructionGuard {
 }
 
 export const ROACH_SOUND_DEFAULTS = Object.freeze({
-  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.78,
+  level: 0.5, hiss: 0.22, shell: 0.46, wing: 0.28, voice: 0.6,
   feet: 0.88, growl: 0.24, drone: 0, zing: .55, samples: .65,
   pitch: 140, vowel: 0.35, brightness: 0.46, resonance: 0.38,
   wingRate: 72, rhythm: 1, crunch: 0.18, pan: 0,
+  voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: 1,
 });
 const SOUND_RANGES = Object.freeze({
-  level: [0, 0.8], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
+  level: [0, 1], hiss: [0, 1], shell: [0, 1], wing: [0, 1], voice: [0, 1],
   feet: [0, 1], growl: [0, 1], drone: [0, 1], zing: [0, 1], samples: [0, 1],
   pitch: [60, 600], vowel: [0, 1], brightness: [0, 1], resonance: [0, 1],
   wingRate: [12, 220], rhythm: [0.25, 4], crunch: [0, 1], pan: [-1, 1],
+  voiceSpeed: [.5, 2],
 });
 const SOUND_KEYS = Object.freeze(Object.keys(SOUND_RANGES));
 const FORMANT_GAINS = Object.freeze([2.8, 1.8, 1.1]);
@@ -91,6 +95,7 @@ export function normalizeRoachSound(value = {}) {
   for (const [key, range] of Object.entries(SOUND_RANGES)) {
     result[key] = clamp(finite(value?.[key], ROACH_SOUND_DEFAULTS[key]), ...range);
   }
+  result.voicePreset = getRoachVoicePreset(value?.voicePreset).id;
   return result;
 }
 const PATCHES = [
@@ -121,19 +126,29 @@ const PATCH_ARTICULATION = [
   [.91,172,1.72,.74,.07],[.29,32,.78,.83,-.03],[.74,52,.84,.9,0],
   [.53,162,1.48,.72,.03],[.39,91,1.18,.79,-.02],[.21,46,.83,.87,0],
 ];
+const PATCH_VOICE_SPEEDS = [1, .82, 1.18, 1.06, .9, 1.25, .72, .92, .85, 1.1, .76, 1.22, 1.3, .78, .88, 1.16, .96, .8];
 export const ROACH_SOUND_PRESETS = Object.freeze(PATCHES.map(([id,label,pitch,brightness,resonance,crunch,sources],index) => Object.freeze({
   id, label, sound: Object.freeze({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3],pan:PATCH_ARTICULATION[index][4]}),
-  // Wing radio is the user's accepted reference. Its prior gains, source
-  // assignments and globals remain exact despite gentler defaults elsewhere.
+    vowel:PATCH_ARTICULATION[index][0],wingRate:PATCH_ARTICULATION[index][1],rhythm:PATCH_ARTICULATION[index][2],voice:PATCH_ARTICULATION[index][3]*(ROACH_SOUND_DEFAULTS.voice/.78),pan:PATCH_ARTICULATION[index][4],voiceSpeed:PATCH_VOICE_SPEEDS[index]}),
+  // Keep Wing radio's accepted body sources and relative row levels while
+  // speech follows the current factory level and speed settings.
   bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],
     level:index===2?[.85,.48,.65,.68,.6,.36,.36,.24][i]:row.level}))),
-})));
+})).concat(ROACH_VOICE_PRESETS.map((preset, index) => Object.freeze({
+  id: `body-${preset.bodySource}`, label: `${preset.label} body`,
+  sound: Object.freeze({ ...ROACH_SOUND_DEFAULTS, voicePreset: preset.id,
+    brightness: .65, crunch: .04, pitch: 140 + index * 15 }),
+  bodyMix: Object.freeze(createDefaultRoachBodyMix().map((row, i) => Object.freeze({
+    ...row, source: [0, 5, 6, 7].includes(i) ? preset.bodySource : ['resonance', 'drone', 'sub', 'shimmer'][i % 4],
+    level: [0, 5, 6, 7].includes(i) ? [.72, .5, .58, .36][[0, 5, 6, 7].indexOf(i)] : .18,
+  }))),
+}))));
 export function createRandomRoachSound(seed = 1) {
   let state = (Number(seed) >>> 0) || 1;
   const random = () => { state ^= state << 13; state ^= state >>> 17; state ^= state << 5; return (state >>> 0) / 4294967296; };
   const sound = normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch:65+random()*230,brightness:.2+random()*.48,resonance:.38+random()*.54,crunch:.05+random()*.37,
-    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.62+random()*.3});
+    vowel:.08+random()*.84,wingRate:30+random()*150,rhythm:.6+random()*1.4,pan:(random()-.5)*.34,voice:.4+random()*.3,
+    voicePreset: ROACH_VOICE_PRESETS[0].id, voiceSpeed: .65+random()*1.1});
   const bodyMix = createDefaultRoachBodyMix().map((row,i)=>({...row,
     source:ROACH_BODY_SOURCES[i===3||i===4 ? Math.floor(random()*4) : Math.floor(random()*ROACH_BODY_SOURCES.length)].id,
     level:(i===3||i===4 ? .45 : .22)+random()*.35,
@@ -143,38 +158,35 @@ export function createRandomRoachSound(seed = 1) {
 
 // Authored companions are applied only by an explicit animation selection.
 // They do not alter the animation clock or overwrite a player's subsequent mix.
+// Each retained row keeps its authored articulation index when other rows retire.
 const MOTION_SOUND_ROWS = [
-  ['side_walk','Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
-  ['top_wing_fan','Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
-  ['dance_upright','Rubber boogie',110,.5,.48,.09,['footsteps','pluck','rustle','fm','sub','sine','rattle','shimmer'],[.78,.4,.3,.44,.3,.48,.3,.16]],
-  ['face_curious','Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
-  ['side_run','Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
-  ['top_body_wave','Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
-  ['face_chatter','Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
-  ['top_flight','Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
-  ['side_skitter','One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
-  ['dance_boxer','FM knuckles',95,.48,.42,.14,['fm','rattle','rustle','rattle','sub','sine','fm','shimmer'],[.7,.38,.3,.42,.26,.42,.38,.14]],
-  ['face_sing','Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
-  ['bottom_wiggle','Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
-  ['side_tiptoe','Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
-  ['wings_alarm','Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
-  ['dance_can_can','Rattlesnake kicks',180,.62,.47,.09,['rattle','pluck','rustle','fm','sub','sine','footsteps','shimmer'],[.68,.35,.25,.35,.26,.44,.34,.16]],
-  ['face_growl','Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
-  ['side_zigzag','FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
-  ['bottom_rave','Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
-  ['face_serenade','Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
-  ['dance_waltz','Cupboard strings',155,.48,.76,.05,['pluck','resonance','rustle','sine','sub','sine','footsteps','shimmer'],[.82,.3,.28,.34,.24,.44,.35,.16]],
-  ['side_backpedal','Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
-  ['dance_robot','Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
-  ['side_jump','Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
-  ['bottom_shuffle','Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
+  ['side_walk',0,'Sole taps',125,.46,.4,.08,['footsteps','walls','rustle','resonance','drone','sine','sub','shimmer'],[.76,.3,.5,.35,.25,.4,.25,.14]],
+  ['top_wing_fan',1,'Wing radio twitter',185,.57,.65,.2,['footsteps','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.35,.48,.65,.3,.24,.2,.2,.16]],
+  ['face_curious',3,'Question tones',185,.48,.35,.04,['pluck','walls','rustle','sine','drone','sine','fm','shimmer'],[.28,.2,.3,.25,.2,.68,.6,.22]],
+  ['side_run',4,'Six-foot FM',165,.52,.38,.08,['fm','walls','rustle','resonance','sub','sine','footsteps','shimmer'],[.74,.24,.35,.3,.28,.35,.2,.12]],
+  ['top_body_wave',5,'Modal body drums',115,.44,.64,.1,['rattle','pluck','rustle','fm','sub','sine','resonance','shimmer'],[.58,.4,.35,.58,.28,.48,.28,.18]],
+  ['face_chatter',6,'Neck syllables',210,.59,.34,.06,['footsteps','walls','rustle','sine','drone','sine','fm','pluck'],[.32,.2,.3,.24,.18,.72,.56,.2]],
+  ['top_flight',7,'Wing radio lift',185,.57,.65,.2,['pluck','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.38,.48,.65,.34,.24,.2,.2,.16]],
+  ['side_skitter',8,'One nervous scuttle',140,.34,.45,.12,['skuttle','walls','rustle','resonance','drone','sine','sub','shimmer'],[.36,.2,.32,.28,.22,.38,.2,.12]],
+  ['face_sing',10,'Singing sine',170,.42,.6,.04,['pluck','walls','rustle','resonance','drone','sine','sine','shimmer'],[.25,.2,.3,.28,.22,.66,.5,.2]],
+  ['bottom_wiggle',11,'Plucked noodles',205,.6,.7,.06,['pluck','walls','rustle','sine','sub','sine','fm','shimmer'],[.88,.2,.3,.28,.2,.4,.3,.2]],
+  ['side_tiptoe',12,'Tiny clicks',235,.65,.28,.035,['click','walls','rustle','sine','drone','sine','pluck','shimmer'],[.86,.16,.25,.24,.16,.42,.3,.12]],
+  ['wings_alarm',13,'Wing radio alarm',185,.57,.65,.2,['fm','buzz','rustle','resonance','drone','zing','sub','shimmer'],[.48,.48,.65,.24,.2,.2,.18,.14]],
+  ['face_growl',15,'Bass and clean neck',85,.32,.68,.24,['rattle','walls','rustle','resonance','growl','sine','growl','shimmer'],[.28,.24,.28,.28,.55,.56,.6,.14]],
+  ['side_zigzag',16,'FM zigzag',275,.68,.3,.07,['fm','pluck','rustle','sine','sub','sine','rattle','shimmer'],[.66,.26,.32,.24,.24,.4,.3,.14]],
+  ['bottom_rave',17,'Percussion circuits',165,.7,.54,.16,['rattle','fm','rustle','fm','sub','sine','pluck','shimmer'],[.62,.38,.3,.4,.28,.38,.35,.16]],
+  ['face_serenade',18,'Glassy conversation',245,.6,.72,.045,['pluck','walls','rustle','shimmer','drone','sine','pluck','sine'],[.28,.18,.3,.26,.18,.68,.76,.2]],
+  ['side_backpedal',20,'Reverse tines',125,.62,.58,.08,['pluck','walls','rustle','fm','drone','sine','rattle','shimmer'],[.86,.24,.3,.36,.22,.4,.24,.12]],
+  ['dance_robot',21,'Clacking servos',210,.64,.31,.12,['clack','pluck','rustle','rattle','sub','sine','fm','shimmer'],[.78,.3,.28,.36,.24,.52,.4,.14]],
+  ['side_jump',22,'Rubber landing',90,.5,.52,.09,['footsteps','rattle','rustle','fm','sub','sine','pluck','shimmer'],[.8,.32,.28,.45,.28,.4,.35,.14]],
+  ['bottom_shuffle',23,'Shuffle shells',190,.56,.42,.07,['footsteps','pluck','rustle','rattle','drone','sine','fm','shimmer'],[.72,.38,.28,.42,.22,.42,.3,.14]],
 ];
-export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,label,pitch,brightness,resonance,crunch,sources,levels],index) => {
+export const ROACH_MOTION_SOUND_PRESETS = Object.freeze(MOTION_SOUND_ROWS.map(([motionId,articulationIndex,label,pitch,brightness,resonance,crunch,sources,levels]) => {
   const wing = motionId === 'top_wing_fan' || motionId === 'top_flight' || motionId === 'wings_alarm';
-  const articulation = PATCH_ARTICULATION[index % PATCH_ARTICULATION.length];
+  const articulation = PATCH_ARTICULATION[articulationIndex % PATCH_ARTICULATION.length];
   return Object.freeze({motionId,label,
     sound:Object.freeze(wing ? {...ROACH_SOUND_PRESETS[2].sound} : normalizeRoachSound({...ROACH_SOUND_DEFAULTS,pitch,brightness,resonance,crunch,
-      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4]})),
+      vowel:articulation[0],wingRate:articulation[1],rhythm:articulation[2],pan:articulation[4],voiceSpeed:PATCH_VOICE_SPEEDS[articulationIndex % PATCH_VOICE_SPEEDS.length]})),
     bodyMix:Object.freeze(createDefaultRoachBodyMix().map((row,i)=>Object.freeze({...row,source:sources[i],level:levels[i]}))),
   });
 }));
@@ -254,14 +266,24 @@ function normalizeGroundFrame(value) {
   if (!dorsal || !forward || !left || !Number.isFinite(bodyLength) || bodyLength <= 0) return null;
   return { dorsal, forward, left, bodyLength: Math.min(bodyLength, 1e9) };
 }
+function normalizeHeadContact(value) {
+  if (!value || typeof value !== 'object') return null;
+  const parentId = String(value.parentId ?? '').slice(0, 120);
+  const liftLimit = Number(value.liftLimit);
+  if (!parentId || ![1, -1].includes(value.liftSign) || ![1, -1].includes(value.parentLiftSign)
+    || !Number.isFinite(liftLimit) || liftLimit <= 0) return null;
+  return { parentId, liftSign: value.liftSign, parentLiftSign: value.parentLiftSign,
+    liftLimit: Math.min(liftLimit, 180) };
+}
 function normalizeJoints(value) {
-  return (Array.isArray(value) ? value : []).slice(0, MAX_JOINTS).map((joint, index) => ({
+  const joints = (Array.isArray(value) ? value : []).slice(0, MAX_JOINTS).map((joint, index) => ({
     id: String(joint?.id ?? index).slice(0, 120), jointId: String(joint?.jointId ?? joint?.id ?? index).slice(0, 120),
     name: String(joint?.name ?? '').slice(0, 160), parent: joint?.parent == null ? null : String(joint.parent).slice(0, 120),
     kinematics: normalizeKinematics(joint?.kinematics), poseLimits: normalizePoseLimits(joint?.poseLimits),
     collisionSamples: Array.isArray(joint?.collisionSamples) ? joint.collisionSamples.slice(0, 8).map((point) => jointVector(point, 3)).filter(Boolean) : null,
     floorBounds: Array.isArray(joint?.floorBounds) ? joint.floorBounds.slice(0, 512).map((point) => jointVector(point, 3)).filter(Boolean) : null,
     groundFrame: normalizeGroundFrame(joint?.groundFrame),
+    headContact: normalizeHeadContact(joint?.headContact),
     bodyEllipsoid: normalizeBodyEllipsoid(joint?.bodyEllipsoid),
     wingOpenSign: joint?.wingOpenSign === 1 || joint?.wingOpenSign === -1 ? joint.wingOpenSign : null,
     wingLayer: joint?.wingLayer === 'cover' || joint?.wingLayer === 'hind' ? joint.wingLayer : null,
@@ -272,6 +294,13 @@ function normalizeJoints(value) {
     motion: { enabled: joint?.motion?.enabled === true, axis: ['x', 'y', 'z'].includes(joint?.motion?.axis) ? joint.motion.axis : 'x',
       amplitude: clamp(joint?.motion?.amplitude ?? 12, 0, 90), speed: clamp(joint?.motion?.speed ?? .5, .05, 8) },
   }));
+  const parents = new Map(joints.map((joint) => [joint.id, joint]));
+  for (const joint of joints) if (joint.headContact) {
+    const parent = parents.get(joint.headContact.parentId);
+    if (getRoachBodyGroupId(joint) !== 'head' || !parent || parent === joint
+      || joint.parent !== parent.id || getRoachBodyGroupId(parent) !== 'neck') joint.headContact = null;
+  }
+  return joints;
 }
 
 function resonator() { return { re: 0, im: 0, cosine: 1, sine: 0, radius: .99, gain: .01 }; }
@@ -325,9 +354,10 @@ export class RoachSynthDsp {
     this.filterL = 0; this.filterR = 0; this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
     this.phonePosition = 0; this.phone = null; this.speechEnvelope = 0; this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
+    this.nativeSpeech = null; this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0; this.nativeSpeechExpiryActive = false;
     this.speechSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .0015));
     this.filterCoefficient = .25; this.panL = Math.SQRT1_2; this.panR = Math.SQRT1_2; this.speechRate = 1;
-    this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
+    this.telemetry = {rms:0,peak:0,speechEnvelope:0,speechUntil:0,motionTime:0,soundTime:0,renderedFrames:0};
   }
   update(value = {}) {
     const resetActivity = value.resetActivity === true;
@@ -376,9 +406,10 @@ export class RoachSynthDsp {
           // Compare constrained geometry at one fixed audio time. A pointer
           // pushing beyond an anatomical limit must not invent friction.
           if (compareEdited) {
-            writeRoachPose(this.time, this.motion, this.joints, this.editedPose);
+            writeRoachPose(this.time, this.motion, this.joints, this.editedPose, false);
             writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+            this.midiPerformance.applyPose(this.editedPose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+            constrainRoachPose(this.editedPose, this.joints);
             constrainRoachFloorPose(this.editedPose, this.joints, this.scene);
           }
         }
@@ -403,9 +434,10 @@ export class RoachSynthDsp {
         this.body.resetActivity(); this.interactionJoint = -1; this.interactionActive = false;
       }
       // Populate first-use metadata on the message boundary, outside render().
-      writeRoachPose(this.time, this.motion, this.joints, this.pose);
+      writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
       writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
-      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+      if (compareEdited) this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+      constrainRoachPose(this.pose, this.joints);
       constrainRoachFloorPose(this.pose, this.joints, this.scene);
       if (compareEdited) {
         for (let i = 0; i < this.joints.length; i += 1) {
@@ -491,12 +523,40 @@ export class RoachSynthDsp {
     this.contactEvents += 1; this.lastContactTime = this.time;
   }
   setSampleBank(samples, options) { this.recordings.setBank(samples, options); }
+  setBodyVoice(source, samples, sampleRate) { this.body.setVoiceSample(source, samples, sampleRate); }
+  speakSamples(samples, sampleRate) {
+    if (!this.enabled) return false;
+    if (!(samples instanceof Float32Array) || !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000 || !samples.length || samples.length > sampleRate * 30 || !samples.every(Number.isFinite)) {
+      throw new Error('Native speech exceeds its fixed sample budget.');
+    }
+    // Preserve an in-flight phrase until its short release finishes. A native
+    // phrase is one continuous buffer, so sentence prosody survives playback.
+    this.pendingNativeSpeech = { samples, sampleRate };
+    this.speechTarget = 0; this.nativeSpeechExpiryActive = true;
+    return true;
+  }
+  speechExpiryTime() {
+    if (!this.enabled || !this.nativeSpeechExpiryActive) return 0;
+    // This deadline follows the source's actual sample clock. A delayed UI
+    // message remains valid through the phrase rather than aging out in 300 ms.
+    const release = this.speechGain > .0001
+      ? Math.min(NATIVE_SPEECH_RELEASE_SECONDS, Math.log(this.speechGain / .0001) * .0015) : 0;
+    if (this.pendingNativeSpeech) {
+      const { samples, sampleRate } = this.pendingNativeSpeech;
+      return this.audioTime + release + samples.length / (sampleRate * this.speechRate) + NATIVE_SPEECH_RELEASE_SECONDS;
+    }
+    if (!this.nativeSpeech) return 0;
+    const { samples, sampleRate } = this.nativeSpeech;
+    const remaining = Math.max(0, samples.length - this.nativeSpeechPosition) / (sampleRate * this.speechRate);
+    return this.audioTime + (this.speechTarget ? remaining + NATIVE_SPEECH_RELEASE_SECONDS : release);
+  }
   setAtlas(samples, sampleRate) {
     if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
     this.atlas = samples; this.atlasRate = clamp(sampleRate, 8000, 192000);
   }
   speak(phones) {
     if (!this.atlas || !this.enabled) return false;
+    this.nativeSpeechExpiryActive = false;
     const queue = (Array.isArray(phones) ? phones : []).slice(0, MAX_PHONES).map((phone) => ({
       offset: clamp(phone?.offset, 0, this.atlas.length / this.atlasRate),
       duration: clamp(phone?.duration, .015, .65), gain: clamp(phone?.gain ?? 1, 0, 1.5), silence: phone?.silence === true,
@@ -509,17 +569,22 @@ export class RoachSynthDsp {
     }
     return queue.length > 0;
   }
-  stopSpeech() { this.pendingSpeech = null; this.speechTarget = 0; }
+  stopSpeech() {
+    this.pendingSpeech = null; this.pendingNativeSpeech = null; this.speechTarget = 0;
+    this.nativeSpeechExpiryActive = false; this.telemetry.speechUntil = 0;
+  }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0;
     return (x >>> 0) / 2147483648 - 1;
   }
   control() {
-    writeRoachPose(this.time, this.motion, this.joints, this.pose);
+    writeRoachPose(this.time, this.motion, this.joints, this.pose, false);
     writeRoachSceneState(this.time, this.motion, this.scene, this.joints);
     this.basePose.set(this.pose);
+    constrainRoachPose(this.basePose, this.joints);
     constrainRoachFloorPose(this.basePose, this.joints, this.scene);
-    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity);
+    this.midiPerformance.applyPose(this.pose, this.joints, this.audioTime, this.motion.tempo, this.motion.intensity, false);
+    constrainRoachPose(this.pose, this.joints);
     constrainRoachFloorPose(this.pose, this.joints, this.scene);
     const midi = this.midiPerformance.output;
     this.groupPose.fill(0); this.groupMotion.fill(0); this.groupDistance.fill(0); this.mod.fill(0);
@@ -589,7 +654,7 @@ export class RoachSynthDsp {
     const smooth=this.smooth;
     this.filterCoefficient=1-Math.exp(-TAU*Math.min(this.sampleRate*.4,900*10**smooth.brightness)/this.sampleRate);
     this.panL=Math.cos((smooth.pan+1)*Math.PI*.25); this.panR=Math.sin((smooth.pan+1)*Math.PI*.25);
-    this.speechRate=clamp((smooth.pitch/140)**.22,.72,1.4);
+    this.speechRate=clamp(smooth.voiceSpeed,.5,2);
     const vowel=smooth.vowel*4; const first=Math.min(3,Math.floor(vowel)); const mix=vowel-first;
     for(let i=0;i<3;i+=1) tune(this.speechModes[i],VOWELS[first][i]*(1-mix)+VOWELS[first+1][i]*mix,
       Math.exp(-Math.PI*(160+i*70)/this.sampleRate),this.sampleRate);
@@ -598,11 +663,22 @@ export class RoachSynthDsp {
   speechSample() {
     this.speechGain += (this.speechTarget - this.speechGain) * this.speechSmoothing;
     if (this.speechTarget === 0 && this.speechGain < .0001) {
+      this.nativeSpeech = this.enabled ? this.pendingNativeSpeech : null;
+      this.pendingNativeSpeech = null; this.nativeSpeechPosition = 0;
       this.phoneQueue = this.enabled && this.pendingSpeech ? this.pendingSpeech : EMPTY_PHONES;
       this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
       this.pendingSpeech = null;
-      if (this.phoneQueue.length) this.speechTarget = 1;
+      if (this.phoneQueue.length || this.nativeSpeech) this.speechTarget = 1;
       else return 0;
+    }
+    if (this.nativeSpeech) {
+      const { samples, sampleRate } = this.nativeSpeech;
+      const position = this.nativeSpeechPosition, index = Math.floor(position), fraction = position - index;
+      const edge = Math.max(0, Math.min(1, position / (sampleRate * .006), (samples.length - position) / (sampleRate * .009)));
+      const sample = ((samples[index] || 0) * (1 - fraction) + (samples[index + 1] || 0) * fraction) * edge;
+      this.nativeSpeechPosition += sampleRate / this.sampleRate * this.speechRate;
+      if (this.nativeSpeechPosition >= samples.length) this.speechTarget = 0;
+      return sample * this.speechGain;
     }
     if (!this.phone) {
       this.phone = this.phoneQueue[this.phoneIndex++] ?? null; this.phonePosition = 0;
@@ -636,7 +712,7 @@ export class RoachSynthDsp {
       this.master+=((this.enabled?1:0)-this.master)*this.gateSmoothing;
       this.soundGate+=((this.soundPlaying?1:0)-this.soundGate)*this.gateSmoothing;
       this.body.sample(this.soundGate,this.playing);
-      const speech=this.atlas?this.speechSample():0;
+      const speech=this.atlas || this.nativeSpeech || this.pendingNativeSpeech ? this.speechSample():0;
       this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
       const speechDuck=1/(1+this.speechEnvelope*s.voice*1.6);
       let speechColor=0;
@@ -655,7 +731,9 @@ export class RoachSynthDsp {
       this.filterL+=(mixedL-this.filterL)*this.filterCoefficient; this.filterR+=(mixedR-this.filterR)*this.filterCoefficient;
       this.dcL=clean(this.filterL-this.previousL+this.dcL*.997); this.dcR=clean(this.filterR-this.previousR+this.dcR*.997);
       this.previousL=this.filterL; this.previousR=this.filterR;
-      const gain=this.master*s.level*1.25;
+      // Fixed makeup gain restores useful output while keeping performance
+      // dynamics intact. The stereo reconstruction guard catches dense peaks.
+      const gain=this.master*s.level*3.4;
       this.outputGuard.sample(Math.tanh(this.dcL*gain),Math.tanh(this.dcR*gain));
       const l=this.outputGuard.left; const r=this.outputGuard.right;
       left[sampleIndex]=Number.isFinite(l)?l:0; right[sampleIndex]=Number.isFinite(r)?r:0;
@@ -664,6 +742,7 @@ export class RoachSynthDsp {
     }
     this.telemetry.rms=Math.sqrt(energy/Math.max(1,count*2)); this.telemetry.peak=peak;
     this.telemetry.motionTime=this.time; this.telemetry.soundTime=this.soundTime; this.telemetry.speechEnvelope=this.speechEnvelope;
+    this.telemetry.speechUntil=this.speechExpiryTime();
     this.telemetry.contactEvents=this.contactEvents; this.telemetry.lastContactTime=this.lastContactTime;
     this.telemetry.interactionPeak=this.interactionPeak; this.telemetry.recordingEvents=this.recordings.events;
     const midi = this.midiPerformance.output; let active = 0;
