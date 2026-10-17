@@ -2,9 +2,9 @@ import { test, expect } from "@playwright/test";
 
 // Isolate the real vendored DSP from app transport/UI so frequency, end gates
 // and eight-voice rendering are measured independently of model assertions.
-async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false } = {}) {
+async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false, duration = 6 } = {}) {
   await page.goto("/wobblini.html");
-  await page.evaluate(({ decks, sourceRate, pulse }) => {
+  await page.evaluate(({ decks, sourceRate, pulse, duration }) => {
     const button = document.createElement("button"); button.id = "pitchProbeStart"; button.textContent = "Start pitch probe";
     document.body.prepend(button);
     button.onclick = () => {
@@ -17,7 +17,7 @@ async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false } = 
         const analyser = context.createAnalyser(); analyser.fftSize = 16384; analyser.smoothingTimeConstant = 0;
         sum.connect(analyser).connect(context.destination);
         const buffers = Array.from({ length: decks }, (_, index) => {
-          const pcm = context.createBuffer(1, sourceRate * 6, sourceRate), data = pcm.getChannelData(0);
+          const pcm = context.createBuffer(1, Math.ceil(sourceRate * duration), sourceRate), data = pcm.getChannelData(0);
           for (let frame = 0; frame < data.length; frame++) {
             const time = frame / sourceRate;
             const envelope = pulse ? Math.exp(-(((time - 1) / 0.025) ** 2)) : 1;
@@ -66,7 +66,7 @@ async function fixture(page, { decks = 1, sourceRate = 48000, pulse = false } = 
         };
       })();
     };
-  }, { decks, sourceRate, pulse });
+  }, { decks, sourceRate, pulse, duration });
   await page.locator("#pitchProbeStart").click();
   await page.evaluate(() => window.__pitchReady);
 }
@@ -133,6 +133,42 @@ test("real pitch stops at the file end and immediate scratch handoff mutes its a
     const stopped = await page.evaluate(() => window.__pitch.capture(0.2));
     expect(Math.max(...stopped.slice(2).map(block => block.rms))).toBeLessThan(1e-7);
     expect(await page.evaluate(() => window.__pitch.errors)).toEqual([]);
+  } finally { await page.evaluate(() => window.__pitch?.dispose()); }
+});
+
+test("eight pitch voices repeat full sources through their ends during a UI stall", async ({ page }, info) => {
+  await fixture(page, { decks: 8, duration: 0.5, sourceRate: 32000 });
+  try {
+    const rates = Array.from({ length: 8 }, (_, index) => 0.5 + index / 6);
+    const when = await play(page, { position: 0.35, loopEnabled: true,
+      perDeck: rates.map((rate, index) => ({ rate, pitchSemitones: index % 2 ? -7 : 7 })) });
+    await expect.poll(() => page.evaluate(() => window.__pitch.context.currentTime)).toBeGreaterThan(when + 0.1);
+    const blocks = await page.evaluate(async () => {
+      const capture = window.__pitch.capture(1.5), until = performance.now() + 650;
+      while (performance.now() < until) { /* Cross several ends while UI callbacks cannot run. */ }
+      return capture;
+    });
+    expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.rms))).toBe(true);
+    expect(Math.min(...blocks.map(block => block.rms))).toBeGreaterThan(0.001);
+    expect(Math.max(...blocks.map(block => block.peak))).toBeLessThan(0.5);
+    expect(await page.evaluate(() => window.__pitch.errors)).toEqual([]);
+    expect(await page.evaluate(() => window.__pitch.memory())).toBe(8 * 48000 * 0.5 * 4);
+    await info.attach("pitch-full-file-repeat", { body: JSON.stringify({ when, rates, blocks }), contentType: "application/json" });
+  } finally { await page.evaluate(() => window.__pitch?.dispose()); }
+});
+
+for (const duration of [0.02, 0.001]) test(`a ${duration * 1000} ms source keeps repeating and remains stoppable`, async ({ page }, info) => {
+  await fixture(page, { duration });
+  try {
+    const when = await play(page, { loopEnabled: true, rate: 1.75, pitchSemitones: 7 });
+    await expect.poll(() => page.evaluate(() => window.__pitch.context.currentTime)).toBeGreaterThan(when + 0.15);
+    const blocks = await page.evaluate(() => window.__pitch.capture(0.3));
+    expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.rms))).toBe(true);
+    expect(Math.min(...blocks.map(block => block.rms))).toBeGreaterThan(0.001);
+    await info.attach("pitch-short-file-repeat", { body: JSON.stringify(blocks), contentType: "application/json" });
+    await page.evaluate(() => window.__pitch.helpers[0].stop(window.__pitch.context.currentTime, true));
+    const stopped = await page.evaluate(() => window.__pitch.capture(0.1));
+    expect(Math.max(...stopped.slice(2).map(block => block.rms))).toBeLessThan(1e-7);
   } finally { await page.evaluate(() => window.__pitch?.dispose()); }
 });
 

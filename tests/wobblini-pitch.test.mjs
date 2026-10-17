@@ -75,16 +75,59 @@ test("pitch commands use the projected source position once and exact output bou
   h.helper.dispose();
 });
 
-test("files cannot repeat and even a sub-fade final fragment ends at its source boundary", async () => {
+test("finite playback ends even a sub-fade final fragment at its source boundary", async () => {
   const h = harness(); await h.helper.prepare(buffer());
   await h.helper.play({ when: 5, position: 0.999, rate: 1, keyLock: true,
-    loopEnabled: true, loopStart: 0, loopEnd: 1 });
+    loopEnabled: false, loopStart: 0, loopEnd: 1 });
   assert.equal(h.nodes[0].schedules.at(-1).loopEnd, 0);
   assert.equal(Math.max(...h.gains[0].gain.events.map(event => event.at(-1))), 5.001);
   assert.deepEqual(h.gains[0].gain.events.at(-1), ["ramp", 0, 5.001]);
   assert.equal(await h.helper.play({ when: 5.1, position: 1, rate: 1 }), false);
   assert.equal(h.nodes[0].schedules.at(-1).active, false);
   h.helper.dispose();
+});
+
+test("full-file repeat wraps projected positions and never schedules an end gate", async () => {
+  const h = harness(); await h.helper.prepare(buffer());
+  for (const [position, wrapped] of [[0.875, 0.875], [1, 0], [3.25, 0.25], [-0.125, 0.875]]) {
+    await h.helper.play({ when: 5.1, position, rate: 1.5, keyLock: true, pitchSemitones: -4,
+      loopEnabled: true, loopStart: 0.2, loopEnd: 0.4 });
+    assert.deepEqual(h.nodes[0].schedules.at(-1), { active: true, output: 5.1, input: wrapped,
+      rate: 1.5, semitones: -4, loopStart: 0, loopEnd: 1 });
+    assert.deepEqual(h.gains[0].gain.events.slice(-2), [["hold", 5.1], ["ramp", 1, 5.108]]);
+  }
+  assert.equal(h.gains[0].gain.events.some(event => event[0] === "ramp" && event[1] === 0), false);
+  h.helper.dispose();
+});
+
+test("switching to repeat cancels the old end gate and scratch still mutes immediately", async () => {
+  const h = harness(); await h.helper.prepare(buffer());
+  await h.helper.play({ when: 5, position: 0.8, rate: 1, keyLock: true, loopEnabled: false });
+  assert.deepEqual(h.gains[0].gain.events.at(-1), ["ramp", 0, 5.2]);
+  await h.helper.play({ when: 5.1, position: 0.9, rate: 1, keyLock: true, loopEnabled: true });
+  assert.deepEqual(h.gains[0].gain.events.slice(-2), [["hold", 5.1], ["ramp", 1, 5.108]]);
+  await h.helper.stop(5.15, true);
+  assert.deepEqual(h.gains[0].gain.events.slice(-2), [["hold", 5.15], ["set", 0, 5.15]]);
+  assert.deepEqual(h.nodes[0].schedules.at(-1), { active: false, output: 5.15 });
+  h.helper.dispose();
+});
+
+test("sub-quantum files tile within the PCM budget and retain their finite playback boundary", async () => {
+  const h = harness(), pcm = buffer({ frames: 48, channels: 1 });
+  pcm.copyFromChannel = target => { for (let frame = 0; frame < pcm.length; frame++) target[frame] = frame / pcm.length; };
+  await h.helper.prepare(pcm);
+  assert.equal(h.nodes[0].copies[0].length, 240);
+  assert.equal(wobbliniPitchMemoryBytes(h.context), 240 * 4);
+  for (let frame = 0; frame < 240; frame++) assert.ok(Math.abs(h.nodes[0].copies[0][frame] - frame % 48 / 48) < 1e-7);
+  await h.helper.play({ when: 5.1, position: pcm.duration, rate: 1.75, loopEnabled: true });
+  assert.equal(h.nodes[0].schedules.at(-1).input, 0);
+  assert.equal(h.nodes[0].schedules.at(-1).loopEnd, 240 / 48000);
+  await h.helper.play({ when: 5.2, position: 0, rate: 1, loopEnabled: false });
+  assert.deepEqual(h.gains[0].gain.events.at(-1), ["ramp", 0, 5.2 + pcm.duration]);
+  h.helper.dispose();
+  const small = harness({ memoryLimit: 240 * 4 - 1 });
+  await assert.rejects(small.helper.prepare(pcm), /audio memory/);
+  assert.equal(small.nodes.length, 0);
 });
 
 test("scratch handoff immediately gates pitch, cancels end automation, then resumes at supplied position", async () => {

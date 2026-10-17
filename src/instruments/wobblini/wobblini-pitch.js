@@ -2,6 +2,9 @@ import SignalsmithStretch from "../../../vendor/signalsmith-stretch/SignalsmithS
 
 const FADE = 0.008;
 const MAX_VOICES = 8;
+// Signalsmith wraps at most once per render quantum. Tile sub-quantum sources
+// so even the fastest supported speed cannot cross two stored spans at once.
+const MIN_REPEAT_FRAMES = Math.ceil(128 * 1.75);
 const DEFAULT_MEMORY_LIMIT = 192 * 1024 * 1024;
 const accounts = new WeakMap();
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -61,7 +64,7 @@ class WobbliniPitch {
     this.context = context; this.output = output; this.stretchFactory = stretchFactory; this.offlineFactory = offlineFactory;
     this.memoryLimit = Math.max(0, finite(memoryLimit, DEFAULT_MEMORY_LIMIT)); this.getBaseBytes = getBaseBytes;
     this.onError = onError; this.timeoutMs = Math.max(1, finite(timeoutMs, 12000)); this.account = accountFor(context);
-    this.node = null; this.gain = null; this.buffer = null; this.requestedBuffer = null;
+    this.node = null; this.gain = null; this.buffer = null; this.requestedBuffer = null; this.loopDuration = 0;
     this.latency = 0; this.disposed = false; this.revision = 0; this.pending = null; this.lease = null; this.slot = null;
   }
 
@@ -91,7 +94,7 @@ class WobbliniPitch {
   _clearNode() {
     close(this.node); this.node = null; disconnect(this.gain); this.gain = null;
     if (this.slot) this.account.slots.delete(this.slot);
-    this.slot = null; this.buffer = null; this.latency = 0; this._release(this.lease);
+    this.slot = null; this.buffer = null; this.latency = 0; this.loopDuration = 0; this._release(this.lease);
   }
   _fail(error) {
     this._clearNode();
@@ -132,10 +135,11 @@ class WobbliniPitch {
       if (!this._valid(revision)) return false;
     }
     const channels = buffer.numberOfChannels, resample = buffer.sampleRate !== this.context.sampleRate;
-    const length = resample ? Math.ceil(buffer.duration * this.context.sampleRate) : buffer.length;
+    const sourceLength = resample ? Math.ceil(buffer.duration * this.context.sampleRate) : buffer.length;
+    const repeats = Math.max(1, Math.ceil(MIN_REPEAT_FRAMES / sourceLength)), length = sourceLength * repeats;
     const bytes = length * channels * Float32Array.BYTES_PER_ELEMENT;
     const lease = { rendering: false, released: false }; this.lease = lease;
-    this._reserve(lease, bytes * (resample ? 2 : 1));
+    this._reserve(lease, bytes + (resample ? sourceLength * channels * Float32Array.BYTES_PER_ELEMENT : 0));
     if (!this.node) {
       if (this.account.slots.size >= MAX_VOICES) throw new Error("All eight pitch voices are in use. Try again after a deck stops.");
       const slot = {}; this.account.slots.add(slot);
@@ -165,7 +169,7 @@ class WobbliniPitch {
     }
     let matching = buffer;
     if (resample) {
-      const offline = this.offlineFactory(channels, length, this.context.sampleRate);
+      const offline = this.offlineFactory(channels, sourceLength, this.context.sampleRate);
       const source = offline.createBufferSource(); source.buffer = buffer; source.connect(offline.destination); source.start();
       lease.rendering = true;
       const rendering = Promise.resolve().then(() => offline.startRendering()).finally(() => {
@@ -178,31 +182,40 @@ class WobbliniPitch {
       const copy = new Float32Array(length);
       if (matching.copyFromChannel) matching.copyFromChannel(copy, channel, 0);
       else copy.set(matching.getChannelData(channel));
+      for (let offset = sourceLength; offset < length; offset += sourceLength) copy.set(copy.subarray(0, sourceLength), offset);
       return copy;
     });
     await this._bounded(this.node.addBuffers(copies, copies.map(copy => copy.buffer)), "Loading pitch audio");
     // A superseded upload still resides in the node until the next queued
     // preparation drops it. Retain its reservation throughout that interval.
     if (!this._valid(revision)) return false;
-    this._reserve(lease, bytes); this.buffer = buffer; return true;
+    this._reserve(lease, bytes); this.buffer = buffer;
+    this.loopDuration = repeats > 1 ? length / this.context.sampleRate : buffer.duration;
+    return true;
   }
 
   play(state) {
     if (!this.isReady(this.requestedBuffer)) return Promise.resolve(false);
     const node = this.node, when = Math.max(this.context.currentTime, finite(state.when, this.context.currentTime));
-    const position = clamp(state.position, 0, this.buffer.duration, 0), rate = rateFor(state);
-    if (position >= this.buffer.duration) return this.stop(when, true).then(() => false);
+    const duration = this.buffer.duration, looping = state.loopEnabled === true;
+    const sourcePosition = finite(state.position, 0), rate = rateFor(state);
+    const position = looping ? ((sourcePosition % duration) + duration) % duration : clamp(sourcePosition, 0, duration, 0);
+    if (!looping && position >= duration) return this.stop(when, true).then(() => false);
     const command = { active: true, output: when, input: position, rate,
-      semitones: pitchOutputSemitones(state), loopStart: 0, loopEnd: 0 };
+      semitones: pitchOutputSemitones(state), loopStart: 0, loopEnd: looping ? this.loopDuration : 0 };
     const result = this._bounded(node.schedule(command), "Scheduling pitch playback");
-    // Source files play once. AudioParam automation ends output on the audio
-    // clock even when UI timers stall; Signalsmith zero-pads past its buffer.
-    const end = when + (this.buffer.duration - position) / rate;
+    // Repeat on the worklet's audio clock, without a main-thread restart or
+    // end gate. Hold also cancels a previous finite playback's pending fade.
     hold(this.gain.gain, when);
-    const onset = Math.min(when + FADE, end);
-    this.gain.gain.linearRampToValueAtTime(1, onset);
-    this.gain.gain.setValueAtTime(1, Math.max(onset, end - FADE));
-    this.gain.gain.linearRampToValueAtTime(0, end);
+    if (looping) this.gain.gain.linearRampToValueAtTime(1, when + FADE);
+    else {
+      // Finite playback still ends on the audio clock, including a final
+      // fragment shorter than the normal onset/release fade.
+      const end = when + (duration - position) / rate, onset = Math.min(when + FADE, end);
+      this.gain.gain.linearRampToValueAtTime(1, onset);
+      this.gain.gain.setValueAtTime(1, Math.max(onset, end - FADE));
+      this.gain.gain.linearRampToValueAtTime(0, end);
+    }
     return result.then(() => this.node === node && !this.disposed, error => {
       if (this.node === node && !this.disposed) this._fail(error);
       return false;
