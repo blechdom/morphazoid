@@ -81,6 +81,22 @@ async function loadTone(page) {
   await expect.poll(async () => (await state(page)).decks[0].loading).toBe(false);
 }
 
+test("all eight phone decks repeat across the file end, including muted tracks", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page); await loadTone(page); await arm(page);
+  await page.evaluate(async (url) => {
+    const { engine } = await import(url);
+    for (const deck of engine.getState().decks) engine.seek(deck.id, deck.duration - 0.2);
+    engine.setDeck(1, { mute: true }); engine.playAll();
+  }, APP);
+  await page.waitForTimeout(550);
+  const repeated = await state(page);
+  expect(repeated.decks.every(deck => deck.playing && deck.loopEnabled && deck.position < 2)).toBe(true);
+  expect(repeated.decks[1].mute).toBe(true); await audible(page);
+  await page.locator("#stopButton").tap(); await silent(page);
+  expect((await state(page)).decks.every(deck => !deck.playing && deck.position === 0)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test("small phone gears open usable track controls while records retain center play and touch scratching", async ({ page }, testInfo) => {
   const errors = diagnostics(page); await ready(page);
   const capabilities = await page.evaluate(() => ({

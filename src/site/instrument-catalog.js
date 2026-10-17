@@ -17,7 +17,7 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   wobblini: define(
     "Eight-deck audio mixer",
-    "Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and one-shot playback. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.",
+    "Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and automatic full-file repeat. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.",
     "Load your audio files or demo sources, enable Audio, then play or scratch. Use Prepare to set a return cue, or the gear for larger deck controls. SYNC is optional for each track.",
     ["Local files", "Eight decks", "Scratching", "Cue preview", "Slip", "Input gain", "Auto Gain", "Crossfader", "BPM analysis", "Selectable master", "Key Lock", "Pitch shift", "Pointer", "Touch"],
   ),

@@ -1,7 +1,7 @@
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { WOBBLINI_DECK_COUNT, WOBBLINI_DEMOS, createDeckState,
   sanitizeDeckPatch, sanitizeMasterPatch, crossfadeGains, deckPosition,
-  createDemoSamples, waveformPeaks, wobbleAt, beatPhase, syncRate, syncPosition, clamp, tempoBounds } from "./wobblini-model.js";
+  createDemoSamples, waveformPeaks, wobbleAt, beatPhase, syncRate, syncPosition, syncLoopPeriod, clamp, tempoBounds } from "./wobblini-model.js";
 import { scratchPosition, createScratchWindow, SCRATCH_MAX_SPEED, SCRATCH_HOLD_SECONDS } from "./wobblini-scratch-model.js";
 import { createBeatAnalyzer } from "../trackazoid/beat-analysis-client.js";
 import { analyzeTrackLevel } from "./wobblini-level-analysis.js";
@@ -269,6 +269,14 @@ export class WobbliniAudio {
         continue;
       }
       const period = this.master.syncInterval;
+      // Repeating an arbitrary-length conversation must not trim or skip words
+      // to fit a beat grid. Match tempo, but do not claim phase lock when either
+      // complete file changes beat phase at its wrap.
+      if (syncLoopPeriod(master, this.decks[this.masterDeck].sampleRate, period) !== period ||
+          syncLoopPeriod(state, deck.sampleRate, period) !== period) {
+        state.syncError = "Tempo matched; these full-file lengths cannot keep beat alignment when repeating. Choose Tempo only.";
+        this._render(deck); rendered.add(state.id); continue;
+      }
       const target = syncPosition(deckPosition(state, when), state, beatPhase(reference, master, period), period);
       if (target === null) { state.syncError = "This source has no matching beat phase at this interval. Choose one-beat Sync or adjust beat zero."; continue; }
       state.position = target; state.anchorTime = when; this._render(deck, when); deck.syncAligned = true; rendered.add(state.id);
@@ -406,8 +414,8 @@ export class WobbliniAudio {
     deck.state.pitchStatus = "idle"; deck.state.pitchError = null;
   }
   _schedulePitchEnd(deck) {
-    clearTimeout(deck.pitchEndTimer);
-    if (!deck.pitch || !this.armed || !deck.state.playing) return;
+    clearTimeout(deck.pitchEndTimer); deck.pitchEndTimer = null;
+    if (!deck.pitch || !this.armed || !deck.state.playing || deck.state.loopEnabled) return;
     const now = this._now(), remaining = Math.max(0, deck.state.anchorTime - now) +
       Math.max(0, deck.state.duration - deckPosition(deck.state, now)) / deck.state.rate;
     deck.pitchEndTimer = setTimeout(() => {
@@ -592,7 +600,7 @@ export class WobbliniAudio {
   _restoreSlip(deck) {
     if (!deck.slip) return false;
     const now = this._now(), position = deckPosition(deck.slip, now);
-    Object.assign(deck.state, { position, anchorTime: now, playing: deck.slip.playing && position < deck.state.duration });
+    Object.assign(deck.state, { position, anchorTime: now, playing: deck.slip.playing && (deck.state.loopEnabled || position < deck.state.duration) });
     deck.slip = null; return true;
   }
   _sendScratchWindow(deck, position, begin = false) {
@@ -646,15 +654,12 @@ export class WobbliniAudio {
   seek(index, seconds) {
     if (this.disposed) return;
     const deck = this._deck(index); this._cancelScratch(deck); deck.cuePreview = deck.slip = null; const state = this._capture(deck);
-    state.position = clamp(seconds, 0, state.duration, state.position); state.anchorTime = this._now();
-    if (state.position < state.loopStart || state.position >= state.loopEnd) {
-      Object.assign(state, { loopEnabled: false, loopBeats: null, loopStart: 0, loopEnd: state.duration });
-    }
+    state.position = scratchPosition(clamp(seconds, 0, state.duration, state.position), state); state.anchorTime = this._now();
     this._renderTransport(deck); this._notify();
   }
   setCue(index, seconds = this.getDeckState(index).position) {
     if (this.disposed) return;
-    const deck = this._deck(index); deck.state.cuePoint = clamp(seconds, 0, deck.state.duration, deck.state.cuePoint);
+    const deck = this._deck(index); deck.state.cuePoint = scratchPosition(clamp(seconds, 0, deck.state.duration, deck.state.cuePoint), deck.state);
     this._notify();
   }
   cue(index) {
@@ -685,7 +690,7 @@ export class WobbliniAudio {
   }
   setLoop(index, beats) {
     if (this.disposed) return;
-    // Retained for old callers only. No public operation can re-enable loops.
+    // Retained for old callers only. Full-source repeat has no editable region.
     this._deck(index); return false;
   }
   setDeck(index, patch) {
@@ -738,7 +743,7 @@ export class WobbliniAudio {
     const state = this._capture(deck), wasPlaying = state.playing;
     deck.buffer = buffer; deck.samples = samples; deck.sampleRate = sampleRate; deck.peaks = peaks; deck.loopPeakCache = null;
     Object.assign(state, { name, kind, bpm, duration, position: 0, anchorTime: this._now(), cuePoint: 0, beatOffset: 0, autoGainDb, analysisStatus: "idle", analysisError: null,
-      playing: wasPlaying, loopBeats: null, loopEnabled: false, loopStart: 0, loopEnd: duration, loading: false });
+      playing: wasPlaying, loopBeats: null, loopEnabled: true, loopStart: 0, loopEnd: duration, loading: false });
     this._applyDeck(deck); this._renderTransport(deck); this._notify();
   }
   loadDemo(index) {

@@ -10,7 +10,7 @@ test("Wobblini has eight independent, initially stopped and moderately leveled d
   assert.equal(WOBBLINI_DECK_COUNT, 8); assert.equal(WOBBLINI_DEMOS.length, 8);
   const decks = Array.from({ length: 8 }, (_, index) => createDeckState(index));
   assert.equal(new Set(decks.map(deck => deck.name)).size, 8);
-  assert.ok(decks.every(deck => !deck.playing && deck.gain <= 0.7 && !deck.loopEnabled));
+  assert.ok(decks.every(deck => !deck.playing && deck.gain <= 0.7 && deck.loopEnabled && deck.loopStart === 0 && deck.loopEnd === deck.duration));
   decks[0].eq.low = -20; assert.equal(decks[1].eq.low, 0);
   assert.throws(() => createDeckState(8), RangeError);
 });

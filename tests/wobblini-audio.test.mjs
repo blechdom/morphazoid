@@ -56,7 +56,7 @@ test("Wobblini Play never creates audio; explicit arm joins all eight silent dec
   h.setWall(102); near(engine.getDeckState(0).position, 2);
   assert.equal(h.creates, 0); assert.equal(engine.armed, false);
   assert.equal(await engine.arm(), true); assert.equal(h.sources.length, 8);
-  for (const source of h.sources) { near(source.offset, 2); assert.equal(source.loop, false); }
+  for (const source of h.sources) { near(source.offset, 2); assert.equal(source.loop, true); }
   context.currentTime = 7; h.setWall(104); near(engine.getDeckState(0).position, 4);
   await engine.setAudioEnabled(false); assert.equal(context.state, "suspended");
   h.setWall(107); near(engine.getDeckState(0).position, 7); assert.equal(engine.getDeckState(0).playing, true);
@@ -64,7 +64,7 @@ test("Wobblini Play never creates audio; explicit arm joins all eight silent dec
   await engine.dispose(); assert.equal(context.state, "closed");
 });
 
-test("Wobblini pause, Jump, seek and tempo preserve play-once audio-clock agreement", async () => {
+test("Wobblini pause, Jump, seek and tempo preserve repeating audio-clock agreement", async () => {
   const h = harness(), { engine, context } = h;
   await engine.arm(); engine.play(0); context.currentTime = 6;
   engine.setDeck(0, { rate: 1.5 }); near(engine.getDeckState(0).position, 1);
@@ -72,9 +72,9 @@ test("Wobblini pause, Jump, seek and tempo preserve play-once audio-clock agreem
   engine.setCue(0); engine.cue(0); assert.equal(engine.getDeckState(0).playing, true);
   engine.pause(0); context.currentTime = 9; near(engine.getDeckState(0).position, 2.5);
   engine.seek(0, 7); engine.play(0); context.currentTime = 10;
-  near(engine.getDeckState(0).position, 8); assert.equal(engine.getDeckState(0).playing, false);
-  engine.cue(0); near(engine.getDeckState(0).position, 2.5); assert.equal(engine.getDeckState(0).playing, false);
-  assert.equal(engine.setLoop(0, 4), false); assert.equal(engine.getDeckState(0).loopEnabled, false);
+  near(engine.getDeckState(0).position, 0.5); assert.equal(engine.getDeckState(0).playing, true);
+  engine.cue(0); near(engine.getDeckState(0).position, 2.5); assert.equal(engine.getDeckState(0).playing, true);
+  assert.equal(engine.setLoop(0, 4), false); assert.equal(engine.getDeckState(0).loopEnabled, true);
   await engine.dispose();
 });
 
@@ -138,7 +138,7 @@ test("Wobblini local files decode with Audio off and failed replacements preserv
   const h = harness(), { engine } = h;
   await engine.loadFile(2, file());
   assert.equal(h.creates, 0); assert.equal(h.decodes, 1); assert.equal(engine.armed, false);
-  assert.equal(engine.getDeckState(2).kind, "file"); assert.equal(engine.getDeckState(2).loopEnabled, false);
+  assert.equal(engine.getDeckState(2).kind, "file"); assert.equal(engine.getDeckState(2).loopEnabled, true);
   assert.equal(engine.getDeckState(2).loopBeats, null);
   engine.play(2); h.setWall(102);
   await assert.rejects(engine.loadFile(2, { ...file(), size: 65 * 1024 * 1024 }), /64 MB/);
@@ -225,9 +225,9 @@ test("Wobblini rapid seeks keep at most two retiring sources per deck and dispos
 test("Wobblini silent scratch never creates audio and preserves paused/playing transport intent", async () => {
   const h = harness(), { engine } = h;
   assert.equal(engine.beginScratch(0), true); assert.equal(engine.beginScratch(0), false);
-  engine.scratchTo(0, -0.25); near(engine.getDeckState(0).position, 0);
+  engine.scratchTo(0, -0.25); near(engine.getDeckState(0).position, 7.75);
   assert.equal(engine.getDeckState(0).scratching, true); assert.equal(engine.getDeckState(0).playing, false);
-  h.setWall(102); near(engine.getDeckState(0).position, 0); assert.equal(engine.getDeckState(0).scratchVelocity, 0);
+  h.setWall(102); near(engine.getDeckState(0).position, 7.75); assert.equal(engine.getDeckState(0).scratchVelocity, 0);
   engine.endScratch(0); assert.equal(engine.getDeckState(0).playing, false); assert.equal(h.creates, 0);
   engine.play(1); h.setWall(103); engine.beginScratch(1); near(engine.getDeckState(1).position, 1);
   h.setWall(105); near(engine.getDeckState(1).position, 1); assert.equal(engine.getDeckState(1).playing, true);
@@ -283,7 +283,7 @@ test("Wobblini replacement and explicit seek invalidate stale scratch gestures",
   engine.beginScratch(0); engine.scratchTo(0, 3); engine.seek(0, 1); engine.scratchTo(0, 6);
   near(engine.getDeckState(0).position, 1); assert.equal(engine.getDeckState(0).scratching, false);
   await engine.loadFile(0, file()); engine.beginScratch(0); engine.scratchTo(0, -100);
-  near(engine.getDeckState(0).position, 0); engine.scratchTo(0, 100); near(engine.getDeckState(0).position, 8);
+  near(engine.getDeckState(0).position, 4); engine.scratchTo(0, 100); near(engine.getDeckState(0).position, 4);
   engine.endScratch(0); await engine.dispose();
 });
 
@@ -405,15 +405,15 @@ function assertSynced(engine, ids = engine.getState().decks.filter(deck => deck.
   }
 }
 
-test("Wobblini Sync locks all eight manual beat grids across BPM differences during play-once transport without arming Audio", async () => {
+test("Wobblini Sync locks all eight whole-beat sources across BPM differences and repeated wraps without arming Audio", async () => {
   const h = harness(), { engine } = h;
-  for (const [id, bpm] of [120, 72, 90, 120, 150, 180, 200, 240].entries()) {
+  for (const [id, bpm] of [120, 75, 90, 120, 150, 180, 195, 240].entries()) {
     engine.setDeck(id, { bpm }); engine.setCue(id, id * 0.023); engine.seek(id, id * 0.13); engine.setLoop(id, 8);
   }
   engine.setSyncEnabled(true); engine.playAll(); assertSynced(engine);
   assert.equal(engine.getState().masterDeck, 0); assert.equal(engine.getState().syncBpm, 120);
   assert.equal(engine.getDeckState(0).isMaster, true);
-  for (const time of [100.37, 101.89, 102.123]) { h.setWall(time); assertSynced(engine); }
+  for (const time of [100.37, 101.89, 120.123]) { h.setWall(time); assertSynced(engine); }
   assert.equal(h.creates, 0); assert.equal(engine.armed, false); await engine.dispose();
 });
 
@@ -458,7 +458,7 @@ test("Wobblini sync range failures are explicit, preserve transports and recover
   assert.match(engine.getDeckState(1).syncError, /outside 0.25×–1.75×/);
   assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
   near(engine.getDeckState(1).rate, 1); assertSynced(engine, [2, 3, 4, 5, 6, 7]);
-  engine.setDeck(1, { bpm: 72 }); assertSynced(engine);
+  engine.setDeck(1, { bpm: 75 }); assertSynced(engine);
   engine.setDeck(0, { rate: 1.1 }); assert.match(engine.getDeckState(1).syncError, /outside/);
   engine.setDeck(0, { rate: 0.9 }); assertSynced(engine); await engine.dispose();
 });
@@ -784,25 +784,32 @@ test("Wobblini mute and solo keep native transport moving while pause freezes on
 
 
 
-test("Wobblini defaults are fine tempo, Key Lock, one-shot playback and independent cue/grid markers", async () => {
+test("Wobblini defaults are fine tempo, Key Lock, full-source repeat and independent cue/grid markers", async () => {
   const engine = new WobbliniAudio();
   for (const state of engine.getState().decks) {
     assert.equal(state.tempoRange, 8); assert.equal(state.keyLock, true);
-    assert.equal(state.loopEnabled, false); assert.equal(state.beatOffset, 0); assert.equal(state.cuePoint, 0);
+    assert.equal(state.loopEnabled, true); assert.equal(state.loopStart, 0); assert.equal(state.loopEnd, state.duration);
+    assert.equal(state.beatOffset, 0); assert.equal(state.cuePoint, 0);
   }
   await engine.dispose();
 });
 
-test("Wobblini sources stop at their exact end and legacy loop calls cannot make them repeat", async () => {
+test("Wobblini full sources repeat over many audio-clock wraps without restarting nodes", async () => {
   const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => buffer(1.17) }) }), { engine, context } = h;
   await engine.loadFile(3, file()); engine.play(3); h.setWall(103);
-  near(engine.getDeckState(3).position, 1.17); assert.equal(engine.getDeckState(3).playing, false);
-  assert.equal(engine.setLoop(3, 0.5), false); assert.equal(engine.getDeckState(3).loopEnabled, false);
-  engine.play(3); near(engine.getDeckState(3).position, 0);
-  await engine.arm(); const source = engine.decks[3].source.source; assert.equal(source.loop, false);
-  context.currentTime += 1.17; source.onended();
-  near(engine.getDeckState(3).position, 1.17); assert.equal(engine.getDeckState(3).playing, false);
-  assert.equal(engine.decks[3].source, null); await engine.dispose();
+  near(engine.getDeckState(3).position, 0.66); assert.equal(engine.getDeckState(3).playing, true);
+  for (const beats of [0, 0.5, 32]) assert.equal(engine.setLoop(3, beats), false);
+  assert.equal(engine.getDeckState(3).loopEnabled, true);
+  await engine.arm(); const source = engine.decks[3].source.source;
+  assert.equal(source.loop, true); near(source.loopStart, 0); near(source.loopEnd, 1.17);
+  context.currentTime += 117.5;
+  near(engine.getDeckState(3).position, 1.16); assert.equal(engine.getDeckState(3).playing, true);
+  assert.equal(engine.decks[3].source.source, source); assert.equal(h.sources.length, 1);
+  engine.pause(3); near(engine.getDeckState(3).position, 1.16);
+  context.currentTime += 10; near(engine.getDeckState(3).position, 1.16);
+  engine.seek(3, 1.17); near(engine.getDeckState(3).position, 0);
+  engine.play(3); near(engine.decks[3].source.source.offset, 0);
+  assert.equal(engine.decks[3].source.source.loop, true); await engine.dispose();
 });
 
 test("Wobblini Set/Jump hold preview restores stopped cue, preserves playing Jump and supports Play while held", async () => {
@@ -821,6 +828,40 @@ test("Wobblini Set/Jump hold preview restores stopped cue, preserves playing Jum
   await engine.dispose();
 });
 
+test("Wobblini Cue preview and reverse scratching wrap while paused controls retain full-source repeat", async () => {
+  const h = harness(), { engine } = h;
+  engine.seek(0, 8); near(engine.getDeckState(0).position, 0);
+  engine.setCue(0, 8); near(engine.getDeckState(0).cuePoint, 0);
+  engine.setCue(0, 7.75); engine.beginCuePreview(0); h.setWall(117);
+  near(engine.getDeckState(0).position, 0.75); assert.equal(engine.getDeckState(0).playing, true);
+  engine.endCuePreview(0); near(engine.getDeckState(0).position, 7.75); assert.equal(engine.getDeckState(0).playing, false);
+  engine.beginScratch(0); engine.scratchTo(0, -0.25); near(engine.getDeckState(0).position, 7.75);
+  engine.endScratch(0); assert.equal(engine.getDeckState(0).playing, false);
+  engine.beginCuePreview(0); h.setWall(118); engine.play(0); engine.endCuePreview(0);
+  near(engine.getDeckState(0).position, 0.75); assert.equal(engine.getDeckState(0).playing, true);
+  assert.equal(engine.getDeckState(0).loopEnabled, true); await engine.dispose();
+});
+
+test("Wobblini repeats arbitrary complete files and reports beat incompatibility for either side of SYNC", async () => {
+  for (const shortDeck of [0, 1]) {
+    const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => buffer(1.17) }) }), { engine } = h;
+    await engine.loadFile(shortDeck, file()); engine.setDeck(1, { bpm: 150 }); engine.playAll(); engine.setDeckSyncEnabled(1, true);
+    near(engine.getDeckState(1).rate, 0.8);
+    assert.match(engine.getDeckState(1).syncError, /Tempo matched.*full-file/);
+    assert.equal(engine.getDeckState(1).syncActive, false);
+    h.setWall(112); assert.ok(engine.getState().decks.every(deck => deck.playing));
+    engine.setMaster({ syncMode: "tempo" });
+    assert.equal(engine.getDeckState(1).syncError, null); assert.equal(engine.getDeckState(1).syncActive, true);
+    await engine.dispose();
+  }
+  const h = harness(), { engine } = h;
+  engine.setDeck(1, { bpm: 75 }); engine.playAll(); engine.setDeckSyncEnabled(1, true); assertSynced(engine, [1]);
+  h.setWall(117); assertSynced(engine, [1]);
+  engine.setMaster({ syncInterval: 4 });
+  assert.match(engine.getDeckState(1).syncError, /Tempo matched/);
+  assert.equal(engine.getDeckState(1).playing, true); await engine.dispose();
+});
+
 test("Wobblini Slip restores the unscripted timeline through scratches, clock switches and file end", async () => {
   const h = harness(), { engine, context } = h; engine.setDeck(0, { slipEnabled: true }); engine.play(0);
   h.setWall(101); engine.beginScratch(0); engine.scratchTo(0, 4); h.setWall(102);
@@ -828,7 +869,8 @@ test("Wobblini Slip restores the unscripted timeline through scratches, clock sw
   await engine.arm(); context.currentTime += 1; engine.endScratch(0);
   near(engine.getDeckState(0).position, 3); near(engine.decks[0].source.source.offset, 3);
   engine.beginScratch(0); engine.scratchTo(0, 1); context.currentTime += 7; engine.endScratch(0);
-  near(engine.getDeckState(0).position, 8); assert.equal(engine.getDeckState(0).playing, false);
+  near(engine.getDeckState(0).position, 2); assert.equal(engine.getDeckState(0).playing, true);
+  engine.pause(0);
   engine.seek(0, 2); engine.beginScratch(0); context.currentTime += 1; engine.scratchTo(0, 3); engine.endScratch(0);
   near(engine.getDeckState(0).position, 3); assert.equal(engine.getDeckState(0).playing, false);
   await engine.dispose();
@@ -907,6 +949,7 @@ test("Wobblini Key Lock is lazy, routes to trim, follows the audio clock and byp
   assert.ok(helper.options.getBaseBytes() > 0); assert.ok(command.when >= context.currentTime + helper.latency);
   near(command.position, engine.getDeckState(0, command.when).position); assert.equal(engine.decks[0].source, null);
   assert.equal(engine.getDeckState(0).pitchStatus, "ready");
+  assert.equal(command.loopEnabled, true); assert.equal(engine.decks[0].pitchEndTimer, null);
   context.currentTime = command.when + 0.1; const count = helper.plays.length;
   engine.beginScratch(0); engine.scratchTo(0, 0.1);
   assert.equal(helper.plays.length, count); assert.ok(helper.stops.length > 0);
@@ -940,15 +983,17 @@ test("Wobblini pitch failures report native fallback honestly and independent pi
   assert.equal(h.errors.length, 1); await engine.dispose();
 });
 
-test("Wobblini processed EOF releases its worklet and pending cleanup timer", async () => {
+test("Wobblini processed full-source repeat keeps its worklet until paused and never schedules EOF cleanup", async () => {
   const helpers = [], h = harness({ pitchFactory: mockPitchFactory(helpers) }), { engine, context } = h;
   await engine.arm(); engine.setDeck(0, { keyLock: false, pitchSemitones: 7 }); engine.play(0);
   await engine.decks[0].pitchPromise; assert.equal(helpers[0].plays.at(-1).pitchSemitones, 7);
   near(helpers[0].plays.at(-1).rate, 1);
+  const before = engine.getDeckState(0).position;
   context.currentTime = 30; engine._schedulePitchEnd(engine.decks[0]);
-  await new Promise(resolve => setTimeout(resolve, 25));
-  assert.equal(helpers[0].disposed, true); assert.equal(engine.getDeckState(0).playing, false);
-  near(engine.getDeckState(0).position, 8); assert.equal(engine.decks[0].pitchEndTimer, null);
+  assert.equal(helpers[0].disposed, false); assert.equal(engine.getDeckState(0).playing, true);
+  assert.ok(engine.getDeckState(0).position < 8); assert.notEqual(engine.getDeckState(0).position, before);
+  assert.equal(engine.decks[0].pitchEndTimer, null);
+  engine.pause(0); assert.equal(helpers[0].disposed, true);
   await engine.dispose();
 });
 

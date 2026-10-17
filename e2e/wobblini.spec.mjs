@@ -364,13 +364,13 @@ test("two real touch contacts retain separate platter ownership and release on c
   } finally { await context.close(); }
 });
 
-test("tracks play through once and the record needle stays at three o'clock", async ({ page }) => {
+test("tracks repeat the whole file and the record needle stays at three o'clock", async ({ page }) => {
   const errors = diagnostics(page); await ready(page); await loadTone(page, 0, 8);
-  expect((await state(page)).decks[0].loopEnabled).toBe(false);
+  expect((await state(page)).decks[0].loopEnabled).toBe(true);
   await expect(page.locator("[id*=Loop], [id*=loop]")).toHaveCount(0);
   await slider(page, "#d0Seek", 7.7); await page.locator("#d0Play").click(); await arm(page);
-  await expect.poll(async () => (await state(page)).decks[0].playing).toBe(false);
-  expect((await state(page)).decks[0].position).toBeCloseTo(8, 2); await silent(page);
+  await expect.poll(async () => (await state(page)).decks[0].position).toBeLessThan(2);
+  expect((await state(page)).decks[0].playing).toBe(true); await audible(page, 250);
   await page.locator("#recordsView").click();
   const needle = await page.locator("#deck0 .wb-disc-needle").evaluate(node => {
     const r = node.getBoundingClientRect(), line = getComputedStyle(node, "::after");
@@ -378,8 +378,8 @@ test("tracks play through once and the record needle stays at three o'clock", as
   }), disc = await page.locator("#d0Platter").boundingBox();
   expect(needle.x).toBeGreaterThan(disc.x + disc.width * .8);
   expect(Math.abs(needle.y - (disc.y + disc.height / 2))).toBeLessThan(3);
-  await page.locator("#d0Play").click(); await audible(page, 250);
-  expect((await state(page)).decks[0].position).toBeLessThan(2);
+  await page.locator("#d0Play").click(); await silent(page);
+  expect((await state(page)).decks[0].playing).toBe(false);
   await page.locator("#stopButton").click(); await silent(page);
   expect((await state(page)).decks[0].position).toBe(0); expect(errors).toEqual([]);
 });
@@ -448,7 +448,7 @@ test("the circular waveform retains the full file when seeking into a silent pas
   await page.locator("#d0Play").click(); await arm(page); await silent(page);
   expect((await state(page)).decks[0].playing).toBe(true);
   await slider(page, "#d0Seek", 0); await audible(page, 200);
-  expect((await state(page)).decks[0].loopEnabled).toBe(false);
+  expect((await state(page)).decks[0].loopEnabled).toBe(true);
 });
 
 test("Wobblini exposes named controls and finite, reversible native ranges", async ({ page }, testInfo) => {
@@ -638,7 +638,8 @@ test("A/B crossfader silences only its assigned group while Thru remains audible
 test("one selected master leads only opted-in decks; SYNC ALL and tempo controls preserve live transport", async ({ page }) => {
   test.setTimeout(60000);
   const errors = diagnostics(page); await demos(page);
-  for (const [i, bpm] of [120, 80, 90, 120, 150, 180, 100, 160].entries()) {
+  // Forty-second sources contain whole beats at each of these source tempos.
+  for (const [i, bpm] of [120, 81, 90, 120, 150, 180, 99, 159].entries()) {
     await loadTone(page, i, 40); await slider(page, `#d${i}Bpm`, bpm);
     await slider(page, `#d${i}Seek`, .13 + i * .17);
   }

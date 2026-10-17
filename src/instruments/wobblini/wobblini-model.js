@@ -21,10 +21,10 @@ export function clamp(value, min, max, fallback = min) {
 export function createDeckState(id) {
   if (!Number.isInteger(id) || id < 0 || id >= WOBBLINI_DECK_COUNT) throw new RangeError("Unknown Wobblini deck.");
   const demo = WOBBLINI_DEMOS[id];
-  // Sources play through once; loops are intentionally absent from the UI.
+  // Every source repeats in full; there are no editable loop regions.
   return { id, name: demo.name, kind: "demo", duration: demo.duration,
     position: 0, anchorTime: 0, playing: false, rate: 1, bpm: demo.bpm,
-    cuePoint: 0, beatOffset: 0, loopBeats: null, loopEnabled: false, loopStart: 0, loopEnd: demo.duration,
+    cuePoint: 0, beatOffset: 0, loopBeats: null, loopEnabled: true, loopStart: 0, loopEnd: demo.duration,
     trimDb: 0, autoGain: false, autoGainDb: 0, keyLock: true, pitchSemitones: 0, tempoRange: 8,
     slipEnabled: false, analysisStatus: "idle", analysisError: null, pitchStatus: "idle", pitchError: null,
     gain: 0.7, pan: 0, mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 },
