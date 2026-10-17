@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 

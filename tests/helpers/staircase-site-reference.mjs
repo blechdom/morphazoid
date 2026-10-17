@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -42,6 +43,7 @@ export function restoreStaircaseSite(source, file, { allowRestored = false } = {
     source = source.replace(after, before);
   }
   if (mergedCheck) source = source.replace(' && npm run check:simd-wasm', ` && npm run check:simd-wasm${rustCheck}`);
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

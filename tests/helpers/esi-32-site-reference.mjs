@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -16,5 +17,6 @@ export function restoreEsi32Site(source, file, { allowRestored = false } = {}) {
       source = source.replace(replacement.after, () => replacement.before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }

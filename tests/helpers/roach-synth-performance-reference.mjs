@@ -27,12 +27,18 @@ for (const change of roachPerformanceChanges) {
   }
 }
 
+const roachReadmeChanges = JSON.parse(readFileSync(
+  new URL("../fixtures/roach-recovery-readme-amendment.json", import.meta.url), "utf8",
+)).changes;
+
 /** Reverse this exact performance update before older mobile/source migrations;
  * the relocation and independent instrument reference hashes remain frozen. */
-export function restoreRoachPerformance(source, file) {
-  for (const change of roachPerformanceChanges.filter(change => change.file === file)) {
+export function restoreRoachPerformance(source, file, { allowRestored = false } = {}) {
+  for (const change of [...roachPerformanceChanges, ...roachReadmeChanges].filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
-      assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exactly one Roach performance amendment`);
+      const count = source.split(replacement.after).length - 1;
+      if (count === 0 && (allowRestored || source.split(replacement.before).length - 1 === 1)) continue;
+      assert.equal(count, 1, `${file}: exactly one Roach performance amendment`);
       source = source.replace(replacement.after, replacement.before);
     }
   }

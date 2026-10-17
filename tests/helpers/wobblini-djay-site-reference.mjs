@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -16,5 +17,6 @@ export function restoreWobbliniDjaySite(source, file, { allowRestored = false } 
       source = source.replace(after, () => before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }

@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -42,6 +43,7 @@ export function restoreFractalDelaySite(source, file) {
       source = source.replace(replacement.after, replacement.before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

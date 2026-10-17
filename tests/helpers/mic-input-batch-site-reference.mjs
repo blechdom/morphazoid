@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -27,6 +28,7 @@ export function restoreMicInputBatchSite(source, file, { allowRestored = false }
       source = source.replace(after, () => before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

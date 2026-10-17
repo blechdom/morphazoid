@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -33,6 +34,7 @@ export function restoreStaircaseConcurrentMain(source, file) {
     assert.equal(source.split(check).length - 1, 1, 'exact independent Rust Resonator check');
     source = source.replace(rows, '').replace(check, '');
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreWobbliniControlsSite } from './wobblini-controls-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -23,6 +24,7 @@ export function restoreGraphonicCalculatorMathSite(source, file, { allowRestored
       source = source.replace(after, () => before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

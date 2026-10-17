@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreBlechSpigotRuntime } from './blech-spigot-runtime-reference.mjs';
@@ -27,6 +28,7 @@ export function restoreGraphonicCalculatorSite(source, file, { allowRestored = f
       source = source.replace(after, () => before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
 

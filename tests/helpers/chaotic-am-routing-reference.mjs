@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -27,5 +28,6 @@ export function restoreChaoticAmRouting(source, file, { allowRestored = false } 
       source = source.replace(after, before);
     }
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }

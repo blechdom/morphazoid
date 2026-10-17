@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -32,5 +33,6 @@ export function restoreSoundFontsSite(source, file, { allowRestored = false } = 
     assert.equal(count, 1, `${file}: exact Sound Fonts site amendment`);
     source = source.replace(addition, '');
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }

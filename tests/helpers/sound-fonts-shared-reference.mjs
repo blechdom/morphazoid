@@ -1,3 +1,4 @@
+import { restoreRoachPerformance } from './roach-synth-performance-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
@@ -33,5 +34,6 @@ export function restoreSoundFontsShared(source, file, { allowRestored = false } 
     for (const markerCount of markerCounts) assert.equal(markerCount, 1, error);
     source = source.replace(change.addition, '');
   }
+  source = restoreRoachPerformance(source, file, { allowRestored: true });
   return source;
 }
