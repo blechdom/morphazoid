@@ -7,12 +7,27 @@ import { normalizeRoachMotion, writeRoachPose, createRoachSceneState, writeRoach
 // A held pose has smooth, group-owned resonances. Motion-only sources receive
 // only their own joints' actual displacement and the shared six-foot contacts.
 // Sound Play never manufactures scuttles, impulses, sample grains or footbeats.
-// Spoken KAL16 words remain independent of all body assignments and transports.
+// Spoken words remain independent of all body assignments and transports.
 const TAU = Math.PI * 2;
 const MAX_JOINTS = 128;
 const MAX_MAPPINGS = 128;
 const MAX_PHONES = 96;
 const EMPTY_PHONES = Object.freeze([]);
+const MAX_SPEECH_SECONDS = 30;
+/** Validate on the main thread before transferring PCM into the worklet. */
+export function validateRoachSpeechBuffer(samples, sampleRate, { transferred = false } = {}) {
+  if (!(samples instanceof Float32Array) || !samples.length || !Number.isInteger(sampleRate)
+    || sampleRate < 8000 || sampleRate > 192000 || samples.length > sampleRate * MAX_SPEECH_SECONDS
+    || !(samples.buffer instanceof ArrayBuffer) || samples.buffer.byteLength > sampleRate * MAX_SPEECH_SECONDS * 4) {
+    throw new Error('Speech PCM is invalid or exceeds its fixed budget.');
+  }
+  // Transferred messages have already been checked by the controller. Adopt
+  // ownership without a long copy or scan during a worklet audio deadline.
+  if (!transferred) for (const value of samples) {
+    if (!Number.isFinite(value) || Math.abs(value) > 1) throw new Error('Speech PCM contains invalid samples.');
+  }
+  return samples;
+}
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, finite(value, low)));
 const clean = (value) => Number.isFinite(value) && Math.abs(value) > 1e-24 ? value : 0;
@@ -325,6 +340,7 @@ export class RoachSynthDsp {
     this.filterL = 0; this.filterR = 0; this.dcL = 0; this.dcR = 0; this.previousL = 0; this.previousR = 0; this.randomState = 0x756d4f21;
     this.atlas = null; this.atlasRate = 16000; this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0;
     this.phonePosition = 0; this.phone = null; this.speechEnvelope = 0; this.speechGain = 0; this.speechTarget = 0; this.pendingSpeech = null;
+    this.speechBuffer = null; this.speechBufferRate = 22050; this.speechPosition = 0;
     this.speechSmoothing = 1 - Math.exp(-1 / (this.sampleRate * .0015));
     this.filterCoefficient = .25; this.panL = Math.SQRT1_2; this.panR = Math.SQRT1_2; this.speechRate = 1;
     this.telemetry = {rms:0,peak:0,speechEnvelope:0,motionTime:0,soundTime:0,renderedFrames:0};
@@ -341,6 +357,9 @@ export class RoachSynthDsp {
     if ('enabled' in value) {
       const wasEnabled = this.enabled; this.enabled = value.enabled === true;
       if (!this.enabled) { this.stopSpeech(); this.body.resetActivity(); this.midiOverlayPrimed = false; }
+      // A mute followed by rearm can arrive before another render block. Never
+      // let the previous phrase resume merely because its fade was unsampled.
+      if (this.enabled && !wasEnabled) { this.installSpeech(null); this.speechGain = 0; }
       // Audio mute preserves visual MIDI ownership, but never queues attacks
       // for a later rearm. The wrapper restores the latest held-note snapshot.
       if (!this.enabled || !wasEnabled) this.midiSerials.set(this.midiPerformance.groupSerials);
@@ -501,13 +520,25 @@ export class RoachSynthDsp {
       offset: clamp(phone?.offset, 0, this.atlas.length / this.atlasRate),
       duration: clamp(phone?.duration, .015, .65), gain: clamp(phone?.gain ?? 1, 0, 1.5), silence: phone?.silence === true,
     }));
-    if (this.phone || this.phoneIndex < this.phoneQueue.length) {
-      this.pendingSpeech = queue; this.speechTarget = 0;
-    } else {
-      this.phoneQueue = queue; this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
-      this.speechTarget = 1; this.pendingSpeech = null;
-    }
+    this.queueSpeech(queue);
     return queue.length > 0;
+  }
+  speakBuffer(samples, sampleRate, options) {
+    if (!this.enabled) return false;
+    validateRoachSpeechBuffer(samples, sampleRate, options);
+    this.queueSpeech({ samples, sampleRate });
+    return true;
+  }
+  installSpeech(value) {
+    this.phoneQueue = Array.isArray(value) ? value : EMPTY_PHONES;
+    this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
+    this.speechBuffer = value?.samples ?? null; this.speechBufferRate = value?.sampleRate ?? 22050; this.speechPosition = 0;
+    this.pendingSpeech = null; this.speechTarget = this.speechBuffer || this.phoneQueue.length ? 1 : 0;
+  }
+  queueSpeech(value) {
+    if (this.speechBuffer || this.phone || this.phoneIndex < this.phoneQueue.length) {
+      this.pendingSpeech = value; this.speechTarget = 0;
+    } else this.installSpeech(value);
   }
   stopSpeech() { this.pendingSpeech = null; this.speechTarget = 0; }
   random() {
@@ -596,13 +627,22 @@ export class RoachSynthDsp {
   }
 
   speechSample() {
+    if (!this.speechTarget && !this.speechGain && !this.pendingSpeech && !this.speechBuffer
+      && !this.phone && this.phoneIndex >= this.phoneQueue.length) return 0;
     this.speechGain += (this.speechTarget - this.speechGain) * this.speechSmoothing;
     if (this.speechTarget === 0 && this.speechGain < .0001) {
-      this.phoneQueue = this.enabled && this.pendingSpeech ? this.pendingSpeech : EMPTY_PHONES;
-      this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
-      this.pendingSpeech = null;
-      if (this.phoneQueue.length) this.speechTarget = 1;
-      else return 0;
+      this.installSpeech(this.enabled ? this.pendingSpeech : null);
+      if (!this.speechTarget) { this.speechGain = 0; return 0; }
+    }
+    if (this.speechBuffer) {
+      const samples = this.speechBuffer, position = this.speechPosition;
+      const index = Math.floor(position), mix = position - index;
+      const envelope = Math.max(0, Math.min(1, position / (this.speechBufferRate * .007),
+        (samples.length - position) / (this.speechBufferRate * .009)));
+      const sample = ((samples[index] ?? 0) * (1 - mix) + (samples[index + 1] ?? 0) * mix) * envelope;
+      this.speechPosition += this.speechBufferRate / this.sampleRate * this.speechRate;
+      if (this.speechPosition >= samples.length) { this.speechBuffer = null; this.speechTarget = 0; }
+      return Number.isFinite(sample) ? sample * this.speechGain : 0;
     }
     if (!this.phone) {
       this.phone = this.phoneQueue[this.phoneIndex++] ?? null; this.phonePosition = 0;
@@ -636,7 +676,7 @@ export class RoachSynthDsp {
       this.master+=((this.enabled?1:0)-this.master)*this.gateSmoothing;
       this.soundGate+=((this.soundPlaying?1:0)-this.soundGate)*this.gateSmoothing;
       this.body.sample(this.soundGate,this.playing);
-      const speech=this.atlas?this.speechSample():0;
+      const speech=this.speechSample();
       this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
       const speechDuck=1/(1+this.speechEnvelope*s.voice*1.6);
       let speechColor=0;

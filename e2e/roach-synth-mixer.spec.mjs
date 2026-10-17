@@ -15,9 +15,9 @@ async function arm(page) {
 }
 async function settleScroll(page) {
   await page.evaluate(() => new Promise((resolve, reject) => {
-    const deadline = performance.now() + 3000; let previous = scrollY, stableSince = performance.now();
+    const deadline = performance.now() + 3000; let previous = document.querySelector('.roach-panel').scrollTop, stableSince = performance.now();
     function check(now) {
-      if (Math.abs(scrollY - previous) > .1) { previous = scrollY; stableSince = now; }
+      if (Math.abs(document.querySelector('.roach-panel').scrollTop - previous) > .1) { previous = document.querySelector('.roach-panel').scrollTop; stableSince = now; }
       if (now - stableSince >= 140) resolve();
       else if (now > deadline) reject(new Error('Touch scroll did not settle'));
       else requestAnimationFrame(check);
@@ -42,7 +42,7 @@ test('all nine sound parameters are editable without changing body assignments o
   expect(after.audio.contextState).toBe('uninitialized'); await expect(page.locator('#soundPreset')).toHaveValue('custom');
 });
 
-test('animation sound presets follow explicit motion choices while first Play preserves a chosen sound', async ({ page }) => {
+test('focused animation choices preserve the chosen sound and its body assignments', async ({ page }) => {
   await open(page);
   expect(await page.locator('#soundPreset optgroup[label="Sound presets"] option').count()).toBeGreaterThanOrEqual(18);
   await expect(page.locator('#soundPreset optgroup[label="Animation sounds"] option')).toHaveCount(24);
@@ -54,9 +54,9 @@ test('animation sound presets follow explicit motion choices while first Play pr
   expect(started.sound).toEqual(chosen.sound); expect(started.bodyMix).toEqual(chosen.bodyMix);
   const before = await state(page);
   await page.locator('#motionPreset').selectOption('side_run');
-  await expect(page.locator('#soundPreset')).toHaveValue('motion:side_run');
+  await expect(page.locator('#soundPreset')).toHaveValue('wing-radio');
   const running = await state(page);
-  expect(running.bodyMix).not.toEqual(chosen.bodyMix); expect(running.sound.level).toBe(.43);
+  expect(running.bodyMix).toEqual(chosen.bodyMix); expect(running.sound).toEqual(chosen.sound); expect(running.sound.level).toBe(.43);
   expect(running.playing).toBe(true); expect(running.time).toBeGreaterThanOrEqual(before.time); expect(running.camera).toEqual(before.camera);
   await page.locator('#soundPreset').selectOption('motion:top_flight');
   const flightSound = await state(page);
@@ -119,20 +119,20 @@ test('mobile knob vertical drags scroll without changing level; horizontal drags
     const knob = page.locator('.roach-knob[for="mix-legs"]');
     await knob.evaluate(element => element.scrollIntoView({ block: 'center' }));
     const before = await state(page), start = await knob.boundingBox();
-    const scroll = await page.evaluate(() => scrollY);
+    const scroll = await page.evaluate(() => document.querySelector('.roach-panel').scrollTop);
     await swipe(start.x + start.width / 2, start.y + start.height / 2, 0, -120);
-    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(scroll + 30);
+    await expect.poll(() => page.evaluate(() => document.querySelector('.roach-panel').scrollTop)).toBeGreaterThan(scroll + 30);
     expect((await state(page)).bodyMix).toEqual(before.bodyMix);
     // Stop native momentum before placing a separate horizontal performance.
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 20, y: 800 }] });
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await knob.evaluate(element => element.scrollIntoView({ block: 'center' }));
     await settleScroll(page);
-    const horizontal = await knob.boundingBox(), heldScroll = await page.evaluate(() => scrollY);
+    const horizontal = await knob.boundingBox(), heldScroll = await page.evaluate(() => document.querySelector('.roach-panel').scrollTop);
     await swipe(horizontal.x + horizontal.width / 2, horizontal.y + horizontal.height / 2, -42, 0);
     expect((await state(page)).bodyMix.find(row => row.groupId === 'legs').level)
       .toBeLessThan(before.bodyMix.find(row => row.groupId === 'legs').level);
-    expect(await page.evaluate(() => scrollY)).toBe(heldScroll);
+    expect(await page.evaluate(() => document.querySelector('.roach-panel').scrollTop)).toBe(heldScroll);
     expect((await state(page)).audio.contextState).toBe('uninitialized');
   } finally { await context.close(); }
 });
@@ -231,17 +231,17 @@ test('Click and Clack are leg percussion that follows movement and releases when
   await testInfo.attach('click-clack-motion.json', { body: JSON.stringify(reports), contentType: 'application/json' });
 });
 
-test('Random sound changes complete tone parameters and body assignments while preserving master and transport', async ({ page }) => {
+test('Random sound changes tone parameters and body assignments while preserving output levels and transport', async ({ page }) => {
   await open(page); await page.locator('#soundPlayButton').click();
   await page.locator('#level').fill('0.42'); const before = await state(page);
   await page.locator('#randomSound').click(); const first = await state(page);
-  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice']) expect(first.sound[key]).not.toBe(before.sound[key]);
+  for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan']) expect(first.sound[key]).not.toBe(before.sound[key]);
   expect(first.bodyMix).not.toEqual(before.bodyMix); expect(first.bodyMix).toHaveLength(8);
   expect(first.bodyMix.every(row => sources.includes(row.source) && row.level >= 0 && row.level <= 1)).toBe(true);
-  expect(first.sound.level).toBe(.42); expect(first.soundPlaying).toBe(true); expect(first.playing).toBe(false);
+  expect(first.sound.level).toBe(.42); expect(first.sound.voice).toBe(before.sound.voice); expect(first.soundPlaying).toBe(true); expect(first.playing).toBe(false);
   expect(first.audio.contextState).toBe('uninitialized');
   await page.locator('#randomSound').click(); const second = await state(page);
-  expect(second.sound).not.toEqual(first.sound); expect(second.bodyMix).not.toEqual(first.bodyMix); expect(second.sound.level).toBe(.42);
+  expect(second.sound).not.toEqual(first.sound); expect(second.bodyMix).not.toEqual(first.bodyMix); expect(second.sound.level).toBe(.42); expect(second.sound.voice).toBe(before.sound.voice);
   await expect(page.locator('#soundPreset')).toHaveValue('custom');
 });
 

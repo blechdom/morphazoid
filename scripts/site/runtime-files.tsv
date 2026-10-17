@@ -790,6 +790,7 @@ copy	src/instruments/roach-synth/roach-synth-body.js
 copy	src/instruments/roach-synth/roach-synth-body-engine.js
 copy	src/instruments/roach-synth/roach-synth-textures.js
 copy	src/instruments/roach-synth/roach-synth-processor.js
+copy+require	src/instruments/roach-synth/roach-synth-speech-worker.js
 copy	docs/ROACH_SYNTH_RESEARCH.md
 copy	assets/roach-synth/cockroach.glb
 copy	assets/roach-synth/cockroach-mobile.glb.report.json

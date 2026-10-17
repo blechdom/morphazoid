@@ -28,3 +28,13 @@ test("canonical sources are real pages, never redirect placeholders", async () =
     assert.doesNotMatch(html, /location\.replace\(/, route);
   }
 });
+
+test("browser QA discovers canonical pages at their public routes and retains nested routes", async () => {
+  const { allHtmlRoutes, toolRoutes } = await import("../e2e/routes.mjs");
+  const hrefs = new Set(allHtmlRoutes.map(route => route.href));
+  for (const route of CANONICAL_PAGE_ROUTES) assert.ok(hrefs.has(route), route);
+  assert.ok(hrefs.has("morphazoidical/index.html"));
+  assert.equal(allHtmlRoutes.some(route => route.href.startsWith(`${PAGE_SOURCE_DIRECTORY}/`)), false);
+  assert.equal(allHtmlRoutes.filter(route => route.id === "roach-synth").length, 1);
+  for (const route of toolRoutes) assert.ok(hrefs.has(route.href.endsWith('/') ? `${route.href}index.html` : route.href), route.href);
+});

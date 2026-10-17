@@ -13,7 +13,7 @@ plus short cartoon footsteps, clicks, clacks, FM hits, rattling percussion and
 Karplus plucks. Click and Clack provide separate crisp and resonant foot-contact
 articulations without adding independent rhythmic loops.
 Eighteen sound/voice presets and twenty-four animation sound patches share a
-visible preset selector. Each animation chooses a distinct body mix; only
+visible sound preset selector with Next and dice. Full scenes choose a body mix; only
 Dash and freeze assigns Skuttle in its authored animation patch. Default feet
 use rounded impacts and the neck uses a clean pitch-responsive synth tone.
 The Wing radio patch retains its previous wing generators and settings.
@@ -21,14 +21,15 @@ A compact body mixer controls assignment, level, mute and solo. Voice level
 is independent of body solos. All nine consumed global sound controls are
 visible beside the sound presets and voice input.
 
-Sound Play opens the smooth held-pose sources without advancing the animation.
+The lower Drone control opens the smooth held-pose sources without advancing the animation.
 It never creates a footstep, scraping pulse or recorded grain. Moving each
 body group's actual joints supplies its own friction and excitation; stopping
 releases those textures back to the held resonance bed. XYZ rotations alter
 pitch, filtering and stereo within that group. Left/right and individual joints
 have different weighting even when their source is shared. Touching a joint
 selects its group. Manual gestures work with Audio armed and either player
-paused. Audio arming alone is silent; spoken KAL16 words have their own trigger.
+paused. Audio arming alone is silent; spoken words have their own trigger.
+Animation is the primary Play control and never turns Drone on. Drone starts off.
 Discrete pose loads and resets re-prime activity, preventing teleportation from
 manufacturing contact events.
 
@@ -45,22 +46,24 @@ below, triggered by that group's movement or the legs' contact events; it is
 not a continuously looping ambience. No acquired clip is an isolated flight
 sound, house-wall recording, shriek or demonstrated ultrasonic signal.
 
-Twenty-four interleaved animation patches and seeded motion blends share an
+Forty-eight animation choices and seeded motion blends share an
 audio-clock pose and stylized six-foot support state. Ground travel, swing,
 touchdown counters, body lift and upright dances come from that state. Internal
 64-sample curves preserve fast gestures; there is no exposed joint sequencer or
 route editor in the compact main view. Random routines blend upper-body curves
 while retaining their base routine's leg geometry and contact timing. Changing
 routines preserves transport phase, and camera views remain independent.
-Each routine has an authored eight-beat contact phrase on a sixteenth-note
+The original twenty-four routines have authored eight-beat contact phrases on a sixteenth-note
 grid, including eighth-note tripods, individual taps, syncopation and landings.
-The optional metronome runs on the audio sample clock only during animation;
-the four-dot display follows the same beat. Selecting an animation also loads
-its sound patch while retaining master/voice levels and mute/solo choices.
-Starting the first animation preserves any sound patch already edited or
-chosen by the player. Sound presets can also be selected independently.
-Twenty-four static poses plus seeded random poses hold complete body states;
-Reset restores neutral without changing the sound mix.
+The twenty-four former held poses now have repeating in-place gestures with
+moving antennae. Their frozen leg geometry does not invent footsteps or ground
+travel. The metronome is disabled and antenna motion stays on in every routine.
+The animation dropdown, Next and dice change motion alone, preserving sound,
+mix, camera and transport state. Sound presets have their own Next and dice.
+The top full-scene menu and dice include motion, sound, body mix, viewing angle,
+custom camera framing and words; they always start animation while retaining
+master/voice output levels, Audio, Drone and device state. Reset restores neutral
+without changing the sound mix.
 
 The viewer calibrates a lowered, spread neutral stance from the curled scan
 once at load, using bounded joint solving. Its angles and kinematic metadata
@@ -83,9 +86,12 @@ runs the shared motion clock independently. Camera fitting occurs on loading,
 explicit view selection or Fit; zoom has explicit +/− controls rather than
 pinch, wheel or pose-driven refitting.
 
-On phones, an explicit Audio on/off control remains on the sticky viewport,
+On phones, an explicit Audio on/off control remains above the fixed viewport,
 with nearby loading/audio status that does not shift the scrolled controls.
-Sound Play and speech remain usable while the GLB is loading; animation waits
+The controls scroll independently beneath the specimen, and the full-preset
+popup stays within that control panel. A large textured ground plane and matching
+fog/background keep the stage edges filled without covering the underside view.
+Drone and speech remain usable while the GLB is loading; animation waits
 for the rig. Built browser and WAX pages version the complete Roach module
 graph and the mobile model together to prevent cached controls, worklets and
 model assets from mixing releases. A temporary worker decodes the compressed
@@ -98,8 +104,14 @@ including peaks between samples, with preallocated buffers and a fast path for
 quiet signals. Ordinary low-level samples pass unchanged after the fixed delay.
 This matches the offline headroom check; it is not a certified broadcast meter.
 
-Speech reuses Morphazoid's locally bundled KAL16 atlas and pronunciation
-dictionary with their existing attribution. The talking bug, growls and
+Speech uses Voicesaurus's locally bundled native eSpeak renderer with the
+`croak` variant, rate 190, pitch 38 and range 28. A disposable worker renders
+each complete phrase into bounded PCM, then transfers it to the existing Roach
+speech bus, voice gain, envelope-driven head motion and output protection.
+Replacing a request, turning Audio off or disposing the instrument cancels
+pending voice work; no second AudioContext is created. The old atlas API remains
+available for compatibility. Existing native-engine attribution still applies.
+The talking bug, growls and
 unfurling textures are creative sound design. No ultrasound is output. Automated
 renders, measurements and browser interaction tests assess timing, stability
 and levels; human listening and physical-device testing have not validated

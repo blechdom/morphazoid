@@ -33,7 +33,15 @@ export function createChoosePickerShell(doc, {
 }
 
 /** Fixed popup coordinates: beside its trigger, or the nearest visible viewport edge. */
-export function choosePickerPanelBounds(anchor, viewport) {
+export function choosePickerPanelBounds(anchor, viewport, boundary = null) {
+  if (boundary) {
+    const left = Math.max(viewport.offsetLeft ?? 0, boundary.left);
+    const top = Math.max(viewport.offsetTop ?? 0, boundary.top);
+    const right = Math.min((viewport.offsetLeft ?? 0) + viewport.width, boundary.right);
+    const bottom = Math.min((viewport.offsetTop ?? 0) + viewport.height, boundary.bottom);
+    viewport = { offsetLeft: left, offsetTop: top,
+      width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  }
   const margin = 8;
   const gap = 4;
   const width = Math.max(0, viewport.width);
@@ -71,6 +79,7 @@ export function choosePickerPanelBounds(anchor, viewport) {
  */
 export function anchorChoosePickerPanel({ details, summary, panel }, runtime = globalThis) {
   const doc = summary.ownerDocument;
+  const boundary = summary.closest('[data-preset-panel-bounds]');
   const removers = [];
   let destroyed = false;
   // A rail can establish containment or clip overflow. The top layer keeps
@@ -89,7 +98,7 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
       height: viewport?.height ?? (doc.documentElement.clientHeight || runtime.innerHeight),
       offsetLeft: viewport?.offsetLeft ?? 0,
       offsetTop: viewport?.offsetTop ?? 0,
-    });
+    }, boundary?.getBoundingClientRect());
     for (const [key, value] of Object.entries(bounds)) panel.style[key] = `${value}px`;
   };
   const update = () => {
@@ -120,6 +129,7 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
     ? new runtime.ResizeObserver(update)
     : null;
   observer?.observe(summary);
+  if (boundary) observer?.observe(boundary);
   const header = summary.closest(".masthead");
   if (header) observer?.observe(header);
   place();

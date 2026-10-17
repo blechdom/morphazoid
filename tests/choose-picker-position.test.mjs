@@ -71,7 +71,7 @@ test("anchoring updates on open, header resize, document scroll and visual viewp
   const header = {};
   const summary = eventSource({
     ownerDocument: doc,
-    closest: () => header,
+    closest: selector => selector === '.masthead' ? header : null,
     getBoundingClientRect() { measurements++; return rect; },
   });
   const details = eventSource({ open: false });
@@ -181,5 +181,18 @@ test("resize or rail scroll can move the trigger offscreen without losing its op
     assert.ok(bounds.height >= 240, "the menu must remain usable, not collapse at the viewport edge");
     if (top < upper) assert.equal(bounds.top, upper + 8);
     else assert.equal(bounds.top + bounds.height, upper + viewport.height - 8);
+  }
+});
+
+test('a bounded instrument panel keeps its popup clear of the mobile stage', () => {
+  const viewport = { width: 390, height: 844 };
+  const panel = { left: 0, right: 390, top: 440, bottom: 844 };
+  for (const top of [450, 740, -200, 1000]) {
+    const popup = choosePickerPanelBounds({ left: 16, top, bottom: top + 48 }, viewport, panel);
+    assert.ok(popup.top >= panel.top + 8);
+    assert.ok(popup.top + popup.height <= panel.bottom - 8);
+    assert.ok(popup.left >= panel.left + 8);
+    assert.ok(popup.left + popup.width <= panel.right - 8);
+    assert.ok(popup.height >= 160, 'the preset list stays usable as its trigger scrolls');
   }
 });

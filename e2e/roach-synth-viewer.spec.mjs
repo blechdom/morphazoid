@@ -52,6 +52,8 @@ test('roach scene grounds the neutral feet, casts shadows, and keeps a chosen vi
 });
 
 test('calibrated walk and run keep a low body with moving, grounded feet across the stride', async ({ page }, testInfo) => {
+  // Twenty-four compositor-observed poses need more time with software WebGL.
+  test.setTimeout(90000);
   await specimen(page);
   const initial = await page.evaluate(() => specimenViewer.getState());
   const records = [];

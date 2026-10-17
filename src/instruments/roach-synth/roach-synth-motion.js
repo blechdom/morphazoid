@@ -283,6 +283,7 @@ function writeBakedScene(beats, controls, out) {
     out.feet[i].lift = clamp(out.feet[i].lift * intensity, 0, 1);
     out.feet[i].stride = clamp(out.feet[i].stride * intensity, -1, 1);
     out.feet[i].impact = clamp(out.feet[i].impact * intensity, 0, 1);
+    if (intensity === 0) { out.feet[i].stance = true; out.feet[i].contactCount = 0; }
   }
   return out;
 }
@@ -395,6 +396,7 @@ export function writeRoachSceneState(timeSeconds, settings, out, joints = []) {
     writeBakedScene(beats, controls, out);
     return writeEditedBakedFeet(beats, controls, joints, out);
   }
+  if (current.poseId) return writePoseAnimationScene(beats, controls, current, joints, out);
   const loopBeat = positiveMod(beats, 8);
   const phase = loopBeat * TAU;
   const intensity = clamp(finite(controls.intensity, 1), 0, 2);
@@ -598,7 +600,8 @@ export function writeRoachPose(timeSeconds, settings, joints, out) {
     }
     const calibrated = item.kind === 'leg' && hasGaitPose(joint) && current.mode >= 0
       && current.rootPosture === 'low';
-    if (calibrated) addCalibratedGait(joint, item, current.mode, intensity, phase, scene, out, index);
+    if (current.poseId) addPoseAnimation(beats, current, joints, item, intensity, out, index);
+    else if (calibrated) addCalibratedGait(joint, item, current.mode, intensity, phase, scene, out, index);
     else addPreset(positiveMod(beats, 8), item, current.mode, intensity, out, index, antennae, scene, independentWings);
     for (let trackIndex = 0; trackIndex < Math.min(tracks.length, ROACH_MAX_JOINT_TRACKS); trackIndex += 1) {
       const track = tracks[trackIndex];
@@ -712,8 +715,8 @@ export function createRandomRoachMotion(seed, joints, options = {}) {
   // Mix the seed before selecting: adjacent UI seeds should not all pick the
   // first factory patch because their first xorshift outputs are very small.
   random(); random(); random();
-  const base = ROACH_MOTION_PRESETS[Math.floor(random() * ROACH_MOTION_PRESETS.length)];
-  const compatible = ROACH_MOTION_PRESETS.filter((item) => item.id !== base.id
+  const base = ROACH_ANIMATION_PRESETS[Math.floor(random() * ROACH_ANIMATION_PRESETS.length)];
+  const compatible = ROACH_ANIMATION_PRESETS.filter((item) => item.id !== base.id
     && (item.rootPosture === base.rootPosture || item.category === 'Wings' || item.category === 'Face'));
   const donor = compatible[Math.floor(random() * compatible.length)];
   const mix = .3 + random() * .4;
@@ -777,6 +780,74 @@ export const ROACH_STATIC_POSES = Object.freeze([
   staticPose('sleeping', 'Sleeping in the cupboard', 'none', 0, 'sleeping'),
 ]);
 const STATIC_POSES_BY_ID = new Map(ROACH_STATIC_POSES.map((item) => [item.id, item]));
+/** Every former held pose now has an in-place, eight-beat animation. The
+ * original held-pose API remains available for recovery and saved scenes. */
+export const ROACH_POSE_ANIMATION_PRESETS = Object.freeze(ROACH_STATIC_POSES.map((shape, index) => {
+  const source = PRESETS_BY_ID.get(shape.presetId) ?? PRESETS_BY_ID.get('face_curious');
+  return Object.freeze({ ...source, id: `pose:${shape.id}`, label: shape.label,
+    description: `${shape.label}, with moving feelers and a repeating body gesture.`,
+    category: 'Pose animations', mode: -1, poseId: shape.id, poseIndex: index,
+    sourcePresetId: source.id, groundSpeed: 0, gaitRate: 0,
+    lookAtViewer: false, rhythmLabel: 'In-place pose animation',
+  });
+}));
+export const ROACH_ANIMATION_PRESETS = Object.freeze([...ROACH_MOTION_PRESETS, ...ROACH_POSE_ANIMATION_PRESETS]);
+for (const item of ROACH_POSE_ANIMATION_PRESETS) PRESETS_BY_ID.set(item.id, item);
+const ANIMATED_POSE_SHAPES = new WeakMap();
+function animatedPoseShape(current, joints) {
+  let shapes = ANIMATED_POSE_SHAPES.get(joints);
+  if (!shapes) { shapes = new Map(); ANIMATED_POSE_SHAPES.set(joints, shapes); }
+  if (!shapes.has(current.poseId)) shapes.set(current.poseId, getRoachStaticPose(current.poseId, joints));
+  return shapes.get(current.poseId);
+}
+function writePoseAnimationScene(beats, controls, current, joints, out) {
+  copySceneSnapshot(animatedPoseShape(current, joints).scene, out, true);
+  const phase = positiveMod(beats, 8) * TAU / 8;
+  const intensity = clamp(finite(controls.intensity, 1), 0, 2);
+  const quiet = current.poseId === 'sleeping' ? .25 : 1;
+  out.presetId = current.id; out.beat = beats; out.loopBeat = positiveMod(beats, 8);
+  out.body.pitch = (out.body.pitch + Math.sin(phase * 2) * quiet) * intensity;
+  out.body.roll = (out.body.roll + Math.sin(phase) * 1.5 * quiet) * intensity;
+  out.body.yaw *= intensity;
+  for (const foot of out.feet) {
+    foot.lift = clamp(foot.lift * intensity, 0, 1);
+    foot.stride = clamp(foot.stride * intensity, -1, 1);
+    if (intensity === 0) foot.stance = true;
+  }
+  // These gestures stay in place: no invented stepping impacts or ground travel.
+  out.groundOffset = 0; out.groundSpeed = 0;
+  out.energy.scuttle = 0;
+  out.energy.wing = /wing/.test(current.poseId) ? .25 * intensity : 0;
+  out.energy.growl = current.poseId === 'house_monster' ? .35 * intensity : 0;
+  out.energy.voice = 0;
+  return out;
+}
+function addPoseAnimation(beats, current, joints, item, amount, out, index) {
+  const shape = animatedPoseShape(current, joints);
+  const base = shape.offsets[index / 3];
+  out[index] += base.x * amount; out[index + 1] += base.y * amount; out[index + 2] += base.z * amount;
+  const phase = positiveMod(beats, 8) * TAU / 8;
+  const wave = Math.sin(phase * (1 + current.poseIndex % 3) + item.side * .4);
+  const quiet = current.poseId === 'sleeping' ? .25 : 1;
+  if (item.kind === 'head' || item.kind === 'neck') {
+    const emphasis = /peek|listening|monster|bow/.test(current.poseId) ? 7 : 2;
+    const scale = item.kind === 'neck' ? .35 : 1;
+    out[index] += wave * emphasis * scale * quiet * amount;
+    out[index + 1] += Math.sin(phase + current.poseIndex * .2) * 3 * scale * quiet * amount;
+  } else if (item.kind === 'leg') {
+    const expressive = /kick|boxer|salute|noodle|standing/.test(current.poseId);
+    const amplitude = expressive && item.leg < 2 ? 6 : 1.2;
+    out[index + 1] += wave * amplitude * quiet * amount;
+    out[index] += Math.sin(phase * 2 + item.leg) * item.side * amplitude * .25 * quiet * amount;
+  } else if (item.kind === 'wings' && item.wingKind !== 'aggregate' && /wing/.test(current.poseId)) {
+    const selected = current.poseId === 'wing_left' ? item.side > 0 : current.poseId === 'wing_right' ? item.side < 0 : true;
+    if (selected) {
+      out[index + 2] -= item.side * (.5 - .5 * Math.cos(phase * 2)) * (item.wingKind === 'hind' ? 10 : 5) * amount;
+      out[index + 1] += item.side * Math.sin(phase * 3) * 4 * amount;
+    }
+  } else if (item.kind === 'abdomen') out[index + 1] += Math.sin(phase) * 2 * quiet * amount;
+  else if (item.kind === 'body') out[index] += Math.sin(phase * 2) * .6 * quiet * amount;
+}
 function randomGenerator(seed) {
   let value = (Math.floor(finite(seed, 1)) >>> 0) || 0x91e10da5;
   return () => { value ^= value << 13; value ^= value >>> 17; value ^= value << 5; return (value >>> 0) / 4294967296; };

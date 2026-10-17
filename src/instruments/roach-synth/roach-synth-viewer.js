@@ -164,7 +164,8 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const win = doc.defaultView;
   const motionQuery = win.matchMedia('(prefers-reduced-motion: reduce)');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090d12);
+  scene.background = new THREE.Color(0x34312c);
+  scene.fog = new THREE.Fog(0x34312c, 14, 48);
   const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -208,10 +209,11 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
   const groundTexture = new THREE.DataTexture(groundTextureData, 128, 128);
   groundTexture.colorSpace = THREE.SRGBColorSpace;
   groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-  groundTexture.repeat.set(28, 28);
+  const groundSize = 240;
+  groundTexture.repeat.set(groundSize * 28 / 12, groundSize * 28 / 12);
   groundTexture.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({
-    color: 0x59514a, map: groundTexture, roughness: 0.96, metalness: 0, side: THREE.FrontSide,
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(groundSize, groundSize), new THREE.MeshStandardMaterial({
+    color: 0xc9bcb0, map: groundTexture, roughness: 0.96, metalness: 0, side: THREE.FrontSide,
   }));
   ground.receiveShadow = true;
   groundRoot.add(ground);
@@ -347,7 +349,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       wings: wingRig ? { independent: 4, reconstructedHindwings: 2, splitTexturedCovers: 2,
         originalPairedMeshRemoved: true, sourceTriangles: wingRig.sourceTriangles, coverTriangles: wingRig.coverTriangles,
         fanOpen: wingRig.fans.map((fan) => fan.membrane.morphTargetInfluences[0]) } : null,
-      ground: { visible: groundRoot.visible, receivesShadow: ground.receiveShadow, height: groundHeight,
+      ground: { visible: groundRoot.visible, receivesShadow: ground.receiveShadow, height: groundHeight, size: groundSize,
         bodyLength: anatomy?.bodyLength ?? 0, bellyHeight: anatomy?.bellyHeight ?? 0,
         normal: anatomy?.dorsal.toArray() ?? [0, 1, 0],
         floorLift: (sceneState ?? defaultScene).floorLift ?? 0, parts: floorParts.map((part) => ({ ...part })),
@@ -787,6 +789,18 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     return true;
   }
   function resetCamera() { setViewPreset(viewPreset, { side: viewSide }); }
+  function restoreCamera(snapshot) {
+    if (!model || !snapshot || !Array.isArray(snapshot.target) || snapshot.target.length !== 3
+      || !Array.isArray(snapshot.quaternion) || snapshot.quaternion.length !== 4
+      || ![...snapshot.target, ...snapshot.quaternion, snapshot.distance].every(Number.isFinite)
+      || Math.hypot(...snapshot.quaternion) < 1e-6) return false;
+    target.fromArray(snapshot.target);
+    orbitQuaternion.fromArray(snapshot.quaternion).normalize();
+    distance = clamp(snapshot.distance, .15, 16);
+    if (['side', 'top', 'bottom', 'face'].includes(snapshot.viewPreset)) viewPreset = snapshot.viewPreset;
+    viewSide = snapshot.side === 'right' ? 'right' : 'left';
+    updateCamera(); invalidate(); return true;
+  }
   function orbit(dx, dy) {
     turn.setFromAxisAngle(axisY, -dx);
     orbitQuaternion.multiply(turn);
@@ -1468,6 +1482,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const keys = { ArrowLeft: [-0.14, 0], ArrowRight: [0.14, 0], ArrowUp: [0, -0.14], ArrowDown: [0, 0.14] };
     const item = bones.find((candidate) => candidate.id === selectedBone);
+    let cameraChanged = false, reset = false;
     if (keys[event.key] && event.shiftKey && item) {
       const offset = { ...item.offset };
       const axis = dragAxis === 'xy' ? (event.key === 'ArrowUp' || event.key === 'ArrowDown' ? 'x' : 'y') : dragAxis;
@@ -1475,12 +1490,13 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
       editJoint(item, offset, 0.25);
       onInteraction({ kind: 'joint', phase: 'change', id: item.id, jointId: item.id, axis, velocity: 0.25, active: true });
       onInteraction({ kind: 'joint', phase: 'end', id: item.id, jointId: item.id, axis, velocity: 0, active: false });
-    } else if (keys[event.key]) orbit(...keys[event.key]);
+    } else if (keys[event.key]) { orbit(...keys[event.key]); cameraChanged = true; }
     else if (['x', 'y', 'z'].includes(event.key.toLowerCase())) setDragAxis(event.key.toLowerCase());
-    else if (event.key === '+' || event.key === '=') zoom(0.87);
-    else if (event.key === '-' || event.key === '_') zoom(1.15);
-    else if (event.key === 'Home' || event.key.toLowerCase() === 'r') resetCamera();
+    else if (event.key === '+' || event.key === '=') cameraChanged = zoom(0.87);
+    else if (event.key === '-' || event.key === '_') cameraChanged = zoom(1.15);
+    else if (event.key === 'Home' || event.key.toLowerCase() === 'r') { resetCamera(); cameraChanged = true; reset = true; }
     else return;
+    if (cameraChanged) onInteraction({ kind: 'orbit', phase: 'end', reset });
     event.preventDefault();
   });
   listen(doc, 'visibilitychange', () => {
@@ -1528,7 +1544,7 @@ export function createRoachViewer({ canvas, onStatus = () => {}, onRig = () => {
     renderer.dispose();
   }
   return { loadUrl, loadArrayBuffer, getState, getPlaybackState, selectBone, setBoneOffset, setBoneMotion,
-    setClip, setPlaying, setSpeed, setTime, resetPose, resetCamera, setViewPreset, zoom,
+    setClip, setPlaying, setSpeed, setTime, resetPose, resetCamera, restoreCamera, setViewPreset, zoom,
     setExternalPose, setSceneState, setDragAxis, setTouchInteraction, getPartScreenPosition, getGazeOffset,
     setRenderBudget, setSkeletonVisible, dispose };
 }
