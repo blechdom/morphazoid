@@ -1,6 +1,7 @@
 @import url("./src/ui/index.css");
 @import url("./src/ui/patterns/settings-menu.css");
 @import url("./src/site/output-recording-controls.css");
+@import url("./src/site/mobile-menubar.css");
 
 :root {
   /* Legacy aliases keep existing pages stable while tokens move to src/ui. */

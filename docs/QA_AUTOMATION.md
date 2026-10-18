@@ -6,6 +6,19 @@ This browser suite is the mechanical half of the Morphazoid quality process. It 
 
 The route inventory is generated from the same catalogue and navigation data used by the site. `e2e/routes.mjs`, `src/site/instrument-registry.js` (also re-exported by `nav.js`), and `src/site/instrument-catalog.js` are the source of truth; documentation and cross-registry tests must compare IDs and records dynamically rather than pinning the current total. An explicit count belongs only in a test where cardinality itself is a reviewed product contract.
 
+## Shared mobile menubar
+
+`e2e/mobile-menubar.spec.mjs` checks every canonical page against its shared or
+independent-header classification. Shared consumers are exercised at 390×844,
+844×390 and 320×568, then restored to 1440×900 with exact control geometry.
+It checks icon-only navigation, searchable Choose, hidden instrument Next,
+inline control order/bounds, 48px Audio targets, viewport-bounded popups, native
+node/event retention, dynamic controls, teardown, and MIDI across rotation.
+Run it with `e2e/performance-toolbar.spec.mjs`, `e2e/audio-input-placement.spec.mjs`
+and `e2e/output-recording.spec.mjs` for preset, live-input and recorder coverage.
+The [audit](mobile-menubar.md) distinguishes custom headers and partial consumers.
+This is not physical-phone, Safari, or listening acceptance.
+
 ## Setup and commands
 
 Install the JavaScript dependencies and Playwright's Chromium build:

@@ -2249,3 +2249,8 @@ copy+require	src/instruments/esi-32/esi-32-recorder.js
 copy+require	src/instruments/esi-32/esi-32.css
 copy+require	assets/instruments/esi-32.webp
 copy+require	docs/esi-32.md
+
+# Compact shared mobile menubar
+copy+require	src/site/mobile-menubar.js
+copy+require	src/site/mobile-menubar.css
+copy+require	docs/mobile-menubar.md

@@ -1,3 +1,4 @@
+import { restoreMobileMenubar } from './mobile-menubar-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -8,6 +9,7 @@ export const rezoidinatorModesSiteChanges = JSON.parse(readFileSync(
 /** Peel the exact excitation/processing runtime addition before older proofs. */
 export function restoreRezoidinatorModesSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreMobileMenubar(source, file, { allowRestored: true });
   const change = rezoidinatorModesSiteChanges.changes.find(item => item.file === file);
   if (!change) return source;
   const count = source.split(change.marker).length - 1;

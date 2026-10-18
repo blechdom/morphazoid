@@ -5,11 +5,19 @@ Preview: `http://localhost:4430/` after starting the source server on port 4430.
 Each page uses the same gain knob → input meter(s) → mic icon, from left to right. A shared violet accent groups the knob, borderless meters, and square button. Input errors open a small popup beside the mic button with Retry and Dismiss actions; they never resize the strip. Select a mic input mode first where the instrument has several modes. SIMD supports microphone input in its Resonator, Freeze, and Granular engines.
 
 On desktop, the strip sits in the menubar immediately before the output meters.
-On phones and short landscape layouts, it sits inline to the left of the existing
-preset dropdown. Mic/File and upload controls fit below that compact row when
-needed. Pages with preset buttons keep the strip before their bank; pages without
-presets keep it with their input controls. The Settings sound check keeps its
-strip in the input test. Resizing moves the same controls and retains live capture.
+On phones and short landscape layouts, the same strip moves into **Settings →
+Instrument controls**, keeping the menubar on one row. Gain, meters and mic remain
+in that order, with source/upload controls below. Open Settings before using the
+mic; opening it does not request permission. A denied-input popup stays inside
+the disclosure and is dismissed when Settings closes. Resizing retains the same
+nodes, native events, focus, input gain and live capture.
+
+Pages without a Settings menu keep their previous fallback placement (currently
+Fractal Delay). Explicit instrument-owned control-panel placement is not moved:
+Synthesaurus keeps input beside its Input category (choose **Mic / audio in**),
+and Settings keeps its diagnostic strip in the input test. Native L-system header
+strips use the shared mobile menubar presentation while retaining native audio
+ownership. See [mobile menubar audit](mobile-menubar.md).
 
 For each page:
 
