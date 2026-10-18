@@ -12,8 +12,8 @@ const state = (samples, sampleTime = .5, extra = {}) => ({ samples, sampleTime, 
 
 test('future falls into the present and past exits at the identical pixels-per-second velocity', () => {
   const geometry = blackMidiTimeGeometry({}, 500);
-  assert.ok(Math.abs(geometry.keyboardTop - .56) < 1e-12); assert.ok(Math.abs(geometry.keyboardBottom - .64) < 1e-12);
-  const future = blackMidiNoteSegment(1, 2, geometry), past = blackMidiNoteSegment(-2, -1, geometry, true);
+  assert.ok(Math.abs(geometry.keyboardTop - .74) < 1e-12); assert.ok(Math.abs(geometry.keyboardBottom - .82) < 1e-12);
+  const future = blackMidiNoteSegment(.5, 1, geometry), past = blackMidiNoteSegment(-1, -.5, geometry, true);
   assert.ok(Math.abs(future.height - past.height) < 1e-12);
   assert.ok(Math.abs((geometry.keyboardTop - future.top) - (past.top + past.height - geometry.keyboardBottom)) < 1e-12);
   assert.equal(blackMidiNoteSegment(-2, -1, geometry), null);
@@ -25,7 +25,7 @@ test('crossing gate is split at the keyboard and trails fade/clamp without chang
   const future = blackMidiNoteSegment(-.5, 1, geometry), past = blackMidiNoteSegment(-.5, 1, geometry, true);
   assert.equal(future.top + future.height, geometry.keyboardTop);
   assert.equal(past.top, geometry.keyboardBottom);
-  assert.ok(past.brightness > blackMidiNoteSegment(-3, -2, geometry, true).brightness);
+  assert.ok(past.brightness > blackMidiNoteSegment(-1, -.5, geometry, true).brightness);
   assert.equal(blackMidiNoteSegment(-5, -4, geometry, true), null);
   assert.equal(blackMidiNoteSegment(-1, 0, { ...geometry, pastSeconds: 0 }, true), null);
   assert.equal(blackMidiNoteSegment(-Infinity, 2, geometry), null);
@@ -36,6 +36,9 @@ test('keyboard keeps a readable bounded band on laptop and small screens', () =>
     const geometry = blackMidiTimeGeometry({}, height), size = (geometry.keyboardBottom - geometry.keyboardTop) * height;
     assert.ok(size >= 18 - 1e-10 && size <= 42 + 1e-10);
     assert.ok(geometry.keyboardTop > 0 && geometry.keyboardBottom < 1);
+    const former = blackMidiTimeGeometry({ keyboardPosition: .6 }, height);
+    const historyRatio = (1 - geometry.keyboardBottom) / (1 - former.keyboardBottom);
+    assert.ok(historyRatio > .45 && historyRatio < .55, 'default history is about half as tall');
   }
 });
 

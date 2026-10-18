@@ -44,7 +44,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
     <div class="blech-drop-position"><label>Pitch ↔<input id="blechDropPitch" aria-label="Drop pitch offset" type="number" min="-127" max="127" step="1" value="0"></label><label>Delay ↑ · beats<input id="blechDropDelay" aria-label="Drop delay in beats" type="number" min="0" max="64" step=".25" value="2"></label><label>Width · notes<input id="blechDropWidth" aria-label="Drop width in notes" type="number" min="1" max="128" step="1"></label><label>Height · beats<input id="blechDropHeight" aria-label="Drop height in beats" type="number" min=".25" max="512" step=".25"></label><label>Rotate · °<input id="blechDropRotation" aria-label="Drop rotation in degrees" type="number" min="0" max="359" step="1" value="0"></label><button id="blechDropReset" type="button">Reset block</button></div><output id="blechDropStatus" role="status"></output>`;
   const $ = id => host.querySelector(`#blechDrop${id}`);
   const overlay = document.createElement('div'); overlay.className = 'blech-drop-overlay'; overlay.hidden = true;
-  overlay.innerHTML = `<canvas aria-label="Prepared MIDI notes"></canvas><button class="blech-drop-handle" type="button" aria-label="Move prepared MIDI: left and right change pitch, up and down change delay" data-space-key-owner></button>${['left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'].map(edge => `<button class="blech-drop-resize" data-resize="${edge}" type="button" aria-label="Resize prepared MIDI ${edge.replace('-', ' ')} edge" title="Resize ${edge.replace('-', ' ')} · arrow keys adjust" data-space-key-owner></button>`).join('')}<div class="blech-drop-floating"><span>Prepared</span><button type="button" data-stage-loop aria-pressed="false">Loop</button><button type="button" data-stage-send>Drop ↓</button><button type="button" data-stage-hide aria-label="Hide prepared preview">×</button></div>`;
+  overlay.innerHTML = `<canvas aria-label="Prepared MIDI notes"></canvas><button class="blech-drop-handle" type="button" aria-label="Move prepared MIDI: left and right change pitch, up and down change delay" data-space-key-owner></button>${['left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'].map(edge => `<button class="blech-drop-resize" data-resize="${edge}" type="button" aria-label="Resize prepared MIDI ${edge.replace('-', ' ')} edge" title="Resize ${edge.replace('-', ' ')} · arrow keys adjust" data-space-key-owner></button>`).join('')}<div class="blech-drop-floating"><button type="button" data-stage-loop aria-pressed="false">Loop</button><button type="button" data-stage-send>Drop ↓</button><button type="button" data-stage-hide aria-label="Hide prepared preview">×</button></div>`;
   viewport.append(overlay);
   const canvas = overlay.querySelector('canvas'), ctx = canvas.getContext('2d'), handle = overlay.querySelector('.blech-drop-handle'), floating = overlay.querySelector('.blech-drop-floating');
   let score = null, prepared = null, source = 'files', name = '', disposed = false, pointer = null, shown = true, interactionsSuspended = false;
@@ -85,16 +85,31 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
       ctx.globalAlpha = .6; ctx.fillRect(x, Math.max(0, y), w, Math.max(1, Math.min(present, b) - Math.max(0, y)));
     }
     ctx.globalAlpha = 1;
-    left = bound(left - 4, 0, Math.max(0, g.width - 32)); right = bound(right + 4, left + 32, g.width);
-    top = bound(top - 4, 0, Math.max(0, present - 32)); bottom = bound(bottom + 4, top + 32, present);
+    const handleStyle = getComputedStyle(handle);
+    const minWidth = Math.min(g.width, Math.max(32, parseFloat(handleStyle.minWidth) || 0));
+    const minHeight = Math.min(present, Math.max(32, parseFloat(handleStyle.minHeight) || 0));
+    left = bound(left - 4, 0, Math.max(0, g.width - minWidth)); right = bound(right + 4, left + minWidth, g.width);
+    top = bound(top - 4, 0, Math.max(0, present - minHeight)); bottom = bound(bottom + 4, top + minHeight, present);
     Object.assign(handle.style, { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${bottom - top}px` });
     for (const grip of overlay.querySelectorAll('[data-resize]')) {
       const edge = grip.dataset.resize, x = edge.includes('left') ? left : edge.includes('right') ? right : (left + right) / 2, y = edge.includes('top') ? top : edge.includes('bottom') ? bottom : (top + bottom) / 2;
       Object.assign(grip.style, { left: `${x}px`, top: `${y}px` });
       grip.disabled = (edge === 'left' || edge === 'right') && dimensions.sourceWidth === 1 && !settings.rotationDegrees;
     }
-    Object.assign(floating.style, { left: `${bound(left, 0, Math.max(0, g.width - 250))}px`, top: `${Math.max(0, top - 32)}px` });
-    floating.querySelector('span').textContent = `${dimensions.width} notes × ${Number(dimensions.heightBeats.toFixed(2))} beats`;
+    // The full-size Drop transport remains in the parameter panel. Compact its
+    // duplicate preview actions when a short canvas leaves little space below.
+    floating.classList.toggle('blech-drop-floating-compact', present - bottom < 60);
+    const actionHeight = floating.offsetHeight, keyboardBottom = g.keyboardBottom * g.height;
+    let actionTop = Math.max(bottom, Math.min(bottom + 8, g.height - actionHeight));
+    if (actionTop < keyboardBottom && actionTop + actionHeight > present) {
+      if (present - bottom >= actionHeight) actionTop = present - actionHeight;
+      else if (g.height - keyboardBottom >= actionHeight) actionTop = keyboardBottom;
+      else actionTop = Math.max(bottom, g.height - actionHeight);
+    }
+    Object.assign(floating.style, {
+      left: `${bound(left, 0, Math.max(0, g.width - floating.offsetWidth))}px`,
+      top: `${actionTop}px`,
+    });
   }
   function configure(patch) {
     const next = { ...settings, ...patch };

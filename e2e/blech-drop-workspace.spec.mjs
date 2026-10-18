@@ -51,6 +51,19 @@ async function silentPreparation(page) {
 for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 844], ['landscape', 844, 390]]) {
   test(`five generators stay separate from output controls and fit ${name}`, async ({ page }) => {
     await page.setViewportSize({ width, height }); await open(page);
+    const mobile = name !== 'desktop';
+    const graphic = page.locator('#blackMidiViewport'), controls = page.locator('.blech-workbench');
+    const graphicBox = await graphic.boundingBox();
+    if (mobile) {
+      const controlsBox = await controls.boundingBox();
+      expect((await page.locator('#creativeStage').boundingBox()).height).toBeCloseTo(controlsBox.height, 0);
+      expect(controlsBox.y).toBeGreaterThanOrEqual(graphicBox.y + graphicBox.height);
+      await expect(graphic).toBeInViewport({ ratio: 1 });
+    }
+    const prepared = await page.locator('.blech-drop-handle').boundingBox();
+    const previewActions = await page.locator('.blech-drop-floating').boundingBox();
+    expect(previewActions.y).toBeGreaterThanOrEqual(prepared.y + prepared.height);
+    expect(previewActions.y + previewActions.height).toBeLessThanOrEqual(graphicBox.y + graphicBox.height);
     const generatorList = page.getByRole('tablist', { name: 'Generators', exact: true });
     await expect(generatorList.getByRole('tab')).toHaveText(['Math', 'Files', 'Frames', 'Text', 'Automata']);
     await expect(page.getByRole('tablist', { name: 'Output settings' }).getByRole('tab')).toHaveText(['FX', 'Visualizer']);
@@ -77,6 +90,10 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
       const box = await page.locator('#blechDropChannel').boundingBox();
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
       expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
+      if (mobile) {
+        expect(box.y).toBeGreaterThanOrEqual((await controls.boundingBox()).y);
+        expect(await graphic.boundingBox()).toEqual(graphicBox);
+      }
     }
     await silentPreparation(page);
     for (const id of ['sound', 'visuals']) { await tab(page, id); await expect(page.locator('#blechDropControls')).toBeHidden(); }
@@ -87,6 +104,23 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
     await expect(page.locator('#blechTab-visuals')).toBeFocused();
     await page.locator('#blechPanel-info summary').first().scrollIntoViewIfNeeded();
     await expect(page.locator('#blechPanel-info summary').first()).toBeInViewport();
+    if (mobile) {
+      expect(await page.locator('.blech-preparation').evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+      expect(await graphic.boundingBox()).toEqual(graphicBox);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(1);
+      // Existing controls return to the desktop stage after a resize, keeping
+      // their values and keyboard focus rather than mounting another instrument.
+      await page.locator('#creativeTempoExact').fill('137');
+      await page.locator('#creativeTempoExact').press('Tab');
+      await page.locator('#blechMasterPlay').focus();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(page.locator('#creativeStage #blechMasterPlay')).toBeFocused();
+      await expect(page.locator('#creativeTempoExact')).toHaveValue('137');
+      await page.setViewportSize({ width, height });
+      await expect(page.locator('.blech-preparation #blechMasterPlay')).toBeFocused();
+      await expect.poll(() => graphic.boundingBox()).toEqual(graphicBox);
+      await silentPreparation(page);
+    }
   });
 }
 

@@ -26,14 +26,26 @@ function mountBlechMidi() {
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   $('blechLiveLayers').replaceChildren();
-  const mobileLayers = matchMedia('(max-width: 700px), (pointer: coarse) and (max-height: 500px)');
-  function placeLayers() {
-    const layers = $('blechLayers'), focus = layers.contains(document.activeElement) ? document.activeElement : null;
-    if (mobileLayers.matches) $('creativeStage').append(layers);
-    else $('blechDropControls').before(layers);
+  const mobileLayout = matchMedia('(max-width: 700px), (max-height: 500px)');
+  const heading = document.querySelector('.blech-midi-heading');
+  const transport = heading.querySelector('.blech-midi-transport');
+  const preparation = document.querySelector('.blech-preparation');
+  $('blechDropControls').before($('blechLayers'));
+  function placeControls() {
+    const tools = $('blechSpigotControls');
+    const focus = [heading, transport, tools].some(node => node.contains(document.activeElement)) ? document.activeElement : null;
+    // Keep the whole mobile graphic fixed while every parameter scrolls below it.
+    // Move the existing controls so resizing preserves playback, values and focus.
+    if (mobileLayout.matches) {
+      document.querySelector('.blech-file-header').prepend(heading);
+      preparation.prepend(transport, tools);
+    } else {
+      heading.append(transport);
+      $('creativeStage').prepend(heading, tools);
+    }
     focus?.focus({ preventScroll: true });
   }
-  on(mobileLayers, 'change', placeLayers); placeLayers();
+  on(mobileLayout, 'change', placeControls);
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
   let masterPause = null;
@@ -355,10 +367,11 @@ function mountBlechMidi() {
   filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), transportHost: $('blechFileTransport'), onPrepare: detail => preparedChanged('files', detail),
     onKeyboardNote: () => { keyboardNoteCount++; reflect(); },
   });
+  placeControls();
   spigots = createBlechSpigotEngine({ engine, sendScore: (score, options) => performanceView.sendScore(score, options), onChange: () => reflect(), onTransform: record => performanceView.setLayerSourceTransform(record.sampleId, record) });
   dropStage = mountBlechDropStage($('blechDropControls'), $('blackMidiViewport'), {
     getTempo: () => engine.state.tempo,
-    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
+    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 78) / 100 }),
     onDrop: (score, options) => {
       const sent = spigots.create(dropStage.getSourceScore() ?? score, options);
       if (sent) { spigotView?.setMode('select'); spigotView?.select(sent.id); }
@@ -384,7 +397,7 @@ function mountBlechMidi() {
       return true;
     },
     getTempo: () => engine.state.tempo,
-    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
+    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 78) / 100 }),
     onCreate: (score, settings) => spigots.create(score, settings),
     onEdit: (id, settings) => spigots.edit(id, settings),
     onToggleLoop: (id, enabled) => spigots.loop(id, enabled),
@@ -670,6 +683,8 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; masterPause = null; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
+    // These page-owned controls must survive the file viewport's teardown.
+    heading.append(transport); $('creativeStage').prepend(heading);
     spigotView?.dispose(); spigots?.dispose(); dropStage.dispose(); stampPicker.dispose(); frameAdvanced.remove(); prepared.clear(); textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
