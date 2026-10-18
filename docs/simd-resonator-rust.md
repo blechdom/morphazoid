@@ -1,13 +1,16 @@
 # Rezoidinator
 
-Rezoidinator is an independent development of the SIMD Resonator's struck modal body
-and FFT input instrument. Find it beside **SIMD Resonator** in **SIMD Audio**.
+Rezoidinator combines a playable modal body, audio processing, reverberation and
+FFT resynthesis. Find it beside **SIMD Resonator** in **SIMD Audio**.
 The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
 catalogue ID and saved-state keys stay compatible.
-Audio starts off. Enable Audio and pluck or drag the body; horizontal position
-sets excitation position and vertical position sets hardness. Arrow keys edit
-the position/hardness, and Enter or Space plucks. The original instrument and
-SIMD Audio Lab retain their existing engines.
+Audio starts off. **Use** opens on **Instrument body modeling**. Select an
+**Excite** shape, enable Audio, then tap or drag the body or press the compact
+trigger. Horizontal position sets excitation position and vertical position
+sets hardness. Arrow keys edit the position/hardness; Enter or Space triggers
+the selected excitation. The original instrument and SIMD Audio Lab retain
+their existing engines. Output runs from 0% to 100%, where 100% is unity master
+gain; it is independent of presets and the signal-path mix.
 
 ## Waves and spectrum span
 
@@ -37,23 +40,83 @@ Modal edits fade the body down for one audio block, apply the new coefficients,
 then fade it up for one block. FFT processing and sample playback continue
 through that transition.
 
-## Input and processing
+## Uses, sources and combinations
+
+**Use** selects an application of the instrument. The **Body**, **Process**,
+**FFT** and **Reverb** switches combine its actual signal stages. Source selection
+is independent: microphone/line input, a local audio file, looping samples and
+the built-in excitation can feed every use. Changing a use, character or sound
+preset does not restart an already playing sample or request microphone access.
+
+| Use | Audible operation | Useful combination |
+| --- | --- | --- |
+| Instrument body modeling | A driving signal excites the bank's damped resonances. Material presets change their spacing, weighting and decay. | Add FFT for the source's spectral detail, or Reverb for a separate tail. |
+| Audio processing | A lowpass, highpass or bandpass filter and saturation shape the incoming sound. Filter bypass retains the drive stage. | Process before the body or FFT to change what excites or enters it. |
+| Reverberation | A separate feedback-delay network makes multiple recirculating, damped returns from the input. | Place the body, FFT or both into the reverberant space. |
+| Resynthesis | Windowed FFT analysis and inverse-FFT reconstruction reshape the source's spectrum. | Blend with the body for recognizable input plus ringing, then add Reverb. |
+
+The order is **Source → optional Process → Body/FFT blend → optional Reverb →
+Wet/dry**. Body and FFT are parallel responses; they are not applied in sequence.
+Body mix blends the processed source toward the modal body; FFT mix blends that
+result toward spectral reconstruction. Their enable switches smoothly bypass
+the corresponding contribution. With both off, the processed source passes
+through to the optional reverb. Wet/dry blends the complete result with the raw
+source. The small signal-path readout follows the enabled stages.
+
+These labels describe uses, not mutually exclusive scientific categories.
+Resonant filtering is already audio processing, and a dense modal bank with
+long decay can have a reverberant character. The dedicated Reverb stage adds a
+different mechanism: a feedback-delay network that can also process the source
+without the body. Material and room characters are expressive approximations,
+not measurements of particular objects or spaces.
+
+The Use menu changes enabled stages and their balances. It retains each stage's
+sound controls, excitation and spatial settings. Reverb characters include
+Short room, Dark chamber, Bright tail, Long hall and Dark cloud; they change only
+reverb time, damping and mix. Resynthesis characters include Clear detail, Fast
+transients, Broad bands, Spectral fog and Narrow radio; they change only FFT
+settings. Full presets and Dice own all musical settings, including these stages
+and the excitation. Older saved modal/FFT snapshots migrate with their original
+FFT settings and an impulse excitation. Audio arming, source, transport, input
+trim, output level, speaker layout and recording remain session state.
+
+## Excitation and input
 
 The shared microphone gain → meters → mic strip sits in the menubar on desktop
 and beside presets on mobile. Input-source selection, the sample menu, file
 chooser, Play/Stop and looping controls live in the side panel. Microphone trim
-affects capture only; it does not change file or sample gain. The compact Pluck
-action and direct body gesture excite the modal bank independently of input.
+affects capture only; it does not change file or sample gain. The compact trigger
+and direct body gesture use the selected **Excite** shape, including while a
+microphone, file or sample is playing.
+
+| Excite shape | Driving signal |
+| --- | --- |
+| Short impulse | One nonzero sample. Duration does not apply. |
+| White noise burst | Noise with a short attack and smooth burst envelope. |
+| Pink noise burst | A similar burst with an approximate low-frequency spectral tilt. |
+| Pluck | Filtered noise with a rapidly falling envelope. |
+| Soft strike | A smooth, rounded contact pulse. |
+| Hard / bell strike | A more asymmetric contact pulse with a sharper effective attack. |
+
+Strength and duration change the contact event; the body's frequencies and
+decays determine the resulting ringing pitches. A bell-like result requires a
+suitable body, not just a hard strike. These are synthesized force/noise shapes,
+not recordings or complete nonlinear plectrum/hammer simulations. Eight events
+can overlap; additional triggers reuse the oldest event slot. Duration-aware
+level scaling bounds burst energy, while longer smooth contacts naturally excite
+less high-frequency energy. Excitation joins the source stream before processing,
+so it reaches FFT resynthesis and reverb as well as the Rust body. Initial zero
+history keeps a first impulse from disappearing at an FFT window's endpoint.
 
 Mic/line, the shared sample menu, and local audio files feed the
-phase-preserving FFT/overlap-add path and the modal body. Audio gates output
+phase-preserving FFT/overlap-add path and the modal body when enabled. Audio gates output
 independently of microphone capture. Sample playback can loop. Audio off, page
 departure, and hidden-page handling cancel pending input work; microphone tracks
 are released. Sound presets never request a microphone or restart a sample.
 
 The FFT retains 256–4,096-sample frames, four window shapes, 16–128 envelope
-bands, overlap, memory, detail, drive, gate and frequency bounds. **Resynth**
-mixes the modal response with phase-preserved spectral reconstruction. These
+bands, overlap, memory, detail, drive, gate and frequency bounds. FFT mix
+blends the body/source response with phase-preserved spectral reconstruction. These
 FFT operations remain JavaScript in the AudioWorklet; the oscillator bank is
 Rust. JavaScript prepares coefficients outside the render callback. No server,
 CPAL, shared memory, or browser audio worker threads are required.
@@ -64,6 +127,30 @@ gate changes, and a warmed spare FFT bank with a 24 ms crossfade when frame,
 window, hop, band or frequency topology changes. Stopping input preserves the
 existing overlap tail. Two banks and one latest queued configuration bound
 rapid edits.
+
+## Processing and reverberation
+
+The source processor uses a smoothed state-variable filter and a normalized
+hyperbolic-tangent drive. Filter type, cutoff and drive remain editable with
+any body/FFT combination. Turning Process off bypasses the stage; the filter's
+Bypass option removes filtering while leaving saturation available.
+
+Reverb has four fixed, differently sized delay lines for each stereo channel
+and each of the sixteen possible spatial buses. A four-way Householder mixing
+matrix couples the lines within each bus. Lowpass damping and delay-dependent
+feedback gains make their energy decay; Time sets the nominal 60 dB decay time
+before frequency-dependent damping. The lengths remain fixed while Time and
+Damping change, avoiding pitch modulation from moving delay taps. This is an
+abstract feedback-delay-network reverberator, not convolution with a measured
+room and not an exact Schroeder comb/allpass implementation.
+
+Body and FFT feed this reverb after their blend. In surround, each bus has its
+own network, with different delay lengths between buses. A small additional
+send from the pre-reverb composite excites those spatial returns, allowing a
+mono source to make a surrounding tail. Dry input remains at the stationary
+origin. The reverb is bounded, smooths live controls, keeps fixed allocated
+buffers and clears with Reset or Audio teardown. Disabling it crossfades back
+to the direct blend rather than stopping the source.
 
 ## Surround
 
@@ -160,7 +247,21 @@ Reduce Waves, FFT frame size/overlap or speaker count when playback breaks up,
 especially with scalar. The default remains 512 waves. These measurements
 exclude browser scheduling, message serialization, devices, UI, recording and
 FFT topology transitions; repeated runs showed occasional scheduling outliers.
-They do not establish physical-device real-time performance.
+They do not establish physical-device real-time performance. Those measurements
+precede the added source processing and feedback-delay reverb; they do not
+measure the new combined workload.
+
+## Model references
+
+The implementation is original code. These author-hosted chapters from Julius
+O. Smith III, *Physical Audio Signal Processing* (W3K Publishing, 2010), support
+the mechanism descriptions and explain where this instrument uses approximations:
+
+- [Modal Representation](https://ccrma.stanford.edu/~jos/pasp/Modal_Representation.html): a driving signal feeding parallel resonant modes.
+- [Force-Pulse Synthesis](https://ccrma.stanford.edu/~jos/pasp/Force_Pulse_Synthesis.html): pulse duration and amplitude control impact brightness. Rezoidinator offers shaped pulses rather than a nonlinear hammer collision.
+- [Excitation Synthesis](https://ccrma.stanford.edu/~jos/pasp/Excitation_Synthesis.html) and [Pluck Modeling](https://ccrma.stanford.edu/~jos/pasp/Pluck_Modeling.html): filtered-noise excitation and the more detailed physical plectrum model, respectively. The Pluck option here is a transient approximation.
+- [Feedback Delay Networks](https://ccrma.stanford.edu/~jos/pasp/Feedback_Delay_Networks_FDN.html) and [Householder Feedback Matrix](https://ccrma.stanford.edu/~jos/pasp/Householder_Feedback_Matrix.html): recirculating delay lines, orthogonal mixing and the balanced four-line matrix.
+- [Schroeder Reverberators](https://ccrma.stanford.edu/~jos/pasp/Schroeder_Reverberators.html): the related historical comb/allpass approach, useful for distinguishing reverb architectures.
 
 ## Build and verification
 

@@ -1,0 +1,17 @@
+{
+  "baseCommit": "aacc4c901d2da4548c4d70453ce93cae27d1d959",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "586316732fb13d09b0100e9934a6f55477b4a3dd1eff18c8b979f29139358ebc",
+      "approvedSha256": "32be7e0a86e1d0f8b091140ff918e51d3a6e25adb8ec9410f22fdf8d601f83d2",
+      "marker": "src/instruments/simd-resonator-rust/signal-path.js",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/spatial-model.js\n",
+          "after": "copy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/signal-path.js\ncopy+require\tsrc/instruments/simd-resonator-rust/spatial-model.js\n"
+        }
+      ]
+    }
+  ]
+}
