@@ -545,47 +545,28 @@ test("Hybrinx is a Tongued Beasts-derived page with its timeline below the viewp
   const mobileCss = css.match(
     /@media \(max-width:\s*980px\)\s*\{[\s\S]*?(?=@media \(max-width:\s*650px\))/,
   )?.[0] ?? "";
-  assert.match(
-    mobileCss,
-    /html\s*\{[^}]*height:\s*auto[^}]*min-height:\s*100%[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto/s,
-    "compact screens must give vertical scrolling back to the document root",
-  );
-  assert.match(
-    mobileCss,
-    /\.hybrinx-page\s*\{[^}]*--hybrinx-min-viewport:\s*180px[^}]*--hybrinx-min-timeline:\s*190px[^}]*height:\s*auto[^}]*min-height:\s*100dvh[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto[^}]*overscroll-behavior-y:\s*auto[^}]*-webkit-overflow-scrolling:\s*touch/s,
-    "portrait phones need a natural page scroller and a usable timeline viewport",
-  );
-  assert.match(
-    mobileCss,
-    /\.hybrinx-page \.shell\s*\{[^}]*display:\s*block[^}]*height:\s*auto[^}]*min-height:\s*calc\(100dvh - 58px\)[^}]*overflow:\s*visible/s,
-  );
-  assert.match(
-    mobileCss,
-    /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*relative[^}]*height:\s*clamp\(540px, 78dvh, 700px\)[^}]*min-height:\s*540px/s,
-  );
-  assert.match(mobileCss, /\.hybrinx-page #stage\s*\{[^}]*touch-action:\s*pan-y/s);
-  assert.match(
-    mobileCss,
-    /\.hybrinx-page \.panel\s*\{[^}]*overflow:\s*visible[^}]*overscroll-behavior-y:\s*auto/s,
-    "the controls panel must contribute to document height instead of becoming a trapped scroller",
-  );
-
-  const landscapeCss = css.match(
-    /@media \(orientation:\s*landscape\) and \(max-width:\s*980px\) and \(max-height:\s*650px\)\s*\{[\s\S]*?(?=@media \(prefers-reduced-motion:)/,
-  )?.[0] ?? "";
-  assert.match(
-    landscapeCss,
-    /\.hybrinx-page\s*\{[^}]*--hybrinx-min-viewport:\s*150px[^}]*--hybrinx-min-timeline:\s*160px/s,
-    "short landscape phones need enough room for both viewport and timeline",
-  );
-  assert.match(
-    landscapeCss,
-    /\.hybrinx-page \.shell\s*\{[^}]*display:\s*grid[^}]*height:\s*auto[^}]*min-height:\s*calc\(100dvh - 50px\)[^}]*overflow:\s*visible[^}]*grid-template-columns:[^;}]+;[^}]*grid-template-rows:\s*auto[^}]*align-items:\s*start/s,
-  );
-  assert.match(
-    landscapeCss,
-    /\.hybrinx-page \.syrinx-stage\s*\{[^}]*position:\s*sticky[^}]*top:\s*0[^}]*height:\s*max\(420px, calc\(100dvh - 50px\)\)[^}]*min-height:\s*420px/s,
-  );
+  assert.match(html, /id="hybrinxMobilePerformance"[^>]*hidden/);
+  assert.match(layout, /export function createHybrinxMobileLayout\(shell\)/);
+  assert.match(layout, /performance\.append\(stageWrap, transport\)/);
+  assert.match(layout, /panel\.insertBefore\(timeline,/);
+  assert.match(layout, /parent\.insertBefore\(node, next\)/, "desktop restores the same nodes and listeners");
+  assert.match(mobileCss, /html:has\(\.hybrinx-mobile-layout\)[^}]*overflow:\s*hidden/s);
+  assert.match(mobileCss, /grid-template-rows:\s*min\(44dvh, 50%\) minmax\(0, 1fr\)/,
+    "the pinned graphic/transport must leave at least half the workspace for scrolling controls");
+  assert.match(mobileCss, /\.panel\s*\{[^}]*overflow-x:\s*hidden[^}]*overflow-y:\s*auto[^}]*-webkit-overflow-scrolling:\s*touch/s);
+  assert.match(mobileCss, /\.instrument-preset-controls\s*\{[^}]*position:\s*static[^}]*z-index:\s*auto/s,
+    "presets scroll away instead of covering the timeline or controls");
+  assert.match(mobileCss, /\.syrinx-panel-transport button\s*\{[^}]*height:\s*48px[^}]*min-height:\s*48px/s);
+  assert.match(mobileCss, /\.syrinx-stage\[hidden\]\s*\{[^}]*display:\s*none/s,
+    "the unused mobile resize handle must not be visible or focusable");
+  assert.match(mobileCss, /#stage\s*\{[^}]*touch-action:\s*none/s,
+    "anatomy gestures stay in the pinned graphic; the control panel owns scrolling");
+  assert.match(mobileCss, /\.hybrinx-timeline\s*\{[^}]*container-type:\s*normal/s,
+    "the scrolling timeline must size to its lanes instead of overlapping the controls below it");
+  assert.match(mobileCss, /\.hybrinx-timeline-scroll\s*\{[^}]*flex:\s*none[^}]*overflow-y:\s*hidden/s,
+    "timeline lanes and controls share one vertical scroller on mobile");
+  assert.doesNotMatch(css, /height:\s*(?:clamp\(5[24]0px, 78dvh|max\(420px)/,
+    "the earlier oversized mobile stage must not return");
 
   assert.match(app, /import\s*\{\s*createHybrinxTimeline\s*\}\s*from\s*["']\.\.\/\.\.\/instruments\/hybrinx\/hybrinx-timeline\.js\?v=[^"']+["']/);
   assert.match(app, /const\s+HYBRINX_MODE\s*=\s*document\.body\.classList\.contains\(["']hybrinx-page["']\)/);
