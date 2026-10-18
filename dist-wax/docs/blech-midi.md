@@ -116,7 +116,7 @@ prepared artwork. Sequence arranges captured drawings and rests into a clip.
 
 ## Black MIDI file player
 
-The persistent falling-note stage stays beside the preparation tabs on laptops and above them on phones. **Files**
+The persistent falling-note stage stays beside the preparation tabs on laptops. On phones, the graphic fills the upper half of the space below the masthead, and all controls scroll in the lower half. **Files**
 contains a native collection-grouped menu, Next, Random and local imports.
 The shallow horizontal MIDI-file strip keeps Play/Pause, Stop, Volume, File BPM,
 Link, Ratio, Speed, Loop and Original together. On narrow screens it scrolls
@@ -250,8 +250,8 @@ The file's own transport, volume, tempo, Link, Ratio, Speed, loop and position
 controls live only in **Files**. File playback and its visualizer keep running
 when you switch to another tab.
 
-The **Layers** rack sits at the top of the right control panel below its selectors
-on desktop, and below the visualizer on mobile. Each Drop creates a named layer
+The **Layers** rack sits below the selectors in the control panel on desktop
+and in the lower scrolling panel on mobile. Each Drop creates a named layer
 with a distinct number, even when two drops use the same equation. **Pause**
 freezes only that layer's position and releases its notes; **Resume** continues
 from that position. **×** removes that layer immediately. Its saved snapshot
@@ -375,7 +375,13 @@ uses one of the four live layer slots and one saved-pad slot.
 The laptop workspace fits one viewport: permanent stage/transport, active
 layers, tabs, and a scrolling preparation area. The stage occupies the taller
 left column, with a narrower preparation column on the right. Portrait phones
-stack a taller stage above the controls; short landscape screens use two columns. The title includes an original
+and short landscape screens split the available height equally: the falling-note
+graphic, title and note count stay fixed above, while transport, drawing tools, layers, tabs and
+parameters scroll below. Opening layer settings or changing tabs keeps the
+graphic in place. On mobile the title and note count share the fullscreen row.
+Prepared blocks show Loop, Drop and close beneath the rectangle. The default
+keyboard position is 78%, leaving a shorter fading-note area in every view.
+The title includes an original
 SVG MIDI-cable/bat-wing mark; no third-party logo artwork was reused.
 
 The interaction borrows stable transport placement from

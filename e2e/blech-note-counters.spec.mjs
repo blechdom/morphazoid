@@ -19,11 +19,17 @@ async function open(page) {
 }
 
 for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
-  test(`note counts stay above the visualizer at ${width}×${height}`, async ({ page }) => {
+  test(`note counts and master transport remain reachable at ${width}×${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height }); await open(page);
     await expect(page.locator('#blechNoteCounters')).toBeInViewport();
     const [counter, stage] = await Promise.all([page.locator('#blechNoteCounters').boundingBox(), page.locator('#blackMidiViewport').boundingBox()]);
+    const mobile = width <= 700 || height <= 500;
     expect(counter.y + counter.height).toBeLessThanOrEqual(stage.y);
+    if (mobile) {
+      const fullscreen = await page.locator('#blackFullscreen').boundingBox();
+      expect(Math.min(counter.y + counter.height, fullscreen.y + fullscreen.height)).toBeGreaterThan(Math.max(counter.y, fullscreen.y));
+      expect(counter.x + counter.width).toBeLessThanOrEqual(fullscreen.x);
+    }
     if (width >= 1100) {
       const title = await page.locator('#blechMidiTitle').boundingBox();
       expect(counter.x).toBeGreaterThanOrEqual(title.x + title.width);
@@ -33,7 +39,9 @@ for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
     await expect(page.locator('#blechMasterPlay')).toBeInViewport();
     expect(stage.height).toBeGreaterThan(100);
     await page.locator('#blechTab-text').click();
+    if (mobile) await page.locator('#blechNoteCounters').scrollIntoViewIfNeeded();
     await expect(page.locator('#blechNoteCounters')).toBeInViewport();
+    expect(await page.locator('#blackMidiViewport').boundingBox()).toEqual(stage);
     await expect(page.locator('#blechNotesPlayed')).toHaveText('0');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   });

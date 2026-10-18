@@ -80,7 +80,7 @@ export function blackMidiColor({ pitch, velocity, channel, track }, options = {}
 export function blackMidiTimeGeometry(options = {}, cssHeight = 500) {
   const height = Math.max(1, Number(cssHeight) || 500);
   const band = Math.min(.3, Math.max(18, Math.min(42, height * clamp(options.keyboardHeight, .04, .2, .08))) / height);
-  const center = clamp(options.keyboardPosition, .3, .8, .6);
+  const center = clamp(options.keyboardPosition, .3, .8, .78);
   const keyboardTop = Math.max(.1, center - band / 2), keyboardBottom = Math.min(.95, center + band / 2);
   const lookAhead = clamp(options.lookAhead, .25, 60, 6), pastSeconds = clamp(options.pastSeconds, 0, 30, 4);
   return { keyboardTop, keyboardBottom, lookAhead, pastSeconds, velocity: keyboardTop / lookAhead };
@@ -178,7 +178,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   let backend = forceCanvas ? null : createGpu(canvas);
   // A canvas with a failed/lost WebGL context cannot acquire a 2D context.
   if (!backend) { const replacement = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas); }
-  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'rainbow', trackColors: {}, hiddenTracks: [], keyboardHeight: .08, keyboardPosition: .6, pastSeconds: 4, trails: true };
+  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'rainbow', trackColors: {}, hiddenTracks: [], keyboardHeight: .08, keyboardPosition: .78, pastSeconds: 4, trails: true };
   let layout = blackMidiKeyLayout(), score = null, visible = true, disposed = false, frame = null, lastFrame = -Infinity, lastStats = -Infinity;
   let previousTime = NaN, dirty = true, serial = 0, controller = null, latestStats = null;
   const data = new Float32Array(200_000 * 7), lit = new Array(128).fill(null);
@@ -393,7 +393,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
       if (['alignment', 'keyboardPosition', 'keyboardHeight'].some(key => value[key] !== undefined && value[key] !== options[key])) releaseKeyboard();
       options = { ...options, ...value,
         lookAhead: clamp(value.lookAhead ?? options.lookAhead, .25, 60, 6), keyboardHeight: clamp(value.keyboardHeight ?? options.keyboardHeight, .04, .2, .08),
-        keyboardPosition: clamp(value.keyboardPosition ?? options.keyboardPosition, .3, .8, .6),
+        keyboardPosition: clamp(value.keyboardPosition ?? options.keyboardPosition, .3, .8, .78),
         pastSeconds: clamp(value.pastSeconds ?? options.pastSeconds, 0, 30, 4), trails: value.trails === undefined ? options.trails : Boolean(value.trails),
         alignment: (value.alignment ?? options.alignment) === 'equal' ? 'equal' : 'piano',
         colorBy: ['track', 'channel', 'pitch', 'velocity'].includes(value.colorBy ?? options.colorBy) ? value.colorBy ?? options.colorBy : 'track',

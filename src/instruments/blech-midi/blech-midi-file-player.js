@@ -33,7 +33,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
         </div>
         <p id="blackCurrentSong" class="midiphoria-current-song" hidden></p>
         <p id="blackPlayerStatus" class="midiphoria-help" role="status"></p>
-        <div class="blech-file-viewport"><div id="blackMidiViewport"></div><button id="blackFullscreen" type="button" class="mini-action" aria-label="Black MIDI fullscreen">⛶</button></div>
+        <div class="blech-file-viewport"><div class="blech-file-header"><button id="blackFullscreen" type="button" class="mini-action" aria-label="Black MIDI fullscreen">⛶</button></div><div id="blackMidiViewport"></div></div>
         <label class="control blech-file-position" for="blackSongPosition"><span><b>Position</b><output id="blackSongTime">0:00 / 0:00</output></span><input id="blackSongPosition" type="range" data-keep-slider min="0" max="1" step=".1" value="0" disabled></label>
         <section id="blackMidiControls" aria-label="Black MIDI score controls"></section>
       </div>
