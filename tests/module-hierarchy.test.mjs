@@ -52,6 +52,7 @@ const quadrupedInterfaceChanges = JSON.parse(await readFile(new URL("../docs/qua
 // Controller/page changes reverse before the newer shared preset rollout; source-model changes reverse here.
 const throatSingerChanges = JSON.parse(await readFile(new URL("../docs/throat-singer-runtime-changes.json", import.meta.url))).changes.filter(change => change.normalizationStage !== "before-header-presets");
 const karplusCarpetChanges = JSON.parse(await readFile(new URL("../docs/karplus-carpet-runtime-changes.json", import.meta.url))).changes;
+const hybrinxMobileChanges = JSON.parse(await readFile(new URL("../docs/hybrinx-mobile-runtime-changes.json", import.meta.url))).changes;
 const inverse = Object.fromEntries(Object.entries({ ...plan.moves, ...siteMoves }).map(([before, after]) => [after, before]));
 const sha = value => createHash("sha256").update(value).digest("hex");
 
@@ -124,7 +125,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...throatSingerChanges, ...quadrupedInterfaceChanges, ...spiderPerformanceChanges, ...karplusCarpetChanges, ...documentLinkChanges, ...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemDelayExplorationChanges, ...lSystemDelayBranchingChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...hybrinxMobileChanges, ...throatSingerChanges, ...quadrupedInterfaceChanges, ...spiderPerformanceChanges, ...karplusCarpetChanges, ...documentLinkChanges, ...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemDelayExplorationChanges, ...lSystemDelayBranchingChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -366,4 +367,9 @@ test("Rust delay exploration amendments retain the frozen original and six-branc
   assert.ok(change.replacements.length > 0);
   assert.match(change.replacements.map(replacement => replacement.after).join("\n"), /RUST_EXPLORATION_GRAMMARS/);
   assert.match(change.replacements.map(replacement => replacement.after).join("\n"), /expandStochasticGrammar/);
+});
+
+test("Hybrinx mobile amendment changes layout only and keeps frozen relocation hashes", () => {
+  assert.deepEqual(hybrinxMobileChanges.map(change => change.file), ["src/instruments/hybrinx/hybrinx-layout.js"]);
+  assert.deepEqual(hybrinxMobileChanges[0].regressionTests, ["tests/hybrinx.test.mjs", "e2e/hybrinx-mobile.spec.mjs"]);
 });

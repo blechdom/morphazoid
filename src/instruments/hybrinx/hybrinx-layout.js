@@ -167,6 +167,46 @@ export function createHybrinxSplitPane(root) {
   };
 }
 
+/** Move the existing controls, never copies: playback, presets and timeline
+ * listeners retain their state when rotating the phone or resizing the window. */
+export function createHybrinxMobileLayout(shell) {
+  if (!shell) return null;
+  const documentRef = shell.ownerDocument;
+  const media = documentRef.defaultView?.matchMedia?.("(max-width: 980px)");
+  const performance = shell.querySelector("#hybrinxMobilePerformance");
+  const stage = shell.querySelector(".syrinx-stage");
+  const panel = shell.querySelector(".panel");
+  const stageWrap = shell.querySelector("#stageWrap");
+  const transport = shell.querySelector(".syrinx-panel-transport");
+  const timeline = shell.querySelector("#hybrinxTimelineSection");
+  if (!media || !performance || !stage || !panel || !stageWrap || !transport || !timeline) return null;
+
+  const homes = [stageWrap, transport, timeline].map(node => ({ node, parent: node.parentNode, next: node.nextSibling }));
+  let mobile = false;
+  function apply(compact) {
+    if (compact === mobile) return;
+    const focused = documentRef.activeElement;
+    mobile = compact;
+    if (compact) {
+      performance.append(stageWrap, transport);
+      // The shared preset adapter still owns the panel's first row, whether
+      // it mounts before or after this layout. Timeline and controls scroll.
+      panel.insertBefore(timeline, panel.querySelector(".syrinx-panel-presets"));
+    } else {
+      for (const { node, parent, next } of homes) parent.insertBefore(node, next);
+    }
+    stage.hidden = compact;
+    performance.hidden = !compact;
+    documentRef.body.classList.toggle("hybrinx-mobile-layout", compact);
+    if (focused && focused !== documentRef.body) focused.focus({ preventScroll: true });
+  }
+  const change = () => apply(media.matches);
+  media.addEventListener("change", change);
+  change();
+  return { destroy() { media.removeEventListener("change", change); apply(false); } };
+}
+
 if (typeof document !== "undefined") {
   createHybrinxSplitPane(document.querySelector(".hybrinx-page .syrinx-stage"));
+  createHybrinxMobileLayout(document.querySelector(".hybrinx-page .shell"));
 }

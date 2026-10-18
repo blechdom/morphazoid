@@ -1,0 +1,19 @@
+{
+  "baseCommit": "aacc4c901d2da4548c4d70453ce93cae27d1d959",
+  "changes": [
+    {
+      "file": "src/instruments/hybrinx/hybrinx-layout.js",
+      "reason": "Owner-requested fixed compact mobile graphic and Play/Loop, with nonsticky presets and a scrolling timeline/control panel; original DOM nodes and desktop splitter are preserved.",
+      "regressionTests": [
+        "tests/hybrinx.test.mjs",
+        "e2e/hybrinx-mobile.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "if (typeof document !== \"undefined\") {\n  createHybrinxSplitPane(document.querySelector(\".hybrinx-page .syrinx-stage\"));\n}\n",
+          "after": "/** Move the existing controls, never copies: playback, presets and timeline\n * listeners retain their state when rotating the phone or resizing the window. */\nexport function createHybrinxMobileLayout(shell) {\n  if (!shell) return null;\n  const documentRef = shell.ownerDocument;\n  const media = documentRef.defaultView?.matchMedia?.(\"(max-width: 980px)\");\n  const performance = shell.querySelector(\"#hybrinxMobilePerformance\");\n  const stage = shell.querySelector(\".syrinx-stage\");\n  const panel = shell.querySelector(\".panel\");\n  const stageWrap = shell.querySelector(\"#stageWrap\");\n  const transport = shell.querySelector(\".syrinx-panel-transport\");\n  const timeline = shell.querySelector(\"#hybrinxTimelineSection\");\n  if (!media || !performance || !stage || !panel || !stageWrap || !transport || !timeline) return null;\n\n  const homes = [stageWrap, transport, timeline].map(node => ({ node, parent: node.parentNode, next: node.nextSibling }));\n  let mobile = false;\n  function apply(compact) {\n    if (compact === mobile) return;\n    const focused = documentRef.activeElement;\n    mobile = compact;\n    if (compact) {\n      performance.append(stageWrap, transport);\n      // The shared preset adapter still owns the panel's first row, whether\n      // it mounts before or after this layout. Timeline and controls scroll.\n      panel.insertBefore(timeline, panel.querySelector(\".syrinx-panel-presets\"));\n    } else {\n      for (const { node, parent, next } of homes) parent.insertBefore(node, next);\n    }\n    stage.hidden = compact;\n    performance.hidden = !compact;\n    documentRef.body.classList.toggle(\"hybrinx-mobile-layout\", compact);\n    if (focused && focused !== documentRef.body) focused.focus({ preventScroll: true });\n  }\n  const change = () => apply(media.matches);\n  media.addEventListener(\"change\", change);\n  change();\n  return { destroy() { media.removeEventListener(\"change\", change); apply(false); } };\n}\n\nif (typeof document !== \"undefined\") {\n  createHybrinxSplitPane(document.querySelector(\".hybrinx-page .syrinx-stage\"));\n  createHybrinxMobileLayout(document.querySelector(\".hybrinx-page .shell\"));\n}\n"
+        }
+      ]
+    }
+  ]
+}
