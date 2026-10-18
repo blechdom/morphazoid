@@ -6,9 +6,10 @@ The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
 catalogue ID and saved-state keys stay compatible.
 Audio starts off. **Use** opens on **Instrument body modeling**. Select an
 **Excite** shape, enable Audio, then tap or drag the body or press the compact
-trigger. Horizontal position sets excitation position and vertical position
-sets hardness. Arrow keys edit the position/hardness; Enter or Space triggers
-the selected excitation. The original instrument and SIMD Audio Lab retain
+trigger. With Body enabled, horizontal position sets excitation position and
+vertical position sets hardness. With Body off, those axes control excitation
+strength and burst length. Arrow keys edit the same controls; Enter or Space
+triggers the selected excitation. The original instrument and SIMD Audio Lab retain
 their existing engines. Output runs from 0% to 100%, where 100% is unity master
 gain; it is independent of presets and the signal-path mix.
 
