@@ -33,7 +33,7 @@ Twenty full presets include twelve original scenes and eight dense scenes up
 to 4,096 waves. Presets and Dice also include spatial target, pattern, span,
 offset, motion and rate. Preset/Next/Dice controls preserve Audio, output level,
 input trim, selected source, an already playing sample, Surround enable, speaker
-layout, stereo preview and recording. The separate **Body only**
+layout, stereo preview and recording. The separate **Material**
 menu retains FFT settings. Reset restores the default body and clears its tail;
 it retains live input and Audio. Changing modes clears removed oscillator states
 so increasing the count cannot revive an old tail.

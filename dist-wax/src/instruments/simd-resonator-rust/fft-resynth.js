@@ -404,6 +404,16 @@ export class FftResynth {
     this.spatialSample.fill(0);
     if (this.configuration) this.fftCurrent.configureResynthesis(this.configuration);
   }
+  // New source-based excitation starts against real zero prehistory. Without
+  // this, a frame-zero impulse lands at the Hann window's zero edge and vanishes.
+  // Legacy callers retain their original cold-start ramp and exact samples.
+  primeSilence() {
+    if (this.fftHistoryFill || !this.fftCurrent.fftConfigured) return;
+    this.fftHistoryFill = MAX_FFT_SIZE;
+    this.fftCurrent.fftAnalysisFill = this.fftCurrent.fftSize;
+    this.fftCurrent.fftOutputAge = this.fftCurrent.fftSize;
+    this.fftCurrent.fftHasFrame = true;
+  }
   configureResynthesis(configuration) {
     const next = resynthesisConfiguration(configuration, this.sampleRate);
     this.configuration = next; this.fftMix = next.fftMix;
