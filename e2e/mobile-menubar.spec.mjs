@@ -41,8 +41,10 @@ for (const route of CANONICAL_PAGE_ROUTES) test(`${route}: shared mobile menubar
     await page.setViewportSize(viewport);
     await expect(header.locator('.tabs .instrument-picker-next')).toBeHidden();
     await expect(header.locator('.wordmark .brand-mark')).toBeVisible();
-    await expect(header.locator('.wordmark')).toHaveCSS('font-size', '0px');
-    await expect(header.locator('.tabs .instrument-picker-current')).toBeHidden();
+    if (viewport.width === 844) {
+      await expect(header.locator('.wordmark > :not(.brand-mark)')).toBeVisible();
+      await expect(header.locator('.tabs .instrument-picker-current')).toBeVisible();
+    }
     const boxes = await header.evaluate(geometry);
     expect(boxes.length).toBeGreaterThanOrEqual(2);
     for (const [i, box] of boxes.entries()) {
@@ -185,4 +187,75 @@ for (const hasTouch of [false, true]) test.describe(`Audio/Settings alignment, t
       }
     });
   }
+});
+
+for (const hasTouch of [false, true]) test.describe(`mobile labels, touch=${hasTouch}`, () => {
+  test.use({ hasTouch });
+  for (const route of ['shapes.html', 'l-mic-rust.html', 'synthesis.html', 'alien-larynx-architecture.html']) {
+    test(`${route}: labels use spare room without squeezing controls`, async ({ page }) => {
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.goto(route); await settlePage(page);
+      const header = page.locator('.masthead.has-mobile-menubar');
+      const brand = header.locator('.wordmark > :not(.brand-mark)');
+      const label = header.locator('.tabs .instrument-picker-current');
+      await expect(brand).toBeVisible(); await expect(label).toBeVisible();
+      const controls = () => header.evaluate(header => [...header.querySelectorAll('.audio-button, .header-settings-trigger, .header-level, .output-recording-control')]
+        .filter(node => node.checkVisibility()).map(node => { const r = node.getBoundingClientRect(); return { width: r.width, height: r.height }; }));
+      const wideControls = await controls();
+      for (const width of [390, 430, 480, 390, 844]) {
+        await page.setViewportSize({ width, height: 390 });
+        await expect.poll(controls).toEqual(wideControls);
+        const boxes = await header.evaluate(geometry);
+        for (const [i, box] of boxes.entries()) {
+          expect(box.right).toBeLessThanOrEqual(width);
+          if (i) expect(box.x).toBeGreaterThanOrEqual(boxes[i - 1].right);
+        }
+      }
+      await expect(brand).toBeVisible(); await expect(label).toBeVisible();
+      await header.locator('.tabs .instrument-picker-trigger').click();
+      await expect(header.locator('.tabs .instrument-picker-search input')).toBeVisible();
+      await page.keyboard.press('Escape');
+      if (await header.locator('.audio-button').count()) await expect(header.locator('.audio-button')).toHaveAttribute('aria-pressed', 'false');
+    });
+  }
+});
+
+test('mobile labels adapt to actual header contents, inset space and changed text', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 844 });
+  await page.goto('shapes.html'); await settlePage(page);
+  const header = page.locator('.masthead.has-mobile-menubar');
+  const brand = header.locator('.wordmark > :not(.brand-mark)');
+  const label = header.locator('.tabs .instrument-picker-current');
+  await expect(brand).toBeVisible();
+  await header.evaluate(node => { node.style.paddingRight = '60px'; });
+  await expect(brand).toBeHidden(); // Available content width, not a viewport breakpoint.
+  await header.evaluate(node => { node.style.removeProperty('padding-right'); });
+  await expect(brand).toBeVisible();
+  await header.evaluate(node => {
+    const extra = document.createElement('span'); extra.className = 'header-output-meter-shell'; extra.id = 'extra-output-probe';
+    extra.style.cssText = 'width:52px;flex:0 0 52px;height:44px';
+    node.querySelector('.header-io-controls').append(extra);
+  });
+  await expect(brand).toBeHidden(); // More chrome consumes room at the same width.
+  await page.locator('#extra-output-probe').evaluate(node => { node.style.display = 'none'; });
+  await expect(brand).toBeVisible(); // Output-group ResizeObserver also handles CSS-only changes.
+  await page.locator('#extra-output-probe').evaluate(node => node.remove());
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(brand).toBeHidden();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await label.evaluate(node => { window.__originalLabel = node.textContent; node.textContent = 'A very long instrument title '.repeat(12); });
+  await expect(label).toBeHidden(); await expect(brand).toBeVisible();
+  await label.evaluate(node => { node.textContent = __originalLabel; });
+  await expect(label).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 568 });
+  await expect(brand).toBeHidden(); await expect(label).toBeHidden();
+  await page.setViewportSize(desktop);
+  await expect(brand).toBeVisible(); await expect(label).toBeVisible();
+  await expect(header.locator('.tabs .instrument-picker-next')).toBeVisible();
+});
+
+test('a lightweight mobile header keeps its wordmark even at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('alien-larynx-architecture.html'); await settlePage(page);
+  await expect(page.locator('.masthead .wordmark > :not(.brand-mark)')).toBeVisible();
 });

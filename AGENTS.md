@@ -100,7 +100,9 @@ command names.
   stereo meters → volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
   Settings. On phones and short landscape layouts, use the shared single-row
   mobile menubar: home icon → Choose chevron (no next instrument) → flexible
-  space → Record → meters → volume knob → Audio → Settings. Extra header
+  space → Record → meters → volume knob → Audio → Settings. Show the wordmark
+  and selector label when the actual remaining width permits; never shrink
+  audio controls or wrap the row to fit text. Extra header
   controls, including mic and input gain, move into Settings without cloning
   controls or changing audio state. Keep Audio at least 48×48. See
   `docs/mobile-menubar.md` for the shared enhancement and remaining exceptions.

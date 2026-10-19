@@ -15,7 +15,14 @@ high), show one row:
 **home icon → Choose chevron → flexible space → Record → stereo meters →
 volume knob → Audio → Settings**.
 
-The wordmark text and next-instrument button are hidden only on mobile. Choose
+The next-instrument button stays hidden on mobile. Show the **Morphazoid name**
+and the selector's existing **instrument label** whenever they fit. Measure the
+actual header contents and safe-area padding, preferring the wordmark first; a
+short selector label can still fit when the name cannot. Fall back to the home
+icon and/or chevron without clipping text, shrinking audio controls or wrapping.
+This also keeps labels on lightweight pages that have fewer header controls.
+Recheck on resize, font loading, label changes and output-group resizing—not on
+an animation frame or meter update. Desktop presentation is unchanged. Choose
 still opens the existing searchable, categorized instrument selector. Record's
 elapsed clock stays inside its slot so starting a recording never widens the bar.
 Audio remains 48×48 CSS pixels, including at 320px. Record, volume and Settings
@@ -86,7 +93,9 @@ The mobile matrix is 390×844, 844×390 and 320×568, with desktop restoration a
 1440×900. Coverage includes searchable navigation, control order/overlap, popup
 bounds, focus, node identity/events, dynamic teardown, MIDI CC after rotation,
 permission-denied popups with and without Popover API, live capture continuity,
-and the active recording clock.
+and the active recording clock. Content-aware label tests cover mouse/touch,
+320–844px widths, safe-area-like insets, added/hidden controls, long selector text
+and restoring the original desktop layout.
 
 The broad menubar matrix disables Playwright video capture: on this runner,
 desktop Vector Flight stalls its frame loop with capture enabled, on both

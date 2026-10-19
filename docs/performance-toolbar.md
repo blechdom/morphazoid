@@ -23,7 +23,8 @@ This supersedes the earlier rule that placed presets and MIDI beside the meters.
   aggregate-select handle remains hidden and synchronized for compatibility.
 - Mobile masthead (October 18, 2026): **home icon → Choose chevron → flexible
   space → Record → stereo meters → volume knob → Audio → Settings**, in one row.
-  Hide the wordmark text and next-instrument button, not the selector/search.
+  Show wordmark and selector text when they fit the actual available space;
+  otherwise use icons. Always hide next-instrument, not the selector/search.
   Extra header controls move into Settings. Audio remains 48×48; other controls
   narrow at ≤360px. See [mobile menubar and follow-ups](mobile-menubar.md).
 

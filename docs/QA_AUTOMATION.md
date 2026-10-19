@@ -11,7 +11,8 @@ The route inventory is generated from the same catalogue and navigation data use
 `e2e/mobile-menubar.spec.mjs` checks every canonical page against its shared or
 independent-header classification. Shared consumers are exercised at 390×844,
 844×390 and 320×568, then restored to 1440×900 with exact control geometry.
-It checks icon-only navigation, searchable Choose, hidden instrument Next,
+It checks space-aware wordmark/selector text with icon-only fallback, searchable
+Choose, hidden instrument Next,
 inline control order/bounds, 48px Audio targets, viewport-bounded popups, native
 node/event retention, dynamic controls, teardown, and MIDI across rotation.
 Run it with `e2e/performance-toolbar.spec.mjs`, `e2e/audio-input-placement.spec.mjs`
