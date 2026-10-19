@@ -1,5 +1,9 @@
 # Morphazoid
 
+Agents and contributors: [project context and instrument discovery](docs/agent-context/README.md);
+[creative direction](docs/agent-context/creative-direction.md);
+[private-first cross-machine memories](docs/agent-context/memory-workflow.md).
+
 **[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).
 
 **[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,

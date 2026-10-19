@@ -45,6 +45,17 @@ only when staging or committing is authorized. In that case, stage explicit
 paths, inspect `git diff --cached`, and compare staged paths with declared scope.
 Do not include unrelated edits, local configuration, secrets, screenshots,
 caches, or temporary build output.
+Inspect effective author/committer email and signing configuration before
+creating a personal Morphazoid commit. Do not inherit an employer identity.
+Changing local commit identity is different from rewriting published history;
+the latter needs separate authorization and coordination.
+
+Run `python3 scripts/agent-memory.py audit --scope staged` as a filename-only
+cross-stream signal before a Morphazoid commit or push. Review findings and
+the actual staged diff privately; the audit intentionally flags public vendor
+mentions and policy text as well as potential leaks and cannot prove the
+absence of confidential content. Never auto-dismiss a finding or publish a
+mixed/uncertain diff. Do not include private memory inboxes or chat histories.
 
 For renamed/moved runtime files, verify the current
 `scripts/site/runtime-files.tsv` and regenerate `dist-wax/` from authored source.

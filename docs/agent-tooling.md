@@ -4,10 +4,10 @@ This guide defines how Morphazoid stores and maintains instructions and agent
 integrations. It is a decision and acceptance standard, not evidence that an
 integration exists.
 
-Repository status as reviewed on 2026-09-06: Morphazoid has repo-scoped skills
-under `.agents/skills/`, but it does not ship an MCP server or committed MCP
-client configuration. Do not add placeholder services, empty configuration, or
-credentials in anticipation of a possible integration.
+Repository status as reviewed on 2026-10-19: Morphazoid has repo-scoped skills
+under `.agents/skills/` and an owner-reviewed local memory updater. It does not
+ship an MCP server or committed MCP client configuration. Do not add placeholder
+services, empty configuration, or credentials in anticipation of an integration.
 
 ## Choose the smallest durable mechanism
 
@@ -18,6 +18,7 @@ credentials in anticipation of a possible integration.
 | A specialized, repeatable workflow that should load only when relevant | `.agents/skills/<name>/SKILL.md` | Perceptual QA or safe publication |
 | A reusable structured runtime capability, especially live external data, authenticated access, or controlled actions | An MCP server | Querying an issue tracker or operating a deployment service |
 | Human explanation, onboarding, architecture, or a runbook | `README.md`, `docs/CONTRIBUTING.md`, or `docs/` | This guide |
+| Reusable project context across machines, after owner review | `docs/agent-context/` and `docs/agent-memory/` | Creative direction and dated observations; never raw histories |
 | A deterministic invariant | Source validation, tests, and CI | Catalogue parity or schema conformance |
 
 An MCP server supplies a capability. A skill teaches an agent a reusable method
@@ -121,6 +122,13 @@ the checkout it inspects.
   provider-specific case.
 - Keep repository skills in `.agents/skills/<lowercase-name>/SKILL.md`. Both
   Codex and GitHub Copilot discover this shared location.
+- `CLAUDE.md` and `GEMINI.md` are deliberately tiny pointers to the canonical
+  `AGENTS.md` and `docs/agent-context/README.md`, not divergent copies of policy.
+  `.cursor/rules/morphazoid.mdc` is the equivalent Cursor entrypoint; it does
+  not copy the shared rules or grant access to provider-global caches.
+  Store aesthetics and memory practices in `docs/agent-context/`; record only
+  reviewed observations under `docs/agent-memory/`. See the
+  [privacy workflow](agent-context/memory-workflow.md) before touching histories.
 - Keep GitHub workflows and review templates under `.github/`. Create
   `.github/copilot-instructions.md` only for a genuinely Copilot-specific rule;
   do not mirror `AGENTS.md` into it.

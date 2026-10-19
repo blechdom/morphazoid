@@ -1,9 +1,17 @@
 .DS_Store
-PanGPA.log
+/*.log
 node_modules/
 dist/
 assets/xyflow/
 storybook-static/
+__pycache__/
+*.py[cod]
+
+# Private, reviewed-on-this-machine memory inbox; never publish raw task data.
+.morphazoid-local/
+.env
+.env.*
+!.env.example
 
 # Playwright browser-test artifacts
 playwright-report/
