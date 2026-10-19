@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  witch: define(
+    "A cauldron voice, five fingers and a musical broom",
+    "Stir a cauldron to drive a witch’s whispers, creaks and singing. Her five long fingers play independent glass, reed, wire, metal and marimba sounds; broom flight weaves instrumental patterns past moon bells, bat ticks and ghost chimes.",
+    "Enable Audio, then circle the ladle to chant, pull a fingertip to bend its instrument, or drag the broom to shape pitch and rhythm. Play sustains the current scene; release to let it fade.",
+    ["Built-in synth", "Pointer", "Touch", "Gesture sound", "Presets"],
+  ),
   wobblini: define(
     "Eight-deck audio mixer",
     "Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and automatic full-file repeat. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.",

@@ -1,5 +1,7 @@
 import { restoreTimeLoomSite } from './time-loom-site-reference.mjs';
+import { restoreWitchSite } from "./witch-site-reference.mjs";
 import { restoreThroatSingerMetadata, restoreThroatSingerView } from "./throat-singer-reference.mjs";
+import { restoreRezoidinatorModesSite } from './rezoidinator-modes-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -11,6 +13,8 @@ export const wobbliniDjaySiteChanges = JSON.parse(readFileSync(
 export function restoreWobbliniDjaySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
   source = restoreTimeLoomSite(source, file, { allowRestored: true });
+  source = restoreWitchSite(source, file, { allowRestored: true });
+  source = restoreRezoidinatorModesSite(source, file, { allowRestored: true });
   source = restoreThroatSingerView(source, file);
   source = restoreThroatSingerMetadata(source, file, { allowRestored: true });
   for (const change of wobbliniDjaySiteChanges.changes.filter(change => change.file === file)) {

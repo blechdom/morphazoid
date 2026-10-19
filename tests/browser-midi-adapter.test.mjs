@@ -240,6 +240,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
     "time-loom",
+    "witch",
     "graphonic-calculator",
     "vector-fractals",
     "fractal-delay",

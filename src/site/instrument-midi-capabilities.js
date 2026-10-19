@@ -5,6 +5,7 @@ import { canonicalInstrumentId } from "./instrument-identities.js";
 // import cycle through the catalogue.
 const NOTE_MODE_IDS = Object.freeze({
   processor: Object.freeze([
+    "witch",
     "wobblini",
     "trackazoid",
     "midiphoria",
@@ -265,6 +266,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "time-loom",
+  "witch",
   "graphonic-calculator",
   "vector-fractals",
   "fractal-delay",
@@ -305,6 +307,7 @@ const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set([
   "time-loom",
+  "witch",
   "moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic",
   "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
   "loopini",
