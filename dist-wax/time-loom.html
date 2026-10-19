@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Time Loom · Morphazoid" />
+    <meta property="og:description" content="Time Loom: weave recorded sound with three hanging cords. Slide knots to loop moments, stretch passages, reverse time, and tie phrases together." />
+    <meta property="og:url" content="https://morphazoid.com/time-loom.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Time Loom · Morphazoid" />
+    <meta name="twitter:description" content="Time Loom: weave recorded sound with three hanging cords. Slide knots to loop moments, stretch passages, reverse time, and tie phrases together." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1219" />
+  <meta name="description" content="Time Loom: weave recorded sound with three hanging cords. Slide knots to loop moments, stretch passages, reverse time, and tie phrases together." />
+  
+  
+  
+  
+  
+  
+  <title>Time Loom · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/time-loom/time-loom.css" />
+</head>
+<body class="time-loom-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="time-loom.html" aria-current="page">Time Loom</a><a class="tab" href="tape-worm.html">Tape Worm</a><a class="tab" href="loopini.html">Loopini</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="time-loom.html" selected>Time Loom</option><option value="tape-worm.html">Tape Worm</option><option value="loopini.html">Loopini</option></select></label>
+    <div id="audioSlot"><button id="audioButton" type="button" disabled aria-pressed="false">Audio off · JavaScript required</button></div>
+  </header>
+  <main class="loom-shell">
+    <section class="loom-stage" aria-label="Time Loom instrument">
+      <header class="loom-heading"><h1>Time Loom</h1><span id="phraseLabel">Original study · 8.0 s</span></header>
+      <canvas id="loom" tabindex="0" aria-label="Three knotted recording cords" aria-describedby="gestureHelp keyboardHelp">Select a cord and use the labelled passage controls to edit its knots, stretch, direction and route.</canvas>
+      <div class="loom-stage-footer"><span id="readerLabel">Reading cord A</span><span id="routeLabel">A ↻</span></div>
+      <p id="gestureHelp" class="loom-gesture-help">Slide knots · pull tassels · tie cords</p>
+    </section>
+    <aside class="loom-controls" aria-label="Time Loom controls" data-instrument-preset-host>
+      <div class="loom-transport"><button id="playButton" class="loom-play" type="button" data-primary-transport aria-pressed="false">▶ Play</button><button id="undoButton" type="button" disabled>Undo</button><button id="resetButton" type="button" data-reset-all data-reset-in-place title="Restore the original passages and remove ties; keep your recordings">Reset weave</button></div>
+      <p id="liveStatus" class="loom-status" role="status" aria-live="polite">An original phrase is ready. Turn Audio on, then Play.</p>
+      <div class="loom-section">
+        <div class="loom-section-heading"><h2>Passage</h2><span id="passageDuration">8.00 s</span></div>
+        <div id="cordSelector" class="loom-cord-selector" role="group" aria-label="Selected cord"><button type="button" data-cord="0" aria-pressed="true">A</button><button type="button" data-cord="1" aria-pressed="false">B</button><button type="button" data-cord="2" aria-pressed="false">C</button></div>
+        <label class="loom-range" for="start"><span>Upper knot <output id="startOut" for="start">0.00 s</output></span><input id="start" type="range" min="0" max="0.98" step="0.001" value="0" /></label>
+        <label class="loom-range" for="end"><span>Lower knot <output id="endOut" for="end">8.00 s</output></span><input id="end" type="range" min="0.02" max="1" step="0.001" value="1" /></label>
+        <label class="loom-range" for="stretch"><span>Stretch <output id="stretchOut" for="stretch">1.00×</output></span><input id="stretch" type="range" min="0.5" max="4" step="0.01" value="1" /></label>
+        <div class="loom-actions"><button id="reverseButton" type="button" aria-pressed="false">↓ Read downward</button><button id="enterButton" type="button">Enter here</button></div>
+        <div class="loom-route-control"><label for="nextCord">At the last knot</label><select id="nextCord"><option value="">Loop this cord</option><option value="0">Continue to A</option><option value="1">Continue to B</option><option value="2">Continue to C</option></select></div>
+        <div class="loom-actions"><button id="tieButton" type="button" aria-pressed="false">Tie to another cord</button><button id="untieButton" type="button" disabled>Untie</button></div>
+      </div>
+      <div class="loom-section loom-source">
+        <div class="loom-section-heading"><h2>Remember a phrase</h2><span id="recordClock"></span></div>
+        <label class="loom-route-control" for="captureTarget"><span>Put sound on</span><select id="captureTarget"><option value="all">All three cords</option><option value="selected">Selected cord</option></select></label>
+        <div id="inputControl"></div>
+        <div class="loom-actions"><button id="recordPhrase" type="button" aria-pressed="false">● Record phrase</button><button id="loadButton" type="button">Load audio</button><input id="audioFile" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a,.flac" hidden /></div>
+        <div class="loom-actions loom-secondary"><button id="copyButton" type="button">Copy to all cords</button><button id="demoButton" type="button">Original demo</button></div>
+        <p id="sourceLabel" class="loom-source-label">Original study · 8.0 s</p>
+      </div>
+      <details class="loom-help"><summary>Playing the loom</summary><p>Each cord remembers a recording. Its two knots enclose a repeating passage. Slide a knot to change the passage; pull the tassel down to lengthen its time. Stretch keeps approximately the same pitch, with a grainy texture at extremes.</p><p>Click a cord to move the playback bead. Choose <b>Tie to another cord</b>, then click a destination cord: the bead leaves at the last knot and enters the next passage. Untie restores the cord’s own loop. Reverse reads upward.</p><p>Enable the microphone, then Record phrase. Press again to finish; recording stops at 30 seconds. Load a file under 3 minutes and 40 MB to use its first 30 seconds. Recordings stay in this page only. Undo restores the last eight edits or takes.</p><p id="keyboardHelp">On the loom: 1–3 select cords; ↑/↓ move the upper knot; Shift + ↑/↓ move the lower knot; ←/→ stretch; R reverses; T begins a tie; Escape cancels; Enter moves the bead. Space plays or pauses. The labelled controls provide the same actions.</p><p>Inspired by the fictional knotted time-navigation device described in <i>The Rise and Fall of D.O.D.O.</i> The musical mappings are invented for this instrument.</p></details>
+      <p id="audioError" role="alert" hidden></p>
+      <noscript><p>Time Loom needs JavaScript to play. No microphone is enabled.</p></noscript>
+    </aside>
+  </main>
+  <script type="module" src="src/instruments/time-loom/time-loom-app.js"></script>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

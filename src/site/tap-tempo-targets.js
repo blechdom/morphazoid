@@ -99,6 +99,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "linear-drums.html", "selector": "#sweepSpeed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "linebreaker.html", "selector": "#scanRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "lissajous-orbits.html", "selector": "#lissajousRate", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "time-loom.html", "selector": "#stretch", "mapping": {"unit": "inverseMultiplier", "referenceBpm": 120}, "title": "Tap passage speed (120 BPM = original duration)"},
   {"route": "loopini.html", "selector": "#speed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "lumber.html", "selector": "#delayRotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "midiphoria.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},

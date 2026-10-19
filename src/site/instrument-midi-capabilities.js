@@ -33,6 +33,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "candy-coil-delay",
     "recursion",
     "tape-worm",
+    "time-loom",
     "loop-soup",
     "loopini",
     "hollowphonic",
@@ -263,6 +264,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // transport, but they have no conservative note action. Do not capture QWERTY
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "time-loom",
   "graphonic-calculator",
   "vector-fractals",
   "fractal-delay",
@@ -302,11 +304,13 @@ const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
 const pageKeyboardIds = new Set(PAGE_KEYBOARD_INSTRUMENT_IDS);
 const noGenericNoteKeyboardIds = new Set(NO_GENERIC_NOTE_KEYBOARD_IDS);
 const processorAudioIds = new Set([
+  "time-loom",
   "moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic",
   "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
   "loopini",
 ]);
 const audioInputIds = new Set([
+  "time-loom",
   "esi-32",
   "fractal-delay",
   "l-systems",

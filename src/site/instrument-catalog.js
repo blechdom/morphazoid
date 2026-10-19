@@ -63,6 +63,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Enable Audio and Play. Slide or twist the colored stickers, switch dimensions, and explore shared sound, mapping and motion controls.",
     ["Built-in synth", "Pointer", "Native instruments", "Self-contained app"],
   ),
+  "time-loom": define(
+    "Knotted recording instrument",
+    "Three hanging cords hold recorded phrases. Slide knots to isolate loops, pull tassels to stretch time, read upward in reverse, and tie passages into a directed conversation.",
+    "Turn Audio on and Play the original demo. Slide two knots to choose a passage, pull its tassel, then tie it to another cord. Record a phrase or load your own audio.",
+    ["Microphone", "Audio file", "Looper", "Time stretch", "Reverse", "Pointer", "Touch"],
+  ),
   "loopini": define(
     "Simple recording looper",
     "Six big recording circles with one-tap on/off mixing, in-loop replacement/overdub icons, and tape-speed recording. Slow down to record a layer, then return to normal for faster, higher playback.",

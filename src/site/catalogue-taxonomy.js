@@ -651,6 +651,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "wasm-garden": ["resonator"],
   "tempo-tantrum": [],
   "tape-worm": [],
+  "time-loom": [],
   "loop-soup": [],
   "habit-habitat": [],
   "hollowphonic": []

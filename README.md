@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).
+
 **[ESI-32](esi-32.html)** is an E-mu ESI-32-inspired sampler with eight sample slots, original demo sounds, local audio import, waveform trimming, forward loops, reverse, a resonant lowpass and envelopes. Play the two-row keyboard or MIDI and save complete banks with their audio. Audio starts off. [Controls and emulation limits](docs/esi-32.md).
 
 **[Wobblini](wobblini.html)** intercuts eight stereo sources with scratchable records and waveforms, cue preview, Slip, separate input gain, A/B/Thru routing, BPM analysis, optional per-track SYNC, pitch preservation and independent pitch shift. Files automatically repeat from end to beginning. Browser-storage recording exports numbered WAV parts. Audio starts off. [Controls and limits](docs/wobblini.md).

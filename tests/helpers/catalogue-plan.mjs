@@ -10,6 +10,8 @@ export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.cate
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  { id: "time-loom", label: "Time Loom", href: "time-loom.html", imageHref: "assets/instruments/time-loom.webp",
+    categoryId: "wip", categoryLabel: "Work in Progress", tags: [] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
   // October 15: eight-deck Wobblini; October 16 owner request removes looping.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
