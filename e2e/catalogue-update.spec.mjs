@@ -18,6 +18,10 @@ test("the catalogue shows the approved names/categories, labs and newer main dem
     await expect(page.locator(`.instrument-card[data-instrument-id="${item.id}"] .instrument-card-title`).first()).toHaveText(item.label);
   }
   await expect(page.locator('.catalogue-group[data-category-id="wip"]')).toBeVisible();
+  const quadrupedFave = page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="quadruped"]');
+  await expect(quadrupedFave).toHaveCount(1);
+  await expect(quadrupedFave).toBeVisible();
+  await expect(quadrupedFave.locator('.instrument-card-title')).toHaveText("Quadruped");
   expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
 });
 

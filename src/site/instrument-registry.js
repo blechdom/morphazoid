@@ -13,6 +13,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "synthesis",
   "creaturazoid",
   "hybrinx",
+  "quadruped",
   "jaw-harp",
   "fractal-signals",
   "hyper-rubix",

@@ -86,6 +86,8 @@ reordered.splice(reordered.indexOf("hiccup-head") + 1, 0, "synthesis");
 reordered.splice(reordered.indexOf("micmic") + 1, 0, "micmic-rust");
 // Owner follow-up October 11: Fractal Delay joins the related delay in Faves.
 reordered.splice(reordered.indexOf("micmic-rust") + 1, 0, "fractal-delay");
+// Owner follow-up October 12: Quadruped joins the creature instruments in Faves.
+reordered.splice(reordered.indexOf("hybrinx") + 1, 0, "quadruped");
 // Shapes replaces the three individual geometry instruments in the first
 // Faves section. Their ordinary Geometric catalogue records remain intact.
 export const expectedFaveToolIds = Object.freeze([

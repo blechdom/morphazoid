@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 52,
-    "fullPresets": 2171,
-    "favesImplemented": 18,
-    "activeRemaining": 59,
-    "regularRemaining": 130
+    "implemented": 53,
+    "fullPresets": 2249,
+    "favesImplemented": 19,
+    "activeRemaining": 58,
+    "regularRemaining": 129
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -60,8 +60,9 @@
       "href": "graph-synth.html",
       "category": "geometric",
       "scope": "fave",
-      "presets": 12,
-      "status": "implemented-verification-pending"
+      "presets": 32,
+      "status": "implemented-verification-pending",
+      "evidence": "Twenty expressive studies recovered without replacing existing scenes. Graph Drum Machine includes versioned full-kit recall and legacy snapshot migration. Focused Node and browser recall/audio/layout checks passed; see docs/graph-expressive-presets.md. Human listening and physical-device acceptance remain unperformed."
     },
     {
       "id": "shape-drum-machine",
@@ -96,8 +97,9 @@
       "href": "graph-drum-machine.html",
       "category": "geometric",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 34,
+      "status": "implemented-verification-pending",
+      "evidence": "Twenty expressive studies recovered without replacing existing scenes. Graph Drum Machine includes versioned full-kit recall and legacy snapshot migration. Focused Node and browser recall/audio/layout checks passed; see docs/graph-expressive-presets.md. Human listening and physical-device acceptance remain unperformed."
     },
     {
       "id": "shapes",
@@ -160,8 +162,9 @@
       "href": "lattice.html",
       "category": "tesselation",
       "scope": "fave",
-      "presets": 12,
-      "status": "implemented-verification-pending"
+      "presets": 36,
+      "status": "implemented-verification-pending",
+      "evidence": "October 18 recovery: 24 right-angle rhythm studies alongside all twelve original scenes; tests/lattice-rhythm-presets.test.mjs verifies guarded shapes and changing rhythmic contacts. Human listening remains separate."
     },
     {
       "id": "spiral",
@@ -525,7 +528,8 @@
       "category": "physical-model",
       "scope": "fave",
       "presets": 25,
-      "status": "implemented-verification-pending"
+      "status": "implemented-verification-pending",
+      "evidence": "October 18: full scenes omit master volume; recall ignores legacy saved levels and retains live volume/mute, Audio and transport. tests/creature-preset-level.test.mjs and focused browser coverage."
     },
     {
       "id": "syrinx",
@@ -563,14 +567,15 @@
       "category": "bioacoustic",
       "scope": "fave",
       "presets": 12,
-      "status": "implemented-verification-pending"
+      "status": "implemented-verification-pending",
+      "evidence": "October 18: full scenes omit master volume; recall ignores legacy saved levels and retains live volume/mute, Audio and transport. tests/creature-preset-level.test.mjs and focused browser coverage."
     },
     {
       "id": "quadruped",
       "label": "Quadruped",
       "href": "quadruped.html",
       "category": "bioacoustic",
-      "scope": "regular",
+      "scope": "fave",
       "presets": 27,
       "status": "implemented-verification-pending",
       "evidence": "Twenty-seven full scenes and bounded dice recall sound skin, animal/gait/ensemble and scores while preserving independently selected animal appearance. Constellation is the startup and global-reset appearance. Owner-requested successful recall starts Play; Audio/master stay live. Pure and browser coverage includes quadruped-presets and quadruped-skins. Human listening and physical-device acceptance remain separate."
@@ -1808,6 +1813,7 @@
       "synthesis",
       "creaturazoid",
       "hybrinx",
+      "quadruped",
       "jaw-harp",
       "fractal-signals",
       "hyper-rubix",
@@ -1830,7 +1836,6 @@
       "shape-drum-machine",
       "solid-drum-machine",
       "hyper-drum-machine",
-      "graph-drum-machine",
       "rubixoids",
       "graphs",
       "tesselation",

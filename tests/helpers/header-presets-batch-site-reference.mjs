@@ -1,3 +1,4 @@
+import { restoreSelectedInstrumentRecovery } from './selected-instrument-recovery-reference.mjs';
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreThroatSingerView } from './throat-singer-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
@@ -16,6 +17,7 @@ export const headerPresetsBatchSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed preset-row wiring, page hosts and runtime manifest rows. */
 export function restoreHeaderPresetsBatchSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreSelectedInstrumentRecovery(source, file, { allowRestored: true });
   source = restoreThroatSingerView(source, file);
   source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });

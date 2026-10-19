@@ -1,0 +1,7 @@
+{
+  "description": "Owner-requested October 12 Quadruped promotion into Faves, beside the creature instruments; existing categories and instruments stay unchanged.",
+  "file": "src/site/instrument-registry.js",
+  "sha256": "86238e9ac9c75a6f004eede50aa4fb56072362cef196b469ca8febba16b6c44a",
+  "before": "  \"hybrinx\",\n  \"jaw-harp\",",
+  "after": "  \"hybrinx\",\n  \"quadruped\",\n  \"jaw-harp\","
+}

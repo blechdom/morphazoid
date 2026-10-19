@@ -39,7 +39,7 @@ import {
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
-import { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset } from "./full-presets.js";
+import { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset, captureHiccupHeadPresetState, applyHiccupHeadPresetState } from "./full-presets.js";
 
 import { createNativeSelectPicker } from "../../ui/patterns/native-select-picker.js";
 
@@ -8398,14 +8398,14 @@ const fullPresets = registerHeaderPresets({
   // Retain local face, sequence, sound-bank and skin editors. Header scenes
   // recall them together; the local sub-presets deliberately affect one part.
   capture: () => ({
-    state, pattern, currentPatternId, sequenceLength, currentSoundBankId,
+    state: captureHiccupHeadPresetState(state), pattern, currentPatternId, sequenceLength, currentSoundBankId,
     voiceCount, voiceSelectionMode, voiceSlots, faceEffectEnabled, eyebrowEmphasis, visualSkinId,
   }),
   apply(snapshot) {
     if (!visualSkinById.has(snapshot.visualSkinId)) {
       throw new TypeError("Unknown or unavailable Hiccup Head scene skin");
     }
-    const nextState = sanitizeHiccupHeadState(snapshot.state);
+    const nextState = applyHiccupHeadPresetState(snapshot.state, state);
     const nextPattern = normalizePatternColumns(clonePattern(snapshot.pattern));
     const nextVoices = snapshot.voiceSlots.map(slot => ({
       ...slot, voice: sanitizeHiccupHeadVoice(slot.voice),
