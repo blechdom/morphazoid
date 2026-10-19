@@ -4,6 +4,16 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	src/instruments/time-loom/time-loom-app.js
+copy+require	src/instruments/time-loom/time-loom.css
+copy+require	src/instruments/time-loom/time-loom-model.js
+copy+require	src/instruments/time-loom/time-loom-dsp.js
+copy+require	src/instruments/time-loom/time-loom-processor.js
+copy+require	src/instruments/time-loom/time-loom-audio.js
+copy+require	src/instruments/time-loom/time-loom-presets.js
+copy+require	src/instruments/time-loom/time-loom-renderer.js
+copy+require	assets/instruments/time-loom.webp
+copy+require	docs/time-loom.md
 copy+require	src/output-recorder.js
 copy+require	src/output-recorder-processor.js
 copy+require	src/output-recording-storage.js
@@ -984,6 +994,7 @@ copy+require	shape-synth.html
 copy+require	solid-synth.html
 copy+require	hyper-synth.html
 copy+require	moebius-synth.html
+copy+require	docs/moebius-interactions.md
 copy+require	klein-bottle-synth.html
 copy+require	tesselation.html
 copy+require	lattice-drum-machine.html
@@ -1061,9 +1072,14 @@ copy+require	src/families/branch-presets/initial-state.js
 copy+require	src/families/branch-presets/full-presets.js
 copy+require	src/families/graph-presets/initial-state.js
 copy+require	src/families/graph-presets/full-presets.js
+copy+require	src/families/graph-presets/rhythm-studies.js
+copy+require	src/instruments/graph-synth/expressive-presets.js
+copy+require	src/instruments/graph-drum-machine/expressive-presets.js
+copy+require	docs/graph-expressive-presets.md
 copy+require	src/families/experiments/automata-presets.js
 copy+require	src/instruments/lattice/initial-state.js
 copy+require	src/instruments/lattice/full-presets.js
+copy+require	src/instruments/lattice/rhythm-presets.js
 copy+require	src/families/geometry-presets/shape-sound.js
 copy+require	src/families/geometry-presets/shape-readers.js
 copy+require	src/families/geometry-presets/geometry-sound.js
@@ -1262,6 +1278,10 @@ copy+require	src/instruments/rubixoids/rubix/rubix-clock.js
 
 # L-Systems shared subdivision clock and timed Notes
 copy+require	src/instruments/l-systems/discrete-audio.js
+copy+require	src/instruments/l-systems/corners.js
+copy+require	src/instruments/l-systems/ensemble.js
+copy+require	docs/l-systems-ensemble.md
+copy+require	docs/l-systems-ensemble-runtime-changes.json
 
 copy+require	src/instruments/gesticulating-hand/hand-rhythm.js
 copy+require	src/instruments/gesticulating-hand/hand-output.js
@@ -2249,3 +2269,18 @@ copy+require	src/instruments/esi-32/esi-32-recorder.js
 copy+require	src/instruments/esi-32/esi-32.css
 copy+require	assets/instruments/esi-32.webp
 copy+require	docs/esi-32.md
+# Witch: authored page is emitted through src/pages/manifest.js.
+copy+require	src/instruments/witch/witch-app.js
+copy+require	src/instruments/witch/witch-audio.js
+copy+require	src/instruments/witch/witch-worklet.js
+copy+require	src/instruments/witch/witch-model.js
+copy+require	src/instruments/witch/witch-presets.js
+copy+require	src/instruments/witch/witch-renderer.js
+copy+require	src/instruments/witch/witch.css
+copy+require	assets/instruments/witch.webp
+copy+require	docs/witch.md
+
+# Compact shared mobile menubar
+copy+require	src/site/mobile-menubar.js
+copy+require	src/site/mobile-menubar.css
+copy+require	docs/mobile-menubar.md

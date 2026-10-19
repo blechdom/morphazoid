@@ -1,0 +1,88 @@
+{
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "replacements": [
+        {
+          "before": "  \"tape-worm.html\",",
+          "after": "  \"tape-worm.html\",\n  \"time-loom.html\","
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "replacements": [
+        {
+          "before": "    { id: \"tape-worm\", label: \"Tape Worm\", href: \"tape-worm.html\" },",
+          "after": "    { id: \"tape-worm\", label: \"Tape Worm\", href: \"tape-worm.html\" },\n    { id: \"time-loom\", label: \"Time Loom\", href: \"time-loom.html\" },"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "replacements": [
+        {
+          "before": "  \"loopini\": define(",
+          "after": "  \"time-loom\": define(\n    \"Knotted recording instrument\",\n    \"Three hanging cords hold recorded phrases. Slide knots to isolate loops, pull tassels to stretch time, read upward in reverse, and tie passages into a directed conversation.\",\n    \"Turn Audio on and Play the original demo. Slide two knots to choose a passage, pull its tassel, then tie it to another cord. Record a phrase or load your own audio.\",\n    [\"Microphone\", \"Audio file\", \"Looper\", \"Time stretch\", \"Reverse\", \"Pointer\", \"Touch\"],\n  ),\n  \"loopini\": define("
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "replacements": [
+        {
+          "before": "  \"tape-worm\": [],",
+          "after": "  \"tape-worm\": [],\n  \"time-loom\": [],"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "replacements": [
+        {
+          "before": "    \"tape-worm\",",
+          "after": "    \"tape-worm\",\n    \"time-loom\","
+        },
+        {
+          "before": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([",
+          "after": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"time-loom\","
+        },
+        {
+          "before": "const processorAudioIds = new Set([",
+          "after": "const processorAudioIds = new Set([\n  \"time-loom\","
+        },
+        {
+          "before": "const audioInputIds = new Set([",
+          "after": "const audioInputIds = new Set([\n  \"time-loom\","
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "replacements": [
+        {
+          "before": "  {\"route\": \"loopini.html\",",
+          "after": "  {\"route\": \"time-loom.html\", \"selector\": \"#stretch\", \"mapping\": {\"unit\": \"inverseMultiplier\", \"referenceBpm\": 120}, \"title\": \"Tap passage speed (120 BPM = original duration)\"},\n  {\"route\": \"loopini.html\","
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/output-recorder.js",
+          "after": "copy+require\tsrc/instruments/time-loom/time-loom-app.js\ncopy+require\tsrc/instruments/time-loom/time-loom.css\ncopy+require\tsrc/instruments/time-loom/time-loom-model.js\ncopy+require\tsrc/instruments/time-loom/time-loom-dsp.js\ncopy+require\tsrc/instruments/time-loom/time-loom-processor.js\ncopy+require\tsrc/instruments/time-loom/time-loom-audio.js\ncopy+require\tsrc/instruments/time-loom/time-loom-presets.js\ncopy+require\tsrc/instruments/time-loom/time-loom-renderer.js\ncopy+require\tassets/instruments/time-loom.webp\ncopy+require\tdocs/time-loom.md\ncopy+require\tsrc/output-recorder.js"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "replacements": [
+        {
+          "before": "# Morphazoid\n",
+          "after": "# Morphazoid\n\n**[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).\n"
+        }
+      ]
+    }
+  ]
+}

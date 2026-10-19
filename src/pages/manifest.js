@@ -193,6 +193,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "syrinx-ui.html",
   "syrinx.html",
   "tape-worm.html",
+  "time-loom.html",
   "tempo-tantrum.html",
   "tesselation.html",
   "throat-singing.html",
@@ -212,6 +213,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "webgpu-dsp-primitives.html",
   "webgpu-synths.html",
   "weierstrass.html",
+  "witch.html",
   "wobblini.html",
   "yoyodyne.html",
 ]);

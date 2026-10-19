@@ -1,0 +1,55 @@
+.witch-page { --witch-ink: #eae7dc; --witch-lime: #d4e8a2; --witch-muted: #aaa5b6; background: #100f1b; color: var(--witch-ink); }
+.witch-shell { display: grid; grid-template-columns: minmax(0, 1fr) 300px; width: 100%; max-width: 1700px; margin: 0 auto; min-height: calc(100dvh - 80px); }
+.witch-performance { min-width: 0; display: flex; flex-direction: column; }
+.witch-scene-switch { display: flex; gap: 6px; padding: 18px 28px 10px; }
+.witch-page button { font: inherit; cursor: pointer; }
+.witch-scene-switch button { display: flex; align-items: center; gap: 10px; min-height: 44px; border: 0; background: transparent; color: #b5adbf; padding: 8px 16px; border-radius: 4px; font-size: 13px; }
+.witch-scene-switch button span { font-size: 10px; color: #9d8baf; letter-spacing: .08em; }
+.witch-scene-switch button[aria-pressed="true"] { background: #292333; color: #f3e5cd; }
+.witch-viewport { position: relative; flex: 1; min-height: 360px; height: min(69vw, 730px); overflow: hidden; }
+.witch-viewport h1 { position: absolute; z-index: 1; top: 2.5%; left: 4.5%; margin: 0; color: #e4dfc5; font: 500 clamp(35px, 4.2vw, 62px)/1 Georgia, serif; letter-spacing: -.045em; pointer-events: none; }
+#witchCanvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: grab; }
+#witchCanvas:active { cursor: grabbing; }
+#witchCanvas:focus-visible { outline: 2px solid var(--witch-lime); outline-offset: -4px; }
+.witch-scene-caption { position: absolute; bottom: 4%; left: 4.5%; right: 4.5%; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; font-size: 12px; color: #c6c1bd; }
+.witch-scene-caption output { font-size: 11px; color: #abc6a8; text-align: right; }
+.witch-understage { padding: 7px 4.5% 18px; min-height: 58px; }
+.witch-understage p { margin: 4px 0; font-size: 12px; color: var(--witch-muted); line-height: 1.6; }
+.witch-understage #liveStatus { color: #e8b58e; }
+.witch-panel { padding: 20px; border-left: 1px solid #302b39; min-width: 0; background: #15131f; }
+.witch-panel .instrument-preset-controls { margin-bottom: 16px; }
+.witch-player { display: flex; gap: 8px; }
+.witch-player button { min-height: 48px; border: 1px solid #56495d; border-radius: 5px; color: #e7e3cd; background: #33283b; font-size: 12px; }
+#playButton { flex: 1; }
+#playButton[aria-pressed="true"] { background: #d4e8a2; color: #20251a; border-color: #d4e8a2; }
+#playGlyph { margin-right: 5px; font-size: 10px; }
+.witch-player .witch-reset { padding: 0 14px; background: transparent; }
+.witch-control-section { padding-top: 22px; }
+.witch-control-section h2 { color: #c6b4ce; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; margin: 0 0 14px; }
+.witch-select { display: grid; gap: 7px; font-size: 12px; color: #bcb7c2; }
+.witch-select select { width: 100%; min-height: 38px; color: #eee8da; background: #221d2b; border: 1px solid #46374e; border-radius: 4px; padding: 7px; font-size: 12px; }
+.witch-range { display: block; margin: 13px 0; font-size: 12px; color: #c2bdc9; }
+.witch-range > span { display: flex; justify-content: space-between; gap: 6px; }
+.witch-range output { font-size: 11px; color: #b2cd99; font-variant-numeric: tabular-nums; }
+.witch-range input { width: 100%; height: 22px; margin: 5px 0 0; accent-color: #b8c994; cursor: pointer; }
+.witch-finger-controls .witch-range { margin: 8px 0; }
+.witch-finger-controls input { margin-top: 2px; }
+.witch-wide { width: 100%; }
+.witch-wide, .witch-effects button, .witch-ingredients button { min-height: 36px; border: 1px solid #47394d; border-radius: 4px; background: #241e2c; color: #d9d2dc; font-size: 12px; }
+.witch-wide[aria-pressed="true"] { color: #e8b5db; border-color: #986e96; }
+.witch-effects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.witch-ingredients { display: flex; gap: 8px; }
+.witch-ingredients button { display: flex; flex: 1; justify-content: space-around; align-items: center; padding: 5px; }
+.witch-ingredients output { color: #b7cb95; font-size: 10px; }
+.witch-quiet { background: transparent; border: 0; color: #b8a9bf; font-size: 11px !important; padding: 8px 0; text-decoration: underline; text-underline-offset: 3px; }
+.witch-help { margin-top: 18px; font-size: 11px; color: #b8aebf; line-height: 1.6; }
+.witch-help summary { cursor: pointer; }
+.witch-help a { color: #d5c3e2; }
+.witch-page [hidden] { display: none !important; }
+.witch-page button:focus-visible, .witch-page select:focus-visible { outline: 2px solid #d4e8a2; outline-offset: 3px; }
+@media (min-width: 961px) { .witch-panel { max-height: calc(100dvh - 66px); overflow-y: auto; } .witch-shell { height: calc(100dvh - 66px); min-height: 620px; } }
+@media (max-width: 960px) { .witch-shell { grid-template-columns: minmax(0,1fr) 260px; } .witch-panel { padding: 16px; } .witch-scene-switch { padding: 12px 12px 6px; gap: 2px; } .witch-scene-switch button { padding: 8px; font-size: 12px; gap: 5px; } }
+@media (max-width: 600px) { .witch-shell { display: block; flex-shrink: 0; height: auto; min-height: 0; } .witch-scene-switch { justify-content: center; } .witch-viewport { height: 78vw; min-height: 280px; } .witch-viewport h1 { font-size: 35px; } .witch-scene-caption { font-size: 10px; bottom: 3%; } .witch-scene-caption output { font-size: 9px; max-width: 46%; } .witch-understage { padding-bottom: 8px; min-height: auto; } .witch-understage p { font-size: 11px; } .witch-panel { border-left: 0; border-top: 1px solid #302b39; padding: 14px 20px 28px; } .witch-player { position: sticky; top: 0; z-index: 2; background: #15131f; padding: 5px 0; } .witch-finger-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 18px; } .witch-scene-switch button { flex: 1; justify-content: center; } }
+@media (max-height: 500px) and (min-width: 601px) { .witch-shell { height: calc(100dvh - 58px); min-height: 260px; grid-template-columns: minmax(0,1fr) 250px; } .witch-panel { max-height: 100%; overflow-y: auto; padding: 10px 14px; } .witch-viewport { min-height: 180px; height: 100%; } .witch-scene-switch { padding: 0 10px; } .witch-scene-switch button { min-height: 36px; } .witch-understage { padding: 0 12px; min-height: 28px; } .witch-understage p { font-size: 10px; } .witch-viewport h1 { font-size: 30px; } .witch-scene-caption { bottom: 1%; font-size: 10px; } }
+@media (pointer: coarse) { .witch-page .audio-button, .witch-page #playButton { min-width: 48px; min-height: 48px; } .witch-effects button, .witch-ingredients button, .witch-wide { min-height: 44px; } }
+.witch-document, .witch-document body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }

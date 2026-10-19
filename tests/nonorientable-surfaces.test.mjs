@@ -13,6 +13,7 @@ import {
   moebiusSequenceFrame,
   moebiusSequencePulseWindow,
   planeOffsetForMeshPhase,
+  pointInProjectedSurface,
   sliceSurface,
   surfacePoint,
   trackSliceComponents,
@@ -495,9 +496,17 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
     assert.match(html, /id="audioButton"[^>]+aria-pressed="false"/);
     assert.match(html, /id="playButton"[^>]+data-primary-transport[^>]+aria-pressed="false"/);
     assert.match(html, /<canvas[\s\S]+?tabindex="0"[\s\S]+?role="application"/);
-    assert.match(html, /aria-describedby="surfaceInstructions liveStatus"/);
-    assert.match(html, /id="selectForm"[^>]+aria-pressed="false"/);
-    assert.match(html, /id="selectPlayhead"[^>]+aria-pressed="true"/);
+    if (kind === "klein") {
+      assert.match(html, /aria-describedby="surfaceInstructions liveStatus"/);
+      assert.match(html, /id="selectForm"[^>]+aria-pressed="false"/);
+      assert.match(html, /id="selectPlayhead"[^>]+aria-pressed="true"/);
+    } else {
+      assert.match(html, /aria-describedby="liveStatus"/);
+      assert.doesNotMatch(html, /id="(?:selectForm|selectPlayhead|sequenceState|stageReadout|surfaceInstructions)"/);
+      assert.doesNotMatch(html, /topology-legend|ONE SIDE|PLANE → SLICE CURVE/);
+      assert.match(html, /Quick setups · form \+ sound/);
+      assert.match(html, /Odd half-twists changes only the form/);
+    }
     assert.match(html, /id="resetAll"[^>]+data-reset-in-place/);
     assert.doesNotMatch(html, /\bautoplay\b/i);
     const mobileNavigation = html.match(
@@ -537,8 +546,6 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
   assert.match(moebius, /longitudinal seam joins each transverse coordinate to its opposite/);
   assert.match(moebius, /id="selectPlaneMode"/);
   assert.match(moebius, /id="selectSequenceMode"/);
-  assert.match(moebius, /id="sequenceState"/);
-  assert.doesNotMatch(moebius, /id="sequenceState"[^>]+aria-live/);
   assert.doesNotMatch(klein, /id="selectSequenceMode"/);
   assert.match(app, /new VoicePool\(12, \{ continuousPeakCeiling: 0\.72 \}\)/);
   assert.match(app, /SEQUENCE_LOOKAHEAD_SECONDS = 0\.1/);
@@ -568,7 +575,23 @@ test("Möbius and Klein pages expose the shared playable and lifecycle contracts
   assert.match(app, /void pool\.close\(\)/);
   assert.doesNotMatch(app, /wakeManualSound\(180\)/);
   assert.match(css, /\.topology-play-mode button\[aria-pressed="true"\]/);
-  assert.match(css, /\.topology-sequence-state\[hidden\]/);
+  assert.match(css, /\.direction-action\[hidden\]/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(css, /@media \(pointer: coarse\)/);
+});
+
+test("projected surface hit testing respects triangle winding, edges, holes and degeneracy", () => {
+  const vertices = [{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:0,y:4},
+    {x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}];
+  const triangles = [
+    {a:0,b:1,c:4},{a:1,b:5,c:4},{a:1,b:2,c:5},{a:2,b:6,c:5},
+    {a:2,b:3,c:6},{a:3,b:7,c:6},{a:3,b:0,c:7},{a:0,b:4,c:7},
+  ];
+  for (const faces of [triangles, triangles.map(({a,b,c})=>({a:c,b,c:a}))]) {
+    assert.equal(pointInProjectedSurface({x:.5,y:2},vertices,faces),true);
+    assert.equal(pointInProjectedSurface({x:0,y:0},vertices,faces),true);
+    assert.equal(pointInProjectedSurface({x:2,y:2},vertices,faces),false);
+    assert.equal(pointInProjectedSurface({x:5,y:2},vertices,faces),false);
+  }
+  assert.equal(pointInProjectedSurface({x:0,y:0},vertices,[{a:0,b:0,c:0}]),false);
 });

@@ -28,19 +28,29 @@ test("Notes first subdivision is a complete attack, not the old continuous bound
   assert.equal(first.pan, -0.9, "the leftmost position is not mistaken for missing data");
 });
 
-for (const subdivisions of Array.from({ length: 16 }, (_, i) => i + 1)) test(`subdivisions ${subdivisions}: every trunk marker including zero is admitted once`, () => {
-  const entries = cycle(clock({ traces: [{ ...traceLSystem({ axiom: "F" }), iteration: 1 }], subdivisions }));
-  assert.deepEqual(entries.map(({ event }) => event.subdivisionIndex), Array.from({ length: subdivisions }, (_, i) => i));
-  assert.equal(entries[0].startAt, 0.012);
-  for (let i = 1; i < entries.length; i++) assert.ok(entries[i].startAt > entries[i - 1].startAt);
+for (const readerMode of ["end-to-end", "regions"]) for (const subdivisions of Array.from({ length: 16 }, (_, i) => i + 1)) test(`${readerMode}, subdivisions ${subdivisions}: each visible reader admits every marker including zero once`, () => {
+  const readerCount = readerMode === "regions" ? 3 : 1;
+  const entries = cycle(clock({ traces: [{ ...traceLSystem({ axiom: "F".repeat(readerCount) }), iteration: 1 }], subdivisions, readerMode }));
+  for (let reader = 0; reader < readerCount; reader++) {
+    const own = entries.filter(({ event }) => event.reader === reader);
+    assert.deepEqual(own.map(({ event }) => event.subdivisionIndex), Array.from({ length: subdivisions }, (_, i) => i));
+    assert.equal(own[0].startAt, 0.012);
+    for (let i = 1; i < own.length; i++) assert.ok(own[i].startAt > own[i - 1].startAt);
+  }
+  assert.equal(new Set(entries.map(({event}) => event.key)).size, entries.length);
 });
 
 for (const structureMode of ["final", "sequence", "accumulate", "together", "canon"]) {
-  for (const direction of [1, -1]) test(`${structureMode}/${direction}: Notes and Triggers share the same ordered audio-clock events`, () => {
+  for (const direction of [1, -1]) test(`${structureMode}/${direction}: Notes and Triggers share the same visible subdivision frontier and clock`, () => {
     const options = { structureMode, direction, position: direction > 0 ? 0 : 1 - 1e-9 };
-    const notes = cycle(clock(options));
-    const triggers = cycle(clock(options));
-    assert.deepEqual(notes, triggers);
+    const notesClock = clock(options), triggersClock = clock({ ...options, playingMode: "triggers" });
+    const notes = [];
+    for (let now = 0; now < 1.9; now += .025) {
+      notes.push(...notesClock.read(now));
+      triggersClock.read(now);
+      assert.deepEqual(notesClock.activeEventKeys, triggersClock.activeEventKeys);
+      assert.deepEqual(notesClock.positionAt(now), triggersClock.positionAt(now));
+    }
     assert.ok(notes.some(entry => entry.event.subdivisionIndex === 0));
     assert.ok(notes.every(entry => Number.isFinite(entry.startAt) && entry.eventCount > 0));
     for (let i = 1; i < notes.length; i++) assert.ok(notes[i].startAt >= notes[i - 1].startAt - 1e-8);
@@ -221,5 +231,24 @@ test("note/envelope and structural parameter handlers never invalidate the playb
     const body = app.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))?.[0];
     assert.ok(body, name);
     assert.doesNotMatch(body, /invalidateDiscreteScheduler|cancelScheduled|releaseNotes|silence\(/, name);
+  }
+});
+
+
+test("scene restart seeks at the audio boundary, retains queued tails/budget, and triggers the root", () => {
+  for (const playingMode of ["notes", "triggers", "continuous"]) {
+    const c=clock({position:.5,readerMode:"regions",playingMode}); c.read(0);
+    const boundary=c.until, audible=c.positionAt(.06), budget=c.budget;
+    c.configure({position:0,direction:1,readerMode:"end-to-end",restart:true});
+    const events=c.read(.025);
+    assert.equal(c.budget,budget); assert.equal(c.readerMode,"end-to-end");
+    assert.deepEqual(c.positionAt(.06),audible);
+    assert.deepEqual(c.positionAt(boundary),{position:0,direction:1});
+    if (playingMode !== "continuous") {
+      assert.equal(events[0].startAt,boundary);
+      assert.equal(events[0].event.subdivisionIndex,0);
+      assert.equal(events[0].event.segmentIndex,0);
+      assert.equal(events[0].event.reader,0);
+    }
   }
 });

@@ -12,14 +12,16 @@ Route: `l-systems.html`. The original synth, drums and `l-mic.html` remain avail
 - Mic has its own 16-scene bank imported from L-System Delay's actual
   `MICMIC_FULL_PRESETS`. Main scenes never overwrite Mic sounds; Mic scenes never
   overwrite synth, trigger or envelope settings. Geometry is deliberately shared.
-- Recall/random retain Audio, Play, reader position and master level. Mic random
+- Recall/random retain Audio, Play and master level, including zero. Main scenes
+  begin at their direction-appropriate end; ordinary live edits retain phase.
+  See [readers, corners and branch articulation](l-systems-ensemble.md). Mic random
   also retains the user's input trim and Mic mix level. The ranges selected by
   presets/random are moderate, not restrictions on the instrument's controls.
 - Same-mode recall and live edits reconfigure the existing audio clock. They do
   not cancel the pending note window or sounding tails. Actual route changes
   prepare the selected engine; Audio and Play remain independently controlled.
-- Presets/random never ask for microphone permission. Explicit Audio or selecting
-  Mic while Audio is armed starts input. Leaving Mic releases its stream.
+- Presets/random never ask for microphone permission. The shared Mic control
+  explicitly starts input, independently of Audio. Leaving Mic releases its stream.
 
 ## Controls and sound
 
@@ -64,7 +66,7 @@ native graph per note. Notes/Triggers keep the existing 85ms lookahead, 25ms pol
 voices remain capped at128. Graph's physical engine additionally caps Karplus
 starts at24/second and Rattlesnake at240/second.
 
-Mic now owns **one stream and one AudioContext**. It preserves the original reader
+Mic owns **one stream** and shares the instrument's AudioContext. It preserves the original reader
 processor and adds Delay's existing raw-history granular generation processor;
 both collect the same live input so switching growth model does not reopen the
 device. Generation rendering is fixed at128 virtual taps with24 shifted pitch
@@ -100,7 +102,7 @@ Automated bounded signal/meter and continuity checks are **not human listening**
 Physical-phone CPU, real microphone feedback safety, musical preference, preset
 level matching by ear, and timbral acceptance remain unperformed.
 
-### Completed automated gate
+### Original preset rollout automated gate
 
 - Focused preset/Notes/suite/amendment/rollout tests: **77 passed**; toolbar-host
   contract tests: **3 passed**.

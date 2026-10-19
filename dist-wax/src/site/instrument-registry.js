@@ -13,6 +13,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "synthesis",
   "creaturazoid",
   "hybrinx",
+  "quadruped",
   "jaw-harp",
   "fractal-signals",
   "hyper-rubix",
@@ -177,6 +178,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
   ]),
   freezeGroup("wip", "Work in Progress", [
+    { id: "witch", label: "Witch", href: "witch.html" },
     { id: "wobblini", label: "Wobblini", href: "wobblini.html", imageHref: "assets/instruments/wobblini.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
@@ -254,6 +256,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "wasm-garden", label: "Volumetric Rain", href: "wasm-garden.html", imageHref: "assets/instruments/wasm-garden.webp", catalogue: false, browse: true, entryType: "lab" },
     { id: "tempo-tantrum", label: "Tempo Tantrum", href: "tempo-tantrum.html" },
     { id: "tape-worm", label: "Tape Worm", href: "tape-worm.html" },
+    { id: "time-loom", label: "Time Loom", href: "time-loom.html" },
     { id: "loop-soup", label: "Loop Soup", href: "loop-soup.html" },
     { id: "habit-habitat", label: "Habit Habitat", href: "habit-habitat.html" },
     { id: "hollowphonic", label: "Hollowphonic", href: "hollowphonic.html" },

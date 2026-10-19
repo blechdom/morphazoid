@@ -20,6 +20,7 @@ import {
   moebiusSequencePulseWindow,
   trackSliceComponents,
   planeOffsetForMeshPhase,
+  pointInProjectedSurface,
   sliceSurface,
   surfacePoint,
   wrap01,
@@ -225,6 +226,10 @@ let audioRequestGeneration = 0;
 let nextSequencePulse = null;
 let lastSequencePass = null;
 let sequenceSchedulerTimer = null;
+let sequenceAuditionTimer = null;
+let lastAuditionTime = -Infinity;
+let lastAuditionSignature = "";
+const SEQUENCE_AUDITION_INTERVAL_SECONDS = 0.06;
 let sequenceAnchorPhase = state.continuousPosition;
 let sequenceAnchorTime = performance.now() / 1_000;
 const SEQUENCE_LOOKAHEAD_SECONDS = 0.1;
@@ -806,12 +811,45 @@ function resetClocks() {
   lastAudioTime = pool.context?.currentTime ?? null;
 }
 
-function stopSequenceScheduler({ silence = false } = {}) {
+function stopSequenceScheduler({ silence = false, preserveAudition = false } = {}) {
   if (sequenceSchedulerTimer !== null) window.clearInterval(sequenceSchedulerTimer);
   sequenceSchedulerTimer = null;
+  if (sequenceAuditionTimer !== null) window.clearTimeout(sequenceAuditionTimer);
+  sequenceAuditionTimer = null;
+  if (!preserveAudition) {
+    lastAuditionTime = -Infinity;
+    lastAuditionSignature = "";
+  }
   nextSequencePulse = null;
   lastSequencePass = null;
   if (silence) pool.silence();
+}
+
+// Retiming invalidates only future notes. Existing attacks/tails keep their envelopes.
+function invalidateSequenceLookahead() {
+  stopSequenceScheduler({ preserveAudition: true });
+  pool.cancelScheduledNotes();
+}
+
+function auditionSequencePosition() {
+  if (!state.audio || !pool.context || !pageActive || document.hidden || !sequenceModeActive()) return;
+  const pulse = currentSequenceFrame().pulseOrdinal;
+  const signature = [pulse, state.baseFrequency, state.pitchRange, state.timbre,
+    state.stereoWidth, state.seamVoice].join(":");
+  if (signature === lastAuditionSignature) return;
+  const remaining = SEQUENCE_AUDITION_INTERVAL_SECONDS - (pool.context.currentTime - lastAuditionTime);
+  if (remaining > 0) {
+    if (sequenceAuditionTimer === null) {
+      sequenceAuditionTimer = window.setTimeout(() => {
+        sequenceAuditionTimer = null;
+        auditionSequencePosition();
+      }, remaining * 1_000);
+    }
+    return;
+  }
+  lastAuditionTime = pool.context.currentTime;
+  lastAuditionSignature = signature;
+  strikeSequencePulse(pulse, null, { manual: true });
 }
 
 function armSequenceAtCurrent({ audition = false } = {}) {
@@ -829,7 +867,7 @@ function sequenceWaveform() {
   return "sawtooth";
 }
 
-function strikeSequencePulse(pulse, requestedStartAt = null) {
+function strikeSequencePulse(pulse, requestedStartAt = null, { manual = false } = {}) {
   if (!state.audio || !pool.context || !sequenceModeActive()) return 0;
   const safePulse = Number.isFinite(Number(pulse)) ? Math.floor(Number(pulse)) : 0;
   const ordinal = Math.floor(safePulse / 2);
@@ -855,20 +893,26 @@ function strikeSequencePulse(pulse, requestedStartAt = null) {
   const decaySeconds = clamp(stepDuration * 0.68, 0.045, 0.22);
   const gain = Math.min(event.gain, pool.availableStrikeHeadroom(0.78));
   if (gain <= 0.0001) return 0;
-  return pool.strike({
+  const struck = pool.strike({
     key: `moebius:weave:${event.role}:${event.lane}`,
     frequency: event.frequency,
     gain,
     pan: event.pan,
     waveform: sequenceWaveform(),
   }, {
-    attackSeconds: 0.003 + state.timbre * 0.004,
+    attackSeconds: manual ? 0.012 : 0.003 + state.timbre * 0.004,
+    attackCurve: manual ? "smooth" : "exponential",
     decaySeconds,
     attackNoise: state.timbre * 0.12,
     startAt,
-    retriggerMode: "crossfade",
-    crossfadeSeconds: 0.012,
-  }) ? 1 : 0;
+    // Natural tails do not overlap same-key clock pulses. Manual scrubs may;
+    // let those tails finish so canceling a future pulse cannot truncate them.
+    retriggerMode: "overlap",
+  });
+  // Bound actual audio onsets, not JS callback timestamps (node creation can
+  // straddle an audio quantum). This only limits manual, not clocked pulses.
+  if (struck && manual) lastAuditionTime = startAt;
+  return struck ? 1 : 0;
 }
 
 function scheduleSequenceLookahead(phase = sequencePositionAt()) {
@@ -914,23 +958,8 @@ function startSequenceScheduler() {
 }
 
 function paintSequencePosition() {
-  const output = $("sequenceState");
-  if (!output || !sequenceModeActive()) return;
+  if (!sequenceModeActive()) return;
   const sequence = currentSequenceFrame();
-  const mapped = moebiusCounterpointEvents(sequence.ordinal, {
-    baseFrequency: state.baseFrequency,
-    pitchRange: state.pitchRange,
-    stereoWidth: state.stereoWidth,
-    seamVoice: state.seamVoice,
-  });
-  const activeEvent = mapped.events.find((event) => event.role === sequence.activeRole);
-  const activeCopy = !activeEvent
-    ? "NOW ANSWER REST"
-    : activeEvent.gain > 0.0001
-      ? `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()}`
-      : `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()} MUTED`;
-  const copy = `${sequence.shadow ? "PASS 2 / ORIENTATION B / SHADOW" : "PASS 1 / ORIENTATION A"} / STEP ${String(sequence.stepIndex + 1).padStart(2, "0")}/16 / ${activeCopy}`;
-  if (output.textContent !== copy) output.textContent = copy;
   canvas.dataset.sequencePass = String(sequence.passNumber);
   canvas.dataset.sequenceStep = String(sequence.stepIndex + 1);
   canvas.dataset.sequenceOrientation = String(sequence.orientation);
@@ -940,8 +969,7 @@ function paintSequencePosition() {
 function wakeManualSound(milliseconds = 240) {
   manualSoundUntil = Math.max(manualSoundUntil, performance.now() + milliseconds);
   if (sequenceModeActive()) {
-    const sequence = currentSequenceFrame();
-    if (state.audio) strikeSequencePulse(sequence.pulseOrdinal);
+    auditionSequencePosition();
     if (!Number.isFinite(nextSequencePulse)) {
       nextSequencePulse = Math.floor(
         sequencePositionAt() * MOEBIUS_SEQUENCE.stepsPerLap * 2,
@@ -992,19 +1020,25 @@ function paintTarget() {
   const activeTarget = sequenceModeActive() ? "form" : rotationTarget;
   setPressed($("selectForm"), activeTarget === "form");
   setPressed($("selectPlayhead"), activeTarget === "playhead");
-  $("selectPlayhead").disabled = sequenceModeActive();
+  if ($("selectPlayhead")) $("selectPlayhead").disabled = sequenceModeActive();
   stageWrap.classList.toggle("is-form-target", activeTarget === "form");
-}
-
-function setLegendCopy(markerSelector, copy) {
-  const item = document.querySelector(markerSelector)?.parentElement;
-  const textNode = Array.from(item?.childNodes ?? [])
-    .find((node) => node.nodeType === 3);
-  if (textNode) textNode.nodeValue = copy;
 }
 
 function controlCopy(id) {
   return $(id)?.closest("label")?.querySelector(".field-label, b");
+}
+
+function paintDirection() {
+  const button = $("directionButton");
+  const direction = state.direction > 0 ? "forward" : "reverse";
+  if (KIND === "klein") {
+    button.textContent = `Direction · ${direction}`;
+    return;
+  }
+  button.hidden = sequenceModeActive();
+  button.dataset.direction = direction;
+  button.title = `Direction: ${direction}; switch to ${state.direction > 0 ? "reverse" : "forward"}`;
+  button.setAttribute("aria-label", button.title);
 }
 
 function paintPlayMode() {
@@ -1014,11 +1048,7 @@ function paintPlayMode() {
   const sequence = sequenceModeActive();
   setPressed(planeButton, !sequence);
   setPressed(sequenceButton, sequence);
-  $("sequenceState").hidden = !sequence;
-  $("directionButton").disabled = sequence;
-  $("directionButton").textContent = sequence
-    ? "Direction / forward (fixed)"
-    : `Direction \u00b7 ${state.direction > 0 ? "forward" : "reverse"}`;
+  paintDirection();
   for (const id of ["planeYaw", "planePitch"]) $(id).disabled = sequence;
   $("soundMode").disabled = sequence;
   controlCopy("position").textContent = sequence ? "Ribbon position" : "Plane position";
@@ -1029,28 +1059,20 @@ function paintPlayMode() {
   controlCopy("timbre").textContent = sequence ? "Pulse color" : "Transverse color";
   controlCopy("stereoWidth").textContent = sequence ? "Lane stereo" : "Horizontal stereo";
   controlCopy("seamVoice").textContent = sequence ? "Answer level" : "Seam halo";
-  $("surfaceInstructions").textContent = sequence
-    ? "Space plays or pauses. Time stays forward. The slider scrubs this lap and its 100% endpoint crosses the seam; arrow keys step across it, and Home begins this pass. Cyan A and magenta B hocket the subject. Its quiet answer enters four stations later on the offbeat; pass 2 swaps role registers and inverts the pitch figure."
-    : "Space plays or pauses. Left/right arrows scrub the plane. Up/down arrows tilt it. Drag the selected Shape or 2D head in the stage.";
+  $("quickSetupNote").textContent = sequence
+    ? "Ribbon drift: broad, medium pace. Edge return: narrow, faster. Triple twist: three twists, slower. Setups also change register and pulse color; Odd half-twists changes only the form."
+    : "Ribbon drift: broad, medium FM. Edge return: narrow, faster sine. Triple twist: three twists, slow PM. These set form, speed and sound; Odd half-twists changes only the form.";
   const formInstructions = document.querySelector('[data-section="form"] .control-note');
   if (formInstructions) {
     formInstructions.textContent = sequence
       ? "Form controls reshape the visible strip only in Counterpoint weave; its pitch and rhythm stay keyed to sixteen intrinsic stations."
       : "The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.";
   }
-  const modeReadout = document.querySelector(".topology-identity > span");
-  if (modeReadout) {
-    modeReadout.textContent = sequence
-      ? "CROSSBAR \u2192 HOCKET \u2192 TWO-LAP INVERSION"
-      : "PLANE \u2192 SLICE CURVE \u2192 VOICE";
-  }
-  setLegendCopy(".legend-plane", sequence ? "crossbar A-B" : "2D playhead");
-  setLegendCopy(".legend-slice", sequence ? "pitch figures" : "sounding slice");
   canvas.setAttribute(
     "aria-label",
     sequence
-      ? "An edge-to-edge playhead crosses sixteen Mobius stations. Intrinsic cyan A and magenta B trade positions as the local frame reverses after pass 1; after pass 2 the next phrase returns to orientation A. Solid and dashed traces show the subject and answer; both mirror around the tonal axis on pass 2. Left and right arrows step, and Home begins the current pass."
-      : "A two-dimensional plane slices a Mobius band. Drag to rotate the selected band or playhead; use arrow keys to scrub and tilt the playhead.",
+      ? "An edge-to-edge playhead crosses sixteen Mobius stations. Intrinsic cyan A and magenta B trade positions as the local frame reverses after pass 1; after pass 2 the next phrase returns to orientation A. Solid and dashed traces show the subject and answer; both mirror around the tonal axis on pass 2. Drag to rotate the view; this mode has no free slicing plane. Left and right arrows step, and Home begins the current pass."
+      : "A two-dimensional plane slices a Mobius band. Drag outside the band to rotate the view; drag on the band to rotate the slicing plane. Arrow keys scrub and tilt the plane.",
   );
   stageWrap.dataset.playMode = sequence ? "sequence" : "plane";
   if (!sequence) {
@@ -1128,7 +1150,7 @@ function syncControls() {
   RANGE_BINDINGS.forEach(([id, key, formatter]) => syncRange(id, key, formatter));
   if ($("surfaceTwists")) $("surfaceTwists").value = String(state.surfaceTwists);
   $("soundMode").value = state.soundMode;
-  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+  paintDirection();
   paintAutoRotate();
   paintTransport();
   paintPlayMode();
@@ -1145,7 +1167,8 @@ $("position").addEventListener("input", (event) => {
   if (sequenceModeActive() && state.playing) {
     setSequenceTransportAnchor(sequencePositionAt());
   }
-  if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
+  const previousPulse = sequenceModeActive() ? currentSequenceFrame().pulseOrdinal : null;
+  if (sequenceModeActive()) invalidateSequenceLookahead();
   const next = Number(event.currentTarget.value);
   const current = wrap01(state.continuousPosition);
   state.continuousPosition += next - current;
@@ -1154,8 +1177,9 @@ $("position").addEventListener("input", (event) => {
   if (sequenceModeActive()) {
     setSequenceTransportAnchor(state.continuousPosition);
     armSequenceAtCurrent();
-    wakeManualSound();
+    if (!state.playing || currentSequenceFrame().pulseOrdinal !== previousPulse) wakeManualSound();
     startSequenceScheduler();
+    scheduleFrame();
   } else {
     wakeManualSound();
   }
@@ -1178,7 +1202,7 @@ RANGE_BINDINGS.forEach(([id, key, formatter, audible, rebuild]) => {
     const sequencePhase = sequenceModeActive() && state.playing
       ? sequencePositionAt()
       : state.continuousPosition;
-    if (sequenceEdit) stopSequenceScheduler({ silence: true });
+    if (sequenceEdit) invalidateSequenceLookahead();
 
     state[key] = Number(input.value);
     if (rebuild) meshCacheKey = "";
@@ -1193,8 +1217,10 @@ RANGE_BINDINGS.forEach(([id, key, formatter, audible, rebuild]) => {
     if (sequenceEdit) {
       setSequenceTransportAnchor(sequencePhase);
       armSequenceAtCurrent();
-      wakeManualSound();
+      // Rate changes never retrigger; live sound edits enter on the next pulse.
+      if (!state.playing && key !== "speed") wakeManualSound();
       startSequenceScheduler();
+      scheduleFrame();
     } else if (sequenceModeActive()) {
       scheduleFrame();
     } else if (audible) {
@@ -1253,6 +1279,8 @@ $("playButton").addEventListener("click", () => {
   resetClocks();
   if (sequence) {
     if (state.playing) {
+      // Play takes over from any coalesced paused scrub audition.
+      invalidateSequenceLookahead();
       armSequenceAtCurrent({ audition: state.audio });
       startSequenceScheduler();
     } else {
@@ -1272,7 +1300,7 @@ $("playButton").addEventListener("click", () => {
 $("directionButton").addEventListener("click", () => {
   if (sequenceModeActive()) return;
   state.direction *= -1;
-  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+  paintDirection();
   markCustom();
   announce(`Plane direction ${state.direction > 0 ? "forward" : "reverse"}.`);
   scheduleFrame();
@@ -1296,12 +1324,30 @@ function selectTarget(target, shouldAnnounce = true) {
   scheduleFrame();
 }
 
-$("selectForm").addEventListener("click", () => selectTarget("form"));
-$("selectPlayhead").addEventListener("click", () => selectTarget("playhead"));
+$("selectForm")?.addEventListener("click", () => selectTarget("form"));
+$("selectPlayhead")?.addEventListener("click", () => selectTarget("playhead"));
+
+function pointerTargetAt(event) {
+  if (sequenceModeActive()) return "form";
+  if (KIND !== "moebius") return rotationTarget;
+  const bounds = canvas.getBoundingClientRect();
+  const point = {
+    x: (event.clientX - bounds.left) * cssWidth / bounds.width,
+    y: (event.clientY - bounds.top) * cssHeight / bounds.height,
+  };
+  const mesh = currentMesh();
+  const transform = projectionTransform();
+  const vertices = mesh.vertices.map(vertex => {
+    const p = projected(vertex, transform);
+    return { x: p.canvasX, y: p.canvasY };
+  });
+  return pointInProjectedSurface(point, vertices, mesh.triangles) ? "playhead" : "form";
+}
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.isPrimary === false || (event.button ?? 0) !== 0) return;
-  const pointerTarget = sequenceModeActive() ? "form" : rotationTarget;
+  const pointerTarget = pointerTargetAt(event);
+  if (KIND === "moebius") selectTarget(pointerTarget, false);
   if (pointerTarget === "form") {
     state.autoRotate = false;
     paintAutoRotate();
@@ -1325,7 +1371,14 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 canvas.addEventListener("pointermove", (event) => {
-  if (!drag || event.pointerId !== drag.id) return;
+  if (!drag) {
+    if (KIND === "moebius" && event.pointerType !== "touch") {
+      const target = pointerTargetAt(event);
+      if (target !== rotationTarget) selectTarget(target, false);
+    }
+    return;
+  }
+  if (event.pointerId !== drag.id) return;
   const horizontal = event.clientX - drag.x;
   const vertical = event.clientY - drag.y;
   if (drag.target === "form") {
@@ -1385,7 +1438,7 @@ canvas.addEventListener("keydown", (event) => {
     && ["ArrowLeft", "ArrowRight", "Home"].includes(event.key);
   if (sequenceNavigation) {
     if (state.playing) setSequenceTransportAnchor(sequencePositionAt());
-    stopSequenceScheduler({ silence: true });
+    invalidateSequenceLookahead();
   }
   let handled = true;
   if (event.key === "ArrowLeft") {
@@ -1440,7 +1493,7 @@ document.querySelectorAll("[data-preset]").forEach((button) => {
     const sequencePhase = sequenceModeActive() && state.playing
       ? sequencePositionAt()
       : state.continuousPosition;
-    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
+    if (sequenceModeActive()) invalidateSequenceLookahead();
     Object.assign(state, preset);
     state.presetId = presetId;
     meshCacheKey = "";
@@ -1578,15 +1631,6 @@ function frame(now) {
     }
     lastSequencePass = sequence.passIndex;
     const sequenceManualActive = now < manualSoundUntil;
-    const sounding = state.audio && (
-      state.playing
-      || sequenceManualActive
-      || pool.activeStrikeCount > 0
-    );
-    const audioReadout = state.audio
-      ? `${sounding ? pool.activeStrikeCount : 0} ACTIVE STRIKES`
-      : "AUDIO OFF";
-    $("stageReadout").textContent = `${PAGE.shortLabel} / ${sequence.shadow ? "PASS 2 / ORIENTATION B / SHADOW" : "PASS 1 / ORIENTATION A"} / STEP ${String(sequence.stepIndex + 1).padStart(2, "0")}/16 / ${audioReadout}`;
     if (state.playing || state.autoRotate || sequenceManualActive) scheduleFrame();
     return;
   }
@@ -1632,7 +1676,7 @@ function frame(now) {
   const audioReadout = state.audio
     ? `${sounding ? voices.length : 0} VOICES`
     : "AUDIO OFF";
-  $("stageReadout").textContent = `${PAGE.shortLabel} · ${curveCount} CURVE${curveCount === 1 ? "" : "S"} / ${segmentCount} SEGMENTS · ${audioReadout}${slice.truncated ? " · CAPPED" : ""}`;
+  if ($("stageReadout")) $("stageReadout").textContent = `${PAGE.shortLabel} · ${curveCount} CURVE${curveCount === 1 ? "" : "S"} / ${segmentCount} SEGMENTS · ${audioReadout}${slice.truncated ? " · CAPPED" : ""}`;
 
   if (state.playing || state.autoRotate || manualActive) scheduleFrame();
 }
@@ -1713,7 +1757,7 @@ registerHeaderPresets({
     validateNonorientablePreset(KIND, snapshot);
     if (KIND === "moebius" && snapshot.playMode !== state.playMode) setPlayMode(snapshot.playMode);
     const sequencePhase = sequenceModeActive() && state.playing ? sequencePositionAt() : state.continuousPosition;
-    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });
+    if (sequenceModeActive()) invalidateSequenceLookahead();
     Object.assign(state, snapshot);
     state.presetId = "";
     meshCacheKey = "";
@@ -1722,8 +1766,9 @@ registerHeaderPresets({
     syncControls();
     if (sequenceModeActive()) {
       armSequenceAtCurrent();
-      wakeManualSound(320);
+      if (!state.playing) wakeManualSound(320);
       startSequenceScheduler();
+      scheduleFrame();
     } else {
       wakeManualSound(320);
     }

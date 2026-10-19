@@ -41,7 +41,7 @@ import { canvasSizing } from "../../graphics/canvas-sizing.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from "../graph-presets/full-presets.js";
 import {
-  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, randomizeGraphDrumPreset,
+  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, migrateGraphDrumPreset, randomizeGraphDrumPreset,
 } from "../graph-presets/drum-full-presets.js";
 
 const TAU = Math.PI * 2;
@@ -1885,7 +1885,7 @@ export function initializeGraphInstrument({
     button.addEventListener("click", () => loadPatch(button.dataset.graphPatch));
   }
   $("newGraphButton").addEventListener("click", () => {
-    state.seed = state.seed >= 99 ? 1 : Math.round(state.seed) + 1;
+    state.seed = state.seed >= 999 ? 1 : Math.round(state.seed) + 1;
     markCustom();
     syncControls();
     rebuildModel();
@@ -2218,9 +2218,11 @@ export function initializeGraphInstrument({
     registerHeaderPresets({
       id: "graph-drum-machine", presets: GRAPH_DRUM_FULL_PRESETS, randomize: randomizeGraphDrumPreset,
       document: documentObject, runtime,
-      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates),
-      apply(snapshot) {
+      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates, voices),
+      apply(savedSnapshot) {
+        const snapshot = migrateGraphDrumPreset(savedSnapshot, voices);
         const scene = graphDrumSceneGraph(snapshot);
+        voices.forEach((voice, index) => Object.assign(voice, snapshot.voices[index]));
         Object.assign(state, snapshot.parameters, { baseFrequency: midiFrequency(snapshot.parameters.seedNote), graphPatch: "" });
         model = scene.graph;
         displayModel = model;

@@ -1,0 +1,83 @@
+/* Desktop retains its authored layout. No audio or transport state is styled away. */
+.mobile-menubar-extras { display: none; }
+:root body .masthead.has-mobile-menubar .wordmark .mobile-menubar-brand { display: none; }
+@media (max-width: 720px), (max-width: 960px) and (max-height: 560px) and (orientation: landscape) {
+  :root body .masthead.has-mobile-menubar {
+    --mobile-menubar-control: 48px;
+    --audio-control-width: 48px;
+    display: flex; flex-wrap: nowrap; align-items: center;
+    height: auto; min-height: 56px; gap: 4px;
+    padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
+  }
+  :root body .masthead.has-mobile-menubar .wordmark {
+    display: inline-flex; justify-content: center; align-items: center;
+    flex: 0 0 32px; width: 32px; height: 48px; gap: 0;
+    overflow: hidden; font-size: 0;
+  }
+  :root body .masthead.has-mobile-menubar .wordmark > :not(.brand-mark) { display: none; }
+  :root body .masthead.has-mobile-menubar .wordmark .brand-mark {
+    display: block; width: 24px; height: 24px; flex: 0 0 24px;
+  }
+  :root body .masthead.has-mobile-menubar .tabs.tools-nav {
+    display: flex; flex: 0 0 40px; width: 40px; min-width: 0; margin: 0; gap: 0;
+    align-self: center;
+  }
+  :root body .masthead.has-mobile-menubar .tabs .instrument-picker { width: 100%; min-width: 0; }
+  :root body .masthead.has-mobile-menubar .tabs .instrument-picker-trigger {
+    display: flex; justify-content: center; align-items: center;
+    width: 40px; min-width: 0; height: 48px; padding: 0; gap: 0;
+  }
+  :root body .masthead.has-mobile-menubar .tabs .instrument-picker-current,
+  :root body .masthead.has-mobile-menubar .tabs .instrument-picker-next,
+  :root body .masthead.has-mobile-menubar .mobile-instrument-nav { display: none; }
+  :root body .masthead.has-mobile-menubar .header-io-controls {
+    display: flex; flex: 0 0 auto; flex-wrap: nowrap; align-items: center;
+    width: auto; min-width: 0; margin: 0 0 0 auto; gap: 4px;
+  }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-contents { display: contents; }
+  :root body .masthead.has-mobile-menubar .header-output-meter-shell {
+    flex: 0 0 28px; width: 28px; min-width: 0; height: 44px; margin: 0; gap: 3px; padding: 0;
+  }
+  :root body .masthead.has-mobile-menubar .header-output-meter-shell .header-output-meter { min-width: 0; }
+  :root body .masthead.has-mobile-menubar :is(.header-level.mz-range-knob, .output-recording-button.mz-button, .header-settings-trigger) {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: var(--mobile-menubar-control); min-width: var(--mobile-menubar-control);
+    height: 48px; min-height: 48px; flex: 0 0 var(--mobile-menubar-control); margin: 0; padding: 0;
+  }
+  :root body .masthead.has-mobile-menubar .audio-button {
+    width: 48px; min-width: 48px; height: 48px; min-height: 48px; flex: 0 0 48px; margin: 0 0 0 8px;
+  }
+  /* Match the disclosure's box to its 48px trigger on fine and coarse pointers. */
+  :root body .masthead.has-mobile-menubar .header-settings-menu {
+    flex: 0 0 auto; height: 48px; margin: 0; align-self: center;
+  }
+  :root body .masthead.has-mobile-menubar .header-settings-trigger { display: flex; }
+  :root body .masthead.has-mobile-menubar .output-recording-control {
+    position: relative; flex: 0 0 var(--mobile-menubar-control); width: var(--mobile-menubar-control); gap: 0;
+  }
+  :root body .masthead.has-mobile-menubar .output-recording-clock {
+    position: absolute; bottom: 1px; left: 0; right: 0; z-index: 1; pointer-events: none;
+    min-width: 0; text-align: center; font-size: 8px; line-height: 10px;
+  }
+  :root body .masthead.has-mobile-menubar .output-recording-control:has(.output-recording-clock:not([hidden])) .mz-button__icon { transform: translateY(-4px); }
+  :root body .masthead.has-mobile-menubar :is(.header-settings-panel, .tabs .instrument-picker-panel) {
+    position: fixed; top: var(--mobile-menubar-panel-top, 60px);
+    max-height: var(--mobile-menubar-panel-height, calc(100dvh - 68px));
+    width: min(380px, calc(100vw - 16px)); min-width: 0; overflow-y: auto;
+  }
+  :root body .masthead.has-mobile-menubar .tabs .instrument-picker-panel { left: 8px; right: auto; }
+  :root body .masthead.has-mobile-menubar .header-settings-panel { right: 8px; left: auto; }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extras { display: block; min-width: 0; }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extra-controls { display: grid; gap: 12px; min-width: 0; }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extra-controls > * { max-width: 100%; min-width: 0; }
+  :root body .masthead.has-mobile-menubar .mz-audio-input-strip[data-input-placement="settings"],
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extra-controls > .mz-audio-input-strip {
+    display: grid; grid-template-columns: 48px 28px 48px; gap: 8px;
+    width: auto; margin: 0; padding: 0;
+  }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extra-controls .mz-input-source { grid-column: 1 / -1; width: 100%; }
+  :root body .masthead.has-mobile-menubar .mobile-menubar-extra-controls .mz-input-file { grid-column: 1 / -1; }
+}
+@media (max-width: 360px) {
+  :root body .masthead.has-mobile-menubar { --mobile-menubar-control: 40px; }
+}

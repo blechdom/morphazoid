@@ -10,6 +10,12 @@ export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.cate
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  { id: "time-loom", label: "Time Loom", href: "time-loom.html", imageHref: "assets/instruments/time-loom.webp",
+    categoryId: "wip", categoryLabel: "Work in Progress", tags: [] },
+  // October 18: a cauldron voice, five instrumental fingers and musical broom flight.
+  { id: 'witch', label: 'Witch', href: 'witch.html', imageHref: 'assets/instruments/witch.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'voice', label: 'Voice' }, { id: 'graphic-ui', label: 'Graphic-UI' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
   // October 15: eight-deck Wobblini; October 16 owner request removes looping.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
@@ -86,6 +92,8 @@ reordered.splice(reordered.indexOf("hiccup-head") + 1, 0, "synthesis");
 reordered.splice(reordered.indexOf("micmic") + 1, 0, "micmic-rust");
 // Owner follow-up October 11: Fractal Delay joins the related delay in Faves.
 reordered.splice(reordered.indexOf("micmic-rust") + 1, 0, "fractal-delay");
+// Owner follow-up October 12: Quadruped joins the creature instruments in Faves.
+reordered.splice(reordered.indexOf("hybrinx") + 1, 0, "quadruped");
 // Shapes replaces the three individual geometry instruments in the first
 // Faves section. Their ordinary Geometric catalogue records remain intact.
 export const expectedFaveToolIds = Object.freeze([

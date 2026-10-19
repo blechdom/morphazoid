@@ -136,6 +136,14 @@ export function createAudioInputStrip(options = {}, doc = globalThis.document) {
   let lastError = "";
   const placeError = () => {
     if (error.hidden || !button.getBoundingClientRect) return;
+    // A mobile input may now live inside Settings. Keep its popup in that
+    // disclosure so Retry/Dismiss do not count as outside clicks or blur it.
+    if (root.closest?.('details:not([open])')) { dismissError(); return; }
+    const parent = root.closest?.('.header-settings-panel') ?? doc.body;
+    if (parent && error.parentNode !== parent) {
+      parent.append(error);
+      if (topLayer && !error.matches(':popover-open')) error.showPopover();
+    }
     const viewport = runtime.visualViewport;
     const width = viewport?.width ?? (doc.documentElement?.clientWidth || runtime.innerWidth || 390);
     const height = viewport?.height ?? (doc.documentElement?.clientHeight || runtime.innerHeight || 844);
@@ -170,10 +178,12 @@ export function createAudioInputStrip(options = {}, doc = globalThis.document) {
     if (event.key === "Escape" && !error.hidden) dismissError(error.contains(doc.activeElement));
   };
   const scrollError = (event) => { if (!error.contains(event.target)) placeError(); };
+  const toggleError = event => { if (event.target.contains?.(root)) placeError(); };
   retry.addEventListener("click", retryError);
   dismiss.addEventListener("click", closeError);
   doc.addEventListener?.("pointerdown", outsideError);
   doc.addEventListener?.("keydown", escapeError);
+  doc.addEventListener?.("toggle", toggleError, true);
   doc.addEventListener?.("scroll", scrollError, { capture: true, passive: true });
   runtime.addEventListener?.("resize", placeError);
   runtime.visualViewport?.addEventListener("resize", placeError);
@@ -225,7 +235,8 @@ export function createAudioInputStrip(options = {}, doc = globalThis.document) {
     errorMessage.textContent = /denied|blocked|notallowed/i.test(full) ? "Mic blocked" : "Input unavailable";
     error.title = full;
     // Mount outside the strip so errors cannot resize or clip its controls.
-    if (doc.body && error.parentNode !== doc.body) doc.body.append(error);
+    const parent = root.closest?.(".header-settings-panel") ?? doc.body;
+    if (parent && error.parentNode !== parent) parent.append(error);
     error.hidden = false;
     if (topLayer && !error.matches(":popover-open")) error.showPopover();
     placeError();
@@ -253,6 +264,7 @@ export function createAudioInputStrip(options = {}, doc = globalThis.document) {
       dismiss.removeEventListener("click", closeError);
       doc.removeEventListener?.("pointerdown", outsideError);
       doc.removeEventListener?.("keydown", escapeError);
+      doc.removeEventListener?.("toggle", toggleError, true);
       doc.removeEventListener?.("scroll", scrollError, { capture: true });
       runtime.removeEventListener?.("resize", placeError);
       runtime.visualViewport?.removeEventListener("resize", placeError);

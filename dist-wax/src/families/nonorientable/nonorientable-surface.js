@@ -762,3 +762,15 @@ export function trackSliceComponents(
     nextId: availableId,
   };
 }
+
+/** Hit the actual projected surface, not its bounding box (the hole stays empty). */
+export function pointInProjectedSurface(point, vertices, triangles) {
+  const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  return triangles.some(({ a, b, c }) => {
+    const first = vertices[a], second = vertices[b], third = vertices[c];
+    const area = cross(first, second, third);
+    if (!Number.isFinite(area) || Math.abs(area) < 1e-8) return false;
+    const sides = [cross(first, second, point), cross(second, third, point), cross(third, first, point)];
+    return sides.every(value => value >= -1e-8) || sides.every(value => value <= 1e-8);
+  });
+}

@@ -1,0 +1,523 @@
+{
+  "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+  "changes": [
+    {
+      "file": "src/instruments/creaturazoid/creaturazoid-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "464b37009b53bf6b48635faf89098d6a56534f489fa0aa1244d1949f1ab8590b",
+      "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
+      "regressionTests": [
+        "tests/creature-preset-level.test.mjs",
+        "tests/lattice-rhythm-presets.test.mjs",
+        "e2e/full-instrument-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { tongueAirwayAperture } from \"../../families/syrinx/tongue-physics.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { CREATURAZOID_FULL_PRESETS, randomizeCreaturazoidPreset } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+          "after": "import { tongueAirwayAperture } from \"../../families/syrinx/tongue-physics.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { CREATURAZOID_FULL_PRESETS, randomizeCreaturazoidPreset, captureCreaturazoidPresetState, applyCreaturazoidPresetState } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+        },
+        {
+          "before": "  // Body and rhythm are independent editors at their original locations.\n  // The header recalls both; it must not take these sub-preset controls away.\n  capture: () => ({ state, pattern, currentPatternId, modulationTarget }),\n  apply(snapshot) {\n    // Prepare both halves before mutation; live transport and its clock are not\n    // part of the snapshot and are never stopped/recreated by a preset.\n    const nextState = sanitizeCreaturazoidState(snapshot.state);\n    const nextPattern = sanitizeCreaturazoidPattern(snapshot.pattern, snapshot.pattern.length);\n    state = nextState;\n",
+          "after": "  // Body and rhythm are independent editors at their original locations.\n  // The header recalls both; it must not take these sub-preset controls away.\n  capture: () => ({ state: captureCreaturazoidPresetState(state), pattern, currentPatternId, modulationTarget }),\n  apply(snapshot) {\n    // Prepare both halves before mutation; live transport and its clock are not\n    // part of the snapshot and are never stopped/recreated by a preset.\n    const nextState = applyCreaturazoidPresetState(snapshot.state, state);\n    const nextPattern = sanitizeCreaturazoidPattern(snapshot.pattern, snapshot.pattern.length);\n    state = nextState;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/creaturazoid/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "d62e7572dc1e356c4818e022607b74dd94e27dd1738854659198c2662dac79ee",
+      "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
+      "regressionTests": [
+        "tests/creature-preset-level.test.mjs",
+        "tests/lattice-rhythm-presets.test.mjs",
+        "e2e/full-instrument-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { CONTROL_LIMITS } from \"../../families/syrinx/syrinx.js\";\nimport { presetRandom, randomParameterValues, randomMonophonicRows } from \"../../site/preset-random.js\";\n\n// Deliberate complete performances using every original body and rhythm.\n",
+          "after": "import { CONTROL_LIMITS } from \"../../families/syrinx/syrinx.js\";\nimport { presetRandom, randomParameterValues, randomMonophonicRows } from \"../../site/preset-random.js\";\n\n// Master volume belongs to the performer, not to a musical scene.\nexport function captureCreaturazoidPresetState(state) {\n  const { level, ...musicalState } = state;\n  return musicalState;\n}\n\nexport function applyCreaturazoidPresetState(presetState, liveState) {\n  // Old snapshots may still contain level. Ignore it, including when muted.\n  return sanitizeCreaturazoidState({ ...presetState, level: liveState.level });\n}\n\n// Deliberate complete performances using every original body and rhythm.\n"
+        },
+        {
+          "before": "export const CREATURAZOID_FULL_PRESETS = Object.freeze(scenes.map(([id, label, bodyId, rhythmId, tempo, swing, overrides]) => {\n  const rhythm = creaturazoidSequencePreset(rhythmId);\n  const state = creaturazoidState(bodyId, {\n    ...overrides, tempo, swing, level: 0.48,\n    sequencePresetId: rhythm.id, patternLength: rhythm.length,\n  });\n  return Object.freeze({\n    id, label,\n",
+          "after": "export const CREATURAZOID_FULL_PRESETS = Object.freeze(scenes.map(([id, label, bodyId, rhythmId, tempo, swing, overrides]) => {\n  const rhythm = creaturazoidSequencePreset(rhythmId);\n  const state = captureCreaturazoidPresetState(creaturazoidState(bodyId, {\n    ...overrides, tempo, swing,\n    sequencePresetId: rhythm.id, patternLength: rhythm.length,\n  }));\n  return Object.freeze({\n    id, label,\n"
+        },
+        {
+          "before": "  const rng = presetRandom(random);\n  const patternLength = rng.integer(8, 64);\n  const state = sanitizeCreaturazoidState({\n    ...current.state,\n    // This ID also selects body-motion envelopes/palette and reference scaling;\n",
+          "after": "  const rng = presetRandom(random);\n  const patternLength = rng.integer(8, 64);\n  const state = captureCreaturazoidPresetState(sanitizeCreaturazoidState({\n    ...current.state,\n    // This ID also selects body-motion envelopes/palette and reference scaling;\n"
+        },
+        {
+          "before": "      modulationRateHz: [0, 12], modulationDepth: [0, 0.8],\n    }, rng),\n    level: current.state.level, tempo: rng.integer(60, 220), patternLength,\n    bodyShape: {\n      ...randomParameterValues(CREATURAZOID_SHAPE_LIMITS, rng),\n",
+          "after": "      modulationRateHz: [0, 12], modulationDepth: [0, 0.8],\n    }, rng),\n    tempo: rng.integer(60, 220), patternLength,\n    bodyShape: {\n      ...randomParameterValues(CREATURAZOID_SHAPE_LIMITS, rng),\n"
+        },
+        {
+          "before": "    modulationShape: rng.pick(CREATURAZOID_MODULATION_SHAPES),\n    modulationTarget: rng.pick([\"cavity\", \"roughness\", \"beak\", \"pressure\", \"split\", \"balance\"]),\n  });\n  return {\n    state, currentPatternId: \"custom\", modulationTarget: state.modulationTarget,\n",
+          "after": "    modulationShape: rng.pick(CREATURAZOID_MODULATION_SHAPES),\n    modulationTarget: rng.pick([\"cavity\", \"roughness\", \"beak\", \"pressure\", \"split\", \"balance\"]),\n  }));\n  return {\n    state, currentPatternId: \"custom\", modulationTarget: state.modulationTarget,\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/hiccup-head/hiccup-head-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "b2775b1fa7303742d5826ccb9bdd7128c5343eea852c81cb8dedc7606af62271",
+      "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
+      "regressionTests": [
+        "tests/creature-preset-level.test.mjs",
+        "tests/lattice-rhythm-presets.test.mjs",
+        "e2e/full-instrument-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { unlockAudioContext } from \"../../audio.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset } from \"./full-presets.js\";\n\nimport { createNativeSelectPicker } from \"../../ui/patterns/native-select-picker.js\";\n",
+          "after": "import { unlockAudioContext } from \"../../audio.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { HICCUP_HEAD_FULL_PRESETS, randomizeHiccupHeadPreset, captureHiccupHeadPresetState, applyHiccupHeadPresetState } from \"./full-presets.js\";\n\nimport { createNativeSelectPicker } from \"../../ui/patterns/native-select-picker.js\";\n"
+        },
+        {
+          "before": "  // recall them together; the local sub-presets deliberately affect one part.\n  capture: () => ({\n    state, pattern, currentPatternId, sequenceLength, currentSoundBankId,\n    voiceCount, voiceSelectionMode, voiceSlots, faceEffectEnabled, eyebrowEmphasis, visualSkinId,\n  }),\n",
+          "after": "  // recall them together; the local sub-presets deliberately affect one part.\n  capture: () => ({\n    state: captureHiccupHeadPresetState(state), pattern, currentPatternId, sequenceLength, currentSoundBankId,\n    voiceCount, voiceSelectionMode, voiceSlots, faceEffectEnabled, eyebrowEmphasis, visualSkinId,\n  }),\n"
+        },
+        {
+          "before": "      throw new TypeError(\"Unknown or unavailable Hiccup Head scene skin\");\n    }\n    const nextState = sanitizeHiccupHeadState(snapshot.state);\n    const nextPattern = normalizePatternColumns(clonePattern(snapshot.pattern));\n    const nextVoices = snapshot.voiceSlots.map(slot => ({\n",
+          "after": "      throw new TypeError(\"Unknown or unavailable Hiccup Head scene skin\");\n    }\n    const nextState = applyHiccupHeadPresetState(snapshot.state, state);\n    const nextPattern = normalizePatternColumns(clonePattern(snapshot.pattern));\n    const nextVoices = snapshot.voiceSlots.map(slot => ({\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/hiccup-head/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "adbdf5d6e56968e1b4714ef76126ace5aed403394b56b0744a9167b225696ae5",
+      "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
+      "regressionTests": [
+        "tests/creature-preset-level.test.mjs",
+        "tests/lattice-rhythm-presets.test.mjs",
+        "e2e/full-instrument-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "} from \"./hiccup-head.js\";\nimport { presetRandom, randomParameterValues, randomMonophonicRows } from \"../../site/preset-random.js\";\n\n// Complete scenes cover all existing face and rhythm choices and all seven\n",
+          "after": "} from \"./hiccup-head.js\";\nimport { presetRandom, randomParameterValues, randomMonophonicRows } from \"../../site/preset-random.js\";\n\n// Master volume belongs to the performer, not to a musical scene.\nexport function captureHiccupHeadPresetState(state) {\n  const { level, ...musicalState } = state;\n  return musicalState;\n}\n\nexport function applyHiccupHeadPresetState(presetState, liveState) {\n  // Ignore a saved level in older snapshots; zero remains a deliberate mute.\n  return sanitizeHiccupHeadState({ ...presetState, level: liveState.level });\n}\n\n// Complete scenes cover all existing face and rhythm choices and all seven\n"
+        },
+        {
+          "before": "    description: `${hiccupHeadSoundBank(bank).label}, ${effectScene} effects, ${visualSkinId} skin, complete face/voices and ${tempo} BPM. No automatic Audio, Play or camera.`,\n    snapshot: {\n      state: hiccupHeadState(face, { ...effectScenes[effectScene], patternId: rhythm, tempo, swing, level: 0.62 }),\n      pattern, currentPatternId: rhythm, sequenceLength: Math.max(16, Math.ceil((lastStep + 1) / 16) * 16),\n      currentSoundBankId: bank, voiceCount: 4, voiceSelectionMode: \"round-robin\",\n",
+          "after": "    description: `${hiccupHeadSoundBank(bank).label}, ${effectScene} effects, ${visualSkinId} skin, complete face/voices and ${tempo} BPM. No automatic Audio, Play or camera.`,\n    snapshot: {\n      state: captureHiccupHeadPresetState(hiccupHeadState(face, { ...effectScenes[effectScene], patternId: rhythm, tempo, swing })),\n      pattern, currentPatternId: rhythm, sequenceLength: Math.max(16, Math.ceil((lastStep + 1) / 16) * 16),\n      currentSoundBankId: bank, voiceCount: 4, voiceSelectionMode: \"round-robin\",\n"
+        },
+        {
+          "before": "export function randomizeHiccupHeadPreset(current, random = Math.random) {\n  const rng = presetRandom(random);\n  const state = sanitizeHiccupHeadState({\n    ...current.state, // IDs are provenance; every numeric musical field is rolled below.\n    ...randomParameterValues({\n",
+          "after": "export function randomizeHiccupHeadPreset(current, random = Math.random) {\n  const rng = presetRandom(random);\n  const state = captureHiccupHeadPresetState(sanitizeHiccupHeadState({\n    ...current.state, // IDs are provenance; every numeric musical field is rolled below.\n    ...randomParameterValues({\n"
+        },
+        {
+          "before": "      swing: [0, 0.35], humanize: [0, 0.2],\n    }, rng),\n    level: current.state.level, tempo: rng.integer(60, 240),\n  });\n  const sequenceLength = rng.integer(8, 64), voiceCount = rng.integer(1, 8);\n  const solo = rng.unit() < 0.25 ? rng.integer(0, voiceCount - 1) : -1;\n",
+          "after": "      swing: [0, 0.35], humanize: [0, 0.2],\n    }, rng),\n    tempo: rng.integer(60, 240),\n  }));\n  const sequenceLength = rng.integer(8, 64), voiceCount = rng.integer(1, 8);\n  const solo = rng.unit() < 0.25 ? rng.integer(0, voiceCount - 1) : -1;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/lattice/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "2ba4dfeb036a2a0495883169b4a3d7a0b106516d3b3f90440d0102469d87d108",
+      "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
+      "regressionTests": [
+        "tests/creature-preset-level.test.mjs",
+        "tests/lattice-rhythm-presets.test.mjs",
+        "e2e/full-instrument-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { TILING_TYPES, tilingInfo, tilingParameterRange, constrainPrototileEdit, prototileIsNonOverlapping } from \"./lattice.js\";\nimport { EdgeShape } from \"../../../vendor/tactile/tactile.js\";\n",
+          "after": "import { latticeRhythmStudies } from \"./rhythm-presets.js\";\nimport { TILING_TYPES, tilingInfo, tilingParameterRange, constrainPrototileEdit, prototileIsNonOverlapping } from \"./lattice.js\";\nimport { EdgeShape } from \"../../../vendor/tactile/tactile.js\";\n"
+        },
+        {
+          "before": "  [77, \"Triangle \u00b7 Endless lace\", \"shepard\", 0.065, 130, -0.07, \"pad\", 80],\n];\nexport const LATTICE_FULL_PRESETS = Object.freeze(scenes.map(([type, label, mode, speed, angle, bend, envelope, bearing], index) => {\n  const info = tilingInfo(type), currentEdgeCurves = info.edgeShapes.map(() => 0);\n  const guarded = constrainPrototileEdit({ type, currentParameters: [...info.defaultParameters], currentEdgeCurves,\n",
+          "after": "  [77, \"Triangle \u00b7 Endless lace\", \"shepard\", 0.065, 130, -0.07, \"pad\", 80],\n];\nexport const LATTICE_ORIGINAL_PRESETS = Object.freeze(scenes.map(([type, label, mode, speed, angle, bend, envelope, bearing], index) => {\n  const info = tilingInfo(type), currentEdgeCurves = info.edgeShapes.map(() => 0);\n  const guarded = constrainPrototileEdit({ type, currentParameters: [...info.defaultParameters], currentEdgeCurves,\n"
+        },
+        {
+          "before": "    snapshot: validateLatticePreset(captureLatticePreset(state, { enabled: true, swell: false, preset: envelope, level: 1, points: percussionEnvelopePreset(envelope) })) };\n}));\nexport function randomizeLatticePreset(current, random = Math.random) {\n  const rng = presetRandom(random), info = rng.pick(TILING_TYPES);\n",
+          "after": "    snapshot: validateLatticePreset(captureLatticePreset(state, { enabled: true, swell: false, preset: envelope, level: 1, points: percussionEnvelopePreset(envelope) })) };\n}));\n// Retain the original IDs and snapshots alongside the new right-angle studies.\nexport const LATTICE_RHYTHM_PRESETS = Object.freeze(latticeRhythmStudies().map(({ id, label, description, state, envelope }) => ({\n  id, label, description, snapshot: validateLatticePreset(captureLatticePreset(state, envelope)),\n})));\nexport const LATTICE_FULL_PRESETS = Object.freeze([...LATTICE_RHYTHM_PRESETS, ...LATTICE_ORIGINAL_PRESETS]);\n\nexport function randomizeLatticePreset(current, random = Math.random) {\n  const rng = presetRandom(random), info = rng.pick(TILING_TYPES);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/graph-presets/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "ca85242ed4edcbf8da6622f1087b8ac45baeb8d385715a6189116d05a38039b1",
+      "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
+      "regressionTests": [
+        "tests/graph-expressive-presets.test.mjs",
+        "tests/graph-drum-machine-presets.test.mjs",
+        "e2e/graph-expressive-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { clonePresetData, presetRandom, randomParameterValues } from \"../../site/preset-random.js\";\nimport { presetStateKey } from \"../../site/header-presets.js\";\nexport { GRAPH_DELAY_INITIAL_STATE };\n\n",
+          "after": "import { clonePresetData, presetRandom, randomParameterValues } from \"../../site/preset-random.js\";\nimport { presetStateKey } from \"../../site/header-presets.js\";\nimport { graphSynthExpressiveStudies } from \"../../instruments/graph-synth/expressive-presets.js\";\nexport { GRAPH_DELAY_INITIAL_STATE };\n\n"
+        },
+        {
+          "before": "  const names = [\"First paths\", \"Soft footsteps\", \"Wooden choir\", \"Phase bells\", \"Brass shortcuts\", \"Endless spokes\",\n    \"Pulse fabric\", \"Island replies\", \"Slow sweet path\", \"Nasty ring\", \"Fast branch chase\", \"Backward garden\"];\n  return patchIds.map((id, index) => {\n    const patch = GRAPH_INSTRUMENT_PATCHES[id], p = { ...defaults, graphPatch: id };\n    for (const key of [\"topology\", \"nodeCount\", \"density\", \"seed\", \"baseDelay\", \"distanceRatio\", \"timeCurve\", \"nodePass\", \"feedback\", \"feedbackTone\", \"tempo\"]) if (patch[key] !== undefined) p[key] = patch[key];\n",
+          "after": "  const names = [\"First paths\", \"Soft footsteps\", \"Wooden choir\", \"Phase bells\", \"Brass shortcuts\", \"Endless spokes\",\n    \"Pulse fabric\", \"Island replies\", \"Slow sweet path\", \"Nasty ring\", \"Fast branch chase\", \"Backward garden\"];\n  const original = patchIds.map((id, index) => {\n    const patch = GRAPH_INSTRUMENT_PATCHES[id], p = { ...defaults, graphPatch: id };\n    for (const key of [\"topology\", \"nodeCount\", \"density\", \"seed\", \"baseDelay\", \"distanceRatio\", \"timeCurve\", \"nodePass\", \"feedback\", \"feedbackTone\", \"tempo\"]) if (patch[key] !== undefined) p[key] = patch[key];\n"
+        },
+        {
+          "before": "      snapshot: validateGraphSynthPreset({ parameters: select(p, graphSynthPresetKeys(defaults)), graph, edgeSwitches: switches(graph) }, defaults) };\n  });\n}\nexport function randomizeGraphSynthPreset(current, random = Math.random) {\n",
+          "after": "      snapshot: validateGraphSynthPreset({ parameters: select(p, graphSynthPresetKeys(defaults)), graph, edgeSwitches: switches(graph) }, defaults) };\n  });\n  const studies = graphSynthExpressiveStudies(defaults).map(({ id, label, description, parameters, graph }) => ({\n    id, label, description,\n    snapshot: validateGraphSynthPreset(captureGraphSynthPreset(parameters, graph, new Map(Object.entries(switches(graph))), defaults), defaults),\n  }));\n  return [...original, ...studies];\n}\nexport function randomizeGraphSynthPreset(current, random = Math.random) {\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/graph-presets/drum-full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "6c28990d78a479ac8be4a2d892727aac56503caf2b70a2eb53d22c4a7ad23731",
+      "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
+      "regressionTests": [
+        "tests/graph-expressive-presets.test.mjs",
+        "tests/graph-drum-machine-presets.test.mjs",
+        "e2e/graph-expressive-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { presetStateKey } from \"../../site/header-presets.js\";\nimport { presetRandom } from \"../../site/preset-random.js\";\n\nconst TOPOLOGIES = Object.freeze(Object.keys(GRAPH_PRESETS));\n",
+          "after": "import { presetStateKey } from \"../../site/header-presets.js\";\nimport { presetRandom } from \"../../site/preset-random.js\";\nimport { cloneDefaultFmDrumVoices } from \"../../instruments/fm-drums/fm-drums.js\";\nimport { captureFmDrumPreset, randomizeFmDrumPreset, validateFmDrumPreset } from \"../../instruments/fm-drums/full-presets.js\";\nimport { graphDrumExpressiveStudies } from \"../../instruments/graph-drum-machine/expressive-presets.js\";\n\nexport const GRAPH_DRUM_PRESET_VERSION = 2;\n\nconst TOPOLOGIES = Object.freeze(Object.keys(GRAPH_PRESETS));\n"
+        },
+        {
+          "before": "    nodeCount: integer(raw.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10),\n    density: quantize(raw.density, 0, 1, 0.01, 0.34),\n    seed: integer(raw.seed, 1, 99, 17),\n    baseDelay: integer(raw.baseDelay, 20, 600, 62),\n    distanceRatio: quantize(raw.distanceRatio, 1, 12, 0.01, 1.94),\n",
+          "after": "    nodeCount: integer(raw.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10),\n    density: quantize(raw.density, 0, 1, 0.01, 0.34),\n    seed: integer(raw.seed, 1, 0xffffffff, 17),\n    baseDelay: integer(raw.baseDelay, 20, 600, 62),\n    distanceRatio: quantize(raw.distanceRatio, 1, 12, 0.01, 1.94),\n"
+        },
+        {
+          "before": "    nodeMoving: Boolean(raw.nodeMoving),\n    nodeMotionMode: oneOf(raw.nodeMotionMode, MOTIONS, \"wiggle\"),\n    nodeMotionSpeed: quantize(raw.nodeMotionSpeed, 0.01, 0.5, 0.01, 0.12),\n    nodeMotionAmount: quantize(raw.nodeMotionAmount, 0.01, 0.3, 0.01, 0.07),\n  };\n",
+          "after": "    nodeMoving: Boolean(raw.nodeMoving),\n    nodeMotionMode: oneOf(raw.nodeMotionMode, MOTIONS, \"wiggle\"),\n    nodeMotionSpeed: quantize(raw.nodeMotionSpeed, 0.01, 0.5, 0.001, 0.12),\n    nodeMotionAmount: quantize(raw.nodeMotionAmount, 0.01, 0.3, 0.01, 0.07),\n  };\n"
+        },
+        {
+          "before": "  ]);\n  const edgeSwitches = Object.fromEntries(graph.edges.map(edge => [edgeKey(edge), raw.edgeSwitches?.[edgeKey(edge)] !== false]));\n  return { parameters, nodes, edgeSwitches };\n}\n\nexport function captureGraphDrumPreset(state, graph, edgeSwitches) {\n  return sanitizeGraphDrumPreset({\n    parameters: state,\n    nodes: graph.nodes.map(node => [node.x, node.y]),\n    edgeSwitches: edgeSwitches instanceof Map ? Object.fromEntries(edgeSwitches) : edgeSwitches,\n",
+          "after": "  ]);\n  const edgeSwitches = Object.fromEntries(graph.edges.map(edge => [edgeKey(edge), raw.edgeSwitches?.[edgeKey(edge)] !== false]));\n  const { voices } = captureFmDrumPreset(raw.voices ?? cloneDefaultFmDrumVoices());\n  return { version: GRAPH_DRUM_PRESET_VERSION, parameters, nodes, edgeSwitches, voices };\n}\n\nexport function captureGraphDrumPreset(state, graph, edgeSwitches, voices = cloneDefaultFmDrumVoices()) {\n  return sanitizeGraphDrumPreset({\n    parameters: state,\n    voices,\n    nodes: graph.nodes.map(node => [node.x, node.y]),\n    edgeSwitches: edgeSwitches instanceof Map ? Object.fromEntries(edgeSwitches) : edgeSwitches,\n"
+        },
+        {
+          "before": "\nexport function validateGraphDrumPreset(snapshot) {\n  if (!snapshot || typeof snapshot !== \"object\" || presetStateKey(snapshot) !== presetStateKey(sanitizeGraphDrumPreset(snapshot))) {\n    throw new TypeError(\"Invalid complete Graph Drum Machine preset\");\n  }\n  return snapshot;\n}\n\n",
+          "after": "\nexport function validateGraphDrumPreset(snapshot) {\n  if (!snapshot || typeof snapshot !== \"object\") throw new TypeError(\"Invalid complete Graph Drum Machine preset\");\n  const canonical = sanitizeGraphDrumPreset(snapshot);\n  // The original published format had no version or kit. Keep it readable;\n  // migration fills its kit from the live bank rather than resetting the sound.\n  if (!Object.hasOwn(snapshot, \"version\") && !Object.hasOwn(snapshot, \"voices\")) {\n    delete canonical.version;\n    delete canonical.voices;\n  } else {\n    if (snapshot.version !== GRAPH_DRUM_PRESET_VERSION) throw new TypeError(\"Unsupported Graph Drum Machine preset version\");\n    validateFmDrumPreset({ voices: snapshot.voices });\n  }\n  if (presetStateKey(snapshot) !== presetStateKey(canonical)) throw new TypeError(\"Invalid complete Graph Drum Machine preset\");\n  return snapshot;\n}\n\nexport function migrateGraphDrumPreset(snapshot, liveVoices = cloneDefaultFmDrumVoices()) {\n  validateGraphDrumPreset(snapshot);\n  return snapshot.version === GRAPH_DRUM_PRESET_VERSION\n    ? snapshot\n    : sanitizeGraphDrumPreset({ ...snapshot, voices: liveVoices });\n}\n\n"
+        },
+        {
+          "before": "\nconst GLASS = fromPatch(\"layeredGlass\");\n\nexport const GRAPH_DRUM_FULL_PRESETS = Object.freeze([\n",
+          "after": "\nconst GLASS = fromPatch(\"layeredGlass\");\n\nconst EXPRESSIVE_PRESETS = graphDrumExpressiveStudies(GLASS).map(({ id, label, description, parameters, graph, voices }) => Object.freeze({\n  id, label, description,\n  snapshot: Object.freeze(captureGraphDrumPreset(parameters, graph, new Map(graph.edges.map(edge => [edgeKey(edge), true])), voices)),\n}));\n\nexport const GRAPH_DRUM_FULL_PRESETS = Object.freeze([\n"
+        },
+        {
+          "before": "    mappingMode: \"degree-turn\", pitchDepth: 10, turnPitchDepth: 12, characterDepth: 0.6, seedNote: 48,\n  }),\n]);\n\n",
+          "after": "    mappingMode: \"degree-turn\", pitchDepth: 10, turnPitchDepth: 12, characterDepth: 0.6, seedNote: 48,\n  }),\n  ...EXPRESSIVE_PRESETS,\n]);\n\n"
+        },
+        {
+          "before": "  const nodes = shape.nodes.map(() => [rng.between(0.06, 0.94), rng.between(0.06, 0.94)]);\n  const edgeSwitches = Object.fromEntries(Object.keys(shape.edgeSwitches).map((key, index) => [key, index === 0 || rng.unit() > 0.15]));\n  return validateGraphDrumPreset(sanitizeGraphDrumPreset({ parameters: shape.parameters, nodes, edgeSwitches }));\n}\n",
+          "after": "  const nodes = shape.nodes.map(() => [rng.between(0.06, 0.94), rng.between(0.06, 0.94)]);\n  const edgeSwitches = Object.fromEntries(Object.keys(shape.edgeSwitches).map((key, index) => [key, index === 0 || rng.unit() > 0.15]));\n  const { voices } = randomizeFmDrumPreset({ voices: migrateGraphDrumPreset(current).voices }, random);\n  return validateGraphDrumPreset(sanitizeGraphDrumPreset({ parameters: shape.parameters, nodes, edgeSwitches, voices }));\n}\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/graph/graph-instrument-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "9e6d17b7734b99e88cf273ce7de48e6e083ae8d51784914aa294c0f3d203c6fc",
+      "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
+      "regressionTests": [
+        "tests/graph-expressive-presets.test.mjs",
+        "tests/graph-drum-machine-presets.test.mjs",
+        "e2e/graph-expressive-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from \"../graph-presets/full-presets.js\";\nimport {\n  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, randomizeGraphDrumPreset,\n} from \"../graph-presets/drum-full-presets.js\";\n\n",
+          "after": "import { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from \"../graph-presets/full-presets.js\";\nimport {\n  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, migrateGraphDrumPreset, randomizeGraphDrumPreset,\n} from \"../graph-presets/drum-full-presets.js\";\n\n"
+        },
+        {
+          "before": "  }\n  $(\"newGraphButton\").addEventListener(\"click\", () => {\n    state.seed = state.seed >= 99 ? 1 : Math.round(state.seed) + 1;\n    markCustom();\n    syncControls();\n",
+          "after": "  }\n  $(\"newGraphButton\").addEventListener(\"click\", () => {\n    state.seed = state.seed >= 999 ? 1 : Math.round(state.seed) + 1;\n    markCustom();\n    syncControls();\n"
+        },
+        {
+          "before": "      id: \"graph-drum-machine\", presets: GRAPH_DRUM_FULL_PRESETS, randomize: randomizeGraphDrumPreset,\n      document: documentObject, runtime,\n      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates),\n      apply(snapshot) {\n        const scene = graphDrumSceneGraph(snapshot);\n        Object.assign(state, snapshot.parameters, { baseFrequency: midiFrequency(snapshot.parameters.seedNote), graphPatch: \"\" });\n        model = scene.graph;\n",
+          "after": "      id: \"graph-drum-machine\", presets: GRAPH_DRUM_FULL_PRESETS, randomize: randomizeGraphDrumPreset,\n      document: documentObject, runtime,\n      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates, voices),\n      apply(savedSnapshot) {\n        const snapshot = migrateGraphDrumPreset(savedSnapshot, voices);\n        const scene = graphDrumSceneGraph(snapshot);\n        voices.forEach((voice, index) => Object.assign(voice, snapshot.voices[index]));\n        Object.assign(state, snapshot.parameters, { baseFrequency: midiFrequency(snapshot.parameters.seedNote), graphPatch: \"\" });\n        model = scene.graph;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/graph-synth.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "eb21c8608633ff9ccb0cb97d5a828c3a772b19e14475bf1936518357fdbdaa32",
+      "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
+      "regressionTests": [
+        "tests/graph-expressive-presets.test.mjs",
+        "tests/graph-drum-machine-presets.test.mjs",
+        "e2e/graph-expressive-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "              <label class=\"control\" for=\"nodeCount\"><span><b>Nodes</b><output id=\"nodeCountOut\" for=\"nodeCount\">10</output></span><input id=\"nodeCount\" type=\"range\" min=\"3\" max=\"32\" step=\"1\" value=\"10\" /></label>\n              <label class=\"control\" for=\"density\"><span><b>Connection density</b><output id=\"densityOut\" for=\"density\">34%</output></span><input id=\"density\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.34\" /></label>\n              <label class=\"control\" for=\"seed\"><span><b>Graph seed</b><output id=\"seedOut\" for=\"seed\">17</output></span><input id=\"seed\" type=\"range\" min=\"1\" max=\"99\" step=\"1\" value=\"17\" /></label>\n              <button class=\"mini-action\" id=\"newGraphButton\" type=\"button\">Next seed</button>\n              <div class=\"graph-layout-actions\" role=\"group\" aria-label=\"Topology-preserving node layouts\">\n",
+          "after": "              <label class=\"control\" for=\"nodeCount\"><span><b>Nodes</b><output id=\"nodeCountOut\" for=\"nodeCount\">10</output></span><input id=\"nodeCount\" type=\"range\" min=\"3\" max=\"32\" step=\"1\" value=\"10\" /></label>\n              <label class=\"control\" for=\"density\"><span><b>Connection density</b><output id=\"densityOut\" for=\"density\">34%</output></span><input id=\"density\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.34\" /></label>\n              <label class=\"control\" for=\"seed\"><span><b>Graph seed</b><output id=\"seedOut\" for=\"seed\">17</output></span><input id=\"seed\" type=\"range\" min=\"1\" max=\"999\" step=\"1\" value=\"17\" /></label>\n              <button class=\"mini-action\" id=\"newGraphButton\" type=\"button\">Next seed</button>\n              <div class=\"graph-layout-actions\" role=\"group\" aria-label=\"Topology-preserving node layouts\">\n"
+        },
+        {
+          "before": "              <label class=\"select-control\" for=\"nodeMotionMode\"><span class=\"field-label\">Node path</span><span class=\"select-shell\"><select id=\"nodeMotionMode\"><option value=\"wiggle\" selected>Independent wiggle</option><option value=\"orbit\">Circular orbits</option><option value=\"random\">Random walks</option></select></span></label>\n            </div>\n            <label class=\"control\" for=\"nodeMotionSpeed\"><span><b>Node speed</b><output id=\"nodeMotionSpeedOut\" for=\"nodeMotionSpeed\">0.12 cyc/s</output></span><input id=\"nodeMotionSpeed\" type=\"range\" min=\"0.01\" max=\"0.5\" step=\"0.01\" value=\"0.12\" /></label>\n            <label class=\"control\" for=\"nodeMotionAmount\"><span><b>Node travel</b><output id=\"nodeMotionAmountOut\" for=\"nodeMotionAmount\">7%</output></span><input id=\"nodeMotionAmount\" type=\"range\" min=\"0.01\" max=\"0.3\" step=\"0.01\" value=\"0.07\" /></label>\n            <small class=\"growth-parameter-note\">Motion changes distance, timing, and mapping without launching a new note.</small>\n",
+          "after": "              <label class=\"select-control\" for=\"nodeMotionMode\"><span class=\"field-label\">Node path</span><span class=\"select-shell\"><select id=\"nodeMotionMode\"><option value=\"wiggle\" selected>Independent wiggle</option><option value=\"orbit\">Circular orbits</option><option value=\"random\">Random walks</option></select></span></label>\n            </div>\n            <label class=\"control\" for=\"nodeMotionSpeed\"><span><b>Node speed</b><output id=\"nodeMotionSpeedOut\" for=\"nodeMotionSpeed\">0.12 cyc/s</output></span><input id=\"nodeMotionSpeed\" type=\"range\" min=\"0.01\" max=\"0.5\" step=\"0.001\" value=\"0.12\" /></label>\n            <label class=\"control\" for=\"nodeMotionAmount\"><span><b>Node travel</b><output id=\"nodeMotionAmountOut\" for=\"nodeMotionAmount\">7%</output></span><input id=\"nodeMotionAmount\" type=\"range\" min=\"0.01\" max=\"0.3\" step=\"0.01\" value=\"0.07\" /></label>\n            <small class=\"growth-parameter-note\">Motion changes distance, timing, and mapping without launching a new note.</small>\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/graph-drum-machine.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "9f819410b090d4a83c7972bcef16a484669d2123f5b1ad7d48c323f2f5e0a020",
+      "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
+      "regressionTests": [
+        "tests/graph-expressive-presets.test.mjs",
+        "tests/graph-drum-machine-presets.test.mjs",
+        "e2e/graph-expressive-presets.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "              <label class=\"control\" for=\"nodeCount\"><span><b>Nodes</b><output id=\"nodeCountOut\" for=\"nodeCount\">10</output></span><input id=\"nodeCount\" type=\"range\" min=\"3\" max=\"32\" step=\"1\" value=\"10\" /></label>\n              <label class=\"control\" for=\"density\"><span><b>Connection density</b><output id=\"densityOut\" for=\"density\">34%</output></span><input id=\"density\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.34\" /></label>\n              <label class=\"control\" for=\"seed\"><span><b>Graph seed</b><output id=\"seedOut\" for=\"seed\">17</output></span><input id=\"seed\" type=\"range\" min=\"1\" max=\"99\" step=\"1\" value=\"17\" /></label>\n              <button class=\"mini-action\" id=\"newGraphButton\" type=\"button\">Next seed</button>\n              <div class=\"graph-layout-actions\" role=\"group\" aria-label=\"Topology-preserving node layouts\">\n",
+          "after": "              <label class=\"control\" for=\"nodeCount\"><span><b>Nodes</b><output id=\"nodeCountOut\" for=\"nodeCount\">10</output></span><input id=\"nodeCount\" type=\"range\" min=\"3\" max=\"32\" step=\"1\" value=\"10\" /></label>\n              <label class=\"control\" for=\"density\"><span><b>Connection density</b><output id=\"densityOut\" for=\"density\">34%</output></span><input id=\"density\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.34\" /></label>\n              <label class=\"control\" for=\"seed\"><span><b>Graph seed</b><output id=\"seedOut\" for=\"seed\">17</output></span><input id=\"seed\" type=\"range\" min=\"1\" max=\"999\" step=\"1\" value=\"17\" /></label>\n              <button class=\"mini-action\" id=\"newGraphButton\" type=\"button\">Next seed</button>\n              <div class=\"graph-layout-actions\" role=\"group\" aria-label=\"Topology-preserving node layouts\">\n"
+        },
+        {
+          "before": "              <label class=\"select-control\" for=\"nodeMotionMode\"><span class=\"field-label\">Node path</span><span class=\"select-shell\"><select id=\"nodeMotionMode\"><option value=\"wiggle\" selected>Independent wiggle</option><option value=\"orbit\">Circular orbits</option><option value=\"random\">Random walks</option></select></span></label>\n            </div>\n            <label class=\"control\" for=\"nodeMotionSpeed\"><span><b>Node speed</b><output id=\"nodeMotionSpeedOut\" for=\"nodeMotionSpeed\">0.12 cyc/s</output></span><input id=\"nodeMotionSpeed\" type=\"range\" min=\"0.01\" max=\"0.5\" step=\"0.01\" value=\"0.12\" /></label>\n            <label class=\"control\" for=\"nodeMotionAmount\"><span><b>Node travel</b><output id=\"nodeMotionAmountOut\" for=\"nodeMotionAmount\">7%</output></span><input id=\"nodeMotionAmount\" type=\"range\" min=\"0.01\" max=\"0.3\" step=\"0.01\" value=\"0.07\" /></label>\n            <small class=\"growth-parameter-note\">Motion changes distance, timing, and mapping without launching a new pulse.</small>\n",
+          "after": "              <label class=\"select-control\" for=\"nodeMotionMode\"><span class=\"field-label\">Node path</span><span class=\"select-shell\"><select id=\"nodeMotionMode\"><option value=\"wiggle\" selected>Independent wiggle</option><option value=\"orbit\">Circular orbits</option><option value=\"random\">Random walks</option></select></span></label>\n            </div>\n            <label class=\"control\" for=\"nodeMotionSpeed\"><span><b>Node speed</b><output id=\"nodeMotionSpeedOut\" for=\"nodeMotionSpeed\">0.12 cyc/s</output></span><input id=\"nodeMotionSpeed\" type=\"range\" min=\"0.01\" max=\"0.5\" step=\"0.001\" value=\"0.12\" /></label>\n            <label class=\"control\" for=\"nodeMotionAmount\"><span><b>Node travel</b><output id=\"nodeMotionAmountOut\" for=\"nodeMotionAmount\">7%</output></span><input id=\"nodeMotionAmount\" type=\"range\" min=\"0.01\" max=\"0.3\" step=\"0.01\" value=\"0.07\" /></label>\n            <small class=\"growth-parameter-note\">Motion changes distance, timing, and mapping without launching a new pulse.</small>\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/nonorientable/nonorientable-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "c93e7e0e4c0d446f3debe5c4438efaccba53f4ba2224231daf0f9c7261a0c350",
+      "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
+      "regressionTests": [
+        "tests/nonorientable-surfaces.test.mjs",
+        "tests/nonorientable-presets.test.mjs",
+        "e2e/nonorientable-surfaces.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  trackSliceComponents,\n  planeOffsetForMeshPhase,\n  sliceSurface,\n  surfacePoint,\n",
+          "after": "  trackSliceComponents,\n  planeOffsetForMeshPhase,\n  pointInProjectedSurface,\n  sliceSurface,\n  surfacePoint,\n"
+        },
+        {
+          "before": "let lastSequencePass = null;\nlet sequenceSchedulerTimer = null;\nlet sequenceAnchorPhase = state.continuousPosition;\nlet sequenceAnchorTime = performance.now() / 1_000;\n",
+          "after": "let lastSequencePass = null;\nlet sequenceSchedulerTimer = null;\nlet sequenceAuditionTimer = null;\nlet lastAuditionTime = -Infinity;\nlet lastAuditionSignature = \"\";\nconst SEQUENCE_AUDITION_INTERVAL_SECONDS = 0.06;\nlet sequenceAnchorPhase = state.continuousPosition;\nlet sequenceAnchorTime = performance.now() / 1_000;\n"
+        },
+        {
+          "before": "}\n\nfunction stopSequenceScheduler({ silence = false } = {}) {\n  if (sequenceSchedulerTimer !== null) window.clearInterval(sequenceSchedulerTimer);\n  sequenceSchedulerTimer = null;\n  nextSequencePulse = null;\n  lastSequencePass = null;\n  if (silence) pool.silence();\n}\n\n",
+          "after": "}\n\nfunction stopSequenceScheduler({ silence = false, preserveAudition = false } = {}) {\n  if (sequenceSchedulerTimer !== null) window.clearInterval(sequenceSchedulerTimer);\n  sequenceSchedulerTimer = null;\n  if (sequenceAuditionTimer !== null) window.clearTimeout(sequenceAuditionTimer);\n  sequenceAuditionTimer = null;\n  if (!preserveAudition) {\n    lastAuditionTime = -Infinity;\n    lastAuditionSignature = \"\";\n  }\n  nextSequencePulse = null;\n  lastSequencePass = null;\n  if (silence) pool.silence();\n}\n\n// Retiming invalidates only future notes. Existing attacks/tails keep their envelopes.\nfunction invalidateSequenceLookahead() {\n  stopSequenceScheduler({ preserveAudition: true });\n  pool.cancelScheduledNotes();\n}\n\nfunction auditionSequencePosition() {\n  if (!state.audio || !pool.context || !pageActive || document.hidden || !sequenceModeActive()) return;\n  const pulse = currentSequenceFrame().pulseOrdinal;\n  const signature = [pulse, state.baseFrequency, state.pitchRange, state.timbre,\n    state.stereoWidth, state.seamVoice].join(\":\");\n  if (signature === lastAuditionSignature) return;\n  const remaining = SEQUENCE_AUDITION_INTERVAL_SECONDS - (pool.context.currentTime - lastAuditionTime);\n  if (remaining > 0) {\n    if (sequenceAuditionTimer === null) {\n      sequenceAuditionTimer = window.setTimeout(() => {\n        sequenceAuditionTimer = null;\n        auditionSequencePosition();\n      }, remaining * 1_000);\n    }\n    return;\n  }\n  lastAuditionTime = pool.context.currentTime;\n  lastAuditionSignature = signature;\n  strikeSequencePulse(pulse, null, { manual: true });\n}\n\n"
+        },
+        {
+          "before": "}\n\nfunction strikeSequencePulse(pulse, requestedStartAt = null) {\n  if (!state.audio || !pool.context || !sequenceModeActive()) return 0;\n  const safePulse = Number.isFinite(Number(pulse)) ? Math.floor(Number(pulse)) : 0;\n",
+          "after": "}\n\nfunction strikeSequencePulse(pulse, requestedStartAt = null, { manual = false } = {}) {\n  if (!state.audio || !pool.context || !sequenceModeActive()) return 0;\n  const safePulse = Number.isFinite(Number(pulse)) ? Math.floor(Number(pulse)) : 0;\n"
+        },
+        {
+          "before": "  const gain = Math.min(event.gain, pool.availableStrikeHeadroom(0.78));\n  if (gain <= 0.0001) return 0;\n  return pool.strike({\n    key: `moebius:weave:${event.role}:${event.lane}`,\n    frequency: event.frequency,\n",
+          "after": "  const gain = Math.min(event.gain, pool.availableStrikeHeadroom(0.78));\n  if (gain <= 0.0001) return 0;\n  const struck = pool.strike({\n    key: `moebius:weave:${event.role}:${event.lane}`,\n    frequency: event.frequency,\n"
+        },
+        {
+          "before": "    waveform: sequenceWaveform(),\n  }, {\n    attackSeconds: 0.003 + state.timbre * 0.004,\n    decaySeconds,\n    attackNoise: state.timbre * 0.12,\n    startAt,\n    retriggerMode: \"crossfade\",\n    crossfadeSeconds: 0.012,\n  }) ? 1 : 0;\n}\n\n",
+          "after": "    waveform: sequenceWaveform(),\n  }, {\n    attackSeconds: manual ? 0.012 : 0.003 + state.timbre * 0.004,\n    attackCurve: manual ? \"smooth\" : \"exponential\",\n    decaySeconds,\n    attackNoise: state.timbre * 0.12,\n    startAt,\n    // Natural tails do not overlap same-key clock pulses. Manual scrubs may;\n    // let those tails finish so canceling a future pulse cannot truncate them.\n    retriggerMode: \"overlap\",\n  });\n  // Bound actual audio onsets, not JS callback timestamps (node creation can\n  // straddle an audio quantum). This only limits manual, not clocked pulses.\n  if (struck && manual) lastAuditionTime = startAt;\n  return struck ? 1 : 0;\n}\n\n"
+        },
+        {
+          "before": "\nfunction paintSequencePosition() {\n  const output = $(\"sequenceState\");\n  if (!output || !sequenceModeActive()) return;\n  const sequence = currentSequenceFrame();\n  const mapped = moebiusCounterpointEvents(sequence.ordinal, {\n    baseFrequency: state.baseFrequency,\n    pitchRange: state.pitchRange,\n    stereoWidth: state.stereoWidth,\n    seamVoice: state.seamVoice,\n  });\n  const activeEvent = mapped.events.find((event) => event.role === sequence.activeRole);\n  const activeCopy = !activeEvent\n    ? \"NOW ANSWER REST\"\n    : activeEvent.gain > 0.0001\n      ? `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()}`\n      : `NOW ${activeEvent.role.toUpperCase()} ${activeEvent.lane.toUpperCase()} MUTED`;\n  const copy = `${sequence.shadow ? \"PASS 2 / ORIENTATION B / SHADOW\" : \"PASS 1 / ORIENTATION A\"} / STEP ${String(sequence.stepIndex + 1).padStart(2, \"0\")}/16 / ${activeCopy}`;\n  if (output.textContent !== copy) output.textContent = copy;\n  canvas.dataset.sequencePass = String(sequence.passNumber);\n  canvas.dataset.sequenceStep = String(sequence.stepIndex + 1);\n",
+          "after": "\nfunction paintSequencePosition() {\n  if (!sequenceModeActive()) return;\n  const sequence = currentSequenceFrame();\n  canvas.dataset.sequencePass = String(sequence.passNumber);\n  canvas.dataset.sequenceStep = String(sequence.stepIndex + 1);\n"
+        },
+        {
+          "before": "  manualSoundUntil = Math.max(manualSoundUntil, performance.now() + milliseconds);\n  if (sequenceModeActive()) {\n    const sequence = currentSequenceFrame();\n    if (state.audio) strikeSequencePulse(sequence.pulseOrdinal);\n    if (!Number.isFinite(nextSequencePulse)) {\n      nextSequencePulse = Math.floor(\n",
+          "after": "  manualSoundUntil = Math.max(manualSoundUntil, performance.now() + milliseconds);\n  if (sequenceModeActive()) {\n    auditionSequencePosition();\n    if (!Number.isFinite(nextSequencePulse)) {\n      nextSequencePulse = Math.floor(\n"
+        },
+        {
+          "before": "  setPressed($(\"selectForm\"), activeTarget === \"form\");\n  setPressed($(\"selectPlayhead\"), activeTarget === \"playhead\");\n  $(\"selectPlayhead\").disabled = sequenceModeActive();\n  stageWrap.classList.toggle(\"is-form-target\", activeTarget === \"form\");\n}\n\nfunction setLegendCopy(markerSelector, copy) {\n  const item = document.querySelector(markerSelector)?.parentElement;\n  const textNode = Array.from(item?.childNodes ?? [])\n    .find((node) => node.nodeType === 3);\n  if (textNode) textNode.nodeValue = copy;\n}\n\nfunction controlCopy(id) {\n  return $(id)?.closest(\"label\")?.querySelector(\".field-label, b\");\n}\n\n",
+          "after": "  setPressed($(\"selectForm\"), activeTarget === \"form\");\n  setPressed($(\"selectPlayhead\"), activeTarget === \"playhead\");\n  if ($(\"selectPlayhead\")) $(\"selectPlayhead\").disabled = sequenceModeActive();\n  stageWrap.classList.toggle(\"is-form-target\", activeTarget === \"form\");\n}\n\nfunction controlCopy(id) {\n  return $(id)?.closest(\"label\")?.querySelector(\".field-label, b\");\n}\n\nfunction paintDirection() {\n  const button = $(\"directionButton\");\n  const direction = state.direction > 0 ? \"forward\" : \"reverse\";\n  if (KIND === \"klein\") {\n    button.textContent = `Direction \u00b7 ${direction}`;\n    return;\n  }\n  button.hidden = sequenceModeActive();\n  button.dataset.direction = direction;\n  button.title = `Direction: ${direction}; switch to ${state.direction > 0 ? \"reverse\" : \"forward\"}`;\n  button.setAttribute(\"aria-label\", button.title);\n}\n\n"
+        },
+        {
+          "before": "  setPressed(planeButton, !sequence);\n  setPressed(sequenceButton, sequence);\n  $(\"sequenceState\").hidden = !sequence;\n  $(\"directionButton\").disabled = sequence;\n  $(\"directionButton\").textContent = sequence\n    ? \"Direction / forward (fixed)\"\n    : `Direction \\u00b7 ${state.direction > 0 ? \"forward\" : \"reverse\"}`;\n  for (const id of [\"planeYaw\", \"planePitch\"]) $(id).disabled = sequence;\n  $(\"soundMode\").disabled = sequence;\n",
+          "after": "  setPressed(planeButton, !sequence);\n  setPressed(sequenceButton, sequence);\n  paintDirection();\n  for (const id of [\"planeYaw\", \"planePitch\"]) $(id).disabled = sequence;\n  $(\"soundMode\").disabled = sequence;\n"
+        },
+        {
+          "before": "  controlCopy(\"stereoWidth\").textContent = sequence ? \"Lane stereo\" : \"Horizontal stereo\";\n  controlCopy(\"seamVoice\").textContent = sequence ? \"Answer level\" : \"Seam halo\";\n  $(\"surfaceInstructions\").textContent = sequence\n    ? \"Space plays or pauses. Time stays forward. The slider scrubs this lap and its 100% endpoint crosses the seam; arrow keys step across it, and Home begins this pass. Cyan A and magenta B hocket the subject. Its quiet answer enters four stations later on the offbeat; pass 2 swaps role registers and inverts the pitch figure.\"\n    : \"Space plays or pauses. Left/right arrows scrub the plane. Up/down arrows tilt it. Drag the selected Shape or 2D head in the stage.\";\n  const formInstructions = document.querySelector('[data-section=\"form\"] .control-note');\n  if (formInstructions) {\n",
+          "after": "  controlCopy(\"stereoWidth\").textContent = sequence ? \"Lane stereo\" : \"Horizontal stereo\";\n  controlCopy(\"seamVoice\").textContent = sequence ? \"Answer level\" : \"Seam halo\";\n  $(\"quickSetupNote\").textContent = sequence\n    ? \"Ribbon drift: broad, medium pace. Edge return: narrow, faster. Triple twist: three twists, slower. Setups also change register and pulse color; Odd half-twists changes only the form.\"\n    : \"Ribbon drift: broad, medium FM. Edge return: narrow, faster sine. Triple twist: three twists, slow PM. These set form, speed and sound; Odd half-twists changes only the form.\";\n  const formInstructions = document.querySelector('[data-section=\"form\"] .control-note');\n  if (formInstructions) {\n"
+        },
+        {
+          "before": "      : \"The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.\";\n  }\n  const modeReadout = document.querySelector(\".topology-identity > span\");\n  if (modeReadout) {\n    modeReadout.textContent = sequence\n      ? \"CROSSBAR \\u2192 HOCKET \\u2192 TWO-LAP INVERSION\"\n      : \"PLANE \\u2192 SLICE CURVE \\u2192 VOICE\";\n  }\n  setLegendCopy(\".legend-plane\", sequence ? \"crossbar A-B\" : \"2D playhead\");\n  setLegendCopy(\".legend-slice\", sequence ? \"pitch figures\" : \"sounding slice\");\n  canvas.setAttribute(\n    \"aria-label\",\n    sequence\n      ? \"An edge-to-edge playhead crosses sixteen Mobius stations. Intrinsic cyan A and magenta B trade positions as the local frame reverses after pass 1; after pass 2 the next phrase returns to orientation A. Solid and dashed traces show the subject and answer; both mirror around the tonal axis on pass 2. Left and right arrows step, and Home begins the current pass.\"\n      : \"A two-dimensional plane slices a Mobius band. Drag to rotate the selected band or playhead; use arrow keys to scrub and tilt the playhead.\",\n  );\n  stageWrap.dataset.playMode = sequence ? \"sequence\" : \"plane\";\n",
+          "after": "      : \"The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.\";\n  }\n  canvas.setAttribute(\n    \"aria-label\",\n    sequence\n      ? \"An edge-to-edge playhead crosses sixteen Mobius stations. Intrinsic cyan A and magenta B trade positions as the local frame reverses after pass 1; after pass 2 the next phrase returns to orientation A. Solid and dashed traces show the subject and answer; both mirror around the tonal axis on pass 2. Drag to rotate the view; this mode has no free slicing plane. Left and right arrows step, and Home begins the current pass.\"\n      : \"A two-dimensional plane slices a Mobius band. Drag outside the band to rotate the view; drag on the band to rotate the slicing plane. Arrow keys scrub and tilt the plane.\",\n  );\n  stageWrap.dataset.playMode = sequence ? \"sequence\" : \"plane\";\n"
+        },
+        {
+          "before": "  if ($(\"surfaceTwists\")) $(\"surfaceTwists\").value = String(state.surfaceTwists);\n  $(\"soundMode\").value = state.soundMode;\n  $(\"directionButton\").textContent = `Direction \u00b7 ${state.direction > 0 ? \"forward\" : \"reverse\"}`;\n  paintAutoRotate();\n  paintTransport();\n",
+          "after": "  if ($(\"surfaceTwists\")) $(\"surfaceTwists\").value = String(state.surfaceTwists);\n  $(\"soundMode\").value = state.soundMode;\n  paintDirection();\n  paintAutoRotate();\n  paintTransport();\n"
+        },
+        {
+          "before": "    setSequenceTransportAnchor(sequencePositionAt());\n  }\n  if (sequenceModeActive()) stopSequenceScheduler({ silence: true });\n  const next = Number(event.currentTarget.value);\n  const current = wrap01(state.continuousPosition);\n",
+          "after": "    setSequenceTransportAnchor(sequencePositionAt());\n  }\n  const previousPulse = sequenceModeActive() ? currentSequenceFrame().pulseOrdinal : null;\n  if (sequenceModeActive()) invalidateSequenceLookahead();\n  const next = Number(event.currentTarget.value);\n  const current = wrap01(state.continuousPosition);\n"
+        },
+        {
+          "before": "    setSequenceTransportAnchor(state.continuousPosition);\n    armSequenceAtCurrent();\n    wakeManualSound();\n    startSequenceScheduler();\n  } else {\n    wakeManualSound();\n",
+          "after": "    setSequenceTransportAnchor(state.continuousPosition);\n    armSequenceAtCurrent();\n    if (!state.playing || currentSequenceFrame().pulseOrdinal !== previousPulse) wakeManualSound();\n    startSequenceScheduler();\n    scheduleFrame();\n  } else {\n    wakeManualSound();\n"
+        },
+        {
+          "before": "      ? sequencePositionAt()\n      : state.continuousPosition;\n    if (sequenceEdit) stopSequenceScheduler({ silence: true });\n\n    state[key] = Number(input.value);\n",
+          "after": "      ? sequencePositionAt()\n      : state.continuousPosition;\n    if (sequenceEdit) invalidateSequenceLookahead();\n\n    state[key] = Number(input.value);\n"
+        },
+        {
+          "before": "      setSequenceTransportAnchor(sequencePhase);\n      armSequenceAtCurrent();\n      wakeManualSound();\n      startSequenceScheduler();\n    } else if (sequenceModeActive()) {\n      scheduleFrame();\n",
+          "after": "      setSequenceTransportAnchor(sequencePhase);\n      armSequenceAtCurrent();\n      // Rate changes never retrigger; live sound edits enter on the next pulse.\n      if (!state.playing && key !== \"speed\") wakeManualSound();\n      startSequenceScheduler();\n      scheduleFrame();\n    } else if (sequenceModeActive()) {\n      scheduleFrame();\n"
+        },
+        {
+          "before": "  if (sequence) {\n    if (state.playing) {\n      armSequenceAtCurrent({ audition: state.audio });\n      startSequenceScheduler();\n",
+          "after": "  if (sequence) {\n    if (state.playing) {\n      // Play takes over from any coalesced paused scrub audition.\n      invalidateSequenceLookahead();\n      armSequenceAtCurrent({ audition: state.audio });\n      startSequenceScheduler();\n"
+        },
+        {
+          "before": "  if (sequenceModeActive()) return;\n  state.direction *= -1;\n  $(\"directionButton\").textContent = `Direction \u00b7 ${state.direction > 0 ? \"forward\" : \"reverse\"}`;\n  markCustom();\n  announce(`Plane direction ${state.direction > 0 ? \"forward\" : \"reverse\"}.`);\n",
+          "after": "  if (sequenceModeActive()) return;\n  state.direction *= -1;\n  paintDirection();\n  markCustom();\n  announce(`Plane direction ${state.direction > 0 ? \"forward\" : \"reverse\"}.`);\n"
+        },
+        {
+          "before": "}\n\n$(\"selectForm\").addEventListener(\"click\", () => selectTarget(\"form\"));\n$(\"selectPlayhead\").addEventListener(\"click\", () => selectTarget(\"playhead\"));\n\ncanvas.addEventListener(\"pointerdown\", (event) => {\n  if (event.isPrimary === false || (event.button ?? 0) !== 0) return;\n  const pointerTarget = sequenceModeActive() ? \"form\" : rotationTarget;\n  if (pointerTarget === \"form\") {\n    state.autoRotate = false;\n",
+          "after": "}\n\n$(\"selectForm\")?.addEventListener(\"click\", () => selectTarget(\"form\"));\n$(\"selectPlayhead\")?.addEventListener(\"click\", () => selectTarget(\"playhead\"));\n\nfunction pointerTargetAt(event) {\n  if (sequenceModeActive()) return \"form\";\n  if (KIND !== \"moebius\") return rotationTarget;\n  const bounds = canvas.getBoundingClientRect();\n  const point = {\n    x: (event.clientX - bounds.left) * cssWidth / bounds.width,\n    y: (event.clientY - bounds.top) * cssHeight / bounds.height,\n  };\n  const mesh = currentMesh();\n  const transform = projectionTransform();\n  const vertices = mesh.vertices.map(vertex => {\n    const p = projected(vertex, transform);\n    return { x: p.canvasX, y: p.canvasY };\n  });\n  return pointInProjectedSurface(point, vertices, mesh.triangles) ? \"playhead\" : \"form\";\n}\n\ncanvas.addEventListener(\"pointerdown\", (event) => {\n  if (event.isPrimary === false || (event.button ?? 0) !== 0) return;\n  const pointerTarget = pointerTargetAt(event);\n  if (KIND === \"moebius\") selectTarget(pointerTarget, false);\n  if (pointerTarget === \"form\") {\n    state.autoRotate = false;\n"
+        },
+        {
+          "before": "\ncanvas.addEventListener(\"pointermove\", (event) => {\n  if (!drag || event.pointerId !== drag.id) return;\n  const horizontal = event.clientX - drag.x;\n  const vertical = event.clientY - drag.y;\n",
+          "after": "\ncanvas.addEventListener(\"pointermove\", (event) => {\n  if (!drag) {\n    if (KIND === \"moebius\" && event.pointerType !== \"touch\") {\n      const target = pointerTargetAt(event);\n      if (target !== rotationTarget) selectTarget(target, false);\n    }\n    return;\n  }\n  if (event.pointerId !== drag.id) return;\n  const horizontal = event.clientX - drag.x;\n  const vertical = event.clientY - drag.y;\n"
+        },
+        {
+          "before": "  if (sequenceNavigation) {\n    if (state.playing) setSequenceTransportAnchor(sequencePositionAt());\n    stopSequenceScheduler({ silence: true });\n  }\n  let handled = true;\n",
+          "after": "  if (sequenceNavigation) {\n    if (state.playing) setSequenceTransportAnchor(sequencePositionAt());\n    invalidateSequenceLookahead();\n  }\n  let handled = true;\n"
+        },
+        {
+          "before": "      ? sequencePositionAt()\n      : state.continuousPosition;\n    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });\n    Object.assign(state, preset);\n    state.presetId = presetId;\n",
+          "after": "      ? sequencePositionAt()\n      : state.continuousPosition;\n    if (sequenceModeActive()) invalidateSequenceLookahead();\n    Object.assign(state, preset);\n    state.presetId = presetId;\n"
+        },
+        {
+          "before": "    lastSequencePass = sequence.passIndex;\n    const sequenceManualActive = now < manualSoundUntil;\n    const sounding = state.audio && (\n      state.playing\n      || sequenceManualActive\n      || pool.activeStrikeCount > 0\n    );\n    const audioReadout = state.audio\n      ? `${sounding ? pool.activeStrikeCount : 0} ACTIVE STRIKES`\n      : \"AUDIO OFF\";\n    $(\"stageReadout\").textContent = `${PAGE.shortLabel} / ${sequence.shadow ? \"PASS 2 / ORIENTATION B / SHADOW\" : \"PASS 1 / ORIENTATION A\"} / STEP ${String(sequence.stepIndex + 1).padStart(2, \"0\")}/16 / ${audioReadout}`;\n    if (state.playing || state.autoRotate || sequenceManualActive) scheduleFrame();\n    return;\n",
+          "after": "    lastSequencePass = sequence.passIndex;\n    const sequenceManualActive = now < manualSoundUntil;\n    if (state.playing || state.autoRotate || sequenceManualActive) scheduleFrame();\n    return;\n"
+        },
+        {
+          "before": "    ? `${sounding ? voices.length : 0} VOICES`\n    : \"AUDIO OFF\";\n  $(\"stageReadout\").textContent = `${PAGE.shortLabel} \u00b7 ${curveCount} CURVE${curveCount === 1 ? \"\" : \"S\"} / ${segmentCount} SEGMENTS \u00b7 ${audioReadout}${slice.truncated ? \" \u00b7 CAPPED\" : \"\"}`;\n\n  if (state.playing || state.autoRotate || manualActive) scheduleFrame();\n",
+          "after": "    ? `${sounding ? voices.length : 0} VOICES`\n    : \"AUDIO OFF\";\n  if ($(\"stageReadout\")) $(\"stageReadout\").textContent = `${PAGE.shortLabel} \u00b7 ${curveCount} CURVE${curveCount === 1 ? \"\" : \"S\"} / ${segmentCount} SEGMENTS \u00b7 ${audioReadout}${slice.truncated ? \" \u00b7 CAPPED\" : \"\"}`;\n\n  if (state.playing || state.autoRotate || manualActive) scheduleFrame();\n"
+        },
+        {
+          "before": "    if (KIND === \"moebius\" && snapshot.playMode !== state.playMode) setPlayMode(snapshot.playMode);\n    const sequencePhase = sequenceModeActive() && state.playing ? sequencePositionAt() : state.continuousPosition;\n    if (sequenceModeActive()) stopSequenceScheduler({ silence: true });\n    Object.assign(state, snapshot);\n    state.presetId = \"\";\n",
+          "after": "    if (KIND === \"moebius\" && snapshot.playMode !== state.playMode) setPlayMode(snapshot.playMode);\n    const sequencePhase = sequenceModeActive() && state.playing ? sequencePositionAt() : state.continuousPosition;\n    if (sequenceModeActive()) invalidateSequenceLookahead();\n    Object.assign(state, snapshot);\n    state.presetId = \"\";\n"
+        },
+        {
+          "before": "    if (sequenceModeActive()) {\n      armSequenceAtCurrent();\n      wakeManualSound(320);\n      startSequenceScheduler();\n    } else {\n      wakeManualSound(320);\n",
+          "after": "    if (sequenceModeActive()) {\n      armSequenceAtCurrent();\n      if (!state.playing) wakeManualSound(320);\n      startSequenceScheduler();\n      scheduleFrame();\n    } else {\n      wakeManualSound(320);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/nonorientable/nonorientable-surface.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "6b51fd6c22fd087889764435e8bac32540e1804c2a44eca69ed5a7f14ea902b2",
+      "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
+      "regressionTests": [
+        "tests/nonorientable-surfaces.test.mjs",
+        "tests/nonorientable-presets.test.mjs",
+        "e2e/nonorientable-surfaces.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  };\n}\n",
+          "after": "  };\n}\n\n/** Hit the actual projected surface, not its bounding box (the hole stays empty). */\nexport function pointInProjectedSurface(point, vertices, triangles) {\n  const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);\n  return triangles.some(({ a, b, c }) => {\n    const first = vertices[a], second = vertices[b], third = vertices[c];\n    const area = cross(first, second, third);\n    if (!Number.isFinite(area) || Math.abs(area) < 1e-8) return false;\n    const sides = [cross(first, second, point), cross(second, third, point), cross(third, first, point)];\n    return sides.every(value => value >= -1e-8) || sides.every(value => value <= 1e-8);\n  });\n}\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/nonorientable/nonorientable.css",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "180521c9b21ba5405a7f9ff8eb7b02306bf63f5d0e01645daa2ee88fbcabac16",
+      "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
+      "regressionTests": [
+        "tests/nonorientable-surfaces.test.mjs",
+        "tests/nonorientable-presets.test.mjs",
+        "e2e/nonorientable-surfaces.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "}\n\n.topology-sequence-state {\n  display: block;\n  min-height: 28px;\n  margin: 0 0 9px;\n  padding: 7px 9px;\n  border: 1px solid color-mix(in oklab, var(--topology-surface-a) 24%, var(--line));\n  color: color-mix(in oklab, var(--ink) 82%, var(--topology-slice));\n  background: color-mix(in oklab, var(--bg-deep) 92%, var(--topology-surface-b));\n  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;\n  font-size: 8px;\n  line-height: 1.55;\n  letter-spacing: 0.045em;\n}\n\n.topology-sequence-state[hidden] {\n  display: none;\n}\n\n",
+          "after": "}\n\n/* M\u00f6bius keeps only the meaningful direction action, beside speed. */\n.moebius-page .topology-speed-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n}\n\n.moebius-page .topology-speed-row > .control { flex: 1; min-width: 0; }\n.moebius-page .direction-action {\n  width: 36px;\n  min-width: 36px;\n  height: 36px;\n  padding: 7px;\n  margin: 0;\n}\n.moebius-page .direction-action[hidden] { display: none; }\n.moebius-page .direction-action svg {\n  width: 20px;\n  height: 20px;\n  fill: none;\n  stroke: currentColor;\n  stroke-width: 1.8;\n  stroke-linecap: round;\n  stroke-linejoin: round;\n}\n.moebius-page .direction-action[data-direction=\"reverse\"] svg { transform: rotate(180deg); }\n@media (pointer: coarse) {\n  .moebius-page .direction-action { width: 48px; min-width: 48px; height: 48px; }\n}\n\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/moebius-synth.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "d571fcb89b51a95722baab6d19de916603c44f448428cf351aa40dcdb43c21c5",
+      "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
+      "regressionTests": [
+        "tests/nonorientable-surfaces.test.mjs",
+        "tests/nonorientable-presets.test.mjs",
+        "e2e/nonorientable-surfaces.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "            tabindex=\"0\"\n            role=\"application\"\n            aria-label=\"A two-dimensional plane slices a M\u00f6bius band. Drag to rotate the selected band or playhead; use arrow keys to scrub and tilt the playhead.\"\n            aria-describedby=\"surfaceInstructions liveStatus\"\n          >\n            A projected M\u00f6bius band and the curves cut by its moving plane.\n          </canvas>\n          <header class=\"topology-identity\">\n            <p>ONE SIDE \u00b7 ONE EDGE \u00b7 TWO-DIMENSIONAL READER</p>\n            <h1 id=\"sceneTitle\">M\u00d6BIUS</h1>\n            <span>PLANE \u2192 SLICE CURVE \u2192 VOICE</span>\n          </header>\n          <div class=\"topology-target-switch\" role=\"group\" aria-label=\"Canvas drag target\">\n            <button id=\"selectForm\" type=\"button\" aria-pressed=\"false\">Shape</button>\n            <button id=\"selectPlayhead\" type=\"button\" aria-pressed=\"true\">2D head</button>\n          </div>\n          <div class=\"topology-legend\" aria-hidden=\"true\">\n            <span><i class=\"legend-surface\"></i>surface mesh</span>\n            <span><i class=\"legend-plane\"></i>2D playhead</span>\n            <span><i class=\"legend-slice\"></i>sounding slice</span>\n          </div>\n          <div class=\"stage-meta topology-stage-meta\" aria-hidden=\"true\"><span id=\"stageReadout\">M\u00d6BIUS \u00b7 0 CURVES \u00b7 AUDIO OFF</span></div>\n        </div>\n      </section>\n",
+          "after": "            tabindex=\"0\"\n            role=\"application\"\n            aria-label=\"A two-dimensional plane slices a M\u00f6bius band. Drag outside the band to rotate the view; drag on the band to rotate the slicing plane. Arrow keys scrub and tilt the plane.\"\n            aria-describedby=\"liveStatus\"\n          >\n            A projected M\u00f6bius band and the curves cut by its moving plane.\n          </canvas>\n          <header class=\"topology-identity\">\n            <h1 id=\"sceneTitle\">M\u00d6BIUS</h1>\n          </header>\n        </div>\n      </section>\n"
+        },
+        {
+          "before": "              <button id=\"selectSequenceMode\" type=\"button\" aria-pressed=\"false\">Counterpoint weave</button>\n            </div>\n            <output class=\"topology-sequence-state\" id=\"sequenceState\" hidden>PASS 1 / ORIENTATION A / STEP 09/16 / NOW SUBJECT A</output>\n            <div class=\"position-row\">\n              <button class=\"play-button\" id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\" aria-label=\"Play two-dimensional slicing plane\">\n",
+          "after": "              <button id=\"selectSequenceMode\" type=\"button\" aria-pressed=\"false\">Counterpoint weave</button>\n            </div>\n            <div class=\"position-row\">\n              <button class=\"play-button\" id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\" aria-label=\"Play two-dimensional slicing plane\">\n"
+        },
+        {
+          "before": "              </label>\n            </div>\n            <label class=\"control\" for=\"speed\"><span><b>Plane speed</b><output id=\"speedOut\" for=\"speed\">0.10 cyc/s</output></span><input id=\"speed\" type=\"range\" min=\"0.01\" max=\"1.2\" step=\"0.01\" value=\"0.1\" /></label>\n            <button class=\"mini-action direction-action\" id=\"directionButton\" type=\"button\">Direction \u00b7 forward</button>\n            <div class=\"topology-angle-pair\">\n              <label class=\"control\" for=\"planeYaw\"><span><b>Plane yaw</b><output id=\"planeYawOut\" for=\"planeYaw\">38\u00b0</output></span><input id=\"planeYaw\" type=\"range\" min=\"-180\" max=\"180\" step=\"1\" value=\"38\" /></label>\n              <label class=\"control\" for=\"planePitch\"><span><b>Plane pitch</b><output id=\"planePitchOut\" for=\"planePitch\">\u221218\u00b0</output></span><input id=\"planePitch\" type=\"range\" min=\"-180\" max=\"180\" step=\"1\" value=\"-18\" /></label>\n            </div>\n            <div class=\"topology-preset-grid\" role=\"group\" aria-label=\"M\u00f6bius presets\">\n              <button type=\"button\" data-preset=\"ribbon\" aria-pressed=\"true\">Ribbon drift</button>\n                <button type=\"button\" data-preset=\"edge\">Edge return</button>\n                <button type=\"button\" data-preset=\"triple\">Triple twist</button>\n            </div>\n            <p class=\"control-note\" id=\"surfaceInstructions\">Space plays or pauses. Left/right arrows scrub the plane. Up/down arrows tilt it. Drag the selected Shape or 2D head in the stage.</p>\n          </div>\n        </details>\n",
+          "after": "              </label>\n            </div>\n            <div class=\"topology-speed-row\">\n              <label class=\"control\" for=\"speed\"><span><b>Plane speed</b><output id=\"speedOut\" for=\"speed\">0.10 cyc/s</output></span><input id=\"speed\" type=\"range\" min=\"0.01\" max=\"1.2\" step=\"0.01\" value=\"0.1\" /></label>\n              <button class=\"mini-action direction-action\" id=\"directionButton\" type=\"button\" data-direction=\"forward\" aria-label=\"Direction: forward; switch to reverse\" title=\"Direction: forward; switch to reverse\">\n                <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h16m-6-6 6 6-6 6\" /></svg>\n              </button>\n            </div>\n            <div class=\"topology-angle-pair\">\n              <label class=\"control\" for=\"planeYaw\"><span><b>Plane yaw</b><output id=\"planeYawOut\" for=\"planeYaw\">38\u00b0</output></span><input id=\"planeYaw\" type=\"range\" min=\"-180\" max=\"180\" step=\"1\" value=\"38\" /></label>\n              <label class=\"control\" for=\"planePitch\"><span><b>Plane pitch</b><output id=\"planePitchOut\" for=\"planePitch\">\u221218\u00b0</output></span><input id=\"planePitch\" type=\"range\" min=\"-180\" max=\"180\" step=\"1\" value=\"-18\" /></label>\n            </div>\n            <p class=\"field-label\">Quick setups \u00b7 form + sound</p>\n            <div class=\"topology-preset-grid\" role=\"group\" aria-label=\"M\u00f6bius quick setups\" aria-describedby=\"quickSetupNote\">\n              <button type=\"button\" data-preset=\"ribbon\" aria-pressed=\"true\" title=\"One twist \u00b7 broad ribbon \u00b7 medium FM drift\">Ribbon drift</button>\n                <button type=\"button\" data-preset=\"edge\" title=\"One twist \u00b7 narrow ribbon \u00b7 faster, bright sine\">Edge return</button>\n                <button type=\"button\" data-preset=\"triple\" title=\"Three twists \u00b7 slower, deep PM drift\">Triple twist</button>\n            </div>\n            <p class=\"control-note\" id=\"quickSetupNote\">Ribbon drift: broad, medium FM. Edge return: narrow, faster sine. Triple twist: three twists, slow PM. These set form, speed and sound; Odd half-twists changes only the form.</p>\n          </div>\n        </details>\n"
+        },
+        {
+          "before": "            <label class=\"control\" for=\"surfaceRadius\"><span><b>Loop radius</b><output id=\"surfaceRadiusOut\" for=\"surfaceRadius\">0.72</output></span><input id=\"surfaceRadius\" type=\"range\" min=\"0.48\" max=\"1.05\" step=\"0.01\" value=\"0.72\" /></label>\n            <label class=\"control\" for=\"surfaceWidth\"><span><b>Band half-width</b><output id=\"surfaceWidthOut\" for=\"surfaceWidth\">0.38</output></span><input id=\"surfaceWidth\" type=\"range\" min=\"0.12\" max=\"0.68\" step=\"0.01\" value=\"0.38\" /></label>\n            <label class=\"select-control\" for=\"surfaceTwists\"><span class=\"field-label\">Odd half-twists</span><span class=\"select-shell\"><select id=\"surfaceTwists\"><option value=\"1\" selected>1 \u00b7 M\u00f6bius</option><option value=\"3\">3 \u00b7 triple twist</option><option value=\"5\">5 \u00b7 fivefold</option></select></span></label>\n            <label class=\"control\" for=\"surfaceFold\"><span><b>Twist lift</b><output id=\"surfaceFoldOut\" for=\"surfaceFold\">1.00\u00d7</output></span><input id=\"surfaceFold\" type=\"range\" min=\"0.35\" max=\"1.65\" step=\"0.01\" value=\"1\" /></label>\n            <p class=\"control-note\">The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.</p>\n",
+          "after": "            <label class=\"control\" for=\"surfaceRadius\"><span><b>Loop radius</b><output id=\"surfaceRadiusOut\" for=\"surfaceRadius\">0.72</output></span><input id=\"surfaceRadius\" type=\"range\" min=\"0.48\" max=\"1.05\" step=\"0.01\" value=\"0.72\" /></label>\n            <label class=\"control\" for=\"surfaceWidth\"><span><b>Band half-width</b><output id=\"surfaceWidthOut\" for=\"surfaceWidth\">0.38</output></span><input id=\"surfaceWidth\" type=\"range\" min=\"0.12\" max=\"0.68\" step=\"0.01\" value=\"0.38\" /></label>\n            <label class=\"select-control\" for=\"surfaceTwists\" title=\"Geometry only: 1, 3 or 5 half-twists; does not load a sound setup\"><span class=\"field-label\">Odd half-twists</span><span class=\"select-shell\"><select id=\"surfaceTwists\"><option value=\"1\" selected>1 \u00b7 M\u00f6bius</option><option value=\"3\">3 \u00b7 triple twist</option><option value=\"5\">5 \u00b7 fivefold</option></select></span></label>\n            <label class=\"control\" for=\"surfaceFold\"><span><b>Twist lift</b><output id=\"surfaceFoldOut\" for=\"surfaceFold\">1.00\u00d7</output></span><input id=\"surfaceFold\" type=\"range\" min=\"0.35\" max=\"1.65\" step=\"0.01\" value=\"1\" /></label>\n            <p class=\"control-note\">The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.</p>\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/l-systems.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "65b479ae80af69a8bb171006dce3f7508dca19afc43506b543e858fed1c0c455",
+      "reason": "Recover L-Systems Corners/Readers controls while preserving the latest mobile menubar and input strip.",
+      "regressionTests": [
+        "e2e/l-systems-corners.spec.mjs",
+        "e2e/l-systems-ensemble.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "        <div class=\"l-systems-stage-wrap\" id=\"stageWrap\">\n          <canvas id=\"stage\" tabindex=\"0\" aria-label=\"Animated L-system instrument canvas\" aria-describedby=\"stageReadout liveStatus\">\n            Animated L-system branches with a moving reader.\n          </canvas>\n          <div class=\"l-systems-stage-meta\" aria-hidden=\"true\">\n",
+          "after": "        <div class=\"l-systems-stage-wrap\" id=\"stageWrap\">\n          <canvas id=\"stage\" tabindex=\"0\" aria-label=\"Animated L-system instrument canvas\" aria-describedby=\"stageReadout liveStatus\">\n            Animated L-system paths with moving readers that split at real branches.\n          </canvas>\n          <div class=\"l-systems-stage-meta\" aria-hidden=\"true\">\n"
+        },
+        {
+          "before": "          </div>\n          <div class=\"l-systems-stage-meter\" aria-hidden=\"true\">\n            <span id=\"mappingReadout\">ANGLE PITCH - FINAL</span>\n          </div>\n        </div>\n",
+          "after": "          </div>\n          <div class=\"l-systems-stage-meter\" aria-hidden=\"true\">\n            <span id=\"mappingReadout\">GEOMETRY PITCH - FINAL</span>\n          </div>\n        </div>\n"
+        },
+        {
+          "before": "            </div>\n            <label class=\"control l-systems-primary-range\" for=\"speed\">\n              <span><b>Speed</b><output id=\"speedOut\" for=\"speed\">0.30 cyc/s</output></span>\n              <input id=\"speed\" type=\"range\" min=\"0\" max=\"3\" step=\"0.01\" value=\"0.3\" />\n            </label>\n            <label class=\"control l-systems-primary-range\" id=\"subdivisionsControl\" hidden for=\"subdivisions\">\n",
+          "after": "            </div>\n            <label class=\"control l-systems-primary-range\" for=\"speed\">\n              <span><b>Speed</b><output id=\"speedOut\" for=\"speed\">0.22 cyc/s</output></span>\n              <input id=\"speed\" type=\"range\" min=\"0\" max=\"3\" step=\"0.001\" value=\"0.22\" />\n            </label>\n            <label class=\"control l-systems-primary-range\" id=\"subdivisionsControl\" hidden for=\"subdivisions\">\n"
+        },
+        {
+          "before": "            </label>\n\n          </section>\n\n",
+          "after": "            </label>\n\n          </section>\n\n          <section class=\"l-systems-rack\" id=\"cornersRack\" aria-labelledby=\"cornersRackTitle\">\n            <header><h2 id=\"cornersRackTitle\">Corners</h2></header>\n            <div class=\"l-systems-grid\">\n              <label class=\"select-control l-systems-wide\" for=\"hitPlacement\">\n                <span class=\"field-label\">Hit placement</span>\n                <span class=\"select-shell\"><select id=\"hitPlacement\">\n                  <option value=\"all\">All subdivisions</option>\n                  <option value=\"corners\">Corners &amp; forks only</option>\n                </select></span>\n              </label>\n              <label class=\"control\" for=\"cornerEmphasis\">\n                <span><b>Corner accent</b><output id=\"cornerEmphasisOut\" for=\"cornerEmphasis\">45%</output></span>\n                <input id=\"cornerEmphasis\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.45\" />\n              </label>\n              <label class=\"control\" for=\"cornerThreshold\">\n                <span><b>Minimum turn</b><output id=\"cornerThresholdOut\" for=\"cornerThreshold\">12 deg</output></span>\n                <input id=\"cornerThreshold\" type=\"range\" min=\"0\" max=\"180\" step=\"1\" value=\"12\" />\n              </label>\n              <label class=\"control l-systems-wide\" for=\"cornerWidth\">\n                <span><b>Accent width</b><output id=\"cornerWidthOut\" for=\"cornerWidth\">20% of edge</output></span>\n                <input id=\"cornerWidth\" type=\"range\" min=\"0.04\" max=\"0.5\" step=\"0.01\" value=\"0.2\" />\n              </label>\n            </div>\n            <p class=\"control-note\">Diamonds mark qualifying turns and forks. Accent adds contrast, not louder peaks; width sets its reach along each edge.</p>\n          </section>\n\n"
+        },
+        {
+          "before": "              </span>\n            </label>\n            <div class=\"l-systems-structure-readout\">\n              <b id=\"structureReadout\">FINAL I7</b>\n              <small id=\"structureDescription\">Only the final rewritten structure is scanned.</small>\n            </div>\n          </section>\n",
+          "after": "              </span>\n            </label>\n            <label class=\"select-control\" for=\"readerMode\">\n              <span class=\"field-label\">Readers</span>\n              <span class=\"select-shell\"><select id=\"readerMode\">\n                <option value=\"end-to-end\">End to end \u00b7 natural branches</option>\n                <option value=\"regions\">Three regions</option>\n              </select></span>\n            </label>\n            <div class=\"l-systems-structure-readout\">\n              <b id=\"structureReadout\">FINAL I7</b>\n              <small id=\"structureDescription\">Trace the final structure from one end to the other; playheads split at branches.</small>\n            </div>\n          </section>\n"
+        },
+        {
+          "before": "                    <option value=\"height\">Stage height</option>\n                    <option value=\"depth\">Branch depth</option>\n                    <option value=\"progress\">Segment progress</option>\n                  </select>\n                </span>\n",
+          "after": "                    <option value=\"height\">Stage height</option>\n                    <option value=\"depth\">Branch depth</option>\n                    <option value=\"progress\">Path progress</option>\n                  </select>\n                </span>\n"
+        },
+        {
+          "before": "              </label>\n              <label class=\"control\" for=\"baseFrequency\">\n                <span><b>Base frequency</b><output id=\"baseFrequencyOut\" for=\"baseFrequency\">220 Hz</output></span>\n                <input id=\"baseFrequency\" type=\"range\" min=\"55\" max=\"880\" step=\"1\" value=\"220\" />\n              </label>\n",
+          "after": "              </label>\n              <label class=\"control\" for=\"baseFrequency\">\n                <span><b>Center frequency</b><output id=\"baseFrequencyOut\" for=\"baseFrequency\">220 Hz</output></span>\n                <input id=\"baseFrequency\" type=\"range\" min=\"55\" max=\"880\" step=\"1\" value=\"220\" />\n              </label>\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "baseCommit": "faed2c7f734a9a905c43c4d55f18f7044e05bfd9",
+      "baselineSha256": "ed61fa0701a8063944ad08b048462d73d234b2606af84852034ecdc8236140da",
+      "reason": "Declare only the ten new selected runtime modules and focused documentation paths.",
+      "regressionTests": [
+        "tests/release-manifest.test.mjs",
+        "tests/selected-instrument-recovery-reference.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\thyper-synth.html\ncopy+require\tmoebius-synth.html\ncopy+require\tklein-bottle-synth.html\ncopy+require\ttesselation.html\n",
+          "after": "copy+require\thyper-synth.html\ncopy+require\tmoebius-synth.html\ncopy+require\tdocs/moebius-interactions.md\ncopy+require\tklein-bottle-synth.html\ncopy+require\ttesselation.html\n"
+        },
+        {
+          "before": "copy+require\tsrc/families/graph-presets/initial-state.js\ncopy+require\tsrc/families/graph-presets/full-presets.js\ncopy+require\tsrc/families/experiments/automata-presets.js\ncopy+require\tsrc/instruments/lattice/initial-state.js\ncopy+require\tsrc/instruments/lattice/full-presets.js\ncopy+require\tsrc/families/geometry-presets/shape-sound.js\ncopy+require\tsrc/families/geometry-presets/shape-readers.js\n",
+          "after": "copy+require\tsrc/families/graph-presets/initial-state.js\ncopy+require\tsrc/families/graph-presets/full-presets.js\ncopy+require\tsrc/families/graph-presets/rhythm-studies.js\ncopy+require\tsrc/instruments/graph-synth/expressive-presets.js\ncopy+require\tsrc/instruments/graph-drum-machine/expressive-presets.js\ncopy+require\tdocs/graph-expressive-presets.md\ncopy+require\tsrc/families/experiments/automata-presets.js\ncopy+require\tsrc/instruments/lattice/initial-state.js\ncopy+require\tsrc/instruments/lattice/full-presets.js\ncopy+require\tsrc/instruments/lattice/rhythm-presets.js\ncopy+require\tsrc/families/geometry-presets/shape-sound.js\ncopy+require\tsrc/families/geometry-presets/shape-readers.js\n"
+        },
+        {
+          "before": "# L-Systems shared subdivision clock and timed Notes\ncopy+require\tsrc/instruments/l-systems/discrete-audio.js\n\ncopy+require\tsrc/instruments/gesticulating-hand/hand-rhythm.js\n",
+          "after": "# L-Systems shared subdivision clock and timed Notes\ncopy+require\tsrc/instruments/l-systems/discrete-audio.js\ncopy+require\tsrc/instruments/l-systems/corners.js\ncopy+require\tsrc/instruments/l-systems/ensemble.js\ncopy+require\tdocs/l-systems-ensemble.md\ncopy+require\tdocs/l-systems-ensemble-runtime-changes.json\n\ncopy+require\tsrc/instruments/gesticulating-hand/hand-rhythm.js\n"
+        }
+      ]
+    }
+  ]
+}

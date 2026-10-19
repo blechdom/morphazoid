@@ -1,14 +1,18 @@
+import { restoreWitchSite } from "./helpers/witch-site-reference.mjs";
+import { restoreTimeLoomSite } from "./helpers/time-loom-site-reference.mjs";
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { restoreMobileMenubar } from './helpers/mobile-menubar-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { rezoidinatorModesSiteChanges, restoreRezoidinatorModesSite } from './helpers/rezoidinator-modes-site-reference.mjs';
 import { restoreRezoidinatorSite } from './helpers/rezoidinator-site-reference.mjs';
 import { restoreRustResonatorSite } from './helpers/simd-resonator-rust-site-reference.mjs';
 
 const file = 'scripts/site/runtime-files.tsv';
-const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+// Remove the independently tested Time Loom, Witch and mobile presentation additions.
+const source = restoreMobileMenubar(restoreWitchSite(restoreTimeLoomSite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file, { allowRestored: true }), file), file);
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 test('Rezoidinator ships its complete signal path exactly once and preserves prior manifest bytes', () => {

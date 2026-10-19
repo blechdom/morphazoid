@@ -8,6 +8,17 @@ import {
 import { CONTROL_LIMITS } from "../../families/syrinx/syrinx.js";
 import { presetRandom, randomParameterValues, randomMonophonicRows } from "../../site/preset-random.js";
 
+// Master volume belongs to the performer, not to a musical scene.
+export function captureCreaturazoidPresetState(state) {
+  const { level, ...musicalState } = state;
+  return musicalState;
+}
+
+export function applyCreaturazoidPresetState(presetState, liveState) {
+  // Old snapshots may still contain level. Ignore it, including when muted.
+  return sanitizeCreaturazoidState({ ...presetState, level: liveState.level });
+}
+
 // Deliberate complete performances using every original body and rhythm.
 // The state constructor fills ALL acoustic, anatomy and modulation parameters;
 // no preset inherits leftover body/sequence values from the prior performance.
@@ -28,10 +39,10 @@ const scenes = [
 
 export const CREATURAZOID_FULL_PRESETS = Object.freeze(scenes.map(([id, label, bodyId, rhythmId, tempo, swing, overrides]) => {
   const rhythm = creaturazoidSequencePreset(rhythmId);
-  const state = creaturazoidState(bodyId, {
-    ...overrides, tempo, swing, level: 0.48,
+  const state = captureCreaturazoidPresetState(creaturazoidState(bodyId, {
+    ...overrides, tempo, swing,
     sequencePresetId: rhythm.id, patternLength: rhythm.length,
-  });
+  }));
   return Object.freeze({
     id, label,
     description: `${creaturazoidBodyPreset(bodyId).label} anatomy and modulation, ${rhythm.label}, ${tempo} BPM. Audio and transport remain yours.`,
@@ -47,7 +58,7 @@ export const CREATURAZOID_FULL_PRESETS = Object.freeze(scenes.map(([id, label, b
 export function randomizeCreaturazoidPreset(current, random = Math.random) {
   const rng = presetRandom(random);
   const patternLength = rng.integer(8, 64);
-  const state = sanitizeCreaturazoidState({
+  const state = captureCreaturazoidPresetState(sanitizeCreaturazoidState({
     ...current.state,
     // This ID also selects body-motion envelopes/palette and reference scaling;
     // roll that categorical parameter, but do not copy the preset's settings.
@@ -56,7 +67,7 @@ export function randomizeCreaturazoidPreset(current, random = Math.random) {
       ...CREATURAZOID_LIMITS, pitchSemitones: [-18, 18], vibratoRateHz: [0, 12], vibratoDepthSemitones: [0, 3],
       modulationRateHz: [0, 12], modulationDepth: [0, 0.8],
     }, rng),
-    level: current.state.level, tempo: rng.integer(60, 220), patternLength,
+    tempo: rng.integer(60, 220), patternLength,
     bodyShape: {
       ...randomParameterValues(CREATURAZOID_SHAPE_LIMITS, rng),
       earType: rng.pick(CREATURAZOID_EAR_TYPES), tailType: rng.pick(CREATURAZOID_TAIL_TYPES),
@@ -72,7 +83,7 @@ export function randomizeCreaturazoidPreset(current, random = Math.random) {
     anatomyDesignId: rng.pick(CREATURAZOID_ANATOMY_DESIGNS).id,
     modulationShape: rng.pick(CREATURAZOID_MODULATION_SHAPES),
     modulationTarget: rng.pick(["cavity", "roughness", "beak", "pressure", "split", "balance"]),
-  });
+  }));
   return {
     state, currentPatternId: "custom", modulationTarget: state.modulationTarget,
     pattern: sanitizeCreaturazoidPattern({

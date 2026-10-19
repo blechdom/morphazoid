@@ -30,7 +30,7 @@ async function instrument(page) {
         const entries = read.call(this, now);
         globalThis.__lsClockCount ??= 0;
         this.__probeClockId ??= ++globalThis.__lsClockCount;
-        globalThis.__lsEvents.push({ method: "clock", at: now, entries, clockId: this.__probeClockId });
+        globalThis.__lsEvents.push({ method: "clock", at: now, entries, frontier: [...this.activeEventKeys], clockId: this.__probeClockId });
         return entries;
       };` });
   });
@@ -126,7 +126,7 @@ test("Notes and Triggers use the same subdivision clock; stalls do not replay ov
   const diagnostics = watchPageDiagnostics(page, { baseURL });
   await instrument(page); await arm(page, { subdivisions: 3, speed: 0.5 });
   await page.waitForTimeout(900);
-  const first = await page.evaluate(() => __lsEvents.filter(event => event.method === "clock").flatMap(event => event.entries).map(entry => entry.event.key));
+  const first = await page.evaluate(() => __lsEvents.find(event => event.method === "clock").frontier);
   await page.locator("#playButton").click();
   await page.locator("#position").fill("0");
   await page.locator("#modeTriggers").click();
@@ -134,7 +134,8 @@ test("Notes and Triggers use the same subdivision clock; stalls do not replay ov
   await page.evaluate(() => { __lsEvents = []; });
   await page.locator("#playButton").click(); await page.waitForTimeout(900);
   const second = await page.evaluate(() => __lsEvents.filter(event => event.method === "clock").flatMap(event => event.entries).map(entry => entry.event.key));
-  expect(first.slice(0, 3)).toEqual(second.slice(0, 3));
+  const secondFrontier = await page.evaluate(() => __lsEvents.find(event => event.method === "clock").frontier);
+  expect(first).toEqual(secondFrontier); // Notes retain pitches that percussion may coalesce.
   expect(second.length).toBeGreaterThan(3);
   await page.locator("#modeNotes").click(); await page.waitForTimeout(100);
   await page.evaluate(() => { __lsEvents = []; const start = performance.now(); while (performance.now() - start < 180) {} });

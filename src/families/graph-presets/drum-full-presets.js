@@ -3,6 +3,11 @@ import { GRAPH_DRUM_PERCUSSION_STYLES } from "../graph/graph-drum-audio.js";
 import { GRAPH_INSTRUMENT_PATCHES, MAX_GRAPH_INSTRUMENT_NODES } from "../graph/graph-instruments.js";
 import { presetStateKey } from "../../site/header-presets.js";
 import { presetRandom } from "../../site/preset-random.js";
+import { cloneDefaultFmDrumVoices } from "../../instruments/fm-drums/fm-drums.js";
+import { captureFmDrumPreset, randomizeFmDrumPreset, validateFmDrumPreset } from "../../instruments/fm-drums/full-presets.js";
+import { graphDrumExpressiveStudies } from "../../instruments/graph-drum-machine/expressive-presets.js";
+
+export const GRAPH_DRUM_PRESET_VERSION = 2;
 
 const TOPOLOGIES = Object.freeze(Object.keys(GRAPH_PRESETS));
 const STYLES = Object.freeze(GRAPH_DRUM_PERCUSSION_STYLES.map(style => style.id));
@@ -30,7 +35,7 @@ function sanitizeParameters(raw = {}) {
     topology: oneOf(raw.topology, TOPOLOGIES, "dag"),
     nodeCount: integer(raw.nodeCount, 3, MAX_GRAPH_INSTRUMENT_NODES, 10),
     density: quantize(raw.density, 0, 1, 0.01, 0.34),
-    seed: integer(raw.seed, 1, 99, 17),
+    seed: integer(raw.seed, 1, 0xffffffff, 17),
     baseDelay: integer(raw.baseDelay, 20, 600, 62),
     distanceRatio: quantize(raw.distanceRatio, 1, 12, 0.01, 1.94),
     timeCurve: quantize(raw.timeCurve, 0.25, 3, 0.05, 0.9),
@@ -49,7 +54,7 @@ function sanitizeParameters(raw = {}) {
     characterDepth: quantize(raw.characterDepth, 0, 1, 0.01, 0.72),
     nodeMoving: Boolean(raw.nodeMoving),
     nodeMotionMode: oneOf(raw.nodeMotionMode, MOTIONS, "wiggle"),
-    nodeMotionSpeed: quantize(raw.nodeMotionSpeed, 0.01, 0.5, 0.01, 0.12),
+    nodeMotionSpeed: quantize(raw.nodeMotionSpeed, 0.01, 0.5, 0.001, 0.12),
     nodeMotionAmount: quantize(raw.nodeMotionAmount, 0.01, 0.3, 0.01, 0.07),
   };
 }
@@ -69,22 +74,40 @@ export function sanitizeGraphDrumPreset(raw = {}) {
     quantize(raw.nodes?.[index]?.[1], 0, 1, 0.001, node.y),
   ]);
   const edgeSwitches = Object.fromEntries(graph.edges.map(edge => [edgeKey(edge), raw.edgeSwitches?.[edgeKey(edge)] !== false]));
-  return { parameters, nodes, edgeSwitches };
+  const { voices } = captureFmDrumPreset(raw.voices ?? cloneDefaultFmDrumVoices());
+  return { version: GRAPH_DRUM_PRESET_VERSION, parameters, nodes, edgeSwitches, voices };
 }
 
-export function captureGraphDrumPreset(state, graph, edgeSwitches) {
+export function captureGraphDrumPreset(state, graph, edgeSwitches, voices = cloneDefaultFmDrumVoices()) {
   return sanitizeGraphDrumPreset({
     parameters: state,
+    voices,
     nodes: graph.nodes.map(node => [node.x, node.y]),
     edgeSwitches: edgeSwitches instanceof Map ? Object.fromEntries(edgeSwitches) : edgeSwitches,
   });
 }
 
 export function validateGraphDrumPreset(snapshot) {
-  if (!snapshot || typeof snapshot !== "object" || presetStateKey(snapshot) !== presetStateKey(sanitizeGraphDrumPreset(snapshot))) {
-    throw new TypeError("Invalid complete Graph Drum Machine preset");
+  if (!snapshot || typeof snapshot !== "object") throw new TypeError("Invalid complete Graph Drum Machine preset");
+  const canonical = sanitizeGraphDrumPreset(snapshot);
+  // The original published format had no version or kit. Keep it readable;
+  // migration fills its kit from the live bank rather than resetting the sound.
+  if (!Object.hasOwn(snapshot, "version") && !Object.hasOwn(snapshot, "voices")) {
+    delete canonical.version;
+    delete canonical.voices;
+  } else {
+    if (snapshot.version !== GRAPH_DRUM_PRESET_VERSION) throw new TypeError("Unsupported Graph Drum Machine preset version");
+    validateFmDrumPreset({ voices: snapshot.voices });
   }
+  if (presetStateKey(snapshot) !== presetStateKey(canonical)) throw new TypeError("Invalid complete Graph Drum Machine preset");
   return snapshot;
+}
+
+export function migrateGraphDrumPreset(snapshot, liveVoices = cloneDefaultFmDrumVoices()) {
+  validateGraphDrumPreset(snapshot);
+  return snapshot.version === GRAPH_DRUM_PRESET_VERSION
+    ? snapshot
+    : sanitizeGraphDrumPreset({ ...snapshot, voices: liveVoices });
 }
 
 /** Rebuilds the live graph model (with the preset's node layout) and its edge-gate map. */
@@ -116,6 +139,11 @@ const scene = (id, label, parameters, { jitter = 0, close = 0 } = {}) => {
 };
 
 const GLASS = fromPatch("layeredGlass");
+
+const EXPRESSIVE_PRESETS = graphDrumExpressiveStudies(GLASS).map(({ id, label, description, parameters, graph, voices }) => Object.freeze({
+  id, label, description,
+  snapshot: Object.freeze(captureGraphDrumPreset(parameters, graph, new Map(graph.edges.map(edge => [edgeKey(edge), true])), voices)),
+}));
 
 export const GRAPH_DRUM_FULL_PRESETS = Object.freeze([
   scene("layered-glass", "Layered glass", GLASS),
@@ -156,6 +184,7 @@ export const GRAPH_DRUM_FULL_PRESETS = Object.freeze([
     feedback: 0.4, feedbackTone: 0.55, tempo: 52, pulseDivision: 4, triggerScope: "leaves", percussionStyle: "karplus-objects",
     mappingMode: "degree-turn", pitchDepth: 10, turnPitchDepth: 12, characterDepth: 0.6, seedNote: 48,
   }),
+  ...EXPRESSIVE_PRESETS,
 ]);
 
 export function randomizeGraphDrumPreset(current, random = Math.random) {
@@ -190,5 +219,6 @@ export function randomizeGraphDrumPreset(current, random = Math.random) {
   const shape = sanitizeGraphDrumPreset({ parameters });
   const nodes = shape.nodes.map(() => [rng.between(0.06, 0.94), rng.between(0.06, 0.94)]);
   const edgeSwitches = Object.fromEntries(Object.keys(shape.edgeSwitches).map((key, index) => [key, index === 0 || rng.unit() > 0.15]));
-  return validateGraphDrumPreset(sanitizeGraphDrumPreset({ parameters: shape.parameters, nodes, edgeSwitches }));
+  const { voices } = randomizeFmDrumPreset({ voices: migrateGraphDrumPreset(current).voices }, random);
+  return validateGraphDrumPreset(sanitizeGraphDrumPreset({ parameters: shape.parameters, nodes, edgeSwitches, voices }));
 }

@@ -1,6 +1,8 @@
 // Explicit owner units; labels alone cannot describe the speed curve.
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
+  {"route": "witch.html", "selector": "#speed", "mapping": {"unit": "powerHz", "floor": 0, "span": 1.909859317102744, "exponent": 1}, "title": "Tap one complete cauldron turn"},
+  {"route": "witch.html", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 1.15, "span": 7.8, "exponent": 1}, "title": "Tap one broom note"},
   {"route": "graphonic-calculator.html", "selector": "#sweepTempo", "mapping": {"unit": "bpm"}, "title": "Tap one complete sweep"},
   {"route": "trackazoid.html", "selector": "#aBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck A source BPM"},
   {"route": "trackazoid.html", "selector": "#bBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck B source BPM"},
@@ -99,6 +101,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "linear-drums.html", "selector": "#sweepSpeed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "linebreaker.html", "selector": "#scanRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "lissajous-orbits.html", "selector": "#lissajousRate", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "time-loom.html", "selector": "#stretch", "mapping": {"unit": "inverseMultiplier", "referenceBpm": 120}, "title": "Tap passage speed (120 BPM = original duration)"},
   {"route": "loopini.html", "selector": "#speed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "lumber.html", "selector": "#delayRotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "midiphoria.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},

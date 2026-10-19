@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  witch: define(
+    "A cauldron voice, five fingers and a musical broom",
+    "Stir a cauldron to drive a witch’s whispers, creaks and singing. Her five long fingers play independent glass, reed, wire, metal and marimba sounds; broom flight weaves instrumental patterns past moon bells, bat ticks and ghost chimes.",
+    "Enable Audio, then circle the ladle to chant, pull a fingertip to bend its instrument, or drag the broom to shape pitch and rhythm. Play sustains the current scene; release to let it fade.",
+    ["Built-in synth", "Pointer", "Touch", "Gesture sound", "Presets"],
+  ),
   wobblini: define(
     "Eight-deck audio mixer",
     "Intercut eight local stereo sources with scratchable records or waveforms, cue preview, Slip and automatic full-file repeat. Match levels with input gain and Auto Gain, assign decks to A/B/Thru, and shape each source with volume, pan, EQ and filters. Analyze tempo, choose a sync master, preserve pitch or shift it independently of speed.",
@@ -62,6 +68,12 @@ const CATALOG_DETAILS = Object.freeze({
     "The complete Sliding Puzzle, Rubix Cube and Hyper Rubix instruments share a color palette, additional sound engines and transferable controls. Each dimension retains its puzzle, native capabilities and history when switching.",
     "Enable Audio and Play. Slide or twist the colored stickers, switch dimensions, and explore shared sound, mapping and motion controls.",
     ["Built-in synth", "Pointer", "Native instruments", "Self-contained app"],
+  ),
+  "time-loom": define(
+    "Knotted recording instrument",
+    "Three hanging cords hold recorded phrases. Slide knots to isolate loops, pull tassels to stretch time, read upward in reverse, and tie passages into a directed conversation.",
+    "Turn Audio on and Play the original demo. Slide two knots to choose a passage, pull its tassel, then tie it to another cord. Record a phrase or load your own audio.",
+    ["Microphone", "Audio file", "Looper", "Time stretch", "Reverse", "Pointer", "Touch"],
   ),
   "loopini": define(
     "Simple recording looper",

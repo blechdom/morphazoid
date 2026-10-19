@@ -29,7 +29,7 @@ command names.
   All microphone controls use `mountAudioInputControl()` from
   `src/audio-input-control.js`: input gain knob → mono/stereo meters → mic toggle,
   grouped with the shared violet input accent,
-  before output meters in the desktop menubar and beside presets on mobile.
+  before output meters in the desktop menubar and inside Settings on mobile.
   Use borderless input meters and an anchored error popup that never resizes the
   controls. Keep Record separate; add Mic/File only for
   existing file input. See `docs/audio-input-controls.md`.
@@ -98,7 +98,13 @@ command names.
 - Keep transport and recovery immediately reachable. The performance masthead is
   Morphazoid → Choose → next instrument → flexible space → mic input (where used) → Record (browser) →
   stereo meters → volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
-  Settings. Main preset menu → next preset → randomize (dice) belongs in the
+  Settings. On phones and short landscape layouts, use the shared single-row
+  mobile menubar: home icon → Choose chevron (no next instrument) → flexible
+  space → Record → meters → volume knob → Audio → Settings. Extra header
+  controls, including mic and input gain, move into Settings without cloning
+  controls or changing audio state. Keep Audio at least 48×48. See
+  `docs/mobile-menubar.md` for the shared enhancement and remaining exceptions.
+  Main preset menu → next preset → randomize (dice) belongs in the
   first row of the instrument's right control panel, using the Choose-menu UI.
   See `docs/performance-toolbar.md`; retain native level values/events and do not
   replace instrument-owned audio or preset state. Each migrated

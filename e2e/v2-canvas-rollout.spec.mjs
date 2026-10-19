@@ -67,6 +67,14 @@ for (const id of [...lSystemIds, "gravity-walk", "charge-garden"]) {
     await settlePage(page);
     const audio = page.locator("#audioButton");
     const play = page.locator("#playButton");
+    if (id === "l-systems") {
+      // Keep this short audio sampling window on the original probe's pacing.
+      // The instrument's new default uses a slower branch traversal.
+      await page.locator("#speed").evaluate(input => {
+        input.value = "0.3";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
     await audio.click();
     await expect(audio).toHaveAttribute("aria-pressed", "true");
     await expect(play).toHaveAttribute("aria-pressed", "false");

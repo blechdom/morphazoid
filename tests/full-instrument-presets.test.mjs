@@ -1,3 +1,5 @@
+import { captureHiccupHeadPresetState, applyHiccupHeadPresetState } from "../src/instruments/hiccup-head/full-presets.js";
+import { captureCreaturazoidPresetState, applyCreaturazoidPresetState } from "../src/instruments/creaturazoid/full-presets.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { presetStateKey, validateFullPresetBank, presetArrowDirection } from "../src/site/header-presets.js";
@@ -28,7 +30,7 @@ const equalIds = (actual, records) => assert.deepEqual(new Set(actual), new Set(
 test("Shapes leads Faves while individual geometry instruments remain category-only", () => {
   assert.deepEqual(FAVE_TOOL_IDS, [
     "shapes", "rubix", "hiccup-head", "synthesis",
-    "creaturazoid", "hybrinx", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
+    "creaturazoid", "hybrinx", "quadruped", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
     "fractal-delay", "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
     "gesticulating-hand", "simd-chiptune", "blech-midi", "midiphoria", "graphonic-calculator",
   ]);
@@ -62,7 +64,7 @@ test("Creaturazoid scenes restore full sanitized anatomy/modulation and all orig
   equalIds(CREATURAZOID_FULL_PRESETS.map(p => p.snapshot.state.bodyPresetId), CREATURAZOID_BODY_PRESETS);
   equalIds(CREATURAZOID_FULL_PRESETS.map(p => p.snapshot.currentPatternId), CREATURAZOID_SEQUENCE_PRESETS);
   for (const { snapshot } of CREATURAZOID_FULL_PRESETS) {
-    assert.deepEqual(sanitizeCreaturazoidState(snapshot.state), snapshot.state);
+    assert.deepEqual(captureCreaturazoidPresetState(sanitizeCreaturazoidState(snapshot.state)), snapshot.state);
     assert.deepEqual(sanitizeCreaturazoidPattern(snapshot.pattern, snapshot.pattern.length), snapshot.pattern);
     assert.equal(snapshot.state.patternLength, snapshot.pattern.length);
     assert.equal(snapshot.state.sequencePresetId, snapshot.currentPatternId);
@@ -76,7 +78,7 @@ test("Hiccup Head scenes restore every face/rhythm/bank and complete voice/effec
   equalIds(HICCUP_HEAD_FULL_PRESETS.map(p => p.snapshot.currentPatternId), HICCUP_HEAD_PATTERNS);
   equalIds(HICCUP_HEAD_FULL_PRESETS.map(p => p.snapshot.currentSoundBankId), HICCUP_HEAD_SOUND_BANKS);
   for (const { snapshot } of HICCUP_HEAD_FULL_PRESETS) {
-    assert.deepEqual(sanitizeHiccupHeadState(snapshot.state), snapshot.state);
+    assert.deepEqual(captureHiccupHeadPresetState(sanitizeHiccupHeadState(snapshot.state)), snapshot.state);
     assert.deepEqual(clonePattern(snapshot.pattern), snapshot.pattern);
     assert.equal(snapshot.voiceSlots.length, 8);
     for (const slot of snapshot.voiceSlots) assert.deepEqual(sanitizeHiccupHeadVoice(slot.voice), slot.voice);

@@ -24,12 +24,13 @@ async function randomizeAndCapture(page) {
 }
 
 async function browserReferenceBank(page, entry) {
-  if (!["graph-delay", "graph-synth"].includes(entry.id)) return entry.bank;
-  // Graph layouts use transcendental math. Node and Chromium can differ by one
+  if (!["graph-delay", "graph-synth", "lattice"].includes(entry.id)) return entry.bank;
+  // Graph layouts and Lattice envelopes use transcendental math. Node and Chromium can differ by one
   // floating-point bit, even with the same seed. Compare recall EXACTLY with
   // the bank authored in this browser, not a rounded/tolerant capture. This
   // imports the independent factory, never the state returned by the adapter.
   const bank = await page.evaluate(async id => {
+    if (id === "lattice") return (await import("/src/instruments/lattice/full-presets.js")).LATTICE_FULL_PRESETS;
     const presets = await import("/src/families/graph-presets/full-presets.js");
     if (id === "graph-delay") return presets.GRAPH_DELAY_FULL_PRESETS;
     const { graphInstrumentDefaultState } = await import("/src/families/graph/graph-instrument-app.js");

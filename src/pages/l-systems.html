@@ -46,13 +46,13 @@
       <section class="l-systems-stage" aria-label="L-System stage">
         <div class="l-systems-stage-wrap" id="stageWrap">
           <canvas id="stage" tabindex="0" aria-label="Animated L-system instrument canvas" aria-describedby="stageReadout liveStatus">
-            Animated L-system branches with a moving reader.
+            Animated L-system paths with moving readers that split at real branches.
           </canvas>
           <div class="l-systems-stage-meta" aria-hidden="true">
             <span id="stageReadout">I7 - 0 heads - paused - audio off</span>
           </div>
           <div class="l-systems-stage-meter" aria-hidden="true">
-            <span id="mappingReadout">ANGLE PITCH - FINAL</span>
+            <span id="mappingReadout">GEOMETRY PITCH - FINAL</span>
           </div>
         </div>
       </section>
@@ -95,8 +95,8 @@
               </div>
             </div>
             <label class="control l-systems-primary-range" for="speed">
-              <span><b>Speed</b><output id="speedOut" for="speed">0.30 cyc/s</output></span>
-              <input id="speed" type="range" min="0" max="3" step="0.01" value="0.3" />
+              <span><b>Speed</b><output id="speedOut" for="speed">0.22 cyc/s</output></span>
+              <input id="speed" type="range" min="0" max="3" step="0.001" value="0.22" />
             </label>
             <label class="control l-systems-primary-range" id="subdivisionsControl" hidden for="subdivisions">
               <span><b>Subdivisions</b><output id="subdivisionsOut" for="subdivisions">4</output></span>
@@ -107,6 +107,32 @@
               <input id="position" type="range" min="0" max="1" step="0.0005" value="0" />
             </label>
 
+          </section>
+
+          <section class="l-systems-rack" id="cornersRack" aria-labelledby="cornersRackTitle">
+            <header><h2 id="cornersRackTitle">Corners</h2></header>
+            <div class="l-systems-grid">
+              <label class="select-control l-systems-wide" for="hitPlacement">
+                <span class="field-label">Hit placement</span>
+                <span class="select-shell"><select id="hitPlacement">
+                  <option value="all">All subdivisions</option>
+                  <option value="corners">Corners &amp; forks only</option>
+                </select></span>
+              </label>
+              <label class="control" for="cornerEmphasis">
+                <span><b>Corner accent</b><output id="cornerEmphasisOut" for="cornerEmphasis">45%</output></span>
+                <input id="cornerEmphasis" type="range" min="0" max="1" step="0.01" value="0.45" />
+              </label>
+              <label class="control" for="cornerThreshold">
+                <span><b>Minimum turn</b><output id="cornerThresholdOut" for="cornerThreshold">12 deg</output></span>
+                <input id="cornerThreshold" type="range" min="0" max="180" step="1" value="12" />
+              </label>
+              <label class="control l-systems-wide" for="cornerWidth">
+                <span><b>Accent width</b><output id="cornerWidthOut" for="cornerWidth">20% of edge</output></span>
+                <input id="cornerWidth" type="range" min="0.04" max="0.5" step="0.01" value="0.2" />
+              </label>
+            </div>
+            <p class="control-note">Diamonds mark qualifying turns and forks. Accent adds contrast, not louder peaks; width sets its reach along each edge.</p>
           </section>
 
           <section class="l-systems-rack" aria-labelledby="systemRackTitle">
@@ -189,9 +215,16 @@
                 </select>
               </span>
             </label>
+            <label class="select-control" for="readerMode">
+              <span class="field-label">Readers</span>
+              <span class="select-shell"><select id="readerMode">
+                <option value="end-to-end">End to end · natural branches</option>
+                <option value="regions">Three regions</option>
+              </select></span>
+            </label>
             <div class="l-systems-structure-readout">
               <b id="structureReadout">FINAL I7</b>
-              <small id="structureDescription">Only the final rewritten structure is scanned.</small>
+              <small id="structureDescription">Trace the final structure from one end to the other; playheads split at branches.</small>
             </div>
           </section>
 
@@ -205,7 +238,7 @@
                     <option value="angle">Turn angle</option>
                     <option value="height">Stage height</option>
                     <option value="depth">Branch depth</option>
-                    <option value="progress">Segment progress</option>
+                    <option value="progress">Path progress</option>
                   </select>
                 </span>
               </label>
@@ -224,7 +257,7 @@
                 </span>
               </label>
               <label class="control" for="baseFrequency">
-                <span><b>Base frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span>
+                <span><b>Center frequency</b><output id="baseFrequencyOut" for="baseFrequency">220 Hz</output></span>
                 <input id="baseFrequency" type="range" min="55" max="880" step="1" value="220" />
               </label>
               <label class="control" for="pitchRange">
