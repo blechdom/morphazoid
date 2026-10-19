@@ -28,6 +28,8 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     this.blocks = 0; this.callbackMicros = 0; this.kernelMicros = 0; this.callbackMaxMicros = 0;
     this.callbackOverruns = 0; this.totalFrames = 0;
     this.pendingConfiguration = null; this.transition = 'steady';
+    this.performanceConfiguration = null; this.performanceFrames = 0;
+    this.performanceRampFrames = Math.max(BLOCK_SIZE, Math.round(sampleRate * .02));
     this.port.onmessage = event => this.message(event.data || {});
     this.post('boot');
   }
@@ -48,7 +50,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     this.ready = true;
     this.post('ready', { backend: this.backend, laneWidth: this.kernel.exports.lane_width(), simdAvailable: Boolean(this.kernels.simd) });
   }
-  configure(configuration) {
+  validateConfiguration(configuration) {
     if (!configuration || !Number.isInteger(configuration.modeCount) || configuration.modeCount < 32
       || configuration.modeCount > MAX_MODES || configuration.modeCount % 4
       || !Number.isFinite(configuration.outputScale) || configuration.outputScale < 0 || configuration.outputScale > 1) {
@@ -60,6 +62,10 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
         throw new Error('Invalid modal coefficients: ' + key);
       }
     }
+  }
+  configure(configuration) {
+    this.validateConfiguration(configuration);
+    this.performanceConfiguration = null; this.performanceFrames = 0;
     // The modal bank fades over one quantum on either side of an edit. The
     // external source and FFT stream keep advancing through this short ramp.
     if (this.ready) {
@@ -70,6 +76,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     this.applyConfiguration(configuration);
   }
   applyConfiguration(configuration) {
+    this.performanceConfiguration = null; this.performanceFrames = 0;
     for (const kernel of Object.values(this.kernels)) {
       if (!kernel) continue;
       if (configuration.modeCount < this.modeCount) for (const key of STATE_KEYS) kernel[key].fill(0, configuration.modeCount);
@@ -79,6 +86,62 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     this.audibleModes = configuration.audibleModes;
     this.spectrum.configureResynthesis(configuration);
     if (this.signalEnabled) this.spectrum.primeSilence();
+  }
+  performance(configuration) {
+    this.validateConfiguration(configuration);
+    if (!this.ready) throw new Error('The resonator must be ready before a performance update.');
+    const destinationCount = this.pendingConfiguration?.modeCount ?? this.modeCount;
+    if (configuration.modeCount !== destinationCount) throw new Error('Performance updates must retain the target body size.');
+    for (let index = 0; index < configuration.modeCount; index++) {
+      const cosine = configuration.cosine[index], sine = configuration.sine[index];
+      if (Math.abs(cosine * cosine + sine * sine - 1) > .001
+        || configuration.decay[index] < 0 || configuration.decay[index] > 1) {
+        throw new Error('Performance updates require stable modal rotations and decay.');
+      }
+    }
+    // A preset/body rebuild is already fading. The latest complete controls
+    // replace its queued target without adding another fade or stale replay.
+    if (this.pendingConfiguration) { this.pendingConfiguration = configuration; return; }
+    this.performanceConfiguration = configuration;
+    this.performanceFrames = this.performanceRampFrames;
+    this.audibleModes = configuration.audibleModes;
+  }
+  advancePerformance(frames) {
+    const target = this.performanceConfiguration;
+    if (!target) return;
+    const amount = Math.min(1, frames / this.performanceFrames);
+    const current = this.kernel, other = current === this.kernels.scalar ? this.kernels.simd : this.kernels.scalar;
+    if (amount === 1) {
+      // Finish on the exact authored Float32 coefficients; no asymptotic drift.
+      for (let key = 0; key < COEFFICIENT_KEYS.length; key++) {
+        current[COEFFICIENT_KEYS[key]].set(target[COEFFICIENT_KEYS[key]]);
+        other?.[COEFFICIENT_KEYS[key]].set(target[COEFFICIENT_KEYS[key]]);
+      }
+      this.outputScale = target.outputScale;
+      this.performanceConfiguration = null; this.performanceFrames = 0; return;
+    }
+    const cosine = current.cosine, sine = current.sine, decay = current.decay, strike = current.strike,
+      gain = current.gain, left = current.panLeft, right = current.panRight;
+    const nextCosine = target.cosine, nextSine = target.sine, nextDecay = target.decay, nextStrike = target.strike,
+      nextGain = target.gain, nextLeft = target.panLeft, nextRight = target.panRight;
+    for (let index = 0; index < this.modeCount; index++) {
+      const c = cosine[index] + (nextCosine[index] - cosine[index]) * amount;
+      const s = sine[index] + (nextSine[index] - sine[index]) * amount;
+      // Interpolating a chord alone shrinks the rotation and damps every mode.
+      // Normalize the pair so pitch movement preserves the authored lifetime.
+      const reciprocal = 1 / Math.max(1e-12, Math.sqrt(c * c + s * s));
+      cosine[index] = c * reciprocal; sine[index] = s * reciprocal;
+      decay[index] += (nextDecay[index] - decay[index]) * amount;
+      strike[index] += (nextStrike[index] - strike[index]) * amount;
+      gain[index] += (nextGain[index] - gain[index]) * amount;
+      left[index] += (nextLeft[index] - left[index]) * amount;
+      right[index] += (nextRight[index] - right[index]) * amount;
+    }
+    // Native typed-array copies keep both backends ready without property
+    // lookup or a second smoothing pass for every lane in the hot loop.
+    if (other) for (let key = 0; key < COEFFICIENT_KEYS.length; key++) other[COEFFICIENT_KEYS[key]].set(current[COEFFICIENT_KEYS[key]]);
+    this.outputScale += (target.outputScale - this.outputScale) * amount;
+    this.performanceFrames = Math.max(0, this.performanceFrames - frames);
   }
   selectBackend(requested) {
     const backend = requested !== 'scalar' && this.kernels.simd ? 'simd' : 'scalar';
@@ -93,6 +156,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     try {
       if (message.type === 'install') this.install(message);
       else if (message.type === 'configure') this.configure(message.configuration);
+      else if (message.type === 'performance') this.performance(message.configuration);
       else if (message.type === 'spatial') this.spatial.configure(message.configuration);
       else if (message.type === 'signal') {
         this.signal.configure(message.configuration, !this.signalEnabled);
@@ -110,6 +174,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
         if (this.inputActive) this.resonatorInputMode = true;
       } else if (message.type === 'reset') {
         if (this.pendingConfiguration) this.applyConfiguration(this.pendingConfiguration);
+        else if (this.performanceConfiguration) this.applyConfiguration(this.performanceConfiguration);
         this.pendingConfiguration = null; this.transition = 'steady';
         for (const kernel of Object.values(this.kernels)) kernel?.exports.reset_resonator();
         this.spectrum.resetResynthesis(); this.impulse = 0; this.signal.reset();
@@ -117,6 +182,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
         this.resonatorInputMode = this.inputActive; this.fftCurrentMix = this.inputActive ? this.spectrum.fftMix : 0;
       } else if (message.type === 'dispose') {
         this.running = false; this.ready = false; this.impulse = 0; this.signal.reset();
+        this.performanceConfiguration = null; this.performanceFrames = 0;
         this.kernels = {}; this.kernel = null; this.port.onmessage = null;
       }
     } catch (error) { this.post('error', { message: error?.message || 'Rust resonator failed.' }); }
@@ -135,6 +201,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     } else if (this.transition === 'steady' && this.pendingConfiguration) this.transition = 'fall';
     const left = output[0], right = output[1] || left;
     const frames = Math.min(BLOCK_SIZE, left.length, right.length);
+    this.advancePerformance(frames);
     const input = inputs[0]?.[0];
     const spatialEnabled = this.spatial.settings.enabled;
     this.spatial.advance(frames);
@@ -243,7 +310,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
         this.visualEnergy[i] = this.kernel.energy[index]; this.visualState[i] = this.kernel.real[index];
       }
       for (let channel = 0; channel < MAX_SPATIAL_CHANNELS; channel++) this.spatialRms[channel] = Math.sqrt(this.spatialRms[channel]);
-      this.post('telemetry', { signalEnabled: this.signalEnabled, signal: this.signalEnabled ? this.signal.settings : null, spatialEnabled, spatialPhase: this.spatial.phase, spatialSpeakerCount: this.spatial.settings.speakerCount,
+      this.post('telemetry', { performanceRemainingFrames: this.performanceFrames, signalEnabled: this.signalEnabled, signal: this.signalEnabled ? this.signal.settings : null, spatialEnabled, spatialPhase: this.spatial.phase, spatialSpeakerCount: this.spatial.settings.speakerCount,
         spatialPeaks: this.spatialPeaks, spatialRms: this.spatialRms, backend: this.backend, peak, rms: Math.sqrt(square / Math.max(1, frames * 2)),
         modeCount: this.modeCount, audibleModes: this.audibleModes, renderedFrames: this.totalFrames,
         modalEnergy: this.visualEnergy, modalState: this.visualState,

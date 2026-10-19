@@ -6,10 +6,16 @@ The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
 catalogue ID and saved-state keys stay compatible.
 Audio starts off. **Use** opens on **Instrument body modeling**. Select an
 **Excite** shape, enable Audio, then tap or drag the body or press the compact
-trigger. With Body enabled, horizontal position sets excitation position and
-vertical position sets hardness. With Body off, those axes control excitation
-strength and burst length. Arrow keys edit the same controls; Enter or Space
-triggers the selected excitation. The original instrument and SIMD Audio Lab retain
+trigger. With Body enabled, horizontal position sets strike position and
+vertical position sets the body's pitch: 220 Hz at the top and 42 Hz at the
+bottom, matching the **Pitch** knob. Pitch is continuous and logarithmic, so
+equal vertical distances produce equal frequency ratios. **Hardness** remains
+on its separate knob. With Body off, the labeled axes control excitation
+strength and burst length; a single-sample impulse uses strength only.
+Arrow keys edit the same controls; Enter or Space triggers the selected
+excitation. A click excites once; moving while held repeats softer excitations.
+The marker and pointer share the same plotting bounds, including after resize.
+The original instrument and SIMD Audio Lab retain
 their existing engines. Output runs from 0% to 100%, where 100% is unity master
 gain; it is independent of presets and the signal-path mix.
 
@@ -37,9 +43,14 @@ layout, stereo preview and recording. The separate **Material**
 menu retains FFT settings. Reset restores the default body and clears its tail;
 it retains live input and Audio. Changing modes clears removed oscillator states
 so increasing the count cannot revive an old tail.
-Modal edits fade the body down for one audio block, apply the new coefficients,
-then fade it up for one block. FFT processing and sample playback continue
-through that transition.
+Live pitch, strike-position and hardness edits preserve the ringing modal
+state and the excitation timeline, smoothing toward their target over 20 ms.
+Rotation pairs retain unit magnitude during interpolation so pitch movement
+does not introduce artificial damping. Structural edits and full preset recall
+fade the body down for one audio block, apply the new coefficients, then fade it
+up for one block. FFT processing and sample playback continue through that
+transition. The pitch gesture tunes the body layer; the FFT branch retains the
+source's spectral pitches, with their balance set by Body mix and FFT mix.
 
 ## Uses, sources and combinations
 

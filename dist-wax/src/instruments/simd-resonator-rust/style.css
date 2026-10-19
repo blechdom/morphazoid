@@ -15,6 +15,11 @@
 .rust-diagnostics dl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .rust-diagnostics dd { margin: 0; text-align: right; }
 .rust-resonator-page .simd-canvas-wrap { border: 0; }
+.rezo-excitation-marker { position: absolute; z-index: 2; width: 12px; height: 12px; box-sizing: border-box; border: 1px solid #ffd166; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.rezo-excitation-marker.is-active { background: #ffd16655; box-shadow: 0 0 9px #ffd16644; }
+.rezo-gesture-axis { position: absolute; z-index: 2; pointer-events: none; color: #a5c9bf; font: 9px/1.4 var(--mono); }
+.rezo-gesture-x { left: 24px; bottom: 30px; }
+.rezo-gesture-y { right: 24px; top: 12px; }
 .rezo-input-controls { display: grid; gap: 12px; }
 .rezo-excitation-row, .rezo-input-transport { display: flex; align-items: center; gap: 12px; }
 .rezo-excitation-row { gap: 8px; }

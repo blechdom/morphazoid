@@ -50,12 +50,15 @@
             id="resonatorCanvas"
             tabindex="0"
             role="application"
-            aria-label="Playable resonator. Drag to set excitation position and brightness. Arrow keys move; Enter or Space excites the selected sound when Audio is on."
-            aria-describedby="canvasCue liveStatus"
+            aria-label="Playable resonator. Drag horizontally for strike position and vertically for pitch, higher at the top. Hardness has a separate knob. Arrow keys adjust; Enter or Space excites the selected sound when Audio is on."
+            aria-describedby="canvasCue gestureXAxis gestureYAxis liveStatus"
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
           >Playable SIMD audio visualization.</canvas>
           <p class="simd-canvas-cue" id="canvasCue">DRAG TO EXCITE</p>
-          <span class="simd-strike-label" id="strikeReadout">38% &middot; bright</span>
+          <span id="excitationMarker" class="rezo-excitation-marker" aria-hidden="true"></span>
+          <span id="gestureXAxis" class="rezo-gesture-axis rezo-gesture-x">← Strike position →</span>
+          <span id="gestureYAxis" class="rezo-gesture-axis rezo-gesture-y">↑ Higher pitch · Lower pitch ↓</span>
+          <span class="simd-strike-label" id="strikeReadout">38% position &middot; 82 Hz</span>
         </div>
         <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
       </section>
@@ -125,7 +128,7 @@
           <summary class="group-summary"><h2 class="group-title" id="soundTitle">Body</h2><span class="section-state" id="bodySummary">512 waves</span></summary>
           <div class="group-body simd-control-list">
             <label for="controlA"><span><span id="controlALabel">Modes</span><output id="controlAOut" for="controlA">128</output></span><input id="controlA" type="range" min="32" max="4096" step="4" value="512" /></label>
-            <label for="controlB"><span><span id="controlBLabel">Base</span><output id="controlBOut" for="controlB">82 Hz</output></span><input id="controlB" type="range" min="42" max="220" step="1" value="82" /></label>
+            <label for="controlB"><span><span id="controlBLabel">Pitch</span><output id="controlBOut" for="controlB">82 Hz</output></span><input id="controlB" type="range" min="42" max="220" step="0.01" value="82" /></label>
             <label for="controlC"><span><span id="controlCLabel">Decay</span><output id="controlCOut" for="controlC">2.8 s</output></span><input id="controlC" type="range" min="0.35" max="6" step="0.05" value="2.8" /></label>
             <label for="controlD"><span><span id="controlDLabel">Spread</span><output id="controlDOut" for="controlD">34%</output></span><input id="controlD" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
             <label for="spectralSpan"><span>Spectrum span<output id="spectralSpanOut" for="spectralSpan">128</output></span><input id="spectralSpan" type="range" min="8" max="512" step="0.25" value="128" title="Modal orders spanned by the bank. More waves in the same span make a denser spectrum." /></label>

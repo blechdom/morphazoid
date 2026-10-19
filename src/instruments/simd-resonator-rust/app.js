@@ -5,7 +5,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
 import { presetsForSimdEngine } from '../../simd-resonator.js';
-import { DEFAULTS, MAX_MODES, createConfiguration } from './model.js';
+import { DEFAULTS, LIMITS, MAX_MODES, createConfiguration } from './model.js';
 import { PRESETS, DEFAULT_PRESET_SETTINGS, sanitizePresetSettings, APPLICATION_MODES, applicationForSettings,
   REVERB_CHARACTERS, RESYNTHESIS_CHARACTERS, capturePreset, validatePreset, randomizePreset } from './presets.js';
 import { sanitizeSignalSettings } from './signal-path.js';
@@ -18,11 +18,15 @@ const $ = id => document.getElementById(id);
 const canvas = $('resonatorCanvas'), context2d = canvas.getContext('2d', { alpha: false });
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
 const percent = value => Math.round(value * 100) + '%';
+const pitchLabel = value => Number(value.toFixed(1)) + ' Hz';
+const [pitchMin, pitchMax] = LIMITS.baseFrequency;
+const [strikeMin, strikeMax] = LIMITS.strikePosition;
+const pitchSpan = Math.log(pitchMax / pitchMin);
 const forceScalar = new URLSearchParams(location.search).get('scalar') === '1';
 const materialPresets = presetsForSimdEngine('resonator');
 const fields = [
   ['controlA', 'modeCount', value => String(Math.round(value))],
-  ['controlB', 'baseFrequency', value => Math.round(value) + ' Hz'],
+  ['controlB', 'baseFrequency', pitchLabel],
   ['controlC', 'decaySeconds', value => value.toFixed(2) + ' s'],
   ['controlD', 'spread', percent],
   ['spectralSpan', 'spectralSpan', value => Number(value.toFixed(2)) + ' orders'],
@@ -149,16 +153,19 @@ function renderSettings() {
   $('bodySummary').textContent = state.settings.modeCount.toLocaleString() + ' waves';
   const bodyGesture = state.settings.bodyEnabled;
   $('strikeReadout').textContent = bodyGesture
-    ? percent(state.settings.strikePosition) + ' · ' + percent(state.settings.hardness) + ' hardness'
+    ? percent(state.settings.strikePosition) + ' position · ' + pitchLabel(state.settings.baseFrequency)
     : percent(state.settings.excitationStrength) + ' strength' + (state.settings.excitationType === 'impulse' ? '' : ' · ' + Math.round(state.settings.excitationDurationMs) + ' ms');
+  $('gestureXAxis').textContent = bodyGesture ? '← Strike position →' : '← Excitation strength →';
+  $('gestureYAxis').textContent = bodyGesture ? '↑ Higher pitch · Lower pitch ↓'
+    : state.settings.excitationType === 'impulse' ? 'Single-sample impulse' : '↑ Shorter burst · Longer burst ↓';
   canvas.setAttribute('aria-label', 'Playable resonator. ' + (bodyGesture
-    ? 'Drag to set strike position and hardness.'
+    ? 'Drag horizontally for strike position and vertically for body pitch, higher at the top. Hardness has a separate knob.'
     : state.settings.excitationType === 'impulse' ? 'Drag horizontally for impulse strength.'
       : 'Drag horizontally for excitation strength and vertically for burst duration.') + ' Arrow keys adjust; Enter or Space excites the selected sound when Audio is on.');
   $('presetSelect').value = state.materialId || '';
-  $('presetDescription').textContent = materialPresets.find(preset => preset.id === state.materialId)?.note || 'Drag the body to choose strike position and hardness.';
+  $('presetDescription').textContent = materialPresets.find(preset => preset.id === state.materialId)?.note || 'Drag for strike position and pitch. Use Hardness to shape the attack.';
   for (const knob of knobs) knob.update();
-  renderUse(); renderSurround();
+  renderUse(); renderSurround(); renderGesture();
 }
 function renderInput() {
   if (!recordedInput) return;
@@ -192,19 +199,19 @@ function renderAudio() {
   $('backendSelect').value = state.requestedBackend;
   inputControl?.refresh(); renderInput(); renderSurround(); recording?.update();
 }
-function sendConfiguration() {
+function sendConfiguration(performanceUpdate = false) {
   if (!state.ready || !state.node) return;
-  state.node.port.postMessage({ type: 'configure', configuration: createConfiguration(state.settings, state.context.sampleRate) });
+  state.node.port.postMessage({ type: performanceUpdate ? 'performance' : 'configure', configuration: createConfiguration(state.settings, state.context.sampleRate) });
   sendSignalConfiguration(); sendSpatialConfiguration();
 }
 function updateSettings(patch) {
   const previous = state.settings;
   const next = { ...state.settings, ...patch };
   state.settings = { ...sanitizePresetSettings(next) };
-  const bodyChanged = Object.keys(DEFAULTS).some(key => previous[key] !== state.settings[key]);
-  if (bodyChanged) state.materialId = null;
+  const changed = Object.keys(DEFAULTS).filter(key => previous[key] !== state.settings[key]);
+  if (changed.length) state.materialId = null;
   renderSettings();
-  if (bodyChanged) sendConfiguration();
+  if (changed.length) sendConfiguration(changed.every(key => ['baseFrequency', 'strikePosition', 'hardness'].includes(key)));
   else { sendSignalConfiguration(); sendSpatialConfiguration(); }
 }
 function applyFullPreset(snapshot) {
@@ -417,17 +424,31 @@ function trigger(strength = 1) {
   state.node.port.postMessage({ type: 'excite', kind: state.settings.excitationType,
     strength: clamp((Number(strength) || 0) * state.settings.excitationStrength, 0, 1.5), durationMs: state.settings.excitationDurationMs });
 }
+function plotBounds(width, height) {
+  return { left: 24, right: Math.max(25, width - 24), top: 36, bottom: Math.max(37, height * .8) };
+}
+function renderGesture() {
+  const rect = canvas.getBoundingClientRect(), bounds = plotBounds(rect.width, rect.height), settings = state.settings;
+  const x = settings.bodyEnabled ? (settings.strikePosition - strikeMin) / (strikeMax - strikeMin) : settings.excitationStrength / 1.5;
+  const y = settings.bodyEnabled ? Math.log(pitchMax / settings.baseFrequency) / pitchSpan
+    : settings.excitationType === 'impulse' ? .5 : Math.log(settings.excitationDurationMs) / Math.log(300);
+  const marker = $('excitationMarker');
+  marker.style.left = bounds.left + (bounds.right - bounds.left) * clamp(x, 0, 1) + 'px';
+  marker.style.top = bounds.top + (bounds.bottom - bounds.top) * clamp(y, 0, 1) + 'px';
+  marker.classList.toggle('is-active', state.pointer !== null);
+}
 function gesture(event) {
-  const rect = canvas.getBoundingClientRect();
-  const x = clamp((event.clientX - rect.left) / rect.width, 0, 1), y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+  const rect = canvas.getBoundingClientRect(), bounds = plotBounds(rect.width, rect.height);
+  const x = clamp((event.clientX - rect.left - bounds.left) / (bounds.right - bounds.left), 0, 1);
+  const y = clamp((event.clientY - rect.top - bounds.top) / (bounds.bottom - bounds.top), 0, 1);
   updateSettings(state.settings.bodyEnabled
-    ? { strikePosition: clamp(x, .04, .96), hardness: 1 - y }
-    : { excitationStrength: x * 1.5, excitationDurationMs: Math.round(300 ** y) });
+    ? { strikePosition: strikeMin + x * (strikeMax - strikeMin), baseFrequency: pitchMax * Math.exp(-y * pitchSpan) }
+    : { excitationStrength: x * 1.5, ...(state.settings.excitationType === 'impulse' ? {} : { excitationDurationMs: 300 ** y }) });
 }
 function releasePointer(event) {
   if (state.pointer !== event.pointerId) return;
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-  state.pointer = null;
+  state.pointer = null; renderGesture();
 }
 canvas.addEventListener('pointerdown', event => {
   if (event.button !== 0 || state.pointer !== null) return;
@@ -446,9 +467,9 @@ canvas.addEventListener('keydown', event => {
   if (keys[event.key]) {
     event.preventDefault(); const [x, y] = keys[event.key];
     updateSettings(state.settings.bodyEnabled
-      ? { strikePosition: state.settings.strikePosition + x, hardness: state.settings.hardness + y }
+      ? { strikePosition: state.settings.strikePosition + x, baseFrequency: state.settings.baseFrequency * Math.exp(y * .5 * pitchSpan) }
       : { excitationStrength: state.settings.excitationStrength + x * 1.5,
-        excitationDurationMs: state.settings.excitationDurationMs * 300 ** -y });
+        ...(state.settings.excitationType === 'impulse' ? {} : { excitationDurationMs: state.settings.excitationDurationMs * 300 ** -y }) });
     trigger(.45);
   } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); trigger(); }
 });
@@ -462,7 +483,7 @@ function draw(time) {
   const width = Math.max(1, Math.round(rect.width * dpr)), height = Math.max(1, Math.round(rect.height * dpr));
   if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
   context2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const w = width / dpr, h = height / dpr, left = 24, right = w - 24, top = 36, bottom = h * .8;
+  const w = rect.width, h = rect.height, { left, right, top, bottom } = plotBounds(w, h);
   context2d.fillStyle = '#040d0c'; context2d.fillRect(0, 0, w, h);
   const bandCount = state.settings.fftBandCount;
   for (let i = 0; i < bandCount; i++) {
@@ -484,16 +505,13 @@ function draw(time) {
     context2d.strokeStyle = 'rgba(105,247,204,' + (.13 + energy * .7 + Math.min(.08, state.peak * .1)) + ')';
     context2d.lineWidth = .6 + energy; context2d.stroke();
   }
-  const gestureX = state.settings.bodyEnabled ? state.settings.strikePosition : state.settings.excitationStrength / 1.5;
-  const gestureY = state.settings.bodyEnabled ? 1 - state.settings.hardness : Math.log(state.settings.excitationDurationMs) / Math.log(300);
-  const x = left + (right - left) * gestureX, y = top + (bottom - top) * gestureY;
-  context2d.strokeStyle = '#ffd166'; context2d.beginPath(); context2d.arc(x, y, 6, 0, Math.PI * 2); context2d.stroke();
+  renderGesture();
 }
 
 $('controlALabel').textContent = 'Waves';
 for (const [id, key] of fields) {
   $(id).addEventListener('input', () => updateSettings({ [key]: Number($(id).value) }));
-  knobs.push(enhanceRangeKnob($(id), { scale: ['modeCount', 'spectralSpan', 'filterFrequency', 'drive'].includes(key) ? 'log' : 'linear' }));
+  knobs.push(enhanceRangeKnob($(id), { scale: ['modeCount', 'baseFrequency', 'spectralSpan', 'filterFrequency', 'drive'].includes(key) ? 'log' : 'linear' }));
 }
 for (const id of ['fftSize', 'fftWindow']) $(id).addEventListener('change', () => updateSettings({ [id]: Number($(id).value) }));
 $('presetSelect').replaceChildren(new Option('Custom body', ''), ...materialPresets.map(preset => new Option(preset.label, preset.id)));
