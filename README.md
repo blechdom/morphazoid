@@ -1,9 +1,5 @@
 # Morphazoid
 
-Agents and contributors: [project context and instrument discovery](docs/agent-context/README.md);
-[creative direction](docs/agent-context/creative-direction.md);
-[private-first cross-machine memories](docs/agent-context/memory-workflow.md).
-
 **[Globule Damacy](globule-damacy.html)** is a work-in-progress rolling sampler:
 Record and Play are two sections of **one instrument**. Roll a fixed-size
 lacquered marble across eight straight audio waveforms. Both axes turn freely;
