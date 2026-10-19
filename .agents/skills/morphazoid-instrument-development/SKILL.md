@@ -11,8 +11,12 @@ take precedence over this workflow.
 
 ## Prepare
 
-1. Read the repository `AGENTS.md`, `docs/DESIGN_SYSTEM.md`, `docs/QA_AUTOMATION.md`, and
-   `contracts/audio-transport-v1.md`.
+1. Read the repository `AGENTS.md`,
+   `docs/agent-context/creative-direction.md`, `docs/DESIGN_SYSTEM.md`,
+   `docs/QA_AUTOMATION.md`, and `contracts/audio-transport-v1.md`. Use the
+   [agent starting map](../../../docs/agent-context/README.md) when the owning
+   source, reference instrument, or relevant test is unclear; do not rediscover
+   the whole catalogue by opening unrelated pages.
 2. Verify the repository root, branch/worktree, dirty state, and active preview
    root using [worktree and source paths](../../../docs/agent-tooling.md#worktree-and-source-paths).
    Resolve code paths from that checkout, not from this skill directory or an

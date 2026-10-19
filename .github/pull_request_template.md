@@ -16,6 +16,7 @@
 - [ ] I updated the canonical docs, contracts, `AGENTS.md`, or skill when commands or durable behavior changed.
 - [ ] When I changed an inventory, cross-registry checks derive it from source data; any fixed count is an intentional product contract.
 - [ ] The change contains no unrelated work, local configuration, credentials, generated reports, or temporary artifacts.
+- [ ] I reviewed the staged diff for employer/customer material and any filename-only findings from `python3 scripts/agent-memory.py audit --scope staged` (or explained why the check was unavailable).
 
 ## Evidence
 
