@@ -35,10 +35,10 @@ const focusedBank = rows => Object.freeze(rows.map(([id, label, settings]) => Ob
 
 // Engine flags are derived from one canonical role, never stored in new scenes.
 export const APPLICATION_MODES = focusedBank([
-  ['body', 'Instrument body modeling', modeFlags(true, false, false, false)],
+  ['body', 'Body modeling', modeFlags(true, false, false, false)],
   ['processing', 'Audio processing', modeFlags(false, true, false, false)],
   ['reverb', 'Reverberation', modeFlags(false, false, false, true)],
-  ['resynthesis', 'Resynthesis', modeFlags(false, false, true, false)],
+  ['resynthesis', 'FFT resynthesis', modeFlags(false, false, true, false)],
 ]);
 export function applicationForSettings(settings = DEFAULT_PRESET_SETTINGS) {
   return APPLICATION_MODES.find(mode => mode.id === settings?.applicationMode)?.id ?? DEFAULT_PRESET_SETTINGS.applicationMode;

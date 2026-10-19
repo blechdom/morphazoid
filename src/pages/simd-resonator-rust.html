@@ -67,37 +67,12 @@
         <details class="group control-section simd-input" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
           <div class="group-body rezo-input-controls">
-            <div class="rezo-chain" role="group" aria-labelledby="signalChainTitle">
-              <span class="rezo-chain-title" id="signalChainTitle">Signal chain</span>
-              <ol class="rezo-signal-chain" id="signalChain" aria-label="Processing order">
-                <li class="rezo-chain-stage" data-stage-block="process">
-                  <label class="rezo-toggle" for="processingEnabled"><input id="processingEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Filter / drive</span></label>
-                  <div class="rezo-chain-moves">
-                    <button type="button" data-stage-move="-1" aria-label="Move Filter / drive earlier" title="Move Filter / drive earlier" disabled>↑</button>
-                    <button type="button" data-stage-move="1" aria-label="Move Filter / drive later" title="Move Filter / drive later">↓</button>
-                  </div>
-                </li>
-                <li class="rezo-chain-stage" data-stage-block="resonance">
-                  <div class="rezo-chain-parallel" role="group" aria-label="Body and FFT run in parallel">
-                    <label class="rezo-toggle" for="bodyEnabled"><input id="bodyEnabled" type="checkbox" role="switch" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Body</span></label>
-                    <span class="rezo-parallel-mark" title="Parallel branches" aria-hidden="true">∥</span>
-                    <label class="rezo-toggle" for="resynthesisEnabled"><input id="resynthesisEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>FFT</span></label>
-                  </div>
-                  <div class="rezo-chain-moves">
-                    <button type="button" data-stage-move="-1" aria-label="Move Body and FFT earlier" title="Move Body and FFT earlier">↑</button>
-                    <button type="button" data-stage-move="1" aria-label="Move Body and FFT later" title="Move Body and FFT later">↓</button>
-                  </div>
-                </li>
-                <li class="rezo-chain-stage" data-stage-block="reverb">
-                  <label class="rezo-toggle" for="reverbEnabled"><input id="reverbEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Reverb</span></label>
-                  <div class="rezo-chain-moves">
-                    <button type="button" data-stage-move="-1" aria-label="Move Reverb earlier" title="Move Reverb earlier">↑</button>
-                    <button type="button" data-stage-move="1" aria-label="Move Reverb later" title="Move Reverb later" disabled>↓</button>
-                  </div>
-                </li>
-              </ol>
-              <p class="simd-note rezo-signal-path" id="signalPath" aria-live="polite">Source → Body → Output</p>
-            </div>
+            <label class="rezo-choice" for="applicationMode"><span>Mode</span><select id="applicationMode" aria-label="Rezoidinator mode">
+              <option value="body" selected>Body modeling</option>
+              <option value="processing">Audio processing</option>
+              <option value="reverb">Reverberation</option>
+              <option value="resynthesis">FFT resynthesis</option>
+            </select></label>
             <label class="rezo-choice" for="inputSource"><span>Source</span><select id="inputSource" aria-label="Input source">
               <option value="excitation" selected>Impulse / excitation</option><option value="mic">Mic / Line</option><option value="sample-file">Sample loops</option><option value="file">Audio file</option>
             </select></label>
@@ -215,17 +190,18 @@
               <label class="rezo-choice" for="surroundLayout"><span>Speakers</span><select id="surroundLayout" aria-label="Speaker layout">
                 <option value="4-ring">4 · Ring</option><option value="8-circle" selected>8 · Circle</option><option value="16-ring">16 · Ring</option><option value="4-1">4.1</option><option value="7-4-1">7:4:1</option><option value="8-cube">8 · Cube</option>
               </select></label>
-              <label class="rezo-choice" for="spaceTarget"><span>Spread</span><select id="spaceTarget" aria-label="Spatial sound source"><option value="both">Body + FFT</option><option value="modes">Body modes</option><option value="fft">FFT frequencies</option></select></label>
-              <label class="rezo-choice" for="spacePattern"><span>Order</span><select id="spacePattern" aria-label="Spatial frequency order"><option value="ascending">Low to high</option><option value="descending">High to low</option><option value="alternate">Alternating</option><option value="scatter">Scattered</option></select></label>
-              <div class="simd-control-list">
-                <label for="spaceSpan"><span>Spread turns<output id="spaceSpanOut" for="spaceSpan">1</output></span><input id="spaceSpan" type="range" min="0" max="4" step="0.01" value="1" /></label>
-                <label for="spaceOffset"><span>Position<output id="spaceOffsetOut" for="spaceOffset">0°</output></span><input id="spaceOffset" type="range" min="0" max="1" step="0.005" value="0" /></label>
-                <label for="spaceRate"><span>Turns / sec<output id="spaceRateOut" for="spaceRate">0.05</output></span><input id="spaceRate" type="range" min="-1" max="1" step="0.005" value="0.05" /></label>
+              <div id="spatialDistributionControls">
+                <label class="rezo-choice" for="spacePattern"><span>Order</span><select id="spacePattern" aria-label="Spatial frequency order"><option value="ascending">Low to high</option><option value="descending">High to low</option><option value="alternate">Alternating</option><option value="scatter">Scattered</option></select></label>
+                <div class="simd-control-list">
+                  <label for="spaceSpan"><span>Spread turns<output id="spaceSpanOut" for="spaceSpan">1</output></span><input id="spaceSpan" type="range" min="0" max="4" step="0.01" value="1" /></label>
+                  <label for="spaceOffset"><span>Position<output id="spaceOffsetOut" for="spaceOffset">0°</output></span><input id="spaceOffset" type="range" min="0" max="1" step="0.005" value="0" /></label>
+                  <label for="spaceRate"><span>Turns / sec<output id="spaceRateOut" for="spaceRate">0.05</output></span><input id="spaceRate" type="range" min="-1" max="1" step="0.005" value="0.05" /></label>
+                </div>
+                <div class="rezo-surround-toggles">
+                  <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
+                </div>
               </div>
-              <div class="rezo-surround-toggles">
-                <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
-                <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
-              </div>
+              <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
               <p id="surroundStatus" class="simd-note" role="status"></p>
               <div id="surroundMeters" class="rezo-channel-meters" aria-label="Surround channel levels"></div>
               <details class="rezo-channel-map"><summary>Channel order</summary><p id="surroundChannelMap" class="simd-note"></p></details>

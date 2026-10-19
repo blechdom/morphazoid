@@ -1,16 +1,16 @@
 # Rezoidinator
 
-Rezoidinator combines a playable modal body, audio processing, reverberation and
-FFT resynthesis. Find it beside **SIMD Resonator** in **SIMD Audio**.
+Rezoidinator offers four separate modes: a playable modal body, audio processing,
+reverberation and FFT resynthesis. Choose one mode at a time. Find it beside **SIMD Resonator** in **SIMD Audio**.
 The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
 catalogue ID and saved-state keys stay compatible.
-Audio starts off, with only **Body** enabled in the signal chain. Select an
+Audio starts off, with **Body modeling** selected. Select an
 **Excite** shape, enable Audio, then tap or drag the body or press the compact
-trigger. With Body enabled, horizontal position sets strike position and
+trigger. In Body mode, horizontal position sets strike position and
 vertical position sets the body's pitch: 220 Hz at the top and 42 Hz at the
 bottom, matching the **Pitch** knob. Pitch is continuous and logarithmic, so
 equal vertical distances produce equal frequency ratios. **Hardness** remains
-on its separate knob. With Body off, the labeled axes control excitation
+on its separate knob. In the other modes, the labeled axes control excitation
 strength and burst length; a single-sample impulse uses strength only.
 Arrow keys edit the same controls; Enter or Space triggers the selected
 excitation. A click excites once; moving while held repeats softer excitations.
@@ -36,7 +36,7 @@ normalization uses audible coefficients rather than the number of muted modes.
 When `waves = span <= 128`, the original coefficients and normalization match.
 
 Twenty full presets include twelve original scenes and eight dense scenes up
-to 4,096 waves. Presets and Dice also include spatial target, pattern, span,
+to 4,096 waves. Presets and Dice also include the selected mode, spatial pattern, span,
 offset, motion and rate. Preset/Next/Dice controls preserve Audio, output level,
 input trim, selected source, an already playing sample, Surround enable, speaker
 layout, stereo preview and recording. The separate **Material**
@@ -49,67 +49,48 @@ Rotation pairs retain unit magnitude during interpolation so pitch movement
 does not introduce artificial damping. Structural edits and full preset recall
 fade the body down for one audio block, apply the new coefficients, then fade it
 up for one block. FFT processing and sample playback continue through that
-transition. The pitch gesture tunes the body layer; the FFT branch retains the
-source's spectral pitches, with their balance set by Body mix and FFT mix.
+transition. The pitch gesture tunes Body mode. FFT resynthesis retains the source's spectral
+pitches; its FFT mix blends the reconstruction with the source.
 
-## Signal chain
+## Mode
 
-The signal chain is the single place to enable and order the stages. The
-**Filter / drive**, **Body**, **FFT** and **Reverb** controls are independent on/off
-toggles. The earlier/later arrows move one of three blocks: Filter / drive, the
-parallel Body + FFT pair, or Reverb. All six block orders are available, including
-while a block is bypassed. Numbered rows show the order; the short path below
-them shows only enabled stages. Arrow buttons also work with keyboard and touch,
-retain focus when moved and disable at the ends of the chain.
+The **Mode** menu chooses one role. There are no stage switches, parallel blends
+or ordering controls. Only the selected role's parameter sections appear.
 
-Source selection is independent: microphone/line input, a local audio file,
-looping samples and the built-in excitation can feed every combination. Editing
-the chain, a character or a sound preset does not restart a playing sample,
-request microphone access or rebuild the audio/recording graph.
-
-| Stage | Audible operation | Useful combination |
+| Mode | Audible operation | Controls |
 | --- | --- | --- |
-| Body | A driving signal excites the bank's damped resonances. Material presets change their spacing, weighting and decay. | Add FFT for the source's spectral detail, or Reverb for a separate tail. |
-| Filter / drive | A lowpass, highpass or bandpass filter and saturation shape the sound. Filter bypass retains the drive stage. | Put it before the body to shape excitation, or after it to shape the ringing sound. |
-| Reverb | A separate feedback-delay network makes recirculating, damped returns. | Put it after the body for a room tail, or before it to excite the body with reverberant sound. |
-| FFT | Windowed FFT analysis and inverse-FFT reconstruction reshape the source's spectrum. | Blend with the body for source detail plus ringing. |
+| Body modeling | The source excites the Rust bank's damped resonances. | Material, waves, pitch, decay, spread, spectrum span, strike position, hardness and body mix. |
+| Audio processing | A lowpass, highpass or bandpass filter and saturation shape the source. | Filter, cutoff and drive; Drive only bypasses filtering. |
+| Reverberation | A feedback-delay network makes recirculating, damped returns from the source. | Room character, decay, damping and reverb mix. |
+| FFT resynthesis | Windowed FFT analysis and inverse-FFT reconstruction reshape the source's spectrum. | Spectral character, frame, window, bands, overlap, memory, detail, drive, gate, frequency bounds and FFT mix. |
 
-The default order remains **Source → Filter / drive → Body/FFT blend → Reverb →
-Wet/dry**. Body and FFT are parallel responses, shown with **∥**, and move
-together. Body mix blends their incoming signal toward the modal body; FFT mix
-blends that result toward spectral reconstruction. Their toggles smoothly bypass
-the corresponding contribution. With both off, their input passes through.
-Wet/dry blends the complete chain with the raw source; bypassing all four stages
-gives dry input.
+Microphone/line input, local audio files, looping samples and the built-in
+excitation feed whichever mode is selected. Wet/dry blends that mode's result
+with the source. The mode's own mix controls remain available. Changing mode
+preserves all sound settings, the input source and playback position, Audio,
+output level, surround layout and any ongoing recording. Existing DSP smoothing
+crossfades the contributions without rebuilding the audio graph.
 
-Order changes move processing and reverb contributions between positions over
-about 25 ms. Modal and FFT histories and excitation timing keep advancing.
-During that short transition an effect can contribute from both its old and new
-positions. Filter memories are independent at each position; unused reverb
-histories keep aging. This avoids restarting the source or abruptly reconnecting
-the graph. Before Body/FFT, effects process the mono source. Afterwards they
-process the stereo and surround buses independently; early reverb therefore
-becomes spatial through the Body/FFT response rather than a separate room per
-speaker.
+These modes describe different uses, not exclusive scientific categories:
+resonant filtering is already audio processing, and a dense modal body with a
+long decay can sound reverberant. The dedicated Reverberation mode uses a
+feedback-delay network. Material and room characters are expressive
+approximations, not measurements of particular objects or spaces.
 
-These labels describe uses, not mutually exclusive scientific categories.
-Resonant filtering is already audio processing, and a dense modal bank with
-long decay can have a reverberant character. The dedicated Reverb stage adds a
-different mechanism: a feedback-delay network that can also process the source
-without the body. Material and room characters are expressive approximations,
-not measurements of particular objects or spaces.
+Reverb characters include Short room, Dark chamber, Bright tail, Long hall and
+Dark cloud; resynthesis characters include Clear detail, Fast transients, Broad
+bands, Spectral fog and Narrow radio. Each character changes only its own sound
+parameters. Full presets and Dice select one mode and own all musical settings,
+including excitation and spatial distribution. Audio arming, source, transport,
+input trim, output level, speaker layout and recording remain session state.
 
-Stage toggles and order changes retain the sound controls, excitation and
-spatial settings. Reverb characters include
-Short room, Dark chamber, Bright tail, Long hall and Dark cloud; they change only
-reverb time, damping and mix. Resynthesis characters include Clear detail, Fast
-transients, Broad bands, Spectral fog and Narrow radio; they change only FFT
-settings. Full presets and Dice own all musical settings, including stage order,
-toggles and excitation. Existing complete presets without an order migrate to
-the original Filter / drive → Body/FFT → Reverb order. Older saved modal/FFT
-snapshots retain their original FFT settings and an impulse excitation.
-Audio arming, source, transport, input
-trim, output level, speaker layout and recording remain session state.
+Complete older snapshots migrate to this single-mode format. Mixed routes choose
+FFT resynthesis first when present, otherwise Body, Reverb, then Processing;
+an all-bypassed route becomes Body. Older modal/FFT snapshots choose resynthesis
+and retain their FFT settings and impulse excitation. Route order and the former
+Body/FFT spatial target are retired. Factory presets have individually assigned
+roles. Invalid or incomplete saved scenes remain errors rather than partly
+applying a sound.
 
 ## Excitation and input
 
@@ -135,19 +116,17 @@ suitable body, not just a hard strike. These are synthesized force/noise shapes,
 not recordings or complete nonlinear plectrum/hammer simulations. Eight events
 can overlap; additional triggers reuse the oldest event slot. Duration-aware
 level scaling bounds burst energy, while longer smooth contacts naturally excite
-less high-frequency energy. Excitation joins the source stream before processing,
-so it reaches FFT resynthesis and reverb as well as the Rust body. Initial zero
+less high-frequency energy. Excitation joins the source stream, so every mode can receive it. Initial zero
 history keeps a first impulse from disappearing at an FFT window's endpoint.
 
-Mic/line, the shared sample menu, and local audio files feed the
-phase-preserving FFT/overlap-add path and the modal body when enabled. Audio gates output
+Mic/line, the shared sample menu, and local audio files feed the selected mode. Audio gates output
 independently of microphone capture. Sample playback can loop. Audio off, page
 departure, and hidden-page handling cancel pending input work; microphone tracks
 are released. Sound presets never request a microphone or restart a sample.
 
 The FFT retains 256–4,096-sample frames, four window shapes, 16–128 envelope
 bands, overlap, memory, detail, drive, gate and frequency bounds. FFT mix
-blends the body/source response with phase-preserved spectral reconstruction. These
+blends the source with phase-preserved spectral reconstruction. These
 FFT operations remain JavaScript in the AudioWorklet; the oscillator bank is
 Rust. JavaScript prepares coefficients outside the render callback. No server,
 CPAL, shared memory, or browser audio worker threads are required.
@@ -162,9 +141,9 @@ rapid edits.
 ## Processing and reverberation
 
 The source processor uses a smoothed state-variable filter and a normalized
-hyperbolic-tangent drive. Filter type, cutoff and drive remain editable with
-any body/FFT combination. Turning Process off bypasses the stage; the filter's
-Bypass option removes filtering while leaving saturation available.
+hyperbolic-tangent drive. Audio processing mode exposes filter type, cutoff and
+drive. The filter's Drive only option removes filtering while leaving saturation
+available.
 
 Reverb has four fixed, differently sized delay lines for each stereo channel
 and each of the sixteen possible spatial buses. A four-way Householder mixing
@@ -175,14 +154,12 @@ Damping change, avoiding pitch modulation from moving delay taps. This is an
 abstract feedback-delay-network reverberator, not convolution with a measured
 room and not an exact Schroeder comb/allpass implementation.
 
-Reverb after Body/FFT receives their blend. In surround, each bus has its
-own network, with different delay lengths between buses. A small additional
-send from the pre-reverb composite excites those spatial returns, allowing a
-mono source to make a surrounding tail. Dry input remains at the stationary
-origin. The reverb is bounded, smooths live controls, keeps fixed allocated
-buffers and clears with Reset or Audio teardown. Disabling it crossfades back
-to the direct blend rather than stopping the source. Reverb before Body/FFT
-uses an additional mono network with the same four-delay mechanism.
+Reverberation receives the source directly. In surround, each bus has its own
+network, with different delay lengths between buses. A small additional send
+excites those spatial returns, allowing a mono source to make a surrounding tail.
+Dry input remains at the stationary origin. Reverb is bounded, smooths live
+controls, keeps fixed allocated buffers and clears with Reset or Audio teardown.
+Changing modes crossfades the contribution without stopping the source.
 
 ## Surround
 
@@ -199,12 +176,14 @@ bound preserves relative speaker levels, limits each bus to 0.95, and limits
 their absolute sum to 0.95×√2; the 0.7-gain stereo preview remains below full scale
 at unity master volume.
 
-**Target** chooses the modal body, FFT reconstruction or both. The unselected
-component remains audible at a stationary position. **Pattern** sets ascending,
+The selected mode determines which sound is distributed: Body routes its
+oscillators, FFT resynthesis routes its reconstructed bins, and Reverb produces
+separate returns. Audio processing uses a stationary source. **Pattern** sets ascending,
 descending, alternating or scattered placement; **Span** covers zero to four
 turns around the field and **Offset** rotates it by zero to one turn. **Motion**
 enables rotation at **Rate**, from −1 to +1 turns per second. These are musical
-parameters included in presets and Dice. Surround enable, physical layout,
+parameters included in presets and Dice; these distribution controls appear only
+in Body and FFT modes, where they affect the sound. Surround enable, physical layout,
 monitoring and recording remain session settings.
 
 The speaker layouts reuse SPARTIAL’s four-speaker ring, eight-speaker circle,
@@ -281,7 +260,7 @@ exclude browser scheduling, message serialization, devices, UI, recording and
 FFT topology transitions; repeated runs showed occasional scheduling outliers.
 They do not establish physical-device real-time performance. Those measurements
 precede the added source processing and feedback-delay reverb; they do not
-measure the new combined workload.
+measure the added processing and reverb implementations.
 
 ## Model references
 
