@@ -10,6 +10,7 @@ export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.cate
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-globule-damacy.json', import.meta.url), 'utf8')).additions,
   { id: "time-loom", label: "Time Loom", href: "time-loom.html", imageHref: "assets/instruments/time-loom.webp",
     categoryId: "wip", categoryLabel: "Work in Progress", tags: [] },
   // October 18: a cauldron voice, five instrumental fingers and musical broom flight.

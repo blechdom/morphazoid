@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import test from 'node:test';
 import { restoreBlechSpigotRuntime } from './helpers/blech-spigot-runtime-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';

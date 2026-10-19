@@ -2,7 +2,7 @@ import { restoreWobbliniDjaySite, wobbliniDjaySiteChanges } from "./helpers/wobb
 import assert from 'node:assert/strict';
 import { restoreStaircaseSpiralRuntime } from './helpers/staircase-spiral-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import test from 'node:test';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../src/site/instrument-registry.js';

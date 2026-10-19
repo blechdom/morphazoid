@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "baseline": "Captured the four authored metadata files at origin/main f2105318 before Globule Damacy. Reverse these exact new additions before the historical reference proofs; no older source bytes are changed.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "d2ad77a6c5f9fd4dc587ace51f3569ea5539810c4af7c1df9be0f2fa0375b8b5",
+      "replacements": [
+        {
+          "before": "    { id: \"loopini\", label: \"Loopini\", href: \"loopini.html\" },\n",
+          "after": "    { id: \"globule-damacy\", label: \"Globule Damacy\", href: \"globule-damacy.html\", imageHref: \"assets/instruments/globule-damacy.webp\" },\n    { id: \"loopini\", label: \"Loopini\", href: \"loopini.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "44aa8488e3f3509493564fec36ee2b48ee89af2b0844a0c8756170f725a73382",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"globule-damacy\": define(\n    \"Rolling grain-zone sampler\",\n    \"A larger, fixed-size lacquered marble rolls over straight audio waveforms and keeps collecting granular samples until the floor is bare. With Audio on, pickups sound as they stick; a needle later triggers scattered spots on entry.\",\n    \"Lay generated sounds, uploaded clips, or a mic take on eight active waves. Set fixed or random grain size, then explore Record and Play presets without losing your ball or stopping playback.\",\n    [\"Generated demo\", \"Audio file\", \"Microphone\", \"Grain size\", \"Random grain size\", \"Presets\", \"Sample collage\", \"Pointer\", \"Touch\", \"Undo\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "9b6f2eafa54b16b1487dd1e4bc45a2fccba211e304c720ff0c16a94626684aec",
+      "replacements": [
+        {
+          "before": "  \"fractal-signals\": [\"fractal\"],\n",
+          "after": "  \"globule-damacy\": [\"looper\", \"instrument\"],\n  \"fractal-signals\": [\"fractal\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "83ca8bac810e56041b62b3a6eb75cb37f37c6399166fa3b138646322669a77e7",
+      "replacements": [
+        {
+          "before": "  \"fractal-signals\",\n  \"lumber\",\n",
+          "after": "  \"fractal-signals\",\n  \"globule-damacy\",\n  \"lumber\",\n"
+        },
+        {
+          "before": "    \"enveloper\",\n    \"orbital-ferris\",\n",
+          "after": "    \"enveloper\",\n    \"globule-damacy\",\n    \"orbital-ferris\",\n"
+        },
+        {
+          "before": "  \"paths\",\n  \"yoyodyne\",\n]);\n",
+          "after": "  \"paths\",\n  \"yoyodyne\",\n  \"globule-damacy\",\n]);\n"
+        },
+        {
+          "before": "  \"domino-run\",\n  \"fractal-signals\",\n",
+          "after": "  \"domino-run\",\n  \"globule-damacy\",\n  \"fractal-signals\",\n"
+        }
+      ]
+    }
+  ],
+  "sharedChanges": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "e79d36db7df60fe1c87b2a5f1d963658746bca0abf180c834a62f8b92404cb62",
+      "addition": "  \"globule-damacy.html\",\n"
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "7760f0377ff8a0ef6e3269c125ed8e773f53e1866b2c5a5c9f5a84a31860ac86",
+      "addition": "\n# Globule Damacy: one rolling sampler with Record and Play on the same page.\ncopy+require\tsrc/instruments/globule-damacy/model.js\ncopy+require\tsrc/instruments/globule-damacy/presets.js\ncopy+require\tsrc/instruments/globule-damacy/sources.js\ncopy+require\tsrc/instruments/globule-damacy/audio.js\ncopy+require\tsrc/instruments/globule-damacy/view.js\ncopy+require\tsrc/instruments/globule-damacy/app.js\ncopy+require\tsrc/instruments/globule-damacy/globule-damacy.css\ncopy+require\tassets/instruments/globule-damacy.webp\ncopy+require\tdocs/globule-damacy.md\n"
+    },
+    {
+      "file": "README.md",
+      "sha256": "34af239808552bf884f275864ff2ae0920610a068f483fba5cbf3f58713b492c",
+      "addition": "\n**[Globule Damacy](globule-damacy.html)** is a work-in-progress rolling sampler:\nRecord and Play are two sections of **one instrument**. Roll a fixed-size\nlacquered marble across eight straight audio waveforms. Both axes turn freely;\ncollected grains stick as independent spherical spots, including at the poles.\nWith Audio on, pickups sound as they stick. The fixed bendy-straw needle later\nplays grain zones as the marble rolls beneath it; bare glass stays quiet.\nNeedle width, fixed or random grain size, Record/Play presets, original\ngenerated sounds, local audio files and mic takes make a sample collage.\n[Controls, privacy and limits](docs/globule-damacy.md).\n"
+    },
+    {
+      "file": "assets/instruments/CATALOGUE_LOGOS.md",
+      "sha256": "2bd0a885b3b560d32eda18f809570756a6440858cc4e44e1b6d8c1cfa4cec9ba",
+      "addition": "\n## Globule Damacy\n\n`globule-damacy.webp` is an original 512 × 512 procedural marbled-glass sphere\nin pink, lilac, cyan and gold lacquer, covered in scattered, independent grain\nzones beneath a contact needle, generated by\n`scripts/generate-globule-damacy-icon.py` using Pillow. It has no game imagery,\nthird-party samples, photography, or external image.\n"
+    }
+  ]
+}

@@ -3,10 +3,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { selectedInstrumentRecoveryChanges, restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument-recovery-reference.mjs";
+import { restoreGlobuleDamacySite } from "./helpers/globule-damacy-site-reference.mjs";
 
 test("selected instrument recovery preserves exact pre-recovery sources and frozen historical fixtures", () => {
   for (const change of selectedInstrumentRecoveryChanges) {
-    let source = readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8");
+    let source = restoreGlobuleDamacySite(readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file, { allowRestored: true });
     if (change.file === "scripts/site/runtime-files.tsv") {
       // Witch's later hand adapter is independently checked by its exact site
       // amendment. The frozen recovery baseline already contains original Witch.

@@ -189,6 +189,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "striped-staircase",
     "striped-staircase-rust",
     "enveloper",
+    "globule-damacy",
     "orbital-ferris",
     "yoyodyne",
     "fractal-signals",
@@ -300,6 +301,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "algorithmic-mazes",
   "paths",
   "yoyodyne",
+  "globule-damacy",
 ]);
 
 const nativeIds = new Set(NATIVE_INSTRUMENT_MIDI_IDS);
@@ -321,6 +323,7 @@ const audioInputIds = new Set([
   "synthesis",
   "graphs",
   "fractal-signals",
+  "globule-damacy",
   "lumber",
   "micmic",
   "micmic-rust",
@@ -360,6 +363,7 @@ const noMidiOutputIds = new Set([
   "striped-staircase-rust",
   "vector-fractals",
   "domino-run",
+  "globule-damacy",
   "fractal-signals",
   "tempo-tantrum", "habit-habitat",
   "hocket-loom",

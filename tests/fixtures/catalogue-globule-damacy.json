@@ -1,0 +1,16 @@
+{
+  "additions": [
+    {
+      "id": "globule-damacy",
+      "label": "Globule Damacy",
+      "href": "globule-damacy.html",
+      "imageHref": "assets/instruments/globule-damacy.webp",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        { "id": "looper", "label": "Looper" },
+        { "id": "instrument", "label": "Instrument" }
+      ]
+    }
+  ]
+}

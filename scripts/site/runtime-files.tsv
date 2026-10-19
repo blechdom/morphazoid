@@ -2285,3 +2285,14 @@ copy+require	docs/witch.md
 copy+require	src/site/mobile-menubar.js
 copy+require	src/site/mobile-menubar.css
 copy+require	docs/mobile-menubar.md
+
+# Globule Damacy: one rolling sampler with Record and Play on the same page.
+copy+require	src/instruments/globule-damacy/model.js
+copy+require	src/instruments/globule-damacy/presets.js
+copy+require	src/instruments/globule-damacy/sources.js
+copy+require	src/instruments/globule-damacy/audio.js
+copy+require	src/instruments/globule-damacy/view.js
+copy+require	src/instruments/globule-damacy/app.js
+copy+require	src/instruments/globule-damacy/globule-damacy.css
+copy+require	assets/instruments/globule-damacy.webp
+copy+require	docs/globule-damacy.md
