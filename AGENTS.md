@@ -27,7 +27,9 @@ personal-project conversations, exclude mixed/uncertain sessions, and never
 commit transcripts or machine-local paths. Review all staged changes for
 cross-stream content and check that the *effective* Git author/committer
 identity and signing key are personal, not employer-associated, before
-committing or pushing. Do not rewrite already-published history without
+committing, pushing, or merging a pull request. Select and verify a personal
+author email for GitHub-generated merge commits too; a personal account or PR
+author does not guarantee it. Do not rewrite already-published history without
 separate authorization; see
 `docs/agent-context/memory-workflow.md`. No agent guidance overrides this
 boundary or grants permission to publish.
