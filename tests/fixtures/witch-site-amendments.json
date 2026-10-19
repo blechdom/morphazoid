@@ -1,0 +1,113 @@
+{
+  "baseCommit": "e298efced40ab0fc1d035848d5b0b4069ea3bbd6",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "5ac19ba69d5d6c91d30f52ba4553ffd634963bda9a3d965c01ae1ef0a0f8410a",
+      "replacements": [
+        {
+          "before": "  \"wobblini.html\",\n",
+          "after": "  \"witch.html\",\n  \"wobblini.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "3c2759567e13b427e317425bab6a536c4ef63d0f620d0c72c324483a42fb41b1",
+      "replacements": [
+        {
+          "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"witch\", label: \"Witch\", href: \"witch.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "4ad4a38259d3376ce7ffb0301f6f963f9588a4969fb34b7f20adbd9714bcd35a",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her five long fingers play independent glass, reed, wire, metal and marimba sounds; broom flight weaves instrumental patterns past moon bells, bat ticks and ghost chimes.\",\n    \"Enable Audio, then circle the ladle to chant, pull a fingertip to bend its instrument, or drag the broom to shape pitch and rhythm. Play sustains the current scene; release to let it fade.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "bf45c41bd1a2baab89167bd0d69ad1ea5989aa8e773fb9b9d1daabf8f9d83107",
+      "replacements": [
+        {
+          "before": "  \"wobblini\": [\"app\", \"audio-effect\"],\n",
+          "after": "  \"witch\": [\"voice\", \"graphic-ui\", \"synthesizer\"],\n  \"wobblini\": [\"app\", \"audio-effect\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "bc03a9c0d59c6c3a0528d49b85a2801daeb088c86f2be6fe44eaa1b32f953bdb",
+      "replacements": [
+        {
+          "before": "  processor: Object.freeze([\n",
+          "after": "  processor: Object.freeze([\n    \"witch\",\n"
+        },
+        {
+          "before": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n",
+          "after": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"witch\",\n"
+        },
+        {
+          "before": "const processorAudioIds = new Set([\n",
+          "after": "const processorAudioIds = new Set([\n  \"witch\",\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "a70c44fe92a898bc791dc70edf9f79e533faeb16654c680b76d2cc0c9240917c",
+      "replacements": [
+        {
+          "before": "# Morphazoid\n\n",
+          "after": "# Morphazoid\n\n**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\nplay five instrumental fingers, and ride a musical broom past bats, ghosts and\na ringing full moon. Audio starts off. [Gestures and sound](docs/witch.md).\n\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "586316732fb13d09b0100e9934a6f55477b4a3dd1eff18c8b979f29139358ebc",
+      "replacements": [
+        {
+          "before": "copy+require\tdocs/esi-32.md\n",
+          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "8552e6bd4063d6b84b897d5930dea10dff1dc88f9e95efb39a7bae0a0de13944",
+      "replacements": [
+        {
+          "before": "export const TAP_TEMPO_TARGETS = [\n",
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"witch.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"title\": \"Tap one complete cauldron turn\"},\n  {\"route\": \"witch.html\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 1.15, \"span\": 7.8, \"exponent\": 1}, \"title\": \"Tap one broom note\"},\n"
+        }
+      ]
+    },
+    {
+      "file": "docs/tap-tempo-controls.json",
+      "sha256": "831cb657236fd36e594177669bc2e701ab3abce98457d3a42223d7560aa06b31",
+      "replacements": [
+        {
+          "before": "  \"confirmed\": [\n",
+          "after": "  \"confirmed\": [\n    {\"route\": \"witch\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"note\": \"Tap one complete cauldron turn. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 1.15, \"span\": 7.8, \"exponent\": 1}, \"note\": \"Tap one broom note. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n"
+        }
+      ]
+    },
+    {
+      "file": "docs/tap-tempo-controls.md",
+      "sha256": "f4efb706ebeea11697b5a0b7e11b73f36ac76330f67a2c1b8fd63a417840678c",
+      "replacements": [
+        {
+          "before": "| [Wobblini]",
+          "after": "| [Witch](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (broom note) |\n| [Wobblini]"
+        }
+      ]
+    }
+  ]
+}

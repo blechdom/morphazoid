@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 53,
-    "fullPresets": 2249,
+    "implemented": 54,
+    "fullPresets": 2261,
     "favesImplemented": 19,
     "activeRemaining": 58,
     "regularRemaining": 129
@@ -991,6 +991,16 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "witch",
+      "label": "Witch",
+      "href": "witch.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "verification": "Twelve complete scenes and bounded parameter randomization preserve Audio, output and live Play. Focused browser tests cover recall, dice, gestures, release and three layouts. Human listening and physical touch-device acceptance remain pending."
+    },
+    {
       "id": "wobblini",
       "label": "Wobblini",
       "href": "wobblini.html",
@@ -1895,6 +1905,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "witch",
       "wobblini",
       "striped-staircase-rust",
       "vector-fractals",

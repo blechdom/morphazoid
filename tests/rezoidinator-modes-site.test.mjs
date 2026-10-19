@@ -1,3 +1,4 @@
+import { restoreWitchSite } from "./helpers/witch-site-reference.mjs";
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -9,8 +10,8 @@ import { restoreRezoidinatorSite } from './helpers/rezoidinator-site-reference.m
 import { restoreRustResonatorSite } from './helpers/simd-resonator-rust-site-reference.mjs';
 
 const file = 'scripts/site/runtime-files.tsv';
-// Remove only the independently tested mobile presentation addition.
-const source = restoreMobileMenubar(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
+// Remove the independently tested Witch and mobile presentation additions.
+const source = restoreMobileMenubar(restoreWitchSite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file), file);
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 test('Rezoidinator ships its complete signal path exactly once and preserves prior manifest bytes', () => {

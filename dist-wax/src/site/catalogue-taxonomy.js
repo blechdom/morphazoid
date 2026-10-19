@@ -186,6 +186,7 @@ export const CATALOGUE_TAGS = Object.freeze([
   }
 ].map(tag => Object.freeze(tag)));
 export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({
+  "witch": ["voice", "graphic-ui", "synthesizer"],
   "wobblini": ["app", "audio-effect"],
   "trackazoid": ["looper", "audio-effect"],
   "midiphoria": ["2d"],

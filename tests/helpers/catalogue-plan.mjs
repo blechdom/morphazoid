@@ -10,6 +10,10 @@ export const cataloguePlan = { ...originalPlan, categoryOrder: originalPlan.cate
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 18: a cauldron voice, five instrumental fingers and musical broom flight.
+  { id: 'witch', label: 'Witch', href: 'witch.html', imageHref: 'assets/instruments/witch.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'voice', label: 'Voice' }, { id: 'graphic-ui', label: 'Graphic-UI' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
   // October 15: eight-deck Wobblini; October 16 owner request removes looping.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',

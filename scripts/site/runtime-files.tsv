@@ -2259,6 +2259,16 @@ copy+require	src/instruments/esi-32/esi-32-recorder.js
 copy+require	src/instruments/esi-32/esi-32.css
 copy+require	assets/instruments/esi-32.webp
 copy+require	docs/esi-32.md
+# Witch: authored page is emitted through src/pages/manifest.js.
+copy+require	src/instruments/witch/witch-app.js
+copy+require	src/instruments/witch/witch-audio.js
+copy+require	src/instruments/witch/witch-worklet.js
+copy+require	src/instruments/witch/witch-model.js
+copy+require	src/instruments/witch/witch-presets.js
+copy+require	src/instruments/witch/witch-renderer.js
+copy+require	src/instruments/witch/witch.css
+copy+require	assets/instruments/witch.webp
+copy+require	docs/witch.md
 
 # Compact shared mobile menubar
 copy+require	src/site/mobile-menubar.js
