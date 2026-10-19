@@ -47,6 +47,11 @@ Do not include unrelated edits, local configuration, secrets, screenshots,
 caches, or temporary build output.
 Inspect effective author/committer email and signing configuration before
 creating a personal Morphazoid commit. Do not inherit an employer identity.
+GitHub squash/merge commits have their own author metadata: a personal CLI
+login and personal PR commits do not establish the merge author's email.
+When using `gh pr merge`, pass `--author-email <confirmed-personal-email>`
+explicitly, and verify the resulting remote commit's author and committer.
+Stop and report an unexpected identity; never force-push as an incidental fix.
 Changing local commit identity is different from rewriting published history;
 the latter needs separate authorization and coordination.
 
