@@ -3,7 +3,8 @@
 export const WITCH_TAU = Math.PI * 2;
 export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing']);
 export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'ghost', 'bat']);
-export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust']);
+export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
+export const WITCH_LAUNCH_DURATION = 1.86;
 export const WITCH_FINGER_SOURCES = Object.freeze(['glass', 'reed', 'wire', 'metal', 'marimba']);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS])]);
 export const WITCH_DEFAULTS = Object.freeze({

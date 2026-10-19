@@ -6,7 +6,14 @@ import { selectedInstrumentRecoveryChanges, restoreSelectedInstrumentRecovery } 
 
 test("selected instrument recovery preserves exact pre-recovery sources and frozen historical fixtures", () => {
   for (const change of selectedInstrumentRecoveryChanges) {
-    const source = readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8");
+    let source = readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8");
+    if (change.file === "scripts/site/runtime-files.tsv") {
+      // Witch's later hand adapter is independently checked by its exact site
+      // amendment. The frozen recovery baseline already contains original Witch.
+      const handAdapter = "copy+require\tsrc/instruments/witch/witch-hand.js\n";
+      assert.equal(source.split(handAdapter).length - 1, 1);
+      source = source.replace(handAdapter, "");
+    }
     for (const file of change.regressionTests) assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), file);
     const restored = restoreSelectedInstrumentRecovery(source, change.file);
     assert.equal(createHash("sha256").update(restored).digest("hex"), change.baselineSha256, change.file);

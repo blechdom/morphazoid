@@ -1,4 +1,4 @@
-import { normalizeWitchControls, sampleChant, witchClamp, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_TAU } from './witch-model.js';
+import { normalizeWitchControls, sampleChant, witchClamp, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 
 const TAU = WITCH_TAU;
@@ -205,6 +205,76 @@ class CauldronDSP {
 // Ratios come from an asymmetric geometric pattern, not a pitch scale. Altitude
 // continuously transposes every sounding strand, including already-ringing ones.
 const FLIGHT_RATIOS = Object.freeze([1, Math.SQRT2, Math.sqrt(3), .83, Math.sqrt(5), 1.19, 1.73, 2.41]);
+const LAUNCH_SYLLABLES = Object.freeze([
+  [0, .38, 0, 177], [.4, .38, 0, 207], [.82, .22, 1, 335],
+  [1.07, .2, 1, 362], [1.29, .25, 1, 307], [1.56, .28, 1, 278],
+]);
+
+/** The takeoff exclamation is a single explicitly triggered gesture. It has no
+ * connection to the flight pattern's clock, controls, or automatic note events. */
+class LaunchAccent {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate; this.active = false; this.pending = false; this.fading = false;
+    this.age = WITCH_LAUNCH_DURATION; this.phase = 0; this.sourceLow = 0; this.fade = 1;
+    this.fadeStep = 1 / (.012 * rate); this.envelope = 0; this.mouth = 0; this.control = 0; this.randomState = 0x2a4edf;
+    this.formants = [new Resonator(rate), new Resonator(rate), new Resonator(rate)];
+  }
+  begin() {
+    this.active = true; this.pending = false; this.fading = false; this.age = 0; this.phase = 0;
+    this.fade = 1; this.sourceLow = 0; this.envelope = 0; this.mouth = 0; this.control = 0;
+    for (const formant of this.formants) formant.x1 = formant.x2 = formant.y1 = formant.y2 = 0;
+  }
+  trigger() {
+    if (!this.active) this.begin();
+    else { this.pending = true; this.fading = true; }
+  }
+  cancel() { this.pending = false; if (this.active) this.fading = true; }
+  clear() { this.active = this.pending = this.fading = false; this.envelope = this.mouth = 0; }
+  next() {
+    if (!this.active) return 0;
+    if (this.fading) {
+      this.fade = Math.max(0, this.fade - this.fadeStep);
+      if (this.fade === 0) {
+        if (this.pending) this.begin(); else this.clear();
+        return 0;
+      }
+    }
+    if (this.age >= WITCH_LAUNCH_DURATION) {
+      if (this.pending) this.begin(); else this.clear();
+      return 0;
+    }
+    let envelope = 0, opening = 0, hz = 190, hiss = 0;
+    for (const [start, duration, ha, base] of LAUNCH_SYLLABLES) {
+      const u = (this.age - start) / duration;
+      if (u < 0 || u >= 1) continue;
+      opening = ha ? .94 : .16 + .84 * Math.min(1, u * 2.3);
+      envelope = Math.sin(Math.PI * u) ** (ha ? 1.8 : 1.2);
+      hz = base + (ha ? 75 * (1 - u) : 115 * Math.sin(Math.PI * u));
+      hiss = ha ? .035 + Math.max(0, 1 - u * 5) * .2 : .025;
+      break;
+    }
+    if (this.control-- <= 0) {
+      this.formants[0].tune(270 + opening * 540, 130);
+      this.formants[1].tune(700 + opening * 650, 175);
+      this.formants[2].tune(2460 + opening * 210, 280);
+      this.control = 15;
+    }
+    let seed = this.randomState; seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; this.randomState = seed >>> 0;
+    const noise = this.randomState / 2147483648 - 1;
+    const step = hz * (1 + .014 * Math.sin(this.age * 37)) * this.dt;
+    this.phase = (this.phase + step) % 1;
+    const saw = 2 * this.phase - 1 - polyBlep(this.phase, step);
+    this.sourceLow += .32 * (saw - this.sourceLow);
+    const source = this.sourceLow * .88 + noise * hiss;
+    const voice = this.formants[0].next(source) * 2.4 + this.formants[1].next(source) * 1.8 + this.formants[2].next(source) * .8
+      + Math.sin(this.phase * TAU) * .1;
+    this.envelope = envelope * this.fade;
+    this.mouth = this.envelope * opening;
+    this.age += this.dt;
+    return voice * this.envelope * .58;
+  }
+}
+
 class FlightDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate; this.controls = normalizeWitchControls(); this.enabled = false;
@@ -215,14 +285,18 @@ class FlightDSP {
     this.pulseDecay = Math.exp(-this.dt / .11); this.droneSmooth = 1 - Math.exp(-this.dt / .18);
     this.voices = Array.from({ length: 8 }, () => ({ kind: '', age: 1, duration: 0, phase: 0, mod: 0, upper: 0,
       ratio: 1, frequency: 200, pan: 0, envelope: 0, level: 0 }));
-    this.visual = { flightPulse: 0, flightStep: 0, effect: '', effectEnvelope: 0 };
+    this.launch = new LaunchAccent(rate);
+    this.visual = { flightPulse: 0, flightStep: 0, effect: '', effectEnvelope: 0, launchEnvelope: 0, launchActive: false, mouth: 0 };
   }
   random() {
     let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x >>> 0;
     return this.randomState / 2147483648 - 1;
   }
   setControls(controls) { this.controls = controls; }
-  setEnabled(enabled) { this.enabled = enabled === true; }
+  setEnabled(enabled) {
+    if (this.enabled && enabled !== true) this.launch.cancel();
+    this.enabled = enabled === true;
+  }
   strike(kind, ratio, duration, level, pan = 0) {
     let voice = this.voices.find(v => v.age >= v.duration);
     if (!voice) voice = this.voices.reduce((oldest, v) => v.age / v.duration > oldest.age / oldest.duration ? v : oldest);
@@ -231,6 +305,7 @@ class FlightDSP {
   }
   trigger(kind) {
     if (!this.enabled || !WITCH_FLIGHT_EFFECTS.includes(kind)) return false;
+    if (kind === 'launch') { this.launch.trigger(); return true; }
     if (kind === 'moon') {
       this.strike(kind, .5, 2.7, .1, -.28); this.strike(kind, 1.37, 2.5, .07, .28);
     } else if (kind === 'bat') this.strike(kind, 2.9, .48, .14, this.random() * .7);
@@ -242,6 +317,7 @@ class FlightDSP {
   clear() {
     for (const voice of this.voices) voice.duration = 0;
     this.drone = 0; this.pulse = 0; this.lastGate = false;
+    this.launch.clear();
   }
   process(left, right = left) {
     const c = this.controls;
@@ -266,7 +342,8 @@ class FlightDSP {
       const noise = this.random(); this.noiseLow += .018 * (noise - this.noiseLow);
       const air = (noise - this.noiseLow) * .006 * this.speed * this.drone;
       const bed = (Math.sin(this.dronePhase * TAU) * .025 + air) * this.drone;
-      let mixL = bed, mixR = bed;
+      const takeoff = this.launch.next() * .70710678;
+      let mixL = bed + takeoff, mixR = bed + takeoff;
       for (const v of this.voices) {
         if (v.age >= v.duration) continue;
         const u = v.age / v.duration;
@@ -307,6 +384,9 @@ class FlightDSP {
     }
     this.visual.flightPulse = this.pulse; this.visual.flightStep = this.step;
     this.visual.effect = effect; this.visual.effectEnvelope = effectEnvelope;
+    this.visual.launchActive = this.launch.active;
+    this.visual.launchEnvelope = this.launch.envelope; this.visual.mouth = this.launch.mouth;
+    if (this.launch.envelope > 0) { this.visual.effect = 'launch'; this.visual.effectEnvelope = this.launch.envelope; }
   }
 }
 
@@ -333,7 +413,7 @@ export class WitchDSP {
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
     this.handDormant = true; this.flightDormant = true;
     this.buffers = Array.from({ length: 6 }, () => new Float32Array(128));
-    this.visual = { ...this.brew.visual, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0 };
+    this.visual = { ...this.brew.visual, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
   get chantPhase() { return this.brew.chantPhase; }
@@ -415,8 +495,10 @@ export class WitchDSP {
     for (let i = 0; i < 5; i++) this.visual.fingerLevels[i] = this.hand.voiceLevels[i];
     this.visual.flightPulse = selected === 2 ? this.flight.visual.flightPulse : 0;
     this.visual.flightStep = this.flight.visual.flightStep;
+    this.visual.launchActive = selected === 2 && this.flight.visual.launchActive;
+    this.visual.launchEnvelope = selected === 2 ? this.flight.visual.launchEnvelope : 0;
     if (selected !== 0) {
-      this.visual.mouth = 0; this.visual.breath = 0;
+      this.visual.mouth = selected === 2 ? this.flight.visual.mouth : 0; this.visual.breath = 0;
       this.visual.effect = selected === 2 ? this.flight.visual.effect : '';
       this.visual.effectEnvelope = selected === 2 ? this.flight.visual.effectEnvelope : 0;
     }
