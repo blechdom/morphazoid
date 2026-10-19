@@ -260,7 +260,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
       if (this.signalEnabled && !spatialEnabled) {
         // Hidden buses keep aging instead of replaying stale room tails when
         // surround is enabled again. No input is injected into inactive buses.
-        for (let channel = 2; channel < MAX_SPATIAL_CHANNELS + 2; channel++) this.signal.room.process(channel, 0);
+        for (let channel = 2; channel < MAX_SPATIAL_CHANNELS + 2; channel++) this.signal.ageChannel(channel);
       }
       peak = Math.max(peak, Math.abs(left[frame]), Math.abs(right[frame]));
       square += left[frame] ** 2 + right[frame] ** 2;

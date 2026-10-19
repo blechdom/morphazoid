@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS } from '../src/instruments/simd-resonator-rust/model.js';
 import { SIMD_RESONATOR_FULL_PRESETS } from '../src/families/simd-resonator/simd-resonator-presets.js';
-import { EXCITATION_TYPES, FILTER_TYPES } from '../src/instruments/simd-resonator-rust/signal-path.js';
+import { EXCITATION_TYPES, FILTER_TYPES, SIGNAL_DEFAULTS, STAGE_ORDERS } from '../src/instruments/simd-resonator-rust/signal-path.js';
 import {
   PRESETS, DEFAULT_PRESET_SETTINGS, SPATIAL_PRESET_DEFAULTS, APPLICATION_MODES,
   REVERB_CHARACTERS, RESYNTHESIS_CHARACTERS, applicationForSettings,
@@ -18,6 +18,7 @@ test('Rezoidinator starts as a plucked body and retains all twenty factory IDs',
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationType, 'pluck');
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationStrength, .8);
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationDurationMs, 18);
+  assert.equal(DEFAULT_PRESET_SETTINGS.stageOrder, 'process-resonance-reverb');
   assert.deepEqual(PRESETS[0].snapshot, DEFAULT_PRESET_SETTINGS);
   assert.deepEqual(PRESETS.map(preset => preset.id), [
     ...['silk-512', 'bronze-haze', 'glass-rain', 'close-choir', 'copper-spray', 'low-continuum', 'wire-cluster', 'voice-chamber'].map(id => 'rust:' + id),
@@ -35,6 +36,28 @@ test('Rezoidinator starts as a plucked body and retains all twenty factory IDs',
       || (state.reverbEnabled && state.reverbMix > 0), preset.id);
   }
   assert.deepEqual(new Set(PRESETS.map(preset => preset.snapshot.excitationType)), new Set(EXCITATION_TYPES));
+  assert.equal(PRESETS.find(preset => preset.id === 'rust:close-choir').snapshot.stageOrder, 'reverb-resonance-process');
+  assert.equal(PRESETS.find(preset => preset.id === 'rust:voice-chamber').snapshot.stageOrder, 'resonance-process-reverb');
+});
+
+test('every stage order recalls independently of bypass toggles and layer settings', () => {
+  const previous = Object.freeze({ ...DEFAULT_PRESET_SETTINGS, processingEnabled: true, bodyEnabled: false,
+    resynthesisEnabled: true, reverbEnabled: true, fftMix: .72, filterFrequency: 640, reverbTime: 5.4 });
+  assert.equal(STAGE_ORDERS.length, 6);
+  assert.equal(new Set(STAGE_ORDERS).size, 6);
+  for (const stageOrder of STAGE_ORDERS) {
+    assert.deepEqual(stageOrder.split('-').sort(), ['process', 'resonance', 'reverb']);
+    const next = validatePreset({ ...previous, stageOrder });
+    assert.equal(capturePreset(next).stageOrder, stageOrder);
+    assert.deepEqual(sanitizePresetSettings(next), next);
+    for (const key of Object.keys(previous)) if (key !== 'stageOrder') assert.equal(next[key], previous[key], stageOrder + ':' + key);
+    // All bypass combinations, including dry-only, retain the chosen position of
+    // disabled stages so re-enabling one does not silently move it elsewhere.
+    for (let mask = 0; mask < 16; mask++) {
+      const toggles = Object.fromEntries(stageKeys.map((key, index) => [key, Boolean(mask & (1 << index))]));
+      assert.equal(validatePreset({ ...next, ...toggles }).stageOrder, stageOrder);
+    }
+  }
 });
 
 test('the explicitly spectral classic scenes preserve their original FFT values and route', () => {
@@ -104,6 +127,7 @@ test('live sanitization supplies complete bounded native state and keeps one FFT
   assert.equal(state.fftMix, .123);
   assert.equal(state.fftHopRatio, .314159);
   assert(!Object.hasOwn(state, 'resynthesisMix'));
+  assert.equal(sanitizePresetSettings({ stageOrder: 'body-fft-reverb' }).stageOrder, SIGNAL_DEFAULTS.stageOrder);
 });
 
 test('both complete older scene formats migrate without losing modal, FFT or spatial values', () => {
@@ -116,6 +140,18 @@ test('both complete older scene formats migrate without losing modal, FFT or spa
     assert.equal(applicationForSettings(migrated), 'body-resynthesis');
     assert.equal(migrated.excitationType, 'impulse');
     assert.deepEqual(keys(migrated), keys(DEFAULT_PRESET_SETTINGS));
+    assert.deepEqual(validatePreset(migrated), migrated);
+    assert.equal(migrated.stageOrder, SIGNAL_DEFAULTS.stageOrder);
+    assert.deepEqual(legacy, before);
+  }
+});
+
+test('complete fixed-order scenes migrate by adding only their original routing order', () => {
+  for (const preset of PRESETS) {
+    const { stageOrder: _order, ...legacy } = preset.snapshot;
+    const before = structuredClone(legacy), migrated = validatePreset(legacy);
+    assert.deepEqual(migrated, { ...legacy, stageOrder: 'process-resonance-reverb' });
+    assert.deepEqual(capturePreset({ ...legacy, outputLevel: .5, playing: true }), migrated);
     assert.deepEqual(validatePreset(migrated), migrated);
     assert.deepEqual(legacy, before);
   }
@@ -144,11 +180,27 @@ test('saved scenes reject partial migrations, unknown fields and invalid values 
     { ...DEFAULT_PRESET_SETTINGS, excitationDurationMs: 301 },
     { ...DEFAULT_PRESET_SETTINGS, reverbTime: NaN },
     { ...DEFAULT_PRESET_SETTINGS, resynthesisMix: .2 },
+    { ...DEFAULT_PRESET_SETTINGS, stageOrder: 'process-process-reverb' },
+    { ...DEFAULT_PRESET_SETTINGS, stageOrder: 'body-fft-reverb' },
+    { ...DEFAULT_PRESET_SETTINGS, stageOrder: ['process', 'resonance', 'reverb'] },
+    { ...DEFAULT_PRESET_SETTINGS, stageOrder: undefined },
+    { ...DEFAULTS, stageOrder: SIGNAL_DEFAULTS.stageOrder },
   ];
   for (const value of invalid) {
     const before = structuredClone(value);
     assert.throws(() => validatePreset(value));
     assert.deepEqual(value, before);
+  }
+});
+
+test('fixed-order migration still rejects incomplete or corrupt scenes before adding a field', () => {
+  const { stageOrder: _order, ...legacy } = DEFAULT_PRESET_SETTINGS;
+  const missing = { ...legacy }; delete missing.wetMix;
+  for (const invalid of [missing, { ...legacy, bodyEnabled: 'true' }, { ...legacy, filterFrequency: Infinity },
+    { ...legacy, outputLevel: .5 }, { ...legacy, excitationType: 'unknown' }, { ...legacy, fftMix: 1.01 }]) {
+    const before = structuredClone(invalid);
+    assert.throws(() => validatePreset(invalid));
+    assert.deepEqual(invalid, before);
   }
 });
 
@@ -167,6 +219,7 @@ test('seeded dice covers all owned controls, every exciter and filter, and at le
   for (const [key, found] of Object.entries(values)) assert(found.size > 1, key);
   assert.deepEqual(values.excitationType, new Set(EXCITATION_TYPES));
   assert.deepEqual(values.filterType, new Set(FILTER_TYPES));
+  assert.deepEqual(values.stageOrder, new Set(STAGE_ORDERS));
   assert.deepEqual(randomizePreset(previous, seeded(893)), first);
   assert.deepEqual(previous, DEFAULT_PRESET_SETTINGS);
   const minimum = randomizePreset(previous, () => 0), maximum = randomizePreset(previous, () => 1);

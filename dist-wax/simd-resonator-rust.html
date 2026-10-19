@@ -87,14 +87,37 @@
         <details class="group control-section simd-input" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
           <div class="group-body rezo-input-controls">
-            <label class="rezo-choice" for="useSelect"><span>Use</span><select id="useSelect" aria-label="Resonator use"><option value="body">Instrument body modeling</option><option value="processing">Audio processing</option><option value="reverb">Reverberation</option><option value="resynthesis">Resynthesis</option></select></label>
-            <div class="rezo-stage-switches" role="group" aria-label="Combine processing stages">
-              <label class="rezo-toggle" for="bodyEnabled"><input id="bodyEnabled" type="checkbox" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Body</span></label>
-              <label class="rezo-toggle" for="processingEnabled"><input id="processingEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Process</span></label>
-              <label class="rezo-toggle" for="resynthesisEnabled"><input id="resynthesisEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>FFT</span></label>
-              <label class="rezo-toggle" for="reverbEnabled"><input id="reverbEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Reverb</span></label>
+            <div class="rezo-chain" role="group" aria-labelledby="signalChainTitle">
+              <span class="rezo-chain-title" id="signalChainTitle">Signal chain</span>
+              <ol class="rezo-signal-chain" id="signalChain" aria-label="Processing order">
+                <li class="rezo-chain-stage" data-stage-block="process">
+                  <label class="rezo-toggle" for="processingEnabled"><input id="processingEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Filter / drive</span></label>
+                  <div class="rezo-chain-moves">
+                    <button type="button" data-stage-move="-1" aria-label="Move Filter / drive earlier" title="Move Filter / drive earlier" disabled>↑</button>
+                    <button type="button" data-stage-move="1" aria-label="Move Filter / drive later" title="Move Filter / drive later">↓</button>
+                  </div>
+                </li>
+                <li class="rezo-chain-stage" data-stage-block="resonance">
+                  <div class="rezo-chain-parallel" role="group" aria-label="Body and FFT run in parallel">
+                    <label class="rezo-toggle" for="bodyEnabled"><input id="bodyEnabled" type="checkbox" role="switch" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Body</span></label>
+                    <span class="rezo-parallel-mark" title="Parallel branches" aria-hidden="true">∥</span>
+                    <label class="rezo-toggle" for="resynthesisEnabled"><input id="resynthesisEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>FFT</span></label>
+                  </div>
+                  <div class="rezo-chain-moves">
+                    <button type="button" data-stage-move="-1" aria-label="Move Body and FFT earlier" title="Move Body and FFT earlier">↑</button>
+                    <button type="button" data-stage-move="1" aria-label="Move Body and FFT later" title="Move Body and FFT later">↓</button>
+                  </div>
+                </li>
+                <li class="rezo-chain-stage" data-stage-block="reverb">
+                  <label class="rezo-toggle" for="reverbEnabled"><input id="reverbEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Reverb</span></label>
+                  <div class="rezo-chain-moves">
+                    <button type="button" data-stage-move="-1" aria-label="Move Reverb earlier" title="Move Reverb earlier">↑</button>
+                    <button type="button" data-stage-move="1" aria-label="Move Reverb later" title="Move Reverb later" disabled>↓</button>
+                  </div>
+                </li>
+              </ol>
+              <p class="simd-note rezo-signal-path" id="signalPath" aria-live="polite">Source → Body → Output</p>
             </div>
-            <p class="simd-note rezo-signal-path" id="signalPath" aria-live="polite">Source → Body</p>
             <label class="rezo-choice" for="inputSource"><span>Source</span><select id="inputSource" aria-label="Input source">
               <option value="excitation" selected>Impulse / excitation</option><option value="mic">Mic / Line</option><option value="sample-file">Sample loops</option><option value="file">Audio file</option>
             </select></label>
@@ -103,7 +126,7 @@
               <div id="inputFileControl" hidden><button id="chooseInputFile" class="mini-action" type="button">Choose audio file</button></div>
               <div class="rezo-input-transport">
                 <button id="inputPlay" class="rezo-round-transport" type="button" aria-pressed="false" aria-label="Play input" title="Play input"><span aria-hidden="true">▶</span></button>
-                <label class="rezo-toggle" for="inputLoop"><input id="inputLoop" type="checkbox" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Loop</span></label>
+                <label class="rezo-toggle" for="inputLoop"><input id="inputLoop" type="checkbox" role="switch" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Loop</span></label>
               </div>
               <p id="inputCredit" class="simd-note" hidden></p>
             </div>
@@ -207,7 +230,7 @@
         <details class="group control-section rezo-surround" id="surroundSection" open>
           <summary class="group-summary"><h2 class="group-title">Surround</h2><span class="section-state" id="surroundSummary">Stereo</span></summary>
           <div class="group-body">
-            <label class="rezo-toggle" for="surroundEnabled"><input id="surroundEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Surround</span></label>
+            <label class="rezo-toggle" for="surroundEnabled"><input id="surroundEnabled" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Surround</span></label>
             <div id="surroundOptions" hidden>
               <label class="rezo-choice" for="surroundLayout"><span>Speakers</span><select id="surroundLayout" aria-label="Speaker layout">
                 <option value="4-ring">4 · Ring</option><option value="8-circle" selected>8 · Circle</option><option value="16-ring">16 · Ring</option><option value="4-1">4.1</option><option value="7-4-1">7:4:1</option><option value="8-cube">8 · Cube</option>
@@ -220,8 +243,8 @@
                 <label for="spaceRate"><span>Turns / sec<output id="spaceRateOut" for="spaceRate">0.05</output></span><input id="spaceRate" type="range" min="-1" max="1" step="0.005" value="0.05" /></label>
               </div>
               <div class="rezo-surround-toggles">
-                <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
-                <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
+                <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
+                <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" role="switch" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
               </div>
               <p id="surroundStatus" class="simd-note" role="status"></p>
               <div id="surroundMeters" class="rezo-channel-meters" aria-label="Surround channel levels"></div>

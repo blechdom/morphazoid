@@ -4,6 +4,13 @@ import { installAudioInputFixture } from './helpers/audio-input-fixture.mjs';
 const USES = ['body', 'processing', 'reverb', 'resynthesis'];
 const EXCITERS = ['impulse', 'white-noise', 'pink-noise', 'pluck', 'soft-mallet', 'hard-mallet'];
 const read = page => page.evaluate(() => globalThis.__MORPHAZOID_RUST_RESONATOR__.getState());
+async function stages(page, enabled) {
+  for (const stage of USES) {
+    const control = page.locator(`#${stage}Enabled`);
+    if (await control.isChecked() !== enabled.includes(stage)) await page.locator(`label[for="${stage}Enabled"]`).click();
+    await expect(control).toBeChecked({ checked: enabled.includes(stage) });
+  }
+}
 async function choose(page, id, value) {
   const index = await page.locator('#' + id).evaluate((select, wanted) => [...select.options].findIndex(option => option.value === wanted), value);
   expect(index, `${id} includes ${value}`).toBeGreaterThanOrEqual(0);
@@ -74,7 +81,9 @@ function audible(result, label) {
 test('body and excitation are the defaults, with 100% volume and no implicit microphone or Audio start', async ({ page }) => {
   await installAudioInputFixture(page);
   await page.goto('simd-resonator-rust.html');
-  expect(await read(page)).toMatchObject({ application: 'body', inputKind: 'excitation', audioOn: false });
+  expect(await read(page)).toMatchObject({ inputKind: 'excitation', audioOn: false,
+    settings: { bodyEnabled: true, processingEnabled: false, resynthesisEnabled: false, reverbEnabled: false } });
+  await expect(page.locator('#useSelect')).toHaveCount(0);
   await expect(page.locator('#outputLevel')).toHaveAttribute('max', '1');
   await range(page, 'outputLevel', 1);
   await expect(page.locator('#outputLevelOut')).toHaveText('100%');
@@ -82,8 +91,7 @@ test('body and excitation are the defaults, with 100% volume and no implicit mic
   const bounds = await page.locator('#pluckButton').boundingBox();
   expect(bounds.width).toBe(bounds.height); expect(bounds.width).toBeLessThanOrEqual(36);
   for (const use of USES) {
-    await choose(page, 'useSelect', use);
-    expect((await read(page)).application).toBe(use);
+    await stages(page, [use]);
     for (const id of EXCITERS) await choose(page, 'excitationType', id);
     await page.locator('#pluckButton').click();
     expect((await read(page)).audioOn).toBe(false);
@@ -103,7 +111,7 @@ for (const use of USES) test(`${use}: every exciter produces bounded first and r
   const measurements = [];
   for (const kind of EXCITERS) {
     await page.locator('#resetButton').click();
-    await choose(page, 'useSelect', use);
+    await stages(page, [use]);
     // Remove the authored direct blend so dry sound cannot conceal a silent
     // FFT or a reverb which never received the excitation.
     if (use === 'resynthesis') await range(page, 'fftMix', 1);
@@ -121,7 +129,7 @@ for (const use of USES) test(`${use}: every exciter produces bounded first and r
   await expect.poll(async () => (await read(page)).contextState).toBe('none');
 });
 
-test('uses, characters and stage combinations retain the same sample loop and final output', async ({ page }) => {
+test('stages, characters and combinations retain the same sample loop and final output', async ({ page }) => {
   test.setTimeout(60000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('simd-resonator-rust.html');
@@ -131,16 +139,16 @@ test('uses, characters and stage combinations retain the same sample loop and fi
   await installProbe(page);
   const before = await read(page);
   for (const use of USES) {
-    await choose(page, 'useSelect', use);
+    await stages(page, [use]);
     audible(await capture(page), use);
     const after = await read(page);
     expect(after.inputPlaybackRevision).toBe(before.inputPlaybackRevision);
     expect(after.input).toMatchObject({ playing: true, loop: true, sampleId: 'music-arp' });
     expect(after.contextTime).toBeGreaterThan(before.contextTime);
   }
-  for (const id of ['bodyEnabled', 'processingEnabled', 'reverbEnabled']) await toggle(page, id);
+  await stages(page, USES);
   expect((await read(page)).signal).toMatchObject({ bodyEnabled: true, processingEnabled: true, resynthesisEnabled: true, reverbEnabled: true });
-  await expect(page.locator('#signalPath')).toHaveText('Source → Process → Body + FFT → Reverb');
+  await expect(page.locator('#signalPath')).toHaveText('Source → Filter / drive → Body ∥ FFT → Reverb → Output');
   for (const id of ['reverbCharacter', 'resynthesisCharacter']) {
     const options = await page.locator('#' + id).evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
     expect(options.length).toBeGreaterThanOrEqual(4);
@@ -167,7 +175,7 @@ function testWav() {
   for (let index = 0; index < frames; index++) data.writeInt16LE(Math.round(6000 * Math.sin(index * 220 * Math.PI * 2 / rate)), 44 + index * 2);
   return data;
 }
-test('one local audio file keeps looping through all four uses', async ({ page }) => {
+test('one local audio file keeps looping through all four stages', async ({ page }) => {
   await page.goto('simd-resonator-rust.html');
   await choose(page, 'inputSource', 'file');
   await page.locator('#inputFile').setInputFiles({ name: 'rezo-modes-voice.wav', mimeType: 'audio/wav', buffer: testWav() });
@@ -175,13 +183,13 @@ test('one local audio file keeps looping through all four uses', async ({ page }
   await expect.poll(async () => (await read(page)).input.playing).toBe(true);
   await installProbe(page); const revision = (await read(page)).inputPlaybackRevision;
   for (const use of USES) {
-    await choose(page, 'useSelect', use); audible(await capture(page), `file/${use}`);
+    await stages(page, [use]); audible(await capture(page), `file/${use}`);
     expect((await read(page)).inputPlaybackRevision).toBe(revision);
     expect((await read(page)).input).toMatchObject({ mode: 'file', playing: true, loop: true });
   }
 });
 
-test('explicit microphone input works in every use without capture restart and releases on Audio off', async ({ page }) => {
+test('explicit microphone input works in every stage without capture restart and releases on Audio off', async ({ page }) => {
   await installAudioInputFixture(page); await page.goto('simd-resonator-rust.html');
   await choose(page, 'inputSource', 'mic');
   expect(await page.evaluate(() => window.__familyInput.requests)).toBe(0);
@@ -192,7 +200,7 @@ test('explicit microphone input works in every use without capture restart and r
   await expect.poll(async () => (await read(page)).audioOn).toBe(true);
   await installProbe(page);
   for (const use of USES) {
-    await choose(page, 'useSelect', use); audible(await capture(page), `microphone/${use}`);
+    await stages(page, [use]); audible(await capture(page), `microphone/${use}`);
     expect(await page.evaluate(() => window.__familyInput.requests)).toBe(1);
   }
   await page.locator('#audioButton').click();
@@ -200,13 +208,12 @@ test('explicit microphone input works in every use without capture restart and r
   expect(await page.evaluate(() => window.__familyInput.tracks.every(track => track.readyState === 'ended'))).toBe(true);
 });
 
-test('mode, excitation and combination controls stay reachable in both mobile orientations', async ({ browser }) => {
+test('stage, excitation and combination controls stay reachable in both mobile orientations', async ({ browser }) => {
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true });
     const page = await context.newPage();
     await page.goto(test.info().project.use.baseURL + 'simd-resonator-rust.html');
-    await choose(page, 'useSelect', 'resynthesis');
-    for (const id of ['bodyEnabled', 'processingEnabled', 'reverbEnabled']) await toggle(page, id);
+    await stages(page, USES);
     await choose(page, 'excitationType', 'hard-mallet');
     for (const id of ['bodySection', 'processingSection', 'resynthesisSection', 'reverbSection']) {
       await page.locator('#' + id).scrollIntoViewIfNeeded(); await expect(page.locator('#' + id)).toBeVisible();

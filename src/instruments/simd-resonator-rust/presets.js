@@ -4,7 +4,7 @@ import { createPresetSchema } from '../../site/preset-schema.js';
 import { DEFAULTS, LIMITS, sanitizeSettings } from './model.js';
 import { sanitizeSpatialSettings } from './spatial-model.js';
 import {
-  SIGNAL_DEFAULTS, SIGNAL_LIMITS, FILTER_TYPES, sanitizeSignalSettings,
+  SIGNAL_DEFAULTS, SIGNAL_LIMITS, FILTER_TYPES, STAGE_ORDERS, sanitizeSignalSettings,
   EXCITATION_DEFAULTS, EXCITATION_LIMITS, EXCITATION_TYPES, sanitizeExcitation,
 } from './signal-path.js';
 
@@ -30,8 +30,8 @@ const focusedBank = rows => Object.freeze(rows.map(([id, label, settings]) => Ob
   id, label, settings: Object.freeze(settings),
 })));
 
-// Focused menu patches leave the body's tuning, exciter and other layer timbres
-// alone. Their balances provide an audible starting point for the chosen use.
+// Compatibility patches and factory-scene building blocks. Stage toggles and
+// order remain independent; these patches preserve the current order and timbres.
 export const APPLICATION_MODES = focusedBank([
   ['body', 'Instrument body modeling', { ...modeFlags(true, false, false, false), bodyMix: 1, wetMix: 1 }],
   ['processing', 'Audio processing', { ...modeFlags(false, true, false, false), wetMix: 1 }],
@@ -82,7 +82,9 @@ const signalFields = {
 };
 const modalSchema = createPresetSchema(modalFields);
 const legacySchema = createPresetSchema({ ...modalFields, ...spatialFields });
-const schema = createPresetSchema({ ...modalFields, ...spatialFields, ...signalFields });
+const fixedOrderSchema = createPresetSchema({ ...modalFields, ...spatialFields, ...signalFields });
+const schema = createPresetSchema({ ...modalFields, ...spatialFields, ...signalFields,
+  stageOrder: { choices: STAGE_ORDERS } });
 
 /** Bounded complete state for live control edits. Preset imports use the strict
  * validator below, so corrupt or incomplete saved scenes never partly apply. */
@@ -105,7 +107,13 @@ export function sanitizePresetSettings(value = {}) {
 const legacyRoute = Object.freeze({ bodyEnabled: true, processingEnabled: false,
   resynthesisEnabled: true, reverbEnabled: false, excitationType: 'impulse' });
 export function validatePreset(value) {
-  if (!value || Object.keys(signalFields).some(key => Object.hasOwn(value, key))) return schema.validate(value);
+  if (!value || Object.hasOwn(value, 'stageOrder')) return schema.validate(value);
+  if (Object.keys(signalFields).some(key => Object.hasOwn(value, key))) {
+    // These complete scenes predate routing edits. Validate their exact former
+    // shape before adding the original order; never repair partial new scenes.
+    const previous = fixedOrderSchema.validate(value);
+    return schema.validate({ ...previous, stageOrder: SIGNAL_DEFAULTS.stageOrder });
+  }
   // Before surround, snapshots contained only the modal/FFT controls. Afterwards
   // all six musical spatial fields were stored. Only those complete versions
   // migrate; absent or unknown fields in any other shape remain an error.
@@ -114,7 +122,8 @@ export function validatePreset(value) {
   return schema.validate({ ...DEFAULT_PRESET_SETTINGS, ...legacy, ...legacyRoute });
 }
 export function capturePreset(state) {
-  if (state && Object.keys(signalFields).some(key => Object.hasOwn(state, key))) return schema.capture(state);
+  if (state && Object.hasOwn(state, 'stageOrder')) return schema.capture(state);
+  if (state && Object.keys(signalFields).some(key => Object.hasOwn(state, key))) return validatePreset(fixedOrderSchema.capture(state));
   const keys = state && Object.keys(spatialFields).some(key => Object.hasOwn(state, key)) ? legacySchema.keys : modalSchema.keys;
   return validatePreset(Object.fromEntries(keys.map(key => [key, state?.[key]])));
 }
@@ -129,11 +138,11 @@ const dense = [
   ['silk-512', 'Silk · 512 waves', { modeCount: 512, spectralSpan: 128 }],
   ['bronze-haze', 'Bronze haze', { ...application('body-reverb'), modeCount: 1024, spectralSpan: 96, baseFrequency: 60, decaySeconds: 5.2, spread: .7, hardness: .8, excitationType: 'hard-mallet', excitationDurationMs: 3, reverbTime: 4.6, reverbDamping: .38, spacePattern: 'descending', spaceMotion: true, spaceRate: -.04 }],
   ['glass-rain', 'Glass rain', { ...application('body-resynthesis'), modeCount: 2048, spectralSpan: 72, baseFrequency: 164, decaySeconds: 2.2, spread: .18, hardness: .96, strikePosition: .73, excitationType: 'impulse', spacePattern: 'scatter', spaceSpan: 2 }],
-  ['close-choir', 'Close choir', { ...application('resynthesis-reverb'), modeCount: 1024, spectralSpan: 16, baseFrequency: 96, decaySeconds: 6, spread: .04, hardness: .4, fftSize: 4096, fftResponseMs: 320, excitationType: 'pink-noise', excitationDurationMs: 180, reverbTime: 3.8, reverbDamping: .68, spaceSpan: .35, spaceMotion: true, spaceRate: .025 }],
+  ['close-choir', 'Close choir', { ...application('resynthesis-reverb'), stageOrder: 'reverb-resonance-process', modeCount: 1024, spectralSpan: 16, baseFrequency: 96, decaySeconds: 6, spread: .04, hardness: .4, fftSize: 4096, fftResponseMs: 320, excitationType: 'pink-noise', excitationDurationMs: 180, reverbTime: 3.8, reverbDamping: .68, spaceSpan: .35, spaceMotion: true, spaceRate: .025 }],
   ['copper-spray', 'Copper spray', { ...application('processing'), modeCount: 4096, spectralSpan: 128, baseFrequency: 82, decaySeconds: 1.6, spread: .58, hardness: 1, strikePosition: .19, excitationType: 'white-noise', excitationDurationMs: 45, filterType: 'bandpass', filterFrequency: 3200, drive: 4.5, spacePattern: 'alternate', spaceSpan: 2, spaceMotion: true, spaceRate: .12 }],
   ['low-continuum', 'Low continuum', { ...application('reverb'), modeCount: 4096, spectralSpan: 192, baseFrequency: 42, decaySeconds: 5.8, spread: .12, hardness: .72, fftLowFrequency: 35, fftMix: .6, excitationType: 'pink-noise', excitationDurationMs: 160, reverbTime: 8.4, reverbDamping: .78, reverbMix: .8, spaceMotion: true, spaceRate: -.02 }],
   ['wire-cluster', 'Wire cluster', { modeCount: 256, spectralSpan: 32, baseFrequency: 180, decaySeconds: .7, spread: .9, hardness: .9, excitationType: 'pluck', excitationDurationMs: 7, spaceTarget: 'modes', spacePattern: 'alternate', spaceSpan: .5, spaceOffset: .5 }],
-  ['voice-chamber', 'Voice chamber', { ...application('all'), modeCount: 2048, spectralSpan: 128, baseFrequency: 68, decaySeconds: 3.6, spread: .3, fftSize: 2048, fftBandCount: 128, fftMix: .72, fftResponseMs: 90, excitationType: 'soft-mallet', excitationDurationMs: 8, filterFrequency: 6000, drive: 1.4, reverbTime: 2.8, spaceTarget: 'fft', spaceMotion: true, spaceRate: .07 }],
+  ['voice-chamber', 'Voice chamber', { ...application('all'), stageOrder: 'resonance-process-reverb', modeCount: 2048, spectralSpan: 128, baseFrequency: 68, decaySeconds: 3.6, spread: .3, fftSize: 2048, fftBandCount: 128, fftMix: .72, fftResponseMs: 90, excitationType: 'soft-mallet', excitationDurationMs: 8, filterFrequency: 6000, drive: 1.4, reverbTime: 2.8, spaceTarget: 'fft', spaceMotion: true, spaceRate: .07 }],
 ];
 const classicExciters = Object.freeze({
   'resonator:glass': { ...application('body'), excitationType: 'hard-mallet', excitationDurationMs: 2 },

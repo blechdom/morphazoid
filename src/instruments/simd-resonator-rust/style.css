@@ -24,9 +24,26 @@
 .rezo-excitation-row, .rezo-input-transport { display: flex; align-items: center; gap: 12px; }
 .rezo-excitation-row { gap: 8px; }
 .rezo-excitation-row > .rezo-choice { flex: 1; }
-.rezo-stage-switches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.rezo-stage-switches .rezo-toggle { gap: 4px; font-size: 10px; }
-.rezo-signal-path { margin: -4px 0 0; color: var(--accent); }
+.rezo-chain { display: grid; gap: 5px; }
+.rezo-chain-title { color: var(--muted); font-size: 10px; }
+.rezo-signal-chain { display: grid; gap: 2px; list-style: none; padding: 0; margin: 0; counter-reset: stage; }
+.rezo-chain-stage { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 6px; align-items: center; min-width: 0; counter-increment: stage; }
+.rezo-chain-stage::before { content: counter(stage); color: var(--muted); font-size: 9px; }
+.rezo-chain-stage[data-stage-block="process"] { --stage-accent: #c0a1ff; }
+.rezo-chain-stage[data-stage-block="resonance"] { --stage-accent: #ffd166; }
+.rezo-chain-stage[data-stage-block="reverb"] { --stage-accent: #8dc8ff; }
+.rezo-chain-stage.is-active::before { color: var(--stage-accent); }
+.rezo-chain-stage .rezo-toggle { gap: 5px; font-size: 11px; color: var(--muted); }
+.rezo-chain-stage .rezo-toggle input:checked ~ span:last-child { color: var(--stage-accent); }
+.rezo-chain-stage .rezo-toggle input:checked + .rezo-toggle-track { background: color-mix(in srgb, var(--stage-accent) 38%, #162525); }
+.rezo-chain-stage .rezo-toggle input:checked + .rezo-toggle-track::after { background: var(--stage-accent); }
+.rezo-chain-parallel { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.rezo-parallel-mark { color: var(--muted); font-size: 14px; }
+.rezo-chain-moves { display: flex; gap: 2px; }
+.rust-resonator-page .rezo-chain-moves button { display: grid; place-items: center; width: 26px; min-width: 26px; height: 28px; min-height: 28px; padding: 0; border: 0; background: transparent; color: var(--stage-accent); font-size: 16px; }
+.rust-resonator-page .rezo-chain-moves button:hover:not(:disabled), .rust-resonator-page .rezo-chain-moves button:focus-visible { color: var(--stage-accent); background: #ffffff08; }
+.rust-resonator-page .rezo-chain-moves button:disabled { opacity: .2; cursor: default; }
+.rezo-signal-path { margin: 2px 0 0; color: var(--accent); line-height: 1.5; overflow-wrap: anywhere; }
 .rezo-stage-controls { display: grid; gap: 12px; }
 .rezo-character { margin-bottom: 16px; }
 .rust-resonator-page .group[hidden] { display: none; }
@@ -73,6 +90,9 @@
   .rust-resonator-page .rezo-input-controls .rezo-pluck, .rust-resonator-page .rezo-round-transport { min-height: 48px; height: 48px; }
   .rust-resonator-page .rezo-round-transport { width: 48px; }
   .rezo-toggle { min-height: 44px; }
+  .rust-resonator-page .rezo-chain-moves button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+  .rezo-chain-stage { grid-template-columns: 8px minmax(0, 1fr) auto; gap: 4px; }
+  .rezo-chain-parallel { gap: 5px; }
 }
 @media (max-width: 960px) {
   .rust-resonator-page .simd-resonator-shell { grid-template-rows: minmax(220px, 36dvh) minmax(0, 1fr); }
@@ -80,7 +100,6 @@
   .rust-resonator-page .simd-stage-heading h1 { font-size: 19px; }
 }
 @media (max-width: 960px) and (max-height: 560px) {
-  .rezo-stage-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rust-resonator-page .simd-resonator-shell { grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: minmax(0, 1fr); }
   .rust-resonator-page .simd-stage-heading { margin-bottom: 8px; }
 }

@@ -6,9 +6,9 @@ import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
 import { presetsForSimdEngine } from '../../simd-resonator.js';
 import { DEFAULTS, LIMITS, MAX_MODES, createConfiguration } from './model.js';
-import { PRESETS, DEFAULT_PRESET_SETTINGS, sanitizePresetSettings, APPLICATION_MODES, applicationForSettings,
+import { PRESETS, DEFAULT_PRESET_SETTINGS, sanitizePresetSettings, applicationForSettings,
   REVERB_CHARACTERS, RESYNTHESIS_CHARACTERS, capturePreset, validatePreset, randomizePreset } from './presets.js';
-import { sanitizeSignalSettings } from './signal-path.js';
+import { SIGNAL_DEFAULTS, sanitizeSignalSettings } from './signal-path.js';
 import { sanitizeSpatialSettings } from './spatial-model.js';
 import { createResonatorSurroundOutput } from './surround-output.js';
 import { mountResonatorRecording } from './recording.js';
@@ -78,9 +78,8 @@ function signalConfiguration(settings = state.settings) {
 function sendSignalConfiguration() {
   if (state.ready) state.node?.port.postMessage({ type: 'signal', configuration: signalConfiguration() });
 }
-function renderUse() {
+function renderRouting() {
   const settings = state.settings;
-  $('useSelect').value = applicationForSettings(settings);
   for (const [key, section] of [['bodyEnabled', 'bodySection'], ['processingEnabled', 'processingSection'],
     ['resynthesisEnabled', 'resynthesisSection'], ['reverbEnabled', 'reverbSection']]) {
     $(key).checked = settings[key]; $(section).hidden = !settings[key];
@@ -89,16 +88,26 @@ function renderUse() {
   $('excitationType').value = settings.excitationType; $('filterType').value = settings.filterType;
   $('excitationDurationControl').hidden = settings.excitationType === 'impulse';
   $('filterFrequency').disabled = settings.filterType === 'bypass';
-  const layers = [];
-  if (settings.processingEnabled) layers.push('Process');
-  const bodyFft = [settings.bodyEnabled ? 'Body' : '', settings.resynthesisEnabled ? 'FFT' : ''].filter(Boolean);
-  if (bodyFft.length) layers.push(bodyFft.join(' + '));
-  if (settings.reverbEnabled) layers.push('Reverb');
-  $('signalPath').textContent = ['Source', ...layers].join(' → ') + (layers.length ? '' : ' → Dry');
+  const order = (settings.stageOrder || SIGNAL_DEFAULTS.stageOrder).split('-');
+  const chain = $('signalChain');
+  const labels = {
+    process: settings.processingEnabled ? 'Filter / drive' : '',
+    resonance: [settings.bodyEnabled ? 'Body' : '', settings.resynthesisEnabled ? 'FFT' : ''].filter(Boolean).join(' ∥ '),
+    reverb: settings.reverbEnabled ? 'Reverb' : '',
+  };
+  order.forEach((stage, index) => {
+    const row = chain.querySelector('[data-stage-block="' + stage + '"]');
+    if (chain.children[index] !== row) chain.insertBefore(row, chain.children[index]);
+    row.classList.toggle('is-active', Boolean(labels[stage]));
+    row.querySelector('[data-stage-move="-1"]').disabled = index === 0;
+    row.querySelector('[data-stage-move="1"]').disabled = index === order.length - 1;
+  });
+  const path = ['Source', ...order.map(stage => labels[stage]).filter(Boolean), 'Output'].join(' → ');
+  if ($('signalPath').textContent !== path) $('signalPath').textContent = path;
   for (const [id, bank] of [['reverbCharacter', REVERB_CHARACTERS], ['resynthesisCharacter', RESYNTHESIS_CHARACTERS]]) {
     $(id).value = bank.find(item => Object.entries(item.settings).every(([key, value]) => settings[key] === value))?.id || '';
   }
-  for (const id of ['useSelect', 'excitationType', 'filterType', 'reverbCharacter', 'resynthesisCharacter', 'presetSelect']) choices.get(id)?.refresh();
+  for (const id of ['excitationType', 'filterType', 'reverbCharacter', 'resynthesisCharacter', 'presetSelect']) choices.get(id)?.refresh();
 }
 function sendSpatialConfiguration() {
   if (state.ready) state.node?.port.postMessage({ type: 'spatial', configuration: spatialConfiguration() });
@@ -165,7 +174,7 @@ function renderSettings() {
   $('presetSelect').value = state.materialId || '';
   $('presetDescription').textContent = materialPresets.find(preset => preset.id === state.materialId)?.note || 'Drag for strike position and pitch. Use Hardness to shape the attack.';
   for (const knob of knobs) knob.update();
-  renderUse(); renderSurround(); renderGesture();
+  renderRouting(); renderSurround(); renderGesture();
 }
 function renderInput() {
   if (!recordedInput) return;
@@ -516,10 +525,17 @@ for (const [id, key] of fields) {
 for (const id of ['fftSize', 'fftWindow']) $(id).addEventListener('change', () => updateSettings({ [id]: Number($(id).value) }));
 $('presetSelect').replaceChildren(new Option('Custom body', ''), ...materialPresets.map(preset => new Option(preset.label, preset.id)));
 $('presetSelect').addEventListener('change', () => applyMaterial($('presetSelect').value));
-$('useSelect').replaceChildren(...APPLICATION_MODES.map(mode => new Option(mode.label, mode.id)), new Option('Custom combination', 'custom'));
-$('useSelect').addEventListener('change', () => {
-  const mode = APPLICATION_MODES.find(item => item.id === $('useSelect').value);
-  if (mode) updateSettings(mode.settings);
+$('signalChain').addEventListener('click', event => {
+  const button = event.target.closest('[data-stage-move]');
+  if (!button || button.disabled) return;
+  const row = button.closest('[data-stage-block]');
+  const order = state.settings.stageOrder.split('-');
+  const index = order.indexOf(row.dataset.stageBlock), next = index + Number(button.dataset.stageMove);
+  if (index < 0 || next < 0 || next >= order.length) return;
+  [order[index], order[next]] = [order[next], order[index]];
+  updateSettings({ stageOrder: order.join('-') });
+  // Moving a DOM row or reaching a boundary must not lose keyboard focus.
+  (button.disabled ? row.querySelector('[data-stage-move]:not(:disabled)') : button)?.focus({ preventScroll: true });
 });
 for (const id of ['bodyEnabled', 'processingEnabled', 'resynthesisEnabled', 'reverbEnabled']) {
   $(id).addEventListener('change', () => updateSettings({ [id]: $(id).checked }));
@@ -549,7 +565,7 @@ $('backendSelect').addEventListener('change', () => {
   state.requestedBackend = $('backendSelect').value; state.node?.port.postMessage({ type: 'backend', backend: state.requestedBackend });
 });
 $('inputSample').replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample · /, ''), option.id)));
-for (const [id, label] of [['inputSource', 'Source'], ['inputSample', 'Sample'], ['useSelect', 'Use'], ['excitationType', 'Excite'],
+for (const [id, label] of [['inputSource', 'Source'], ['inputSample', 'Sample'], ['excitationType', 'Excite'],
   ['filterType', 'Filter'], ['presetSelect', 'Material'], ['reverbCharacter', 'Reverb character'], ['resynthesisCharacter', 'Resynthesis character'],
   ['surroundLayout', 'Speakers'], ['spaceTarget', 'Spread'], ['spacePattern', 'Order']]) choices.set(id, enhanceChooseSelect($(id), { label }));
 $('inputSource').addEventListener('change', () => {

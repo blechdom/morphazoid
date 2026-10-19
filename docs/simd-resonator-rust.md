@@ -4,7 +4,7 @@ Rezoidinator combines a playable modal body, audio processing, reverberation and
 FFT resynthesis. Find it beside **SIMD Resonator** in **SIMD Audio**.
 The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
 catalogue ID and saved-state keys stay compatible.
-Audio starts off. **Use** opens on **Instrument body modeling**. Select an
+Audio starts off, with only **Body** enabled in the signal chain. Select an
 **Excite** shape, enable Audio, then tap or drag the body or press the compact
 trigger. With Body enabled, horizontal position sets strike position and
 vertical position sets the body's pitch: 220 Hz at the top and 42 Hz at the
@@ -52,28 +52,45 @@ up for one block. FFT processing and sample playback continue through that
 transition. The pitch gesture tunes the body layer; the FFT branch retains the
 source's spectral pitches, with their balance set by Body mix and FFT mix.
 
-## Uses, sources and combinations
+## Signal chain
 
-**Use** selects an application of the instrument. The **Body**, **Process**,
-**FFT** and **Reverb** switches combine its actual signal stages. Source selection
-is independent: microphone/line input, a local audio file, looping samples and
-the built-in excitation can feed every use. Changing a use, character or sound
-preset does not restart an already playing sample or request microphone access.
+The signal chain is the single place to enable and order the stages. The
+**Filter / drive**, **Body**, **FFT** and **Reverb** controls are independent on/off
+toggles. The earlier/later arrows move one of three blocks: Filter / drive, the
+parallel Body + FFT pair, or Reverb. All six block orders are available, including
+while a block is bypassed. Numbered rows show the order; the short path below
+them shows only enabled stages. Arrow buttons also work with keyboard and touch,
+retain focus when moved and disable at the ends of the chain.
 
-| Use | Audible operation | Useful combination |
+Source selection is independent: microphone/line input, a local audio file,
+looping samples and the built-in excitation can feed every combination. Editing
+the chain, a character or a sound preset does not restart a playing sample,
+request microphone access or rebuild the audio/recording graph.
+
+| Stage | Audible operation | Useful combination |
 | --- | --- | --- |
-| Instrument body modeling | A driving signal excites the bank's damped resonances. Material presets change their spacing, weighting and decay. | Add FFT for the source's spectral detail, or Reverb for a separate tail. |
-| Audio processing | A lowpass, highpass or bandpass filter and saturation shape the incoming sound. Filter bypass retains the drive stage. | Process before the body or FFT to change what excites or enters it. |
-| Reverberation | A separate feedback-delay network makes multiple recirculating, damped returns from the input. | Place the body, FFT or both into the reverberant space. |
-| Resynthesis | Windowed FFT analysis and inverse-FFT reconstruction reshape the source's spectrum. | Blend with the body for recognizable input plus ringing, then add Reverb. |
+| Body | A driving signal excites the bank's damped resonances. Material presets change their spacing, weighting and decay. | Add FFT for the source's spectral detail, or Reverb for a separate tail. |
+| Filter / drive | A lowpass, highpass or bandpass filter and saturation shape the sound. Filter bypass retains the drive stage. | Put it before the body to shape excitation, or after it to shape the ringing sound. |
+| Reverb | A separate feedback-delay network makes recirculating, damped returns. | Put it after the body for a room tail, or before it to excite the body with reverberant sound. |
+| FFT | Windowed FFT analysis and inverse-FFT reconstruction reshape the source's spectrum. | Blend with the body for source detail plus ringing. |
 
-The order is **Source → optional Process → Body/FFT blend → optional Reverb →
-Wet/dry**. Body and FFT are parallel responses; they are not applied in sequence.
-Body mix blends the processed source toward the modal body; FFT mix blends that
-result toward spectral reconstruction. Their enable switches smoothly bypass
-the corresponding contribution. With both off, the processed source passes
-through to the optional reverb. Wet/dry blends the complete result with the raw
-source. The small signal-path readout follows the enabled stages.
+The default order remains **Source → Filter / drive → Body/FFT blend → Reverb →
+Wet/dry**. Body and FFT are parallel responses, shown with **∥**, and move
+together. Body mix blends their incoming signal toward the modal body; FFT mix
+blends that result toward spectral reconstruction. Their toggles smoothly bypass
+the corresponding contribution. With both off, their input passes through.
+Wet/dry blends the complete chain with the raw source; bypassing all four stages
+gives dry input.
+
+Order changes move processing and reverb contributions between positions over
+about 25 ms. Modal and FFT histories and excitation timing keep advancing.
+During that short transition an effect can contribute from both its old and new
+positions. Filter memories are independent at each position; unused reverb
+histories keep aging. This avoids restarting the source or abruptly reconnecting
+the graph. Before Body/FFT, effects process the mono source. Afterwards they
+process the stereo and surround buses independently; early reverb therefore
+becomes spatial through the Body/FFT response rather than a separate room per
+speaker.
 
 These labels describe uses, not mutually exclusive scientific categories.
 Resonant filtering is already audio processing, and a dense modal bank with
@@ -82,20 +99,22 @@ different mechanism: a feedback-delay network that can also process the source
 without the body. Material and room characters are expressive approximations,
 not measurements of particular objects or spaces.
 
-The Use menu changes enabled stages and their balances. It retains each stage's
-sound controls, excitation and spatial settings. Reverb characters include
+Stage toggles and order changes retain the sound controls, excitation and
+spatial settings. Reverb characters include
 Short room, Dark chamber, Bright tail, Long hall and Dark cloud; they change only
 reverb time, damping and mix. Resynthesis characters include Clear detail, Fast
 transients, Broad bands, Spectral fog and Narrow radio; they change only FFT
-settings. Full presets and Dice own all musical settings, including these stages
-and the excitation. Older saved modal/FFT snapshots migrate with their original
-FFT settings and an impulse excitation. Audio arming, source, transport, input
+settings. Full presets and Dice own all musical settings, including stage order,
+toggles and excitation. Existing complete presets without an order migrate to
+the original Filter / drive → Body/FFT → Reverb order. Older saved modal/FFT
+snapshots retain their original FFT settings and an impulse excitation.
+Audio arming, source, transport, input
 trim, output level, speaker layout and recording remain session state.
 
 ## Excitation and input
 
 The shared microphone gain → meters → mic strip sits in the menubar on desktop
-and beside presets on mobile. Input-source selection, the sample menu, file
+and inside Settings on mobile. Input-source selection, the sample menu, file
 chooser, Play/Stop and looping controls live in the side panel. Microphone trim
 affects capture only; it does not change file or sample gain. The compact trigger
 and direct body gesture use the selected **Excite** shape, including while a
@@ -156,13 +175,14 @@ Damping change, avoiding pitch modulation from moving delay taps. This is an
 abstract feedback-delay-network reverberator, not convolution with a measured
 room and not an exact Schroeder comb/allpass implementation.
 
-Body and FFT feed this reverb after their blend. In surround, each bus has its
+Reverb after Body/FFT receives their blend. In surround, each bus has its
 own network, with different delay lengths between buses. A small additional
 send from the pre-reverb composite excites those spatial returns, allowing a
 mono source to make a surrounding tail. Dry input remains at the stationary
 origin. The reverb is bounded, smooths live controls, keeps fixed allocated
 buffers and clears with Reset or Audio teardown. Disabling it crossfades back
-to the direct blend rather than stopping the source.
+to the direct blend rather than stopping the source. Reverb before Body/FFT
+uses an additional mono network with the same four-delay mechanism.
 
 ## Surround
 
