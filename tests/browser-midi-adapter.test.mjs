@@ -239,6 +239,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "loopini",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
+    "witch",
     "graphonic-calculator",
     "vector-fractals",
     "fractal-delay",
