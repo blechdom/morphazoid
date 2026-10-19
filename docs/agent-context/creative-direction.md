@@ -3,7 +3,7 @@
 These are **working patterns**, not a template for every instrument. They
 summarize the existing product principles in `AGENTS.md` and the instrument
 skills, checked against an October 2026 review of safely scoped personal
-project conversations (28 deduplicated Codex root requests and one root
+project conversations (about 30 deduplicated Codex root requests and one root
 conversation each from Claude and Cursor). Mixed or uncertain histories and
 unavailable machines were excluded; counts are not votes, and no transcripts
 or session identifiers belong in this repository.
