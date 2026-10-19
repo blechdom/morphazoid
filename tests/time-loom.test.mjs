@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import { TIME_LOOM_PRESETS, validateTimeLoomPreset, randomizeTimeLoomPreset } from '../src/instruments/time-loom/time-loom-presets.js';
 import { timeLoomSiteChanges, restoreTimeLoomSite } from './helpers/time-loom-site-reference.mjs';
 import { instrumentById } from '../src/site/instrument-catalog.js';

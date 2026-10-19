@@ -4,6 +4,16 @@ Agents and contributors: [project context and instrument discovery](docs/agent-c
 [creative direction](docs/agent-context/creative-direction.md);
 [private-first cross-machine memories](docs/agent-context/memory-workflow.md).
 
+**[Globule Damacy](globule-damacy.html)** is a work-in-progress rolling sampler:
+Record and Play are two sections of **one instrument**. Roll a fixed-size
+lacquered marble across eight straight audio waveforms. Both axes turn freely;
+collected grains stick as independent spherical spots, including at the poles.
+With Audio on, pickups sound as they stick. The fixed bendy-straw needle later
+plays grain zones as the marble rolls beneath it; bare glass stays quiet.
+Needle width, fixed or random grain size, Record/Play presets, original
+generated sounds, local audio files and mic takes make a sample collage.
+[Controls, privacy and limits](docs/globule-damacy.md).
+
 **[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).
 
 **[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,

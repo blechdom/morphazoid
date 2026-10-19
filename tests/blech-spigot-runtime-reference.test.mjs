@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import { createHash } from 'node:crypto';
 import { blechSpigotRuntimeChange as change, restoreBlechSpigotRuntime as restore } from './helpers/blech-spigot-runtime-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './helpers/graphonic-calculator-site-reference.mjs';

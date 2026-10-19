@@ -4,6 +4,7 @@ import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
+import { restoreGlobuleDamacySite } from './globule-damacy-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -19,6 +20,8 @@ export const staircaseSiteChanges = JSON.parse(readFileSync(
  */
 export function restoreStaircaseSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  // Globule is newer than Staircase; restore its additions before frozen anchors.
+  source = restoreGlobuleDamacySite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });

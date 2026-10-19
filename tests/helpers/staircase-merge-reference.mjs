@@ -4,6 +4,7 @@ import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
+import { restoreGlobuleDamacySite } from './globule-damacy-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
@@ -18,6 +19,7 @@ import { restoreProcessorSamplesSite } from './processor-samples-site-reference.
  */
 export function restoreStaircaseConcurrentMain(source, file) {
   if (typeof source !== 'string') return source;
+  source = restoreGlobuleDamacySite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });

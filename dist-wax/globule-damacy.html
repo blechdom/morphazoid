@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Globule Damacy — Morphazoid" />
+    <meta property="og:description" content="Globule Damacy: roll a glass marble over sounds to collect grain zones, then play it beneath a fixed bendy-straw needle." />
+    <meta property="og:url" content="https://morphazoid.com/globule-damacy.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Globule Damacy — Morphazoid" />
+    <meta name="twitter:description" content="Globule Damacy: roll a glass marble over sounds to collect grain zones, then play it beneath a fixed bendy-straw needle." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#160d22" />
+  <meta name="description" content="Globule Damacy: roll a glass marble over sounds to collect grain zones, then play it beneath a fixed bendy-straw needle." />
+  <title>Globule Damacy — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/globule-damacy/globule-damacy.css" />
+</head>
+<body class="gd-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span>
+    </a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="loopini.html">loopini</a>
+      <a class="tab active" href="globule-damacy.html" aria-current="page">globule damacy</a>
+    </nav>
+    <label class="mobile-instrument-nav">
+      <span class="sr-only">Instrument</span>
+      <select class="mobile-instrument-select" aria-label="Instrument">
+        <option value="loopini.html">loopini</option>
+        <option value="globule-damacy.html" selected>globule damacy</option>
+      </select>
+    </label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false" aria-label="Turn audio on">
+        <span class="audio-speaker-icon" aria-hidden="true"></span>
+        <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+      </button>
+      <label class="header-level" for="output">
+        <span><b>Output</b><output id="outputOut" for="output">58%</output></span>
+        <input id="output" aria-label="Globule Damacy output level" type="range" min="0" max="0.8" step="0.01" value="0.58" />
+      </label>
+    </div>
+  </header>
+
+  <main class="gd-shell" id="globuleDamacy">
+    <section class="gd-stage" aria-labelledby="globuleTitle">
+      <div class="gd-stage-wrap">
+        <canvas id="stageCanvas" role="application" tabindex="0"
+          aria-label="Eight straight audio waveforms. Drag in any direction to roll the marble and collect grain zones. Arrow keys roll; Enter picks up here."
+          aria-describedby="canvasHelp globuleStatus">
+          Roll over the audio waves to collect grain zones. Arrow keys also roll.
+        </canvas>
+        <header class="gd-title">
+          <p id="phaseName">RECORD</p>
+          <h1 id="globuleTitle">Globule Damacy</h1>
+        </header>
+      </div>
+      <p id="canvasHelp" class="gd-stage-help">Drag the marble across the waves. Tap Audio to hear pickups.</p>
+      <noscript><p>Globule Damacy needs JavaScript. No audio starts automatically.</p></noscript>
+    </section>
+
+    <aside class="gd-rail" aria-label="Globule Damacy controls">
+      <div class="gd-tabs" role="tablist" aria-label="Globule phases">
+        <button id="recordTab" type="button" role="tab" aria-selected="true" aria-controls="recordControls" tabindex="0">Record</button>
+        <button id="playTab" type="button" role="tab" aria-selected="false" aria-controls="playControls" tabindex="-1">Play</button>
+      </div>
+      <section class="gd-transport" aria-label="Collage transport">
+        <div class="gd-transport-row">
+          <button id="playButton" class="play-button" type="button" data-primary-transport aria-pressed="false" aria-label="Play collected grains">
+            <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
+            <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+          </button>
+          <div><strong id="transportState">Ball at rest</strong><span id="collectionSummary">0 grains stuck</span></div>
+        </div>
+        <p id="globuleStatus" role="status" aria-live="polite">Ready · Audio off</p>
+        <p id="globuleError" role="alert" hidden></p>
+      </section>
+
+      <section id="recordControls" class="gd-controls" role="tabpanel" aria-labelledby="recordTab">
+        <div class="gd-heading"><h2>Grain pickup</h2></div>
+        <label for="recordPreset">Record preset</label>
+        <select id="recordPreset"></select>
+        <div class="gd-counts">
+          <span><output id="ribbonCount">0</output> grains stuck</span>
+          <span><output id="sourceCount">0</output> / 8 sources</span>
+        </div>
+        <p id="floorRemaining" class="gd-floor-remaining">1280 grain places left on the floor</p>
+        <label for="mapPhase">Time under the ball <output id="mapPhaseOut" for="mapPhase">15%</output></label>
+        <input id="mapPhase" type="range" min="0" max="1" step="0.001" value="0.15" />
+        <label for="mapLane">Across the waves <output id="mapLaneOut" for="mapLane">4.5 / 8</output></label>
+        <input id="mapLane" type="range" min="0" max="7" step="0.01" value="3.5" />
+        <label for="grainSize">Grain size <output id="grainSizeOut" for="grainSize">100 ms</output></label>
+        <input id="grainSize" type="range" min="40" max="240" step="10" value="100" />
+        <label for="grainMode">Size behavior</label>
+        <select id="grainMode">
+          <option value="fixed">Fixed size</option>
+          <option value="random">Random size</option>
+        </select>
+        <div id="grainSpreadField" hidden>
+          <label for="grainSpread">Random variation <output id="grainSpreadOut" for="grainSpread">±60 ms</output></label>
+          <input id="grainSpread" type="range" min="0" max="100" step="10" value="60" />
+        </div>
+        <div class="gd-actions">
+          <button id="pickButton" type="button">Pick up here</button>
+          <button id="undoButton" type="button" disabled>Undo roll</button>
+          <button id="resetButton" type="button" data-reset-all data-reset-in-place>Clear ball</button>
+        </div>
+        <div class="gd-divider"></div>
+        <div class="gd-heading"><h2>Sounds on the floor</h2></div>
+        <label for="sourceLane">Wave to refill</label>
+        <select id="sourceLane" aria-label="Source ribbon to replace"></select>
+        <p id="sourceInfo" class="gd-note">All eight sounds are collectible at once.</p>
+        <label for="sampleSelect">Lay a built-in sample</label>
+        <select id="sampleSelect" aria-label="Built-in generated sample"></select>
+        <button id="useSampleButton" type="button">Lay sample on this wave</button>
+        <button id="importButton" type="button">Lay audio file(s)</button>
+        <input id="sourceInput" type="file" accept="audio/*" multiple class="sr-only" aria-label="Local audio files for the floor" />
+        <button id="micButton" type="button" aria-pressed="false">Record mic on this wave</button>
+        <p id="micStatus" class="gd-note" role="status" aria-live="polite">Mic off</p>
+      </section>
+
+      <section id="playControls" class="gd-controls" role="tabpanel" aria-labelledby="playTab" hidden>
+        <div class="gd-heading"><h2>Fixed straw needle</h2><output id="turnOut" aria-label="Position in the motor roll">0% of roll</output></div>
+        <label for="playPreset">Play preset</label>
+        <select id="playPreset"></select>
+        <label for="spinSpeed">Roll speed · rhythm and pitch <output id="spinSpeedOut" for="spinSpeed">1.00×</output></label>
+        <input id="spinSpeed" type="range" min="0.5" max="2" step="0.01" value="1" />
+        <label for="scatter">Ball sway · drift across patches <output id="scatterOut" for="scatter">68%</output></label>
+        <input id="scatter" type="range" min="0" max="1" step="0.01" value="0.68" />
+        <label for="needleWidth">Needle width · grains at once <output id="needleWidthOut" for="needleWidth">30%</output></label>
+        <input id="needleWidth" type="range" min="0" max="100" step="1" value="30" />
+        <label for="needle">Orbit tilt · north ↔ south <output id="needleOut" for="needle">level</output></label>
+        <input id="needle" type="range" min="0" max="7" step="0.01" value="3.5" />
+        <div class="gd-actions">
+          <button id="directionButton" type="button" aria-pressed="false">↶ Reverse roll</button>
+          <button id="homeButton" type="button">Start of roll</button>
+        </div>
+        <p id="contactStatus" class="gd-contact">Straw between zones · silence</p>
+        <p id="nowReading" class="gd-now-reading">The ball is empty. Collect some grain zones first.</p>
+      </section>
+      <footer class="gd-footer"><a href="docs/globule-damacy.md">How it works ↗</a></footer>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/globule-damacy/app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

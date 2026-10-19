@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readGlobuleDamacySiteReference as readFile } from "./helpers/globule-damacy-site-reference.mjs";
 import test from "node:test";
 import { CANONICAL_PAGE_ROUTES } from "../src/pages/manifest.js";
 import { instrumentById } from "../src/site/instrument-catalog.js";

@@ -274,6 +274,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "algorithmic-mazes",
     "paths",
     "yoyodyne",
+    "globule-damacy",
   ]);
   assert.equal(instrumentMidiCapabilityForId("spelling-synthesizer").computerKeyboardMode, "page");
   assert.equal(instrumentMidiCapabilityForId("webgpu-chiptune").noteMode, "sequence");

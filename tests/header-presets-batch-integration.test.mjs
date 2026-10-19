@@ -1,7 +1,7 @@
 import { restoreBlechSpigotRuntime } from './helpers/blech-spigot-runtime-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import test from 'node:test';
 import { readWipRolloutSiteReference, restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';

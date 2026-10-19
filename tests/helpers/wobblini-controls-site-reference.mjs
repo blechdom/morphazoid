@@ -1,7 +1,7 @@
 import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readGlobuleDamacySiteReference as readFile } from './globule-damacy-site-reference.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
