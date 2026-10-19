@@ -1,8 +1,8 @@
 # Morphazoid
 
 **[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,
-play five instrumental fingers, and ride a musical broom past bats, ghosts and
-a ringing full moon. Audio starts off. [Gestures and sound](docs/witch.md).
+touch her right hand to stretch five witchy Gesticules fingers, click the moon
+to ride a musical broom, and touch mushrooms to warp the colors and lines. Audio starts off. [Gestures and sound](docs/witch.md).
 
 **[ESI-32](esi-32.html)** is an E-mu ESI-32-inspired sampler with eight sample slots, original demo sounds, local audio import, waveform trimming, forward loops, reverse, a resonant lowpass and envelopes. Play the two-row keyboard or MIDI and save complete banks with their audio. Audio starts off. [Controls and emulation limits](docs/esi-32.md).
 

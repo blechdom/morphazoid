@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her five long fingers play independent glass, reed, wire, metal and marimba sounds; broom flight weaves instrumental patterns past moon bells, bat ticks and ghost chimes.\",\n    \"Enable Audio, then circle the ladle to chant, pull a fingertip to bend its instrument, or drag the broom to shape pitch and rhythm. Play sustains the current scene; release to let it fade.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.\",\n    \"Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "replacements": [
         {
           "before": "# Morphazoid\n\n",
-          "after": "# Morphazoid\n\n**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\nplay five instrumental fingers, and ride a musical broom past bats, ghosts and\na ringing full moon. Audio starts off. [Gestures and sound](docs/witch.md).\n\n"
+          "after": "# Morphazoid\n\n**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\ntouch her right hand to stretch five witchy Gesticules fingers, click the moon\nto ride a musical broom, and touch mushrooms to warp the colors and lines. Audio starts off. [Gestures and sound](docs/witch.md).\n\n"
         }
       ]
     },
@@ -75,7 +75,7 @@
       "replacements": [
         {
           "before": "copy+require\tdocs/esi-32.md\n",
-          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
+          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch-hand.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
         }
       ]
     },

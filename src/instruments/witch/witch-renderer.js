@@ -11,6 +11,8 @@ export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   moon: Object.freeze({ x: 800, y: 164, r: 78 }),
+  hand: Object.freeze({ x: 388, y: 450, r: 47 }),
+  mushrooms: Object.freeze([{ x: 162, y: 639, r: 48 }, { x: 846, y: 655, r: 42 }]),
   ghosts: Object.freeze([{ x: 160, y: 280, r: 45 }, { x: 854, y: 414, r: 44 }]),
   bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 868, y: 310, r: 28 }]),
 });
@@ -82,7 +84,7 @@ function branch(c, x, y, scale, flip = 1, shade = '#1e1f2b') {
   c.restore();
 }
 function background(c, state) {
-  const flight = state.scene === 'flight';
+  const flight = false; // The forest and cauldron remain the same place throughout.
   const gradient = c.createLinearGradient(0, 0, 0, 720);
   gradient.addColorStop(0, '#151522'); gradient.addColorStop(.65, '#232134'); gradient.addColorStop(1, flight ? '#323242' : '#141a20');
   c.fillStyle = gradient; c.fillRect(0, 0, 1000, 720);
@@ -145,7 +147,7 @@ function hat(c, time, energy) {
 }
 
 function witchHead(c, state, x, y, scale = 1, tilt = 0) {
-  const vocal = state.scene !== 'fingers' && state.scene !== 'flight';
+  const vocal = state.scene === 'brew' || (state.scene === 'flight' && state.launchEnvelope > 0);
   const time = state.time || 0, energy = clamp(state.energy), mouth = vocal ? clamp(state.mouth) : 0;
   c.save(); c.translate(x, y); c.rotate(tilt); c.scale(scale, scale);
   // Hair is behind the face, with separate wiry strands rather than a flat mass.
@@ -174,7 +176,7 @@ function witchHead(c, state, x, y, scale = 1, tilt = 0) {
   curve(c, [-7,39,5,48,24,47,33,38], '#78876a', 1.2);
   curve(c, [-14,47,2,55,13,53,21,51], '#899578', .9);
   path(c, 'M10,57 Q33,47 40,65 Q26,76 12,72 Z', '#9caf87');
-  // Only the cauldron is vocal. Instrumental scenes keep a quiet, closed smile.
+  // Only the cauldron and the brief takeoff exclamation articulate her mouth.
   c.save(); c.translate(46, 97 + mouth * 5); c.rotate(.18);
   if (vocal) {
     ellipse(c, 0, 0, 14 + clamp(state.radius) * 7, 3 + mouth * 17, '#352633', '#64775c', 2.2);
@@ -331,12 +333,14 @@ function mushrooms(c, x, y, scale = 1) {
 function brewScene(c, state) {
   const time = state.time || 0, energy = clamp(state.energy);
   glow(c, 556, 418, 200, '#bbdb8b12');
+  c.save(); c.globalAlpha *= 1 - clamp(state.flightLift);
   robe(c, time, energy);
   witchHead(c, state, 439, 254 + Math.sin(time * 1.9) * (1 + energy * 1.4), 1, .025 + Math.sin(time * .8) * .008);
   // Far hand is poised over the rising vapor.
   path(c, 'M391,411 Q358,407 341,438 L381,483 Q411,462 421,443 Z', '#4b3650', INK, 3);
   line(c, [[365,436],[386,464]], '#80637a', 1.1);
-  smallHand(c, 388, 450, .68, .77, .45 + Math.sin(time * 1.7) * energy * .12);
+  if (!state.handSurface) smallHand(c, 388, 450, .68, .77, .45 + Math.sin(time * 1.7) * energy * .12);
+  c.restore();
   smoke(c, state);
   cauldron(c, state);
   const a = Number.isFinite(state.ladleAngle) ? state.ladleAngle : state.phase || 0;
@@ -349,9 +353,11 @@ function brewScene(c, state) {
   line(c, [[lx,ly - 2],[hx - 10,hy - 22]], '#d8bf87', 1.4);
   ellipse(c, lx, ly + 2, 18, 7, '#385d50', '#c4d995', 1.4, -.1);
   ellipse(c, lx - 3, ly, 12, 3.5, '#b6d797');
+  c.save(); c.globalAlpha *= 1 - clamp(state.flightLift);
   path(c, `M437,395 Q459,387 ${hx - 24},${hy - 14} L${hx - 9},${hy + 21} Q465,457 427,438 Z`, '#48324b', INK, 3);
   curve(c, [443,411,472,433,hx - 33,hy + 3,hx - 14,hy + 8], '#79566f', 1.4);
   smallHand(c, hx, hy, -.35, .7, .95);
+  c.restore();
   // Little highlights make the gesture target easy to find without a label.
   c.save(); c.globalAlpha = .25 + energy * .35;
   ellipse(c, lx, ly + 2, 25, 11, null, LIME, 1); c.restore();
@@ -387,139 +393,41 @@ function brewScene(c, state) {
   }
 }
 
-function fingerGeometry(state) {
-  const values = state.fingers || [.3,.25,.4,.2,.45];
-  const roots = [[466,468],[510,421],[565,409],[622,420],[675,446]];
-  const lengths = [[56,48,40],[74,66,49],[87,77,54],[82,69,49],[62,57,43]];
-  const spread = [-1.17,-.27,-.06,.2,.48];
-  return roots.map(([x, y], index) => {
-    const curl = clamp(values[index] ?? .3), points = [{x,y}];
-    const base = spread[index];
-    for (let j = 0; j < 3; j++) {
-      const angle = base + curl * [ .18, .95, 1.75 ][j];
-      x += Math.sin(angle) * lengths[index][j]; y -= Math.cos(angle) * lengths[index][j];
-      points.push({ x, y });
-    }
-    return { index, curl, points };
-  });
+// The same projected rig drives display and picking; there is no second hand.
+export function handTransform(state = {}) {
+  const reach = clamp(state.handReach);
+  const wrist = state.handWrist || {x:590,y:590};
+  const scale = .14 + .86 * reach;
+  return { scale, x: (388 - wrist.x * .14) * (1 - reach), y: (450 - wrist.y * .14) * (1 - reach) };
 }
-
 export function getFingerTips(state = {}) {
-  return fingerGeometry(state).map(({ index, points }) => ({ ...points[3], index }));
+  const t = handTransform(state);
+  return (state.handTips || []).map(p => ({...p,x:p.x*t.scale+t.x,y:p.y*t.scale+t.y}));
 }
-
-function fingerResonance(c, index, points, level, time, color) {
-  if (level < .01) return;
-  const tip = points[3], joint = points[2];
-  c.save(); c.globalAlpha = level;
-  glow(c,tip.x,tip.y,53 + level * 14,`${color}60`);
-  ellipse(c,tip.x,tip.y,31 + level * 10,31 + level * 10,null,color,1 + level * 1.8);
-  if (index === 0) {
-    // Glass: sharp facets, with a small ringing halo around the nail.
-    for (let i = 0; i < 3; i++) {
-      const a = time * .8 + i * TAU / 3, r = 35 + level * 11;
-      const x = tip.x + Math.cos(a) * r, y = tip.y + Math.sin(a) * r;
-      line(c,[[x,y-5],[x+3,y],[x,y+5],[x-3,y],[x,y-5]],color,1.2);
+function reachingHand(c, state) {
+  if (!state.handSurface || state.flightLift > .995) return;
+  const t = handTransform(state), wrist = state.handWrist || {x:590,y:590};
+  const wx = wrist.x*t.scale+t.x, wy = wrist.y*t.scale+t.y;
+  const reach = clamp(state.handReach), cuff = 10 + reach*42;
+  c.save(); c.globalAlpha *= 1-clamp(state.flightLift);
+  // A widening sleeve connects her shoulder to the model's actual wrist.
+  path(c, `M365,410 Q${375+reach*40},${469+reach*105} ${wx-cuff},${wy+9} Q${wx},${wy+25} ${wx+cuff},${wy+9} Q${420+reach*25},${407+reach*28} 403,409 Z`, '#503650', INK, 3);
+  curve(c,[379,422,410,483+reach*95,wx-30,wy+25,wx-14,wy+7],'#90728a',1.5);
+  c.save(); c.translate(t.x,t.y); c.scale(t.scale,t.scale); c.drawImage(state.handSurface,0,0,1000,720); c.restore();
+  if (reach > .5) {
+    const colors=['#caaf98','#c6ce9d','#9fc6ac','#a7bfd3','#c6a8c9'];
+    for (const tip of getFingerTips(state)) {
+      const level=clamp(state.fingerLevels?.[tip.index]);
+      c.save(); c.globalAlpha *= reach;
+      ellipse(c,tip.x,tip.y,17+level*13,17+level*13,null,colors[tip.index],state.selectedFinger===tip.index?2:1);
+      if(level>.01) { glow(c,tip.x,tip.y,38+level*18,`${colors[tip.index]}55`); star(c,tip.x+23,tip.y-13,level*6,colors[tip.index]); }
+      c.restore();
     }
-  } else if (index === 1) {
-    // Reed: short, paired ribbons radiate from the vibrating tip.
-    for (let i = 0; i < 3; i++) {
-      const x = tip.x - 14 + i * 14, bend = Math.sin(time * 9 + i) * 5 * level;
-      curve(c,[x,tip.y-23,x-10+bend,tip.y-39,x+9+bend,tip.y-48,x,tip.y-62],color,1.1 + level);
-    }
-  } else if (index === 2) {
-    // Wire: a standing wave follows the final finger segment.
-    const dx = tip.x-joint.x, dy = tip.y-joint.y, length = Math.hypot(dx,dy) || 1;
-    const wave = [];
-    for (let i = 0; i <= 24; i++) {
-      const t = i/24, d = Math.sin(t * Math.PI * 5) * Math.sin(time * 23) * level * 6;
-      wave.push([joint.x+dx*t-dy/length*d,joint.y+dy*t+dx/length*d]);
-    }
-    line(c,wave,color,2);
-  } else if (index === 3) {
-    // Metal: nested, elliptical resonances with a bright strike point.
-    for (let i = 0; i < 3; i++) ellipse(c,tip.x,tip.y,35+i*7,16+i*5,null,color,1.1, -.45);
-    star(c,tip.x-17,tip.y-23,3+level*2,'#f2edd5');
   } else {
-    // Marimba: little bars flash around the struck fingertip.
-    for (let i = 0; i < 3; i++) {
-      const x = tip.x+29+i*8, y = tip.y-13-i*6;
-      line(c,[[x,y-8-level*4],[x,y+8+level*4]],color,3.5);
-    }
+    c.save(); c.globalAlpha *= .45;
+    ellipse(c,388,433,32,39,null,LIME,1); c.restore();
   }
   c.restore();
-}
-
-function longHand(c, state) {
-  const time = state.time || 0, fingers = fingerGeometry(state);
-  glow(c, 584, 388, 277, '#98be9520');
-  // Wrist and palm, with generous gaps between all five articulated fingers.
-  path(c, 'M505,704 L501,601 C481,569 462,529 459,490 Q444,470 461,453 L483,434 Q489,410 513,408 L539,405 Q550,392 574,398 L607,407 Q635,406 651,425 Q684,426 694,451 L704,489 C712,539 664,572 650,605 L654,704 Z', '#aabd94', '#172320', 4);
-  path(c, 'M501,594 Q480,529 482,478 Q495,505 514,514 Q527,567 546,580 L542,701 L505,704 Z', '#8ba984');
-  path(c, 'M650,449 Q685,453 684,493 C682,539 641,554 626,591 L631,701 L651,701 L650,607 C669,570 714,537 703,486 L693,455 Z', '#879e7e');
-  const palette = ['#caaf98', '#c6ce9d', '#9fc6ac', '#a7bfd3', '#c6a8c9'];
-  for (const {index, points} of fingers) {
-    const widths = index === 0 ? [30,25,19] : [28,23,17];
-    for (let j = 0; j < 3; j++) {
-      const a = points[j], b = points[j + 1];
-      line(c, [[a.x,a.y],[b.x,b.y]], '#203029', widths[j] + 4);
-      const gradient = c.createLinearGradient(a.x - 12,a.y,b.x + 12,b.y);
-      gradient.addColorStop(0, '#839e7d'); gradient.addColorStop(.48, '#c0cea0'); gradient.addColorStop(1, '#a6bb90');
-      line(c, [[a.x,a.y],[b.x,b.y]], gradient, widths[j]);
-      line(c, [[a.x - 4,a.y],[b.x - 3,b.y]], '#d3dab06b', 1.5);
-      if (j > 0) {
-        const angle = Math.atan2(b.y - a.y, b.x - a.x), nx = Math.cos(angle + Math.PI / 2), ny = Math.sin(angle + Math.PI / 2);
-        for (let crease = -1; crease <= 1; crease++) line(c, [[a.x + nx * 7 + Math.cos(angle) * crease * 3,a.y + ny * 7 + Math.sin(angle) * crease * 3],[a.x - nx * 7 + Math.cos(angle) * crease * 3,a.y - ny * 7 + Math.sin(angle) * crease * 3]], '#6a856b', .8);
-      }
-    }
-    const a = points[2], tip = points[3], angle = Math.atan2(tip.y - a.y, tip.x - a.x);
-    c.save(); c.translate(tip.x, tip.y); c.rotate(angle + Math.PI / 2);
-    path(c, 'M-7,6 Q-10,-7 -2,-24 Q2,-32 5,-37 Q10,-15 7,5 Z', '#37323e', '#1d2527', 1.7);
-    curve(c, [-2,0,-4,-13,1,-23,3,-28], '#a194aa', 1.1);
-    c.restore();
-    c.save();
-    c.setLineDash([1, 5]);
-    ellipse(c, tip.x, tip.y, 27, 27, null, palette[index], 1.3);
-    c.restore();
-    ellipse(c,tip.x,tip.y,3,3,palette[index]);
-    if ((state.activeFinger ?? state.selectedFinger) === index) {
-      ellipse(c,tip.x,tip.y,33,33,null,LIME,1.4);
-      glow(c,tip.x,tip.y,48,'#e6f2ae28');
-    }
-    fingerResonance(c,index,points,clamp(state.fingerLevels?.[index]),time,palette[index]);
-  }
-  // Palm creases, a ring, and narrow wrist tendons retain a flesh-and-bone read.
-  curve(c,[491,477,545,446,607,457,657,484],'#728c70',2);
-  curve(c,[493,494,541,474,591,486,623,514],'#819a77',1.3);
-  curve(c,[509,522,552,550,586,551,639,518],'#819574',1.4);
-  curve(c,[516,471,555,515,531,550,553,585],'#708b6e',1.4);
-  curve(c,[612,479,582,513,595,553,574,586],'#849a77',1.1);
-  curve(c,[555,592,549,630,554,658,551,685],'#cfdbad',1.6);
-  curve(c,[603,588,599,628,609,659,607,689],'#7a9575',1.4);
-  const ring = fingers[3].points[0];
-  c.save(); c.translate(ring.x,ring.y - 19); c.rotate(.24 + fingers[3].curl * .2);
-  ellipse(c,0,0,16,6,'#c0a67b','#4e5847',1.8);
-  ellipse(c,0,-4,7,9,'#7c6a94','#d3bc8c',1.7); ellipse(c,-2,-6,2,3,'#c4b2d1'); c.restore();
-  path(c, 'M482,655 Q569,687 666,653 L696,720 L461,720 Z', '#3b2d46', '#181c25', 3);
-  path(c, 'M487,654 Q569,678 663,653 L667,669 Q572,699 481,671 Z', '#786079', '#2d2937', 2);
-  for (let i = 0; i < 13; i++) line(c,[[492 + i * 13,668 + Math.sin(i / 13 * Math.PI) * 15],[489 + i * 13,677 + Math.sin(i / 13 * Math.PI) * 15]],'#c6a68a',.8);
-}
-
-function fingersScene(c, state) {
-  // The witch remains present; the enlarged hand is her actual playing surface.
-  c.save(); c.globalAlpha = .8; c.translate(-21,139); c.scale(.72,.72);
-  robe(c, state.time || 0, clamp(state.energy)); witchHead(c, state, 439,254,1,-.07);
-  c.restore();
-  c.save(); c.globalAlpha = .23;
-  ellipse(c, 584, 408, 255, 255, null, '#b8c79f', 1);
-  ellipse(c, 584, 408, 266, 266, null, '#b8c79f', .5);
-  for (let i = 0; i < 24; i++) {
-    const a = i / 24 * TAU;
-    line(c, [[584 + Math.cos(a) * 255,408 + Math.sin(a) * 255],[584 + Math.cos(a) * (i % 3 ? 261 : 269),408 + Math.sin(a) * (i % 3 ? 261 : 269)]], '#d5ddad', 1);
-  }
-  c.restore();
-  longHand(c, state);
-  mushrooms(c, 159, 649, .85);
 }
 
 function bat(c, x, y, scale, time, index, active = false) {
@@ -563,10 +471,11 @@ function broomWitch(c, state) {
   const time = state.motionTime ?? state.time ?? 0;
   const pulse = clamp(state.flightPulse);
   const spark = state.event?.kind === 'spark' ? clamp(1-(state.event.age || 0)/1.2) : 0;
-  const x = 350 + clamp(state.flightX ?? .5) * 260;
+  const lift = clamp(state.flightLift ?? 1);
+  const x = 455 + (470 + clamp(state.flightX ?? .5) * 370 - 455 + Math.sin(time*.7)*20) * lift;
   // The entire hat-to-boot silhouette stays inside the view at both extremes.
-  const y = 520 - clamp(state.altitude ?? .5) * 185;
-  c.save(); c.translate(x,y + Math.sin(time * 1.8) * 5); c.rotate(-.08 + (clamp(state.altitude ?? .5) - .5) * .16); c.scale(.8,.8);
+  const y = 476 + (430 - clamp(state.altitude ?? .5) * 130 - 476) * lift;
+  c.save(); c.globalAlpha *= lift; c.translate(x,y + Math.sin(time * 1.8) * 5); c.rotate(-.08 + (clamp(state.altitude ?? .5) - .5) * .16); c.scale(.8-.1*lift,.8-.1*lift);
   // The broom is the rhythm source: its reeds light on each actual attack.
   const shimmer = Math.max(pulse,spark);
   if (shimmer > .01) {
@@ -627,7 +536,7 @@ function flightScene(c, state) {
     const g = WITCH_LAYOUT.ghosts[i];
     ghost(c,g.x,g.y, i ? .88 : .9,time,i,state.event?.kind === 'ghost' && (state.event.age || 0) < 1.3);
   }
-  broomWitch(c,state);
+  if (state.flightLift > .001) broomWitch(c,state);
   for (let i = 0; i < WITCH_LAYOUT.bats.length; i++) {
     const b = WITCH_LAYOUT.bats[i];
     bat(c,b.x,b.y,.6 + i * .05,time,i,state.event?.kind === 'bat' && (state.event.age || 0) < 1);
@@ -636,51 +545,91 @@ function flightScene(c, state) {
   for (let i = 0; i < 4; i++) bat(c,615 + i * 42,94 + Math.sin(i * 2) * 24,.19 + i * .025,time + i,i);
 }
 
+// One bounded offscreen world lets mushroom ripples bend all of the artwork,
+// including the actual skinned hand. Input uses the exact inverse below.
+const worlds = new WeakMap();
+export function witchWarpX(y, state = {}) {
+  const trip = Math.round(clamp(state.trip,0,3));
+  if (!trip) return 0;
+  const time = state.warpTime ?? state.time ?? 0;
+  return (7 + trip*4) * Math.sin(y*.024+time*1.8) + trip*2.5*Math.sin(y*.063-time*2.3);
+}
+export function warpWitchPoint(point, state = {}, inverse = false) {
+  if(!state.trip) return {...point};
+  const wave=witchWarpX(point.y,state);
+  return {...point,x:inverse?(point.x-wave+25)/1.05:point.x*1.05-25+wave};
+}
+function drawWorld(c, state) {
+  c.clearRect(0,0,1000,720); c.lineCap='round'; c.lineJoin='round';
+  background(c,state);
+  brewScene(c,state);
+  flightScene(c,state);
+  reachingHand(c,state);
+  if (state.trip) {
+    const t=state.warpTime??state.time??0;
+    for(const m of WITCH_LAYOUT.mushrooms) {
+      glow(c,m.x,m.y-12,70,'#e8b2ee30');
+      for(let i=0;i<3;i++) ellipse(c,m.x,m.y-10,32+i*12+Math.sin(t*2+i)*6,12+i*7,null,'#e5b8df77',1.3);
+    }
+  }
+}
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
 export function renderWitch(ctx, width, height, state = {}) {
-  const w = Math.max(1, width), h = Math.max(1, height);
-  const scale = Math.min(w / 1000, h / 720);
-  ctx.save();
-  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#14151f'; ctx.fillRect(0,0,w,h);
-  ctx.translate((w - 1000 * scale) / 2, (h - 720 * scale) / 2); ctx.scale(scale,scale);
-  ctx.beginPath(); ctx.rect(0,0,1000,720); ctx.clip();
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  background(ctx,state);
-  if (state.scene === 'flight') flightScene(ctx,state);
-  else if (state.scene === 'fingers') fingersScene(ctx,state);
-  else brewScene(ctx,state);
+  const w=Math.max(1,width),h=Math.max(1,height),scale=Math.min(w/1000,h/720);
+  let world=worlds.get(ctx);
+  if(!world) {
+    const surface=ctx.canvas.ownerDocument.createElement('canvas'); surface.width=1000;surface.height=720;
+    const colored=surface.cloneNode();
+    world={surface,ctx:surface.getContext('2d',{alpha:false}),colored,color:colored.getContext('2d',{alpha:false})}; worlds.set(ctx,world);
+  }
+  drawWorld(world.ctx,state);
+  ctx.save(); ctx.clearRect(0,0,w,h);ctx.fillStyle='#14151f';ctx.fillRect(0,0,w,h);
+  ctx.translate((w-1000*scale)/2,(h-720*scale)/2);ctx.scale(scale,scale);
+  ctx.beginPath();ctx.rect(0,0,1000,720);ctx.clip();
+  const trip=Math.round(clamp(state.trip,0,3));
+  if(trip) {
+    // Color once, then warp cheap raster slices: filtering every slice would
+    // create hundreds of offscreen filter surfaces on software/mobile GPUs.
+    world.color.filter=`hue-rotate(${[0,100,215,290][trip]}deg) saturate(2.15)`;
+    world.color.drawImage(world.surface,0,0);
+    // Four-pixel strips keep the raster pass bounded even on a large display.
+    for(let y=0;y<720;y+=4) ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
+  } else ctx.drawImage(world.surface,0,0);
   ctx.restore();
 }
 
-/** Hit-testing shares exact gesture coordinates with the art, before fitting. */
+/** Input remains attached to the visible world through extension and ripples. */
 export function hitTestWitch(x, y, state = {}) {
-  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > 1000 || y > 720) return null;
-  if (state.scene === 'fingers') {
-    let nearest = null, distance = Math.max(46,state.hitRadius||0);
-    for (const tip of getFingerTips(state)) {
-      const d = Math.hypot(x - tip.x, y - tip.y);
-      if (d < distance) { nearest = { type: 'finger', index: tip.index }; distance = d; }
+  if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
+  const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
+  const minRadius=Math.max(46,state.hitRadius||0);
+  const moon=WITCH_LAYOUT.moon;
+  if(Math.hypot(x-moon.x,y-moon.y)<Math.max(moon.r+12,minRadius)) return {type:'moon'};
+  for(const m of WITCH_LAYOUT.mushrooms) if(Math.hypot(x-m.x,y-m.y)<Math.max(m.r,minRadius)) return {type:'mushrooms'};
+  if(state.scene==='fingers' && state.handReach>.65) {
+    let nearest=null,distance=minRadius;
+    for(const tip of getFingerTips(state)) {
+      const d=Math.hypot(x-tip.x,y-tip.y);
+      if(d<distance) {nearest={type:'finger',index:tip.index};distance=d;}
     }
-    return nearest;
+    if(nearest) return nearest;
+    const t=handTransform(state);
+    const hit=state.pickHand?.((x-t.x)/t.scale,(y-t.y)/t.scale,minRadius/t.scale);
+    if(hit) return hit;
   }
-  if (state.scene === 'flight') {
-    const moon = WITCH_LAYOUT.moon;
-    if (Math.hypot(x - moon.x,y - moon.y) < moon.r + 12) return {type:'moon'};
-    for (let i = 0; i < WITCH_LAYOUT.ghosts.length; i++) {
-      const g = WITCH_LAYOUT.ghosts[i];
-      if (Math.hypot(x - g.x,(y - g.y) * .8) < g.r) return {type:'ghost',index:i};
-    }
-    for (let i = 0; i < WITCH_LAYOUT.bats.length; i++) {
-      const b = WITCH_LAYOUT.bats[i];
-      if (Math.hypot(x - b.x,y - b.y) < b.r) return {type:'bat',index:i};
+  if(state.scene!=='flight' && Math.hypot(x-388,y-433)<Math.max(47,minRadius)) return {type:'hand'};
+  const pot=WITCH_LAYOUT.cauldron;
+  if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
+  if(state.scene==='flight') {
+    for(const type of ['ghost','bat']) {
+      for(const [index,g] of WITCH_LAYOUT[type==='ghost'?'ghosts':'bats'].entries()) {
+        if(Math.hypot(x-g.x,y-g.y)<Math.max(g.r,minRadius)) return {type,index};
+      }
     }
     return {type:'flight'};
   }
-  const pot = WITCH_LAYOUT.cauldron;
-  if (((x - pot.x) / (pot.rx + 30)) ** 2 + ((y - pot.y) / (pot.ry + 33)) ** 2 < 1) return {type:'stir'};
-  const a = Number.isFinite(state.ladleAngle) ? state.ladleAngle : state.phase || 0;
-  const r = 28 + clamp(state.radius) * 109;
-  const hx = 600 + Math.cos(a) * r - 40, hy = 520 + Math.sin(a) * r * .27 - 119;
-  if (Math.hypot(x - hx,y - hy) < 48) return {type:'stir'};
+  const a=Number.isFinite(state.ladleAngle)?state.ladleAngle:state.phase||0,r=28+clamp(state.radius)*109;
+  const hx=600+Math.cos(a)*r-40,hy=520+Math.sin(a)*r*.27-119;
+  if(Math.hypot(x-hx,y-hy)<Math.max(48,minRadius)) return {type:'stir'};
   return null;
 }

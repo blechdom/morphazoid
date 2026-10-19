@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
-import { WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
+import { WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { HandDSP } from '../src/instruments/gesticulating-hand/hand-dsp.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
@@ -177,7 +177,7 @@ test('flight speed controls strikes, altitude bends pitch, and horizontal positi
 
 test('flight scenery produces bounded musical effects and releases with no vocal mouth', () => {
   const signals = [];
-  for (const kind of WITCH_FLIGHT_EFFECTS) {
+  for (const kind of WITCH_FLIGHT_EFFECTS.filter(kind => kind !== 'launch')) {
     const dsp = playing({ mode: 'flight', gate: false });
     assert.equal(dsp.trigger(kind), true); signals.push(render(dsp, 1));
     assert.ok(rms(signals.at(-1)) > .005, kind); assert.equal(dsp.visual.mouth, 0);
@@ -190,6 +190,65 @@ test('flight scenery produces bounded musical effects and releases with no vocal
   for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
   dsp.setControls({ gate: false }); render(dsp, 4);
   assert.ok(rms(render(dsp, .2)) < .000001);
+});
+
+test('takeoff cackle is an explicit bounded one-shot, then its output and mouth close completely', () => {
+  const dsp = playing({ mode: 'flight', gate: false });
+  assert.equal(dsp.trigger('launch'), true);
+  const first = render(dsp, .2);
+  assert.ok(rms(first) > .015);
+  assert.ok(dsp.visual.launchEnvelope > .3 && dsp.visual.mouth > .3);
+  assert.equal(dsp.visual.effect, 'launch');
+  for (const value of render(dsp, WITCH_LAUNCH_DURATION)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  assert.equal(dsp.flight.launch.active, false);
+  assert.equal(dsp.visual.launchEnvelope, 0); assert.equal(dsp.visual.mouth, 0);
+  assert.equal(rms(render(dsp, .3)), 0, 'no voice or tail remains after the finite phrase');
+});
+
+test('takeoff does not alter or automatically repeat over the instrumental flight pattern', () => {
+  const withLaunch = playing({ mode: 'flight' }), musicOnly = playing({ mode: 'flight' });
+  withLaunch.trigger('launch');
+  assert.ok(difference(render(withLaunch, .6), render(musicOnly, .6)) > .02);
+  render(withLaunch, WITCH_LAUNCH_DURATION); render(musicOnly, WITCH_LAUNCH_DURATION);
+  assert.deepEqual(render(withLaunch, 3), render(musicOnly, 3), 'music resumes bit-identically after the one-shot');
+  assert.equal(withLaunch.visual.launchEnvelope, 0); assert.equal(withLaunch.visual.mouth, 0);
+  assert.equal(withLaunch.flight.noteCount, musicOnly.flight.noteCount);
+});
+
+test('repeated and near-expiry launches reuse one voice and have one finite end', () => {
+  const dsp = playing({ mode: 'flight', gate: false });
+  dsp.trigger('launch'); render(dsp, .3);
+  const voice = dsp.flight.launch;
+  for (let i = 0; i < 1000; i++) assert.equal(dsp.trigger('launch'), true);
+  for (const value of render(dsp, .04)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  assert.equal(dsp.flight.launch, voice); assert.equal(dsp.flight.voices.length, 8);
+  assert.ok(voice.age < .04); assert.equal(voice.pending, false);
+  render(dsp, WITCH_LAUNCH_DURATION - voice.age - .004);
+  dsp.trigger('launch'); render(dsp, .025);
+  assert.ok(voice.active && voice.age < .025, 'a takeoff near the previous expiry is preserved');
+  render(dsp, WITCH_LAUNCH_DURATION + .1);
+  assert.equal(voice.active, false); assert.equal(rms(render(dsp, .2)), 0);
+});
+
+test('muting or leaving flight cancels takeoff without stale voice on return', () => {
+  const muted = playing({ mode: 'flight', gate: false }); muted.trigger('launch'); render(muted, .2);
+  muted.setEnabled(false); assert.ok(rms(render(muted, .01)) > .0001, 'mute retains a short release');
+  render(muted, .04); assert.equal(muted.flight.launch.active, false);
+  assert.equal(muted.trigger('launch'), false);
+  muted.setEnabled(true); assert.equal(rms(render(muted, .3)), 0);
+  const changed = playing({ mode: 'flight', gate: false }); changed.trigger('launch'); render(changed, .2);
+  changed.setControls({ mode: 'fingers' }); render(changed, .07);
+  assert.equal(changed.visual.mouth, 0); assert.equal(changed.visual.launchEnvelope, 0);
+  assert.equal(changed.trigger('launch'), false);
+  changed.setControls({ mode: 'flight' }); assert.equal(rms(render(changed, .3)), 0);
+  const cauldron = playing(); assert.equal(cauldron.trigger('launch'), false);
+});
+
+test('takeoff timing and syllables are unchanged by rendering stalls', () => {
+  const a = playing({ mode: 'flight' }), b = playing({ mode: 'flight' });
+  a.trigger('launch'); b.trigger('launch');
+  assert.deepEqual(render(a, 2.2, 128), render(b, 2.2, RATE * 3));
+  assert.equal(a.visual.launchEnvelope, 0); assert.equal(b.visual.launchEnvelope, 0);
 });
 
 test('scene changes completely remove previous vocals after their short crossfade', () => {

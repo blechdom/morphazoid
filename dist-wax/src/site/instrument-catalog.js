@@ -17,8 +17,8 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   witch: define(
     "A cauldron voice, five fingers and a musical broom",
-    "Stir a cauldron to drive a witch’s whispers, creaks and singing. Her five long fingers play independent glass, reed, wire, metal and marimba sounds; broom flight weaves instrumental patterns past moon bells, bat ticks and ghost chimes.",
-    "Enable Audio, then circle the ladle to chant, pull a fingertip to bend its instrument, or drag the broom to shape pitch and rhythm. Play sustains the current scene; release to let it fade.",
+    "Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.",
+    "Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.",
     ["Built-in synth", "Pointer", "Touch", "Gesture sound", "Presets"],
   ),
   wobblini: define(

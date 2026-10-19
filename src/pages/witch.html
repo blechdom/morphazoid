@@ -22,11 +22,6 @@
   </header>
   <main class="witch-shell">
     <section class="witch-performance" aria-label="Witch performance">
-      <div class="witch-scene-switch" role="group" aria-label="Scene">
-        <button type="button" data-scene="brew" aria-pressed="true"><span aria-hidden="true">01</span> Cauldron</button>
-        <button type="button" data-scene="fingers" aria-pressed="false"><span aria-hidden="true">02</span> Fingers</button>
-        <button type="button" data-scene="flight" aria-pressed="false"><span aria-hidden="true">03</span> Night flight</button>
-      </div>
       <div class="witch-viewport" id="witchViewport">
         <h1>Witch</h1>
         <canvas id="witchCanvas" tabindex="0" aria-label="Witch and cauldron. Drag the ladle in circles to brew her voice." aria-describedby="gestureHint keyboardHelp">An animated witch. The controls beside the scene provide keyboard alternatives to every gesture.</canvas>
@@ -72,7 +67,7 @@
         <div class="witch-ingredients"><button id="glassButton" type="button" aria-label="Add glass resonance">◇ Glass <output id="glassOut">0%</output></button><button id="hairButton" type="button" aria-label="Add tangled hair harmonics">〰 Hair <output id="hairOut">0%</output></button></div>
         <button id="clearIngredients" class="witch-quiet" type="button">Empty the potion</button>
       </section>
-      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Space starts or stops the scene. On the picture, use ←/→ to turn the spell and ↑/↓ to open the vowel. In Fingers, hold 1–5 to play individual instruments; ↑/↓ bends the selected finger. In Night flight, arrows steer; M/B/G/S/W play moon bells, bat ticks, ghost chimes, star plucks and wind. Escape releases the gesture.</p><a href="docs/witch.md">About the instrument</a></details>
+      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Touch her right hand to stretch it toward you, the moon to take flight, and the mushrooms to change the colors and bend the lines. Touch the pot to return. On the picture: H reaches/retracts the hand; M launches or rings the moon; B returns to the pot; W cycles the mushrooms. Hold 1–5 to play fingers and use arrows to bend or steer. In flight T/G/S/V play bats, ghosts, stars and wind. Space starts or stops. Escape lands and releases.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="hand">Reach hand</button><button type="button" data-world-action="moon">Fly to the moon</button><button type="button" data-world-action="mushrooms">Touch mushrooms</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
     </aside>
   </main>
   <script type="module" src="nav.js"></script>

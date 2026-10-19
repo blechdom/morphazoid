@@ -11,7 +11,7 @@ export class WitchAudio {
     this.starting = null; this.generation = 0; this.releaseOutput = null;
     this.pendingPhase = null;
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
-      fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0 };
+      fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.onError = null;
   }
   get running() { return this.audible && this.context?.state === 'running' && Boolean(this.node); }
