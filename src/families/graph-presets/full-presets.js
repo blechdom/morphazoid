@@ -3,6 +3,7 @@ import { GRAPH_INSTRUMENT_PATCHES } from "../graph/graph-instruments.js";
 import { GRAPH_DELAY_INITIAL_STATE } from "./initial-state.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
+import { graphSynthExpressiveStudies } from "../../instruments/graph-synth/expressive-presets.js";
 export { GRAPH_DELAY_INITIAL_STATE };
 
 export const GRAPH_DELAY_LIVE_KEYS = Object.freeze(["mic", "starting", "nodeMotionPhase", "micMotionPhase"]);
@@ -107,7 +108,7 @@ export function graphSynthFullPresets(defaults) {
   const voices = ["fm", "sine", "triangle", "pm", "sawtooth", "shepard", "square", "fm", "sine", "pm", "fm", "shepard"];
   const names = ["First paths", "Soft footsteps", "Wooden choir", "Phase bells", "Brass shortcuts", "Endless spokes",
     "Pulse fabric", "Island replies", "Slow sweet path", "Nasty ring", "Fast branch chase", "Backward garden"];
-  return patchIds.map((id, index) => {
+  const original = patchIds.map((id, index) => {
     const patch = GRAPH_INSTRUMENT_PATCHES[id], p = { ...defaults, graphPatch: id };
     for (const key of ["topology", "nodeCount", "density", "seed", "baseDelay", "distanceRatio", "timeCurve", "nodePass", "feedback", "feedbackTone", "tempo"]) if (patch[key] !== undefined) p[key] = patch[key];
     Object.assign(p, { soundMode: voices[index], output: index === 9 ? 0.32 : 0.44,
@@ -126,6 +127,11 @@ export function graphSynthFullPresets(defaults) {
       description: `Complete graph, ${p.soundMode}, ${p.tuningMode} tuning, ${p.articulation} articulation and ADSR; ${p.tempo} BPM. Audio/Play remain unchanged.`,
       snapshot: validateGraphSynthPreset({ parameters: select(p, graphSynthPresetKeys(defaults)), graph, edgeSwitches: switches(graph) }, defaults) };
   });
+  const studies = graphSynthExpressiveStudies(defaults).map(({ id, label, description, parameters, graph }) => ({
+    id, label, description,
+    snapshot: validateGraphSynthPreset(captureGraphSynthPreset(parameters, graph, new Map(Object.entries(switches(graph))), defaults), defaults),
+  }));
+  return [...original, ...studies];
 }
 export function randomizeGraphSynthPreset(current, random = Math.random) {
   const rng = presetRandom(random);
