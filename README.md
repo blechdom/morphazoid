@@ -1,5 +1,11 @@
 # Morphazoid
 
+**[Rig Lab](rig-lab.html)** is a Work in Progress lab for seven playable 3D
+studies: credited downloaded ant, octopus, mosquito, moth and kitchen models,
+plus live, editable Voronoi foam and polyhedral lattice. Try animated presets,
+four artistic octopus skins and on-the-fly geometry; Audio starts off.
+[Controls and CC BY model credits](docs/rigged-instrument-prep/README.md).
+
 **[Globule Damacy](globule-damacy.html)** is a work-in-progress rolling sampler:
 Record and Play are two sections of **one instrument**. Roll a fixed-size
 lacquered marble across eight straight audio waveforms. Both axes turn freely;

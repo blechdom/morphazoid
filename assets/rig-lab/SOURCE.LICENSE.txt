@@ -1,0 +1,156 @@
+RIG LAB DOWNLOADED MODEL ATTRIBUTION
+Checked against the official Sketchfab model metadata 2026-10-18.
+Each model below is licensed by its respective creator under Creative Commons
+Attribution 4.0 International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+Credit each creator, link the source and license, and indicate changes. The
+models, textures, and rigs are NOT relicensed as Morphazoid's MIT code. Their
+appearance here does not imply the creators' endorsement of Morphazoid.
+
+File: ant-vfx.glb
+Title: (муравей) Ant Rig VFX
+Creator: rayray
+Source: https://sketchfab.com/3d-models/ant-rig-vfx-ea4047922b5644fdb48b5ac910974241
+Downloaded Sketchfab-converted GLB, SHA256:
+89451e83831d64856fb7a8b6dc81932814525ac66df29253018e7770669b6947
+Changes: No changes to the distributed file. Three skinned copies share the
+download's held pose; each copy's six imported hip/knee chains are driven by
+the same distance-based gait and alternating tripod contacts as its sound.
+
+File: worker-ant.glb
+Title: Game-Ready Worker ant Model
+Creator: Msassasa
+Source: https://sketchfab.com/3d-models/game-ready-worker-ant-model-b48893d316cc4b2f98ec1d1e37027e6a
+Downloaded Sketchfab-converted GLB, SHA256:
+885727759bfd72ce5d2f9a176a86e43173cc0a9b2003d210218b68162796bf31
+Changes: No changes to the distributed file. Three independent skinned
+instances use the included three-stride Walk clip, synchronized to route
+distance, or the included dig clip for the digging preset. Runtime PBR
+roughness is limited on the source's mirror-like material.
+
+File: mosquito-rig.glb
+Title: Mosquito
+Creator: adarshktk
+Source: https://sketchfab.com/3d-models/mosquito-474d2ea54af64114b2b5b1d2f6b18f8a
+Original downloaded Sketchfab GLB (mosquito.glb), SHA256:
+977fbef60725fdd32e7eb2281043790811f2aac488614ebf4223bb63f77b9364
+Modified distributed GLB, SHA256:
+15237726949af8e690c4470bfb34728ed81bebc8dc555b44a9a30c33cd37ce1a
+Changes: In Blender 4.0.2, split the original joined left/right wing and
+leg geometry; fitted the original UV-mapped textured geometry to a new
+21-bone skin with independently hinged wings, six two-joint legs, head,
+abdomen, antennae and an aimable proboscis. Resized the color/alpha map
+from 4K to 2K and the normal/roughness maps from 4K to 1K for browser use.
+The ORIGINAL mosquito file contained zero skins and zero animation clips;
+all of the above bones and pose controls were authored for Morphazoid.
+No baked animation clip or lifelike motion is claimed. The demo's wing
+tone, leg-air texture, steering and probe controls animate this new rig at
+runtime. Reproducible conversion: scripts/rig-lab/rig_mosquito.py.
+The derivative retains the original source, author and CC BY 4.0 metadata
+inside its GLB as well as in this notice. Its mesh/texture/skin remains
+adarshktk CC BY 4.0, not MIT code.
+
+File: peacock-moth.glb
+Title: Animated Peacock Moth
+Creator: Osian CG
+Source: https://sketchfab.com/3d-models/animated-peacock-moth-1c3db0798f1c46be9764e99631cbb0a7
+Downloaded Sketchfab-converted GLB with smaller 1k textures, SHA256:
+4d51459b4e27cdc454afe2bffd1dd098be23778212d4f0566dc7dee600a025b5
+Changes: The distributed file has smaller 1k textures but the same source
+animation sampler inputs/outputs as the full-size GLB. At runtime, the
+mirrored wing mesh (Object_102) receives a cloned, reversed shading-normal
+buffer because its source normals face away from the lit dorsal side.
+Source-derived colour/normal maps and double-sided PBR materials stay in use.
+The source's 1-second clip animates the full rig; independent fore-/hindwing
+fold offsets use mirrored-parent-aware hinge axes without erasing those
+source keyframes.
+
+File: octopus-rig.glb
+Title: Octopus rig
+Creator: Dirk.z
+Source: https://sketchfab.com/3d-models/octopus-rig-48f40cb3dfd5473fbb200cf1dcd7b944
+Downloaded Sketchfab-converted GLB, SHA256:
+4b164320636c921959ecc637210903bcffefe25a62fa5fdbccbb8811ba1729f4
+Changes: No changes to the distributed file. Its original UV-mapped skinned
+mesh can wear four artistic, procedurally generated 2D albedo/grain maps
+(reef, abyss, pearl, kelp) with selectable PBR roughness and clearcoat;
+the fantasy abyss finish also uses an emissive spot map. These runtime
+materials replace its plain material, NOT its 3D geometry or bones.
+Skeleton branches animate at runtime. Inspection found six long tentacle
+chains and short appendages,
+NOT eight equally articulated arms. The prototype's eight sound controls
+remain independent; do not advertise this file as an eight-armed octopus rig.
+
+File: pancake-pan.glb
+Title: Pancake frying pan (⌀22 cm)
+Creator: volvor
+Source: https://sketchfab.com/3d-models/pancake-frying-pan-22-cm-f6a99070101c4c72a33cf3316d3e8c7c
+Downloaded Sketchfab-converted GLB with smaller 1k textures, SHA256:
+8a176a40d37c8b6ac36df309cdb9be4a21bbb46d96f202ada806460eada01c5a
+Changes: No file changes; the static pan is fitted to the tilting handle
+at runtime. Its geometry is not skinned.
+
+File: pancake-stack.glb
+Title: Pancake Stack
+Creator: Cas_Models
+Source: https://sketchfab.com/3d-models/pancake-stack-85eae11b31154f0d8a12058e9c5992df
+Downloaded Sketchfab-converted GLB, SHA256:
+4100213a4636a05ece951db20b7b2bae9487d266eff35923af0884e95a1ff0c8
+Changes: No file changes; four separate cakes, plate and syrup are split,
+fitted and instanced at runtime. Four original cakes are reused for up to six
+independently positionable playable pancakes.
+
+File: spatula.glb
+Title: Kitchen Spatula - Tool
+Creator: Emma Leyers
+Source: https://sketchfab.com/3d-models/kitchen-spatula-tool-c8777bf04ba749e59ce0796d780ed1af
+Downloaded Sketchfab-converted GLB, SHA256:
+fdcc04579a4b9739a8d5553c596474a9b1ad40481fdc3912b5da8f879ccaaba9
+Changes: No file changes; fitted to the editable spatula pivot at runtime.
+
+File: butter.glb
+Title: PB121 Butter Low
+Creator: SCANIMAT
+Source: https://sketchfab.com/3d-models/pb121-butter-low-4db1f5be40844a5a8127c4db42c28424
+Downloaded Sketchfab-converted GLB with smaller 1k textures, SHA256:
+735733f246c81e8e613c825d6fdfe83766e71e9519d542f5882c2657f93ed5bd
+Changes: No file changes; runtime clones on the pan and plate shrink with
+butter/heat controls. This static mesh is not a fluid simulation.
+
+File: voronoi-reference.glb
+Title: Voronoi Cells of Diamond
+Creator: ayvlasov
+Source: https://sketchfab.com/3d-models/voronoi-cells-of-diamond-1989e01ea0554254ad4553ab9c908fd0
+Downloaded Sketchfab-converted GLB, SHA256:
+5c0d26a7c2d7d9680843a352c80c7b2d86b6d479d5ed1e5ab029bdde63a897a6
+Changes: No file changes. This static CC BY cluster is retained as a
+downloadable reference only. Rig Lab no longer loads/copies this GLB into
+the foam stage; its own independently generated 3D clipped cell polygons
+render and supply the same volumes used by sound. Those generated surfaces
+are not a derivative or animation of ayvlasov's fixed facets.
+
+File: lattice-rig.glb
+Title: 3D Lattice of Icosahedra and Octahedra
+Creator: David Hall
+Source: https://sketchfab.com/3d-models/3d-lattice-of-icosahedra-and-octahedra-c58fa5bbb8a74ef7ac6fc477715e1fc3
+Original downloaded Sketchfab GLB SHA256:
+cbc243411ff629a955794bff4588db070fa5f37c3553372c8ad86de204299600
+Modified distributed GLB SHA256:
+51d15db5f71ca8b8dde9e35ba149bd8c63bf13c3a3c2b70e51f80213557ab8da
+Changes: In Blender 4.0.2, joined the original 2,600 facet objects into
+one mesh, normalized their coordinates and authored a new root with 12
+spatially weighted deform bones. The downloaded material colors and original
+5,200 triangles survive. This legacy 13-bone derivative is retained as
+an attributed download/reference, NOT displayed on the Rig Lab stage.
+Rig Lab instead creates its own connected indexed polyhedra with selectable
+icosahedral/octahedral/tetrahedral topology and 0–2 geodesic subdivisions.
+The credited source/derivative topology remains fixed in its actual GLB.
+The source had no bones or animation. Reproducible conversion:
+scripts/rig-lab/rig_lattice.py. The new skin and original geometry remain
+CC BY 4.0 under David Hall's attribution, not the project's MIT code.
+Creator, license and source metadata are also embedded in the derivative.
+
+The other download, "Iridescent Mosquito 3d model free" by iRahulRajput,
+is a different, unrigged, much heavier mesh (~449k vertices) and has NOT
+been bundled or used in the demo. The Sketchfab-exported GLB's metadata
+declares CC BY 4.0, but it was not the user's selected textured model.

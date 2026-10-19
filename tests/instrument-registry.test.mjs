@@ -16,6 +16,7 @@ const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-regist
 test("Fractal Delay Faves addition preserves exact prior registry bytes and rejects missing or duplicate entries", async () => {
   const change = fractalDelayFavesAmendment;
   const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+  // The shared historical reader already peels the newer Rig Lab registration.
   const restored = restoreFractalDelayFaves(source, change.file);
   assert.equal(createHash("sha256").update(restored).digest("hex"), change.sha256);
   assert.equal(restoreFractalDelayFaves(restored, change.file, { allowRestored: true }), restored);

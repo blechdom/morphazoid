@@ -186,6 +186,7 @@ export const CATALOGUE_TAGS = Object.freeze([
   }
 ].map(tag => Object.freeze(tag)));
 export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({
+  "rig-lab": ["3d", "geometric"],
   "witch": ["voice", "graphic-ui", "synthesizer"],
   "wobblini": ["app", "audio-effect"],
   "trackazoid": ["looper", "audio-effect"],
@@ -659,6 +660,13 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "hollowphonic": []
 }).map(([id, tags]) => [id, Object.freeze(tags)])));
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
+  "rig-lab": {
+    "kind": "3D instrument lab",
+    "description": "Seven playable studies: five stages using credited downloaded animal and kitchen rigs, plus live, editable Voronoi foam and polyhedral geometry.",
+    "start": "Choose a stage and drag a rig part or geometric handle. Enable Audio to hear it; press Play to animate the selected scene.",
+    "features": ["3D interaction", "Animated source rigs", "Live geometry", "Octopus skins", "Presets"],
+    "pluginHref": null
+  },
   "blech-midi": {
     "kind": "Layered MIDI performance",
     "description": "Layer MIDI files, stamps, drawings, equation patterns and frame loops on one falling-note keyboard. Play and capture Automatapoeia, then shape the shared SoundFont output live.",

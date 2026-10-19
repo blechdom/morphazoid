@@ -1019,6 +1019,15 @@
       "status": "deferred"
     },
     {
+      "id": "rig-lab",
+      "label": "Rig Lab",
+      "href": "rig-lab.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "vector-fractals",
       "label": "Vector Fractals",
       "href": "vector-fractals.html",
@@ -1927,6 +1936,7 @@
       "witch",
       "wobblini",
       "striped-staircase-rust",
+      "rig-lab",
       "vector-fractals",
       "room-lobby",
       "vocal-effects-room",

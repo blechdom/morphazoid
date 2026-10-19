@@ -1,0 +1,69 @@
+{
+  "baseCommit": "24fb74c4426fcc1f598c5891878f12b397de7996",
+  "changes": [
+    {
+      "file": "README.md",
+      "sha256": "3383dd3d23ebe1e63209f780cef3680b5c71fb1635dbb5d2e5a8d50b4b50ff63",
+      "replacements": [
+        {
+          "before": "",
+          "after": "\n**[Rig Lab](rig-lab.html)** is a Work in Progress lab for seven playable 3D\nstudies: credited downloaded ant, octopus, mosquito, moth and kitchen models,\nplus live, editable Voronoi foam and polyhedral lattice. Try animated presets,\nfour artistic octopus skins and on-the-fly geometry; Audio starts off.\n[Controls and CC BY model credits](docs/rigged-instrument-prep/README.md).\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "74319e995b7f396510584d6eed8652aaa2a78de09a2d64803e7d0e8760695611",
+      "replacements": [
+        {
+          "before": "",
+          "after": "\n# Rig Lab: one WIP lab, with credited downloaded animals and live geometry.\ncopy+require\tsrc/families/rig-lab/demo-motion.js\ncopy+require\tsrc/families/rig-lab/demo-presets.js\ncopy+require\tsrc/families/rig-lab/demo-viewer.js\ncopy+require\tsrc/families/rig-lab/downloaded-models.js\ncopy+require\tsrc/families/rig-lab/procedural-models.js\ncopy+require\tsrc/families/rig-lab/demo-app.js\ncopy+require\tsrc/families/rig-lab/demo.css\ncopy+require\tsrc/families/rig-lab/demo-audio-utils.js\ncopy+require\tassets/rig-lab/SOURCE.LICENSE.txt\ncopy+require\tassets/rig-lab/ant-vfx.glb\ncopy+require\tassets/rig-lab/worker-ant.glb\ncopy+require\tassets/rig-lab/mosquito-rig.glb\ncopy+require\tassets/rig-lab/peacock-moth.glb\ncopy+require\tassets/rig-lab/octopus-rig.glb\ncopy+require\tassets/rig-lab/pancake-pan.glb\ncopy+require\tassets/rig-lab/pancake-stack.glb\ncopy+require\tassets/rig-lab/spatula.glb\ncopy+require\tassets/rig-lab/butter.glb\ncopy+require\tassets/rig-lab/voronoi-reference.glb\ncopy+require\tassets/rig-lab/lattice-rig.glb\ncopy+require\tsrc/instruments/ant-farm/demo-model.js\ncopy+require\tsrc/instruments/ant-farm/demo-audio.js\ncopy+require\tsrc/instruments/voronoi-foam/demo-model.js\ncopy+require\tsrc/instruments/voronoi-foam/demo-audio.js\ncopy+require\tsrc/instruments/polyhedral-lattice/demo-model.js\ncopy+require\tsrc/instruments/polyhedral-lattice/demo-audio.js\ncopy+require\tsrc/instruments/octopus/demo-model.js\ncopy+require\tsrc/instruments/octopus/demo-skins.js\ncopy+require\tsrc/instruments/octopus/demo-audio.js\ncopy+require\tsrc/instruments/pancakes/demo-model.js\ncopy+require\tsrc/instruments/pancakes/demo-audio.js\ncopy+require\tsrc/instruments/mosquito/demo-model.js\ncopy+require\tsrc/instruments/mosquito/demo-audio.js\ncopy+require\tsrc/instruments/moth/demo-model.js\ncopy+require\tsrc/instruments/moth/demo-audio.js\n"
+        }
+      ]
+    },
+    {
+      "file": "docs/THIRD_PARTY_NOTICES.md",
+      "sha256": "5475094f9ef3ca671bb510e089a722a1f81b5def5bf22aad83fa54f28bca4b96",
+      "replacements": [
+        {
+          "before": "",
+          "after": "\n## Rig Lab model downloads\n\nRig Lab bundles 11 Sketchfab 3D models under CC BY 4.0 by rayray, Msassasa,\nadarshktk, Osian CG, Dirk.z, volvor, Cas_Models, Emma Leyers, SCANIMAT,\nayvlasov and David Hall. Attribution, original model links, license,\nSHA-256 checksums, texture reductions, the new mosquito/lattice bones,\nand runtime modifications are recorded beside the files in\n[`assets/rig-lab/SOURCE.LICENSE.txt`](../assets/rig-lab/SOURCE.LICENSE.txt).\nThe original model meshes, textures and their derivatives are not covered by\nMorphazoid's MIT application license. Foam and lattice render independently\ngenerated editable geometry; the two credited GLBs remain reference downloads.\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "856f2f4454d394f195e9de4b2bc02dda526cc769928a21d4ede600fbd61598a0",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"rig-lab.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "f3853290b6b3341f47dfd47338d48d5a82c8e3b616073113b2a89fc387d68ca3",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"rig-lab\": [\"3d\", \"geometric\"],\n"
+        },
+        {
+          "before": "",
+          "after": "  \"rig-lab\": {\n    \"kind\": \"3D instrument lab\",\n    \"description\": \"Seven playable studies: five stages using credited downloaded animal and kitchen rigs, plus live, editable Voronoi foam and polyhedral geometry.\",\n    \"start\": \"Choose a stage and drag a rig part or geometric handle. Enable Audio to hear it; press Play to animate the selected scene.\",\n    \"features\": [\"3D interaction\", \"Animated source rigs\", \"Live geometry\", \"Octopus skins\", \"Presets\"],\n    \"pluginHref\": null\n  },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "65200fffcf21c928c9fd89731398b3a9bf4e98e6daf9c085de18c7beca449df8",
+      "replacements": [
+        {
+          "before": "",
+          "after": "    { id: \"rig-lab\", label: \"Rig Lab\", href: \"rig-lab.html\", imageHref: \"assets/instruments/lab-placeholder.webp\", catalogue: false, browse: true, entryType: \"lab\" },\n"
+        }
+      ]
+    }
+  ]
+}

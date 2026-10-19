@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1518" />
+    <meta name="description" content="Play five attributed downloaded animal/kitchen rigs and two live Three.js geometric instruments. Reshape Voronoi cells, subdivide polyhedra, and change a rigged octopus's skin." />
+    <title>Rig Lab — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/ui/index.css" />
+    <link rel="stylesheet" href="src/families/rig-lab/demo.css" />
+  </head>
+  <body class="rig-lab-page" data-demo-model="ant-farm" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab" href="./">Choose</a>
+        <a class="tab active" href="rig-lab.html" aria-current="page">Rig Lab</a>
+      </nav>
+      <div id="audioSlot" class="rig-lab-audio-slot" aria-label="Stereo output and Audio control">
+        <span>Audio controls need JavaScript.</span>
+      </div>
+    </header>
+
+    <main class="rig-lab-shell">
+      <section class="rig-lab-stage" aria-labelledby="demoTitle">
+        <div class="rig-lab-viewport">
+          <canvas id="rigCanvas" tabindex="0" role="application"
+            aria-label="Three downloaded 3D ants. Drag an ant to guide it; drag empty space to orbit the camera."
+            aria-describedby="stageHelp liveStatus">
+            Seven 3D studies: five downloaded model rigs and two live geometric instruments. Labelled sound controls work without WebGL.
+          </canvas>
+          <header class="rig-lab-heading">
+            <span>REAL DOWNLOADED RIGS + LIVE GEOMETRY · SEVEN SOUNDS</span>
+            <h1 id="demoTitle">Rig Lab</h1>
+          </header>
+          <p id="stageModelStatus" class="rig-lab-stage-model-status" role="status">Loading downloaded ants…</p>
+          <div class="rig-lab-camera" role="group" aria-label="3D camera">
+            <button id="viewFront" type="button">Front</button>
+            <button id="viewSide" type="button">Side</button>
+            <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
+            <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
+          </div>
+          <output id="modelReadout" class="rig-lab-readout" aria-live="off">ANT FARM · three downloaded ants</output>
+        </div>
+        <p id="stageHelp" class="rig-lab-help">Drag a downloaded ant to guide it · empty space: orbit · arrows: guide selected ant · Enter: sound chamber.</p>
+      </section>
+
+      <aside class="rig-lab-panel" aria-label="Rig and sound controls">
+        <div class="rig-lab-intro">
+          <h2>Try a rig</h2>
+          <p id="modelIntro">Guide three downloaded, jointed ants. Food, trails and chambers shape their path and sound, but no handmade habitat is displayed.</p>
+        </div>
+        <div class="rig-lab-switch" role="group" aria-label="Preview model">
+          <button type="button" data-demo-model="ant-farm" class="is-selected" aria-pressed="true">Ant farm <small>two downloaded ant rigs</small></button>
+          <button type="button" data-demo-model="voronoi-foam" aria-pressed="false">Voronoi foam <small>live 3D cells · choose boundary</small></button>
+          <button type="button" data-demo-model="polyhedral-lattice" aria-pressed="false">Polyhedral lattice <small>shape · units · live vertices</small></button>
+          <button type="button" data-demo-model="octopus" aria-pressed="false">Octopus <small>six arms · two short appendages</small></button>
+          <button type="button" data-demo-model="pancakes" aria-pressed="false">Pancakes <small>flipper · butter · stack</small></button>
+          <button type="button" data-demo-model="mosquito" aria-pressed="false">Mosquito <small>wing tone · flight</small></button>
+          <button type="button" data-demo-model="moth" aria-pressed="false">Moth <small>fold · brush</small></button>
+        </div>
+        <div class="rig-lab-scene">
+          <label for="rigScene">Rig preset · animated study</label>
+          <div class="rig-lab-scene-row">
+            <select id="rigScene" aria-describedby="sceneDescription">
+              <option value="forage">Forage · matched footsteps</option>
+            </select>
+            <button id="nextScene" type="button" aria-label="Next rig preset">Next</button>
+          </div>
+          <p id="sceneDescription">Both downloaded ants walk in sync with their legs, plant their feet, then turn.</p>
+        </div>
+        <div class="rig-lab-play-row">
+          <button id="playButton" data-primary-transport type="button" aria-pressed="false" aria-keyshortcuts="Space" aria-label="Play ant walk">Walk ants</button>
+          <button id="resetButton" data-reset-all data-reset-in-place type="button">Reset this rig</button>
+        </div>
+
+        <fieldset data-controls="ant-farm" class="rig-lab-controls">
+          <legend>Downloaded ants · sound paths</legend>
+          <label>Downloaded ant models
+            <select id="antStyle">
+              <option value="mixed">Both · VFX and Worker</option>
+              <option value="vfx">Rayray · Ant Rig VFX</option>
+              <option value="worker">Msassasa · Worker Ant</option>
+            </select>
+          </label>
+          <label>Guide worker
+            <select data-choice="selected" id="antSelected"><option value="0">Ant 1</option><option value="1">Ant 2</option><option value="2">Ant 3</option></select>
+          </label>
+          <label><span>Food position <output for="antFoodX">0.80</output></span>
+            <input data-parameter="foodX" id="antFoodX" type="range" min="0.38" max="1.15" step="0.01" value="0.8" /></label>
+          <label><span>Food height <output for="antFoodY">0.25</output></span>
+            <input data-parameter="foodY" id="antFoodY" type="range" min="-0.38" max="0.6" step="0.01" value="0.25" /></label>
+          <label><span>Sound-path trail pull <output for="antTrail">0.34</output></span>
+            <input data-parameter="trail" id="antTrail" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+          <label><span>Sound chamber size <output for="antChamber">0.46</output></span>
+            <input data-parameter="chamberSize" id="antChamber" type="range" min="0.27" max="0.72" step="0.01" value="0.46" /></label>
+          <label><span>Walking loop <output for="antRate">0.31</output></span>
+            <input data-parameter="travelRate" id="antRate" type="range" min="0.09" max="1.2" step="0.01" value="0.31" /></label>
+          <label class="rig-lab-check"><input data-parameter="gateOpen" type="checkbox" id="antGate" checked /> Sound-path gate open</label>
+          <div class="rig-lab-actions"><button type="button" data-action="chamber">Strike chamber</button></div>
+        </fieldset>
+
+        <fieldset data-controls="voronoi-foam" class="rig-lab-controls" hidden>
+          <legend>Live Voronoi cells · shared faces and volume</legend>
+          <label>Cell boundary
+            <select data-choice="shape" id="foamShape">
+              <option value="cube">Cube</option>
+              <option value="octahedron">Octahedron</option>
+              <option value="icosahedron">Icosahedron</option>
+            </select>
+          </label>
+          <label><span>Number of actual 3D cells <output for="foamCount">5</output></span>
+            <input data-parameter="count" id="foamCount" type="range" min="2" max="12" step="1" value="5" /></label>
+          <label>Selected cell / movable seed
+            <select data-choice="selected" id="foamSelected">
+              <option value="0">Cell 1</option><option value="1">Cell 2</option><option value="2">Cell 3</option>
+              <option value="3">Cell 4</option><option value="4" selected>Cell 5</option>
+            </select>
+          </label>
+          <label><span>Seed X <output for="foamX">0.02</output></span>
+            <input data-parameter="seedX" id="foamX" type="range" min="-0.88" max="0.88" step="0.01" value="0.02" /></label>
+          <label><span>Seed Y <output for="foamY">0.10</output></span>
+            <input data-parameter="seedY" id="foamY" type="range" min="-0.88" max="0.88" step="0.01" value="0.1" /></label>
+          <label><span>Seed depth <output for="foamZ">−0.05</output></span>
+            <input data-parameter="seedZ" id="foamZ" type="range" min="-0.88" max="0.88" step="0.01" value="-0.05" /></label>
+          <label><span>Sweep loop <output for="foamSweep">0.42</output></span>
+            <input data-parameter="sweepRate" id="foamSweep" type="range" min="0.08" max="1.8" step="0.01" value="0.42" /></label>
+          <div class="rig-lab-actions"><button type="button" data-action="cell">Sound selected cell</button></div>
+        </fieldset>
+
+        <fieldset data-controls="polyhedral-lattice" class="rig-lab-controls" hidden>
+          <legend>Live connected polyhedra · editable vertices</legend>
+          <label>Polyhedron
+            <select data-choice="shape" id="latticeShape">
+              <option value="icosahedron">Icosahedron · 12 vertices</option>
+              <option value="octahedron">Octahedron · 6 vertices</option>
+              <option value="tetrahedron">Tetrahedron · 4 vertices</option>
+            </select>
+          </label>
+          <label><span>Connected solids <output for="latticeUnits">1</output></span>
+            <input data-parameter="unitCount" id="latticeUnits" type="range" min="1" max="4" step="1" value="1" /></label>
+          <label><span>Geodesic subdivision · <output for="latticeDetail">0 · 12 per solid</output></span>
+            <input data-parameter="detail" id="latticeDetail" type="range" min="0" max="2" step="1" value="0" /></label>
+          <label>Selected vertex
+            <select data-choice="selected" id="latticeSelected"></select>
+          </label>
+          <label><span>Pull X <output for="latticeX">0.00</output></span>
+            <input data-parameter="pullX" id="latticeX" type="range" min="-0.75" max="0.75" step="0.01" value="0" /></label>
+          <label><span>Pull Y <output for="latticeY">0.00</output></span>
+            <input data-parameter="pullY" id="latticeY" type="range" min="-0.75" max="0.75" step="0.01" value="0" /></label>
+          <label><span>Pull depth <output for="latticeZ">0.00</output></span>
+            <input data-parameter="pullZ" id="latticeZ" type="range" min="-0.75" max="0.75" step="0.01" value="0" /></label>
+          <label><span>Neighbor yield <output for="latticeSoftness">0.38</output></span>
+            <input data-parameter="softness" id="latticeSoftness" type="range" min="0" max="0.85" step="0.01" value="0.38" /></label>
+          <label><span>Pulse loop <output for="latticeRate">0.46</output></span>
+            <input data-parameter="pulseRate" id="latticeRate" type="range" min="0.08" max="1.6" step="0.01" value="0.46" /></label>
+          <div class="rig-lab-actions"><button type="button" data-action="pluck">Pluck selected joint</button></div>
+        </fieldset>
+
+        <fieldset data-controls="octopus" class="rig-lab-controls" hidden>
+          <legend>Mantle · six long chains and two short appendages</legend>
+          <label>Octopus material / skin
+            <select data-choice="skin" id="octopusSkin">
+              <option value="reef">Reef · mottled coral</option>
+              <option value="abyss">Abyss · luminous blue</option>
+              <option value="pearl">Pearl · iridescent lilac</option>
+              <option value="kelp">Kelp · olive camouflage</option>
+            </select>
+          </label>
+          <label><span>Skin sheen / wetness <output for="octopusWetness">0.46</output></span>
+            <input data-parameter="wetness" id="octopusWetness" type="range" min="0" max="1" step="0.01" value="0.46" /></label>
+          <label>Selected appendage
+            <select data-choice="selected" id="octopusSelected"><option value="0">Appendage 1</option><option value="1">Appendage 2</option><option value="2">Appendage 3</option><option value="3">Appendage 4</option><option value="4">Appendage 5</option><option value="5">Appendage 6</option><option value="6">Appendage 7</option><option value="7">Appendage 8</option></select>
+          </label>
+          <label><span>Mantle squeeze <output for="octopusGrip">0.16</output></span>
+            <input data-parameter="grip" id="octopusGrip" type="range" min="0" max="1" step="0.01" value="0.16" /></label>
+          <label><span>Selected length <output for="octopusLength">1.18</output></span>
+            <input data-parameter="length" id="octopusLength" type="range" min="0.68" max="1.68" step="0.01" value="1.18" /></label>
+          <label><span>Selected curl <output for="octopusCurl">0.23</output></span>
+            <input data-parameter="curl" id="octopusCurl" type="range" min="-0.9" max="0.9" step="0.01" value="0.23" /></label>
+          <label><span>Current <output for="octopusCurrent">0.00</output></span>
+            <input data-parameter="current" id="octopusCurrent" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+          <label><span>Pulse loop <output for="octopusRate">0.55</output></span>
+            <input data-parameter="pulseRate" id="octopusRate" type="range" min="0.12" max="1.8" step="0.01" value="0.55" /></label>
+          <div class="rig-lab-actions"><button type="button" data-action="mantle">Pulse mantle</button><button type="button" data-action="arm">Pluck arm</button></div>
+        </fieldset>
+
+        <fieldset data-controls="pancakes" class="rig-lab-controls" hidden>
+          <legend>Skillet · flipper · stack</legend>
+          <label>Selected pancake
+            <select data-choice="selected" id="panSelected"><option value="0">Cake 1 · pan</option></select>
+          </label>
+          <label><span>Pan tilt <output for="panTilt">0°</output></span>
+            <input data-parameter="tilt" id="panTilt" type="range" min="-28" max="28" step="1" value="0" /></label>
+          <label><span>Heat <output for="panHeat">0.44</output></span>
+            <input data-parameter="heat" id="panHeat" type="range" min="0" max="1" step="0.01" value="0.44" /></label>
+          <label><span>Butter <output for="panButter">0.38</output></span>
+            <input data-parameter="butter" id="panButter" type="range" min="0" max="1" step="0.01" value="0.38" /></label>
+          <label><span>Syrup coverage <output for="panSyrup">0.00</output></span>
+            <input data-parameter="syrup" id="panSyrup" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label><span>Cook cycle <output for="panRate">0.72</output></span>
+            <input data-parameter="cookRate" id="panRate" type="range" min="0.18" max="2" step="0.01" value="0.72" /></label>
+          <div class="rig-lab-actions">
+            <button type="button" data-action="flip">Flip pancake</button>
+            <button type="button" data-action="scoop">Scoop with spatula</button>
+            <button type="button" data-action="stack">Stack on plate</button>
+            <button type="button" data-action="pour">Pour new pancake</button>
+            <button type="button" data-action="pan">Return to pan</button>
+            <button type="button" data-action="butter">Add butter</button>
+            <button type="button" data-action="syrup">Pour syrup</button>
+            <button type="button" data-action="peel">Peel / lift top</button>
+          </div>
+        </fieldset>
+
+        <fieldset data-controls="mosquito" class="rig-lab-controls" hidden>
+          <legend>Textured mosquito · wing voice</legend>
+          <label><span>Wing tone <output for="mosquitoWingRate">390 Hz</output></span>
+            <input data-parameter="wingRate" id="mosquitoWingRate" type="range" min="140" max="880" step="1" value="390" /></label>
+          <label><span>Wing stroke <output for="mosquitoStroke">0.62</output></span>
+            <input data-parameter="stroke" id="mosquitoStroke" type="range" min="0.05" max="1" step="0.01" value="0.62" /></label>
+          <label>Select leg
+            <select data-choice="selectedLeg" id="mosquitoLeg">
+              <option value="0">Left front</option><option value="1">Right front</option>
+              <option value="2">Left middle</option><option value="3">Right middle</option>
+              <option value="4">Left rear</option><option value="5">Right rear</option>
+            </select>
+          </label>
+          <label><span>Selected leg curl · air texture <output for="mosquitoLegCurl">0.00</output></span>
+            <input data-parameter="legCurl" id="mosquitoLegCurl" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+          <label><span>Probe angle <output for="mosquitoProbe">0°</output></span>
+            <input data-parameter="probe" id="mosquitoProbe" type="range" min="-45" max="45" step="1" value="0" /></label>
+          <label><span>Flight loop <output for="mosquitoFlightRate">0.42</output></span>
+            <input data-parameter="flightRate" id="mosquitoFlightRate" type="range" min="0.08" max="2.4" step="0.01" value="0.42" /></label>
+          <label><span>Flight depth <output for="mosquitoDepth">0.00</output></span>
+            <input data-parameter="z" id="mosquitoDepth" type="range" min="-0.6" max="0.6" step="0.01" value="0" /></label>
+        </fieldset>
+
+        <fieldset data-controls="moth" class="rig-lab-controls" hidden>
+          <legend>Moth · brushable wings</legend>
+          <label class="rig-lab-check"><input type="checkbox" id="brushMode" /> Brush wing ridges instead of folding</label>
+          <label><span>Left fold <output for="mothLeft">0.20</output></span>
+            <input data-parameter="leftFold" id="mothLeft" type="range" min="0" max="1" step="0.01" value="0.20" /></label>
+          <label><span>Right fold <output for="mothRight">0.20</output></span>
+            <input data-parameter="rightFold" id="mothRight" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+          <label><span>Wing span <output for="mothSpan">1.00</output></span>
+            <input data-parameter="span" id="mothSpan" type="range" min="0.68" max="1.35" step="0.01" value="1" /></label>
+          <label><span>Original animation speed <output for="mothFlapRate">0.76</output></span>
+            <input data-parameter="flapRate" id="mothFlapRate" type="range" min="0.15" max="3" step="0.01" value="0.76" /></label>
+          <div class="rig-lab-actions"><button type="button" data-action="wing">Pluck selected wing</button></div>
+          <output id="gestureReadout" class="rig-lab-gesture" aria-live="polite">Drag a wing to fold it.</output>
+        </fieldset>
+        <p id="liveStatus" class="rig-lab-status" role="status">Loading the rigs…</p>
+        <p id="assetStatus" class="rig-lab-status" role="status">Loading downloaded ants…</p>
+        <details class="rig-lab-credits">
+          <summary>Downloaded model credits · CC BY 4.0</summary>
+          <p>Each linked creator retains the <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> license for their model. Five stages use the credited downloads; foam and lattice now generate new editable geometry with Three.js. The Diamond and David Hall models remain downloadable references, not meshes shown on these two stages. No endorsement is implied.</p>
+          <ul>
+            <li><a href="https://sketchfab.com/3d-models/ant-rig-vfx-ea4047922b5644fdb48b5ac910974241">(муравей) Ant Rig VFX</a> by rayray</li>
+            <li><a href="https://sketchfab.com/3d-models/game-ready-worker-ant-model-b48893d316cc4b2f98ec1d1e37027e6a">Game-Ready Worker ant Model</a> by Msassasa</li>
+            <li><a href="https://sketchfab.com/3d-models/mosquito-474d2ea54af64114b2b5b1d2f6b18f8a">Mosquito</a> by adarshktk · 21-bone skin and resized maps · <a href="assets/rig-lab/mosquito-rig.glb" download>download rigged GLB</a></li>
+            <li><a href="https://sketchfab.com/3d-models/animated-peacock-moth-1c3db0798f1c46be9764e99631cbb0a7">Animated Peacock Moth</a> by Osian CG</li>
+            <li><a href="https://sketchfab.com/3d-models/octopus-rig-48f40cb3dfd5473fbb200cf1dcd7b944">Octopus rig</a> by Dirk.z · original mesh and bones, new runtime UV skins</li>
+            <li><a href="https://sketchfab.com/3d-models/pancake-frying-pan-22-cm-f6a99070101c4c72a33cf3316d3e8c7c">Pancake frying pan</a> by volvor</li>
+            <li><a href="https://sketchfab.com/3d-models/pancake-stack-85eae11b31154f0d8a12058e9c5992df">Pancake Stack</a> by Cas_Models</li>
+            <li><a href="https://sketchfab.com/3d-models/kitchen-spatula-tool-c8777bf04ba749e59ce0796d780ed1af">Kitchen Spatula – Tool</a> by Emma Leyers</li>
+            <li><a href="https://sketchfab.com/3d-models/pb121-butter-low-4db1f5be40844a5a8127c4db42c28424">PB121 Butter Low</a> by SCANIMAT</li>
+            <li><a href="https://sketchfab.com/3d-models/voronoi-cells-of-diamond-1989e01ea0554254ad4553ab9c908fd0">Voronoi Cells of Diamond</a> by ayvlasov · <a href="assets/rig-lab/voronoi-reference.glb" download>download static reference</a> (not in stage)</li>
+            <li><a href="https://sketchfab.com/3d-models/3d-lattice-of-icosahedra-and-octahedra-c58fa5bbb8a74ef7ac6fc477715e1fc3">3D Lattice of Icosahedra and Octahedra</a> by David Hall · <a href="assets/rig-lab/lattice-rig.glb" download>download 12-joint derivative</a> (not in stage)</li>
+          </ul>
+          <p>Files, license details and modifications: <a href="assets/rig-lab/SOURCE.LICENSE.txt">Rig Lab asset notices</a>. The new bones are authored here, not part of the original downloads.</p>
+        </details>
+        <p class="rig-lab-disclaimer">
+          Ants, octopus, pancakes, mosquito and moth use only the credited downloads or their skinned derivatives. Foam and lattice are live generated geometry whose vertices, faces and sound model move together; the downloaded references are not displayed on those stages. An unavailable animal/kitchen download leaves its stage empty. The octopus skins and sound mappings are artistic, not photographic or biological claims. Not a finished standalone instrument route.
+        </p>
+      </aside>
+    </main>
+
+    <script type="module" src="src/families/rig-lab/demo-app.js"></script>
+  </body>
+</html>

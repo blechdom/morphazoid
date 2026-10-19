@@ -723,3 +723,15 @@ mappings preserved. Its original SF2/archive hashes and reproducible conversion
 script are retained in `assets/sound-fonts/fluidr3-gm/` and the shared provenance
 record. SF3 compression is lossy. The original Fluid notices and contributors
 remain beside both banks; the application license does not replace them.
+
+## Rig Lab model downloads
+
+Rig Lab bundles 11 Sketchfab 3D models under CC BY 4.0 by rayray, Msassasa,
+adarshktk, Osian CG, Dirk.z, volvor, Cas_Models, Emma Leyers, SCANIMAT,
+ayvlasov and David Hall. Attribution, original model links, license,
+SHA-256 checksums, texture reductions, the new mosquito/lattice bones,
+and runtime modifications are recorded beside the files in
+[`assets/rig-lab/SOURCE.LICENSE.txt`](../assets/rig-lab/SOURCE.LICENSE.txt).
+The original model meshes, textures and their derivatives are not covered by
+Morphazoid's MIT application license. Foam and lattice render independently
+generated editable geometry; the two credited GLBs remain reference downloads.

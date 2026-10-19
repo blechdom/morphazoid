@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { restoreRigLabSite } from "./rig-lab-site-reference.mjs";
 
 export const globuleDamacySiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/globule-damacy-site-changes.json", import.meta.url), "utf8",
@@ -11,6 +12,7 @@ export const globuleDamacySiteChanges = JSON.parse(readFileSync(
 /** Peel exactly this instrument's additions before older frozen proofs. */
 export function restoreGlobuleDamacySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  source = restoreRigLabSite(source, file, { allowRestored: true });
   for (const change of [
     ...globuleDamacySiteChanges.changes,
     ...globuleDamacySiteChanges.sharedChanges,
