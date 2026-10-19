@@ -117,8 +117,7 @@ test('pitch keys use equal ratios, knobs and presets move the same marker, and A
 test('without Body the labels and gestures control excitation; impulse leaves its inactive duration alone', async ({ page }) => {
   await page.goto('simd-resonator-rust.html'); const plot = await plotFromMarker(page);
   await range(page, 'controlB', 130); await range(page, 'strikePosition', .42); await range(page, 'hardness', .63);
-  await page.locator('label[for="bodyEnabled"]').click();
-  await page.locator('label[for="processingEnabled"]').click();
+  await choose(page, 'applicationMode', 'processing');
   await choose(page, 'excitationType', 'white-noise');
   await expect(page.locator('#gestureXAxis')).toContainText(/strength/i);
   await expect(page.locator('#gestureYAxis')).toContainText(/burst|length|duration/i);
