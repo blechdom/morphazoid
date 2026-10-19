@@ -10,6 +10,7 @@ import { restoreRezoidinatorModesSite } from "./helpers/rezoidinator-modes-site-
 import { restoreWitchSite, witchSiteChanges } from "./helpers/witch-site-reference.mjs";
 import { restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument-recovery-reference.mjs";
 import { restoreQuadrupedFaves } from "./helpers/quadruped-faves-reference.mjs";
+import { restoreTimeLoomSite } from "./helpers/time-loom-site-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const digest = source => createHash("sha256").update(source).digest("hex");
@@ -34,9 +35,9 @@ test("Witch is a WIP gesture instrument with shared MIDI controls and no generic
 test("Witch additions preserve the preceding shared source and expose unknown drift", async () => {
   assert.match(witchSiteChanges.baseCommit, /^[0-9a-f]{40}$/);
   for (const change of witchSiteChanges.changes) {
-    // Later recovery, Faves, Rezoidinator and mobile additions have independent proofs.
+    // Later recovery, Faves, Time Loom, Rezoidinator and mobile additions have independent proofs.
     const current = restoreSelectedInstrumentRecovery(await readFile(new URL(change.file, root), "utf8"), change.file, { allowRestored: true });
-    const source = restoreRezoidinatorModesSite(restoreQuadrupedFaves(current, change.file, { allowRestored: true }), change.file, { allowRestored: true });
+    const source = restoreRezoidinatorModesSite(restoreTimeLoomSite(restoreQuadrupedFaves(current, change.file, { allowRestored: true }), change.file, { allowRestored: true }), change.file, { allowRestored: true });
     const restored = restoreWitchSite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     assert.equal(restoreWitchSite(restored, change.file, { allowRestored: true }), restored);

@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 54,
-    "fullPresets": 2261,
+    "implemented": 55,
+    "fullPresets": 2273,
     "favesImplemented": 19,
     "activeRemaining": 58,
     "regularRemaining": 129
@@ -1698,6 +1698,16 @@
       "status": "deferred"
     },
     {
+      "id": "time-loom",
+      "label": "Time Loom",
+      "href": "time-loom.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Twelve full weaves, bounded randomization and recording/transport preservation: tests/time-loom.test.mjs and e2e/time-loom.spec.mjs. Human listening and physical touch acceptance remain unperformed."
+    },
+    {
       "id": "loop-soup",
       "label": "Loop Soup",
       "href": "loop-soup.html",
@@ -1983,6 +1993,7 @@
       "wasm-garden",
       "tempo-tantrum",
       "tape-worm",
+      "time-loom",
       "loop-soup",
       "habit-habitat",
       "hollowphonic",

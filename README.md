@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).
+
 **[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,
 play five instrumental fingers, and ride a musical broom past bats, ghosts and
 a ringing full moon. Audio starts off. [Gestures and sound](docs/witch.md).

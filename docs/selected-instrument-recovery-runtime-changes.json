@@ -497,8 +497,8 @@
     },
     {
       "file": "scripts/site/runtime-files.tsv",
-      "baseCommit": "20cecf90a19043f63c45c89be3e43e0712ae1849",
-      "baselineSha256": "4b0adfe8ec35bd58ae34e789f0880a672f646dfdd8e2442433472c562228a7ed",
+      "baseCommit": "faed2c7f734a9a905c43c4d55f18f7044e05bfd9",
+      "baselineSha256": "ed61fa0701a8063944ad08b048462d73d234b2606af84852034ecdc8236140da",
       "reason": "Declare only the ten new selected runtime modules and focused documentation paths.",
       "regressionTests": [
         "tests/release-manifest.test.mjs",
