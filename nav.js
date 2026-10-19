@@ -1,3 +1,4 @@
+import { initializeMobileMenubars } from "./src/site/mobile-menubar.js";
 import {
   MIDI_PROFILES,
   getSharedMidiManager,
@@ -1583,3 +1584,6 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
 if (typeof document !== "undefined" && !["native-cpal", "rust-wasm"].includes(document.body?.dataset?.audioBackend)) {
   initializeSharedNavigation(document, globalThis);
 }
+
+// Presentation is shared even by pages with instrument-owned native audio.
+if (typeof document !== "undefined") initializeMobileMenubars(document, globalThis);

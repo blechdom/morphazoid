@@ -55,7 +55,7 @@
         </button>
         <label class="header-level" for="outputLevel">
           <span><b>Output</b><output id="outputLevelOut" for="outputLevel">24%</output></span>
-          <input id="outputLevel" aria-label="SIMD audio output level" type="range" min="0" max="0.65" step="0.01" value="0.24" />
+          <input id="outputLevel" aria-label="Rezoidinator output level" type="range" min="0" max="1" step="0.01" value="0.24" />
         </label>
       </div>
     </header>
@@ -70,11 +70,11 @@
             id="resonatorCanvas"
             tabindex="0"
             role="application"
-            aria-label="Playable resonator. Drag to set strike position and brightness. Arrow keys move; Enter or Space plays when Audio is on."
+            aria-label="Playable resonator. Drag to set excitation position and brightness. Arrow keys move; Enter or Space excites the selected sound when Audio is on."
             aria-describedby="canvasCue liveStatus"
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
           >Playable SIMD audio visualization.</canvas>
-          <p class="simd-canvas-cue" id="canvasCue">DRAG TO PLUCK</p>
+          <p class="simd-canvas-cue" id="canvasCue">DRAG TO EXCITE</p>
           <span class="simd-strike-label" id="strikeReadout">38% &middot; bright</span>
         </div>
         <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
@@ -84,9 +84,16 @@
         <details class="group control-section simd-input" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
           <div class="group-body rezo-input-controls">
-            <div class="rezo-excitation-row"><button id="pluckButton" data-primary-transport class="mini-action rezo-pluck" type="button">Pluck</button></div>
+            <label class="rezo-choice" for="useSelect"><span>Use</span><select id="useSelect" aria-label="Resonator use"><option value="body">Instrument body modeling</option><option value="processing">Audio processing</option><option value="reverb">Reverberation</option><option value="resynthesis">Resynthesis</option></select></label>
+            <div class="rezo-stage-switches" role="group" aria-label="Combine processing stages">
+              <label class="rezo-toggle" for="bodyEnabled"><input id="bodyEnabled" type="checkbox" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Body</span></label>
+              <label class="rezo-toggle" for="processingEnabled"><input id="processingEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Process</span></label>
+              <label class="rezo-toggle" for="resynthesisEnabled"><input id="resynthesisEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>FFT</span></label>
+              <label class="rezo-toggle" for="reverbEnabled"><input id="reverbEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Reverb</span></label>
+            </div>
+            <p class="simd-note rezo-signal-path" id="signalPath" aria-live="polite">Source → Body</p>
             <label class="rezo-choice" for="inputSource"><span>Source</span><select id="inputSource" aria-label="Input source">
-              <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">Audio file</option>
+              <option value="excitation" selected>Impulse / excitation</option><option value="mic">Mic / Line</option><option value="sample-file">Sample loops</option><option value="file">Audio file</option>
             </select></label>
             <div id="recordedInputControls" class="simd-recorded-input" hidden>
               <label id="inputSampleControl" class="rezo-choice" for="inputSample"><span>Sample</span><select id="inputSample"></select></label>
@@ -97,6 +104,15 @@
               </div>
               <p id="inputCredit" class="simd-note" hidden></p>
             </div>
+            <div class="rezo-excitation-row">
+              <label class="rezo-choice" for="excitationType"><span>Excite</span><select id="excitationType" aria-label="Excitation type"><option value="impulse">Short impulse</option><option value="white-noise">White noise burst</option><option value="pink-noise">Pink noise burst</option><option value="pluck" selected>Pluck</option><option value="soft-mallet">Soft strike</option><option value="hard-mallet">Hard / bell strike</option></select></label>
+              <button id="pluckButton" data-primary-transport class="rezo-round-transport rezo-excite-trigger" type="button" aria-label="Excite once" title="Excite once"><span aria-hidden="true">▶</span></button>
+            </div>
+            <div class="simd-control-list rezo-input-knobs">
+              <label for="excitationStrength"><span>Strength<output id="excitationStrengthOut" for="excitationStrength">80%</output></span><input id="excitationStrength" type="range" min="0" max="1.5" step="0.01" value="0.8" /></label>
+              <label for="excitationDurationMs" id="excitationDurationControl"><span>Burst length<output id="excitationDurationMsOut" for="excitationDurationMs">18 ms</output></span><input id="excitationDurationMs" type="range" min="1" max="300" step="1" value="18" /></label>
+              <label for="wetMix"><span>Wet / dry<output id="wetMixOut" for="wetMix">100% wet</output></span><input id="wetMix" type="range" min="0" max="1" step="0.01" value="1" /></label>
+            </div>
             <input id="inputFile" type="file" accept="audio/*" hidden />
             <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
               <span class="simd-mic-mark" aria-hidden="true"></span>
@@ -106,15 +122,26 @@
           </div>
         </details>
 
-        <details class="group control-section simd-engine" data-section="sound" open>
+        <details class="group control-section rezo-processing" id="processingSection" open hidden>
+          <summary class="group-summary"><h2 class="group-title">Audio processing</h2><span class="section-state">tone / drive</span></summary>
+          <div class="group-body rezo-stage-controls">
+            <label class="rezo-choice" for="filterType"><span>Filter</span><select id="filterType" aria-label="Processing filter"><option value="lowpass">Low-pass</option><option value="highpass">High-pass</option><option value="bandpass">Band-pass</option><option value="bypass">Drive only</option></select></label>
+            <div class="simd-control-list">
+              <label for="filterFrequency"><span>Cutoff<output id="filterFrequencyOut" for="filterFrequency">8 kHz</output></span><input id="filterFrequency" type="range" min="20" max="20000" step="1" value="8000" /></label>
+              <label for="drive"><span>Drive<output id="driveOut" for="drive">1×</output></span><input id="drive" type="range" min="1" max="24" step="0.05" value="1" /></label>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section simd-engine" id="materialSection" data-section="sound" open>
           <summary class="group-summary"><h2 class="group-title">Material</h2><span class="section-state" id="engineSummary">resonator</span></summary>
           <div class="group-body">
-            <label class="simd-preset" for="presetSelect"><span>Body only</span><select id="presetSelect" aria-label="Resonator material preset"></select></label>
+            <label class="rezo-choice" for="presetSelect"><span>Material</span><select id="presetSelect" aria-label="Resonator material preset"></select></label>
             <p class="simd-preset-description" id="presetDescription">Choose a material, then strike the body.</p>
           </div>
         </details>
 
-        <details class="group control-section simd-body" data-section="mapping" open>
+        <details class="group control-section simd-body" id="bodySection" data-section="mapping" open>
           <summary class="group-summary"><h2 class="group-title" id="soundTitle">Body</h2><span class="section-state" id="bodySummary">512 waves</span></summary>
           <div class="group-body simd-control-list">
             <label for="controlA"><span><span id="controlALabel">Modes</span><output id="controlAOut" for="controlA">128</output></span><input id="controlA" type="range" min="32" max="4096" step="4" value="512" /></label>
@@ -124,12 +151,14 @@
             <label for="spectralSpan"><span>Spectrum span<output id="spectralSpanOut" for="spectralSpan">128</output></span><input id="spectralSpan" type="range" min="8" max="512" step="0.25" value="128" title="Modal orders spanned by the bank. More waves in the same span make a denser spectrum." /></label>
             <label for="strikePosition"><span>Strike position<output id="strikePositionOut" for="strikePosition">38%</output></span><input id="strikePosition" type="range" min="0.04" max="0.96" step="0.01" value="0.38" /></label>
             <label for="hardness"><span>Hardness<output id="hardnessOut" for="hardness">62%</output></span><input id="hardness" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+            <label for="bodyMix"><span>Body mix<output id="bodyMixOut" for="bodyMix">100%</output></span><input id="bodyMix" type="range" min="0" max="1" step="0.01" value="1" /></label>
           </div>
         </details>
 
-        <details class="group control-section simd-resynthesis" data-section="analysis" open>
+        <details class="group control-section simd-resynthesis" id="resynthesisSection" data-section="analysis" open hidden>
           <summary class="group-summary"><h2 class="group-title">FFT Resynth</h2><span class="section-state" id="fftSummary">96 bands · 21.3 ms</span></summary>
           <div class="group-body">
+            <label class="rezo-choice rezo-character" for="resynthesisCharacter"><span>Character</span><select id="resynthesisCharacter" aria-label="Resynthesis character"><option value="">Custom</option></select></label>
             <div class="simd-fft-selects">
               <label for="fftSize"><span>Frame</span><select id="fftSize" aria-label="FFT frame size">
                 <option value="256">256</option><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option><option value="4096">4096</option>
@@ -150,6 +179,18 @@
                 <label for="fftLowFrequency"><span><span>Low band</span><output id="fftLowFrequencyOut" for="fftLowFrequency">70 Hz</output></span><input id="fftLowFrequency" type="range" min="20" max="1000" step="5" value="70" /></label>
                 <label for="fftHighFrequency"><span><span>High band</span><output id="fftHighFrequencyOut" for="fftHighFrequency">12 kHz</output></span><input id="fftHighFrequency" type="range" min="2000" max="20000" step="250" value="12000" /></label>
               </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="group control-section rezo-reverb" id="reverbSection" open hidden>
+          <summary class="group-summary"><h2 class="group-title">Reverberation</h2><span class="section-state">diffused tail</span></summary>
+          <div class="group-body rezo-stage-controls">
+            <label class="rezo-choice" for="reverbCharacter"><span>Character</span><select id="reverbCharacter" aria-label="Reverb character"><option value="">Custom</option></select></label>
+            <div class="simd-control-list">
+              <label for="reverbTime"><span>Decay<output id="reverbTimeOut" for="reverbTime">1.8 s</output></span><input id="reverbTime" type="range" min="0.12" max="12" step="0.01" value="1.8" /></label>
+              <label for="reverbDamping"><span>Damping<output id="reverbDampingOut" for="reverbDamping">45%</output></span><input id="reverbDamping" type="range" min="0" max="0.98" step="0.01" value="0.45" /></label>
+              <label for="reverbMix"><span>Reverb mix<output id="reverbMixOut" for="reverbMix">40%</output></span><input id="reverbMix" type="range" min="0" max="1" step="0.01" value="0.4" /></label>
             </div>
           </div>
         </details>

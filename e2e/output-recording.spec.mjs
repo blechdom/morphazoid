@@ -603,8 +603,19 @@ for (const viewport of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width + 1);
       await page.locator("#audioButton").click();
       const source = await addStereoSource(page);
+      const toolbarBoxes = () => page.locator('.masthead').evaluate(header =>
+        ['.output-recording-control', '.header-output-meter-shell', '.header-level', '.audio-button', '.header-settings-trigger']
+          .map(selector => { const r = header.querySelector(selector).getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }));
+      const beforeRecording = await toolbarBoxes();
       await startRecording(page);
       await page.waitForTimeout(350);
+      if (viewport.width < 900) {
+        expect(await toolbarBoxes()).toEqual(beforeRecording);
+        const clock = await page.locator('.output-recording-clock').boundingBox();
+        const [x, y, width, height] = beforeRecording[0];
+        expect(clock.x).toBeGreaterThanOrEqual(x); expect(clock.x + clock.width).toBeLessThanOrEqual(x + width);
+        expect(clock.y).toBeGreaterThanOrEqual(y); expect(clock.y + clock.height).toBeLessThanOrEqual(y + height);
+      }
       await stopRecording(page);
       const dialog = await page.locator(RECORD_DIALOG).boundingBox();
       expect(dialog.x).toBeGreaterThanOrEqual(0);

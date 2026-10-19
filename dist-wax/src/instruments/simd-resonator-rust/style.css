@@ -17,6 +17,18 @@
 .rust-resonator-page .simd-canvas-wrap { border: 0; }
 .rezo-input-controls { display: grid; gap: 12px; }
 .rezo-excitation-row, .rezo-input-transport { display: flex; align-items: center; gap: 12px; }
+.rezo-excitation-row { gap: 8px; }
+.rezo-excitation-row > .rezo-choice { flex: 1; }
+.rezo-stage-switches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.rezo-stage-switches .rezo-toggle { gap: 4px; font-size: 10px; }
+.rezo-signal-path { margin: -4px 0 0; color: var(--accent); }
+.rezo-stage-controls { display: grid; gap: 12px; }
+.rezo-character { margin-bottom: 16px; }
+.rust-resonator-page .group[hidden] { display: none; }
+.rust-resonator-page .rezo-processing .group-title { color: #c0a1ff; }
+.rust-resonator-page .rezo-reverb .group-title { color: #8dc8ff; }
+.rust-resonator-page .rezo-input-knobs label[hidden] { display: none; }
+.rust-resonator-page .rezo-input-knobs { margin-top: 0; }
 .rust-resonator-page .rezo-input-controls .mini-action { min-height: 32px; height: 32px; padding: 0 12px; font: inherit; font-size: 11px; }
 .rust-resonator-page .rezo-pluck { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: transparent; min-width: 72px; }
 .rezo-choice { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
@@ -63,6 +75,7 @@
   .rust-resonator-page .simd-stage-heading h1 { font-size: 19px; }
 }
 @media (max-width: 960px) and (max-height: 560px) {
+  .rezo-stage-switches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rust-resonator-page .simd-resonator-shell { grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: minmax(0, 1fr); }
   .rust-resonator-page .simd-stage-heading { margin-bottom: 8px; }
 }

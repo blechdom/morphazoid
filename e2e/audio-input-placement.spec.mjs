@@ -1,16 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { choose } from './helpers/synthesis-controls.mjs';
 import { installAudioInputFixture } from "./helpers/audio-input-fixture.mjs";
 
 const { controls } = JSON.parse(await readFile(new URL("../docs/audio-input-controls.json", import.meta.url)));
-const presetRoutes = new Set([
-  "graph-delay.html", "l-mic.html", "moire-drone.html", "l-systems.html",
-  "fractal-synthesis.html", "synthesis.html", "graphs.html", "morphynx.html",
-  "simd-resonator.html", "simd-lab.html", "gesturama.html", "tape-worm.html",
-  "loop-soup.html", "hollowphonic.html", "throatazoid.html", "lumber.html",
-  "acoustic-manifold.html", "alien-larynx.html", "crab-loom.html", "exceptional.html", "freeze-point.html",
-  "head-shed.html", "loopini.html", "micromorph.html", "recursion.html", "scatter-ghost.html",
-]);
 for (const fallback of [false, true]) {
   test(`${fallback ? "fallback" : "native"} input popup follows responsive placement and a new preset row`, async ({ page }) => {
     await page.addInitScript(({ fallback }) => {
@@ -30,7 +23,7 @@ for (const fallback of [false, true]) {
     });
     await expect.poll(anchorDistance).toBeLessThan(1);
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(strip).toHaveAttribute("data-input-placement", "preset");
+    await expect(strip).toHaveAttribute("data-input-placement", "settings");
     await expect.poll(anchorDistance).toBeLessThan(1);
     await page.evaluate(() => {
       const old = document.querySelector(".instrument-preset-controls");
@@ -39,9 +32,14 @@ for (const fallback of [false, true]) {
       old.parentElement.before(spacer);
       old.replaceWith(old.cloneNode(true));
     });
-    await expect(strip).toHaveAttribute("data-input-placement", "preset");
+    await expect(strip).toHaveAttribute("data-input-placement", "settings");
     await expect.poll(anchorDistance).toBeLessThan(1);
     await expect(popup).toBeVisible();
+    await popup.locator('.mz-input-error__retry').click();
+    await expect(popup).toBeVisible();
+    await expect(page.locator('.header-settings-menu')).toHaveAttribute('open', '');
+    await page.locator('.header-settings-trigger').click();
+    await expect(popup).not.toBeVisible();
   });
 }
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
@@ -52,8 +50,14 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         await page.goto(`/${entry.route}`);
         const route = entry.route.split(/[?#]/)[0];
         const strip = page.locator(".mz-audio-input-strip");
-        if (route === "settings.html") await page.locator("#inputTest").evaluate(node => { node.open = true; });
-        else await expect(strip).toHaveAttribute("data-input-placement", viewport.width === 1440 ? "header" : presetRoutes.has(route) ? "preset" : "controls");
+        const panelOwned = route === "settings.html" || route === "synthesis.html";
+        if (route === "synthesis.html") {
+          await choose(page, 'inputCategory', 'microphone');
+          await expect(page.locator('#sourceControls .mz-audio-input-strip')).toBeVisible();
+          await expect(strip).not.toHaveAttribute('data-input-placement', /.+/);
+        } else if (route === "settings.html") await page.locator("#inputTest").evaluate(node => { node.open = true; });
+        else await expect(strip).toHaveAttribute("data-input-placement", viewport.width === 1440 ? "header" : "settings");
+        if (!panelOwned && viewport.width !== 1440) await page.locator(".header-settings-trigger").click();
         await strip.scrollIntoViewIfNeeded();
         const layout = await strip.evaluate(root => {
           const box = node => {
@@ -89,7 +93,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
           expect(part.right).toBeLessThanOrEqual(viewport.width + 1);
           expect(Math.abs(part.center - layout.parts[0].center)).toBeLessThan(3);
         }
-        if (route !== "settings.html" && viewport.width === 1440) {
+        if (!panelOwned && viewport.width === 1440) {
           expect(layout.inHeader).toBe(true);
           expect(layout.beforeOutput).toBe(true);
           if (layout.output?.width) expect(layout.parts[2].right).toBeLessThanOrEqual(layout.output.left);
@@ -97,11 +101,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         if (viewport.width !== 1440) {
           expect(layout.parts[2].width).toBeGreaterThanOrEqual(48);
           expect(layout.parts[2].height).toBeGreaterThanOrEqual(48);
-          if (presetRoutes.has(route)) {
-            expect(layout.picker).not.toBeNull();
-            expect(layout.parts[2].right).toBeLessThanOrEqual(layout.picker.left);
-            expect(Math.abs(layout.parts[0].center - layout.picker.center)).toBeLessThan(3);
-            await expect(page.locator(".mz-input-preset-row select, .mz-input-preset-row .header-preset-picker > summary").first()).toHaveAccessibleName(/.+/);
+          if (!panelOwned) {
+            await expect(page.locator('.header-settings-panel .mz-audio-input-strip')).toBeVisible();
+            await expect(strip.locator('input[type="range"]')).toHaveAccessibleName(/.+/);
           }
         }
       });
@@ -124,7 +126,7 @@ test("resizing and replacing a preset row retain the live mic and native gain", 
   await mic.focus();
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await expect(strip).toHaveAttribute("data-input-placement", viewport.width === 1440 ? "header" : "preset");
+    await expect(strip).toHaveAttribute("data-input-placement", viewport.width === 1440 ? "header" : "settings");
     await expect(mic).toHaveAttribute("aria-pressed", "true");
     await expect(mic).toBeFocused();
     expect(await page.evaluate(() => __originalMicGain === document.querySelector(".mz-audio-input-strip input[type=range]"))).toBe(true);
@@ -141,8 +143,8 @@ test("resizing and replacing a preset row retain the live mic and native gain", 
       capture: () => ({ value }), apply: snapshot => { value = snapshot.value; }, randomize: () => ({ value: 100 }),
     });
   });
-  await expect(page.locator('.mz-input-preset-row [data-instrument-id="placement-probe"]')).toHaveCount(1);
-  await expect(strip).toHaveAttribute("data-input-placement", "preset");
+  await expect(page.locator('[data-instrument-preset-host] [data-instrument-id="placement-probe"]')).toHaveCount(1);
+  await expect(strip).toHaveAttribute("data-input-placement", "settings");
   await expect(mic).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => __familyInput.requests)).toBe(1);
   await mic.click();

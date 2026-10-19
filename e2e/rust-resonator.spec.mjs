@@ -135,6 +135,7 @@ test("full presets, dice and source choices leave Audio off and never request mi
 
 test("sample feeds the FFT while preset, Next, dice and tweaks preserve its source and levels", async ({ page }) => {
   await page.goto("simd-resonator-rust.html");
+  await choose(page, 'useSelect', 'body-resynthesis');
   await choose(page, "inputSource", "sample-file");
   await choose(page, "inputSample", "music-arp");
   await page.locator("#audioButton").click();
@@ -234,7 +235,11 @@ test("new controls remain reachable at desktop and phone sizes; Lab keeps its fo
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
   await page.goto("simd-lab.html");
-  await expect(page.locator(".header-preset-controls, #inputSource")).toHaveCount(0);
+  // The Lab gained its own full preset and source controls on main; the Rust
+  // use selector and stage routing remain specific to Rezoidinator.
+  await expect(page.locator('.header-preset-controls')).toHaveCount(1);
+  await expect(page.locator('#inputSource')).toHaveCount(1);
+  await expect(page.locator('#useSelect, #reverbEnabled')).toHaveCount(0);
   expect((await page.evaluate(() => globalThis.__MORPHAZOID_SIMD_RESONATOR__.getState())).availableEngines).toHaveLength(7);
   await expect(page.locator("#presetSelect")).toBeVisible();
 });
@@ -255,6 +260,7 @@ test('all twenty presets retain live input; maximum bank keeps rendering through
   }
   await page.locator('.header-preset-next').click();
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', bank[0].id);
+  await choose(page, 'useSelect', 'body-resynthesis');
   await setRange(page, 'controlA', 4096); await setRange(page, 'spectralSpan', 128);
   await page.locator('#fftSize').selectOption('4096'); await setRange(page, 'fftHopRatio', .125);
   await toggle(page, 'surroundEnabled'); await choose(page, 'surroundLayout', '16-ring');
@@ -375,6 +381,7 @@ test('microphone cancellation releases late tracks, and live input survives pres
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`knob labels, wave controls and the stage remain reachable at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
     await page.setViewportSize(viewport); await page.goto('simd-resonator-rust.html');
+    await choose(page, 'useSelect', 'body-resynthesis');
     await expect(page.locator('#resonatorCanvas')).toBeVisible(); await expect(page.locator('h1')).toBeVisible();
     for (const id of ['controlA', 'spectralSpan', 'hardness', 'fftHighFrequency', 'resetButton']) {
       await page.locator('#' + id).scrollIntoViewIfNeeded(); await expect(page.locator('#' + id)).toBeVisible();

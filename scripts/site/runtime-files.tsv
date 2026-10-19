@@ -457,6 +457,7 @@ copy+require	src/instruments/simd-resonator-rust/model.js
 copy+require	src/instruments/simd-resonator-rust/presets.js
 copy+require	src/instruments/simd-resonator-rust/processor.js
 copy+require	src/instruments/simd-resonator-rust/fft-resynth.js
+copy+require	src/instruments/simd-resonator-rust/signal-path.js
 copy+require	src/instruments/simd-resonator-rust/spatial-model.js
 copy+require	src/instruments/simd-resonator-rust/surround-output.js
 copy+require	src/instruments/simd-resonator-rust/recording.js
@@ -2258,3 +2259,8 @@ copy+require	src/instruments/witch/witch-renderer.js
 copy+require	src/instruments/witch/witch.css
 copy+require	assets/instruments/witch.webp
 copy+require	docs/witch.md
+
+# Compact shared mobile menubar
+copy+require	src/site/mobile-menubar.js
+copy+require	src/site/mobile-menubar.css
+copy+require	docs/mobile-menubar.md

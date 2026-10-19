@@ -1,7 +1,8 @@
+import { MOBILE_MENUBAR_QUERY, mobileMenubarSettingsHost } from "./site/mobile-menubar.js";
 import { createAudioInputStrip } from "./ui/patterns/audio-input-strip.js";
 import { createAudioInputMeter } from "./audio-input-meter.js";
 
-const MOBILE_INPUT_QUERY = "(max-width: 720px), (max-width: 960px) and (max-height: 560px) and (orientation: landscape)";
+const MOBILE_INPUT_QUERY = MOBILE_MENUBAR_QUERY;
 const NATIVE_PRESETS = {
   "graphs.html": "#graphPatchSelect", "morphynx.html": "#voicePresetSelect",
   "simd-resonator.html": "#presetSelect", "simd-lab.html": "#presetSelect",
@@ -27,6 +28,8 @@ function placeAudioInput(root, container, doc, runtime, enabled) {
   const move = (parent, before = null) => {
     if (root.parentNode === parent && root.nextSibling === before) return;
     const focused = root.contains(doc.activeElement) ? doc.activeElement : null;
+    const settings = parent.closest?.("details.header-settings-menu");
+    if (focused && settings) settings.open = true;
     if (parent.moveBefore && root.isConnected && parent.isConnected) parent.moveBefore(root, before);
     else parent.insertBefore(root, before);
     focused?.focus?.({ preventScroll: true });
@@ -46,6 +49,14 @@ function placeAudioInput(root, container, doc, runtime, enabled) {
       move(anchor.parentNode, anchor);
       unwrap();
       root.setAttribute("data-input-placement", "header");
+      root.repositionError();
+      return;
+    }
+    const settings = mobileMenubarSettingsHost(header);
+    if (settings) {
+      move(settings);
+      unwrap();
+      root.setAttribute("data-input-placement", "settings");
       root.repositionError();
       return;
     }
@@ -76,7 +87,7 @@ function placeAudioInput(root, container, doc, runtime, enabled) {
     }
     root.repositionError();
   };
-  const anchors = ".header-output-meter-shell, .header-io-controls, .instrument-preset-controls";
+  const anchors = ".header-output-meter-shell, .header-io-controls, .instrument-preset-controls, .header-settings-panel";
   const observer = runtime.MutationObserver && doc.body ? new runtime.MutationObserver(records => {
     if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
       node.nodeType === 1 && (node.matches?.(anchors) || node.querySelector?.(anchors))))) reconcile();

@@ -5,8 +5,10 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
 import { presetsForSimdEngine } from '../../simd-resonator.js';
-import { DEFAULTS, MAX_MODES, createConfiguration, sanitizeSettings } from './model.js';
-import { PRESETS, SPATIAL_PRESET_DEFAULTS, capturePreset, validatePreset, randomizePreset } from './presets.js';
+import { DEFAULTS, MAX_MODES, createConfiguration } from './model.js';
+import { PRESETS, DEFAULT_PRESET_SETTINGS, sanitizePresetSettings, APPLICATION_MODES, applicationForSettings,
+  REVERB_CHARACTERS, RESYNTHESIS_CHARACTERS, capturePreset, validatePreset, randomizePreset } from './presets.js';
+import { sanitizeSignalSettings } from './signal-path.js';
 import { sanitizeSpatialSettings } from './spatial-model.js';
 import { createResonatorSurroundOutput } from './surround-output.js';
 import { mountResonatorRecording } from './recording.js';
@@ -34,14 +36,21 @@ const fields = [
   ['spaceSpan', 'spaceSpan', value => Number(value.toFixed(2)) + ''],
   ['spaceOffset', 'spaceOffset', value => Math.round(value * 360) + '°'],
   ['spaceRate', 'spaceRate', value => Number(value.toFixed(3)) + ''],
+  ['excitationStrength', 'excitationStrength', percent],
+  ['excitationDurationMs', 'excitationDurationMs', value => Math.round(value) + ' ms'],
+  ['bodyMix', 'bodyMix', percent], ['wetMix', 'wetMix', value => percent(value) + ' wet'],
+  ['filterFrequency', 'filterFrequency', value => value < 1000 ? Math.round(value) + ' Hz' : (value / 1000).toFixed(1) + ' kHz'],
+  ['drive', 'drive', value => Number(value.toFixed(2)) + '×'],
+  ['reverbTime', 'reverbTime', value => Number(value.toFixed(2)) + ' s'],
+  ['reverbDamping', 'reverbDamping', percent], ['reverbMix', 'reverbMix', percent],
 ];
 const state = {
-  settings: { ...DEFAULTS, ...SPATIAL_PRESET_DEFAULTS }, context: null, node: null, master: null, limiter: null,
+  settings: { ...DEFAULT_PRESET_SETTINGS }, context: null, node: null, master: null, limiter: null,
   spatialMaster: null, output: null, routeInfo: null, surround: { enabled: false, layoutId: '8-circle', forcePreview: false },
   ready: false, starting: false, arming: false, armRevision: 0, armed: false, disposed: false, generation: 0, startPromise: null, readyReject: null,
   backend: 'none', requestedBackend: forceScalar ? 'scalar' : 'simd', simdAvailable: false,
   micStream: null, micSource: null, micGain: null, micPending: false, micRevision: 0, recordedGain: null,
-  inputRevision: 0, inputWasPlaying: false, pointer: null, lastStrike: 0, materialId: null,
+  inputKind: 'excitation', inputRevision: 0, inputWasPlaying: false, pointer: null, lastStrike: 0, materialId: null,
   peak: 0, rms: 0, telemetry: {}, energy: new Float32Array(128), modal: new Float32Array(128),
   fftInput: new Float32Array(128), fftOutput: new Float32Array(128), frame: 0, lastDraw: 0,
 };
@@ -59,10 +68,33 @@ function spatialConfiguration(settings = state.settings) {
     target: settings.spaceTarget, pattern: settings.spacePattern, span: settings.spaceSpan,
     offset: settings.spaceOffset, motion: settings.spaceMotion, rate: settings.spaceRate });
 }
-function musicalSpace(settings) {
-  const space = spatialConfiguration(settings);
-  return { spaceTarget: space.target, spacePattern: space.pattern, spaceSpan: space.span,
-    spaceOffset: space.offset, spaceMotion: space.motion, spaceRate: space.rate };
+function signalConfiguration(settings = state.settings) {
+  return sanitizeSignalSettings({ ...settings, resynthesisMix: settings.fftMix });
+}
+function sendSignalConfiguration() {
+  if (state.ready) state.node?.port.postMessage({ type: 'signal', configuration: signalConfiguration() });
+}
+function renderUse() {
+  const settings = state.settings;
+  $('useSelect').value = applicationForSettings(settings);
+  for (const [key, section] of [['bodyEnabled', 'bodySection'], ['processingEnabled', 'processingSection'],
+    ['resynthesisEnabled', 'resynthesisSection'], ['reverbEnabled', 'reverbSection']]) {
+    $(key).checked = settings[key]; $(section).hidden = !settings[key];
+  }
+  $('materialSection').hidden = !settings.bodyEnabled;
+  $('excitationType').value = settings.excitationType; $('filterType').value = settings.filterType;
+  $('excitationDurationControl').hidden = settings.excitationType === 'impulse';
+  $('filterFrequency').disabled = settings.filterType === 'bypass';
+  const layers = [];
+  if (settings.processingEnabled) layers.push('Process');
+  const bodyFft = [settings.bodyEnabled ? 'Body' : '', settings.resynthesisEnabled ? 'FFT' : ''].filter(Boolean);
+  if (bodyFft.length) layers.push(bodyFft.join(' + '));
+  if (settings.reverbEnabled) layers.push('Reverb');
+  $('signalPath').textContent = ['Source', ...layers].join(' → ') + (layers.length ? '' : ' → Dry');
+  for (const [id, bank] of [['reverbCharacter', REVERB_CHARACTERS], ['resynthesisCharacter', RESYNTHESIS_CHARACTERS]]) {
+    $(id).value = bank.find(item => Object.entries(item.settings).every(([key, value]) => settings[key] === value))?.id || '';
+  }
+  for (const id of ['useSelect', 'excitationType', 'filterType', 'reverbCharacter', 'resynthesisCharacter', 'presetSelect']) choices.get(id)?.refresh();
 }
 function sendSpatialConfiguration() {
   if (state.ready) state.node?.port.postMessage({ type: 'spatial', configuration: spatialConfiguration() });
@@ -115,19 +147,26 @@ function renderSettings() {
   $('fftSizeOut').value = frameMs.toFixed(1) + ' ms';
   $('fftSummary').textContent = state.settings.fftBandCount + ' bands · ' + frameMs.toFixed(1) + ' ms';
   $('bodySummary').textContent = state.settings.modeCount.toLocaleString() + ' waves';
-  $('strikeReadout').textContent = percent(state.settings.strikePosition) + ' · ' + percent(state.settings.hardness) + ' hardness';
+  const bodyGesture = state.settings.bodyEnabled;
+  $('strikeReadout').textContent = bodyGesture
+    ? percent(state.settings.strikePosition) + ' · ' + percent(state.settings.hardness) + ' hardness'
+    : percent(state.settings.excitationStrength) + ' strength' + (state.settings.excitationType === 'impulse' ? '' : ' · ' + Math.round(state.settings.excitationDurationMs) + ' ms');
+  canvas.setAttribute('aria-label', 'Playable resonator. ' + (bodyGesture
+    ? 'Drag to set strike position and hardness.'
+    : state.settings.excitationType === 'impulse' ? 'Drag horizontally for impulse strength.'
+      : 'Drag horizontally for excitation strength and vertically for burst duration.') + ' Arrow keys adjust; Enter or Space excites the selected sound when Audio is on.');
   $('presetSelect').value = state.materialId || '';
   $('presetDescription').textContent = materialPresets.find(preset => preset.id === state.materialId)?.note || 'Drag the body to choose strike position and hardness.';
   for (const knob of knobs) knob.update();
-  renderSurround();
+  renderUse(); renderSurround();
 }
 function renderInput() {
   if (!recordedInput) return;
   const input = recordedInput.snapshot();
-  $('recordedInputControls').hidden = input.mode === 'mic';
+  $('recordedInputControls').hidden = state.inputKind === 'mic' || state.inputKind === 'excitation';
   $('inputSampleControl').hidden = input.mode !== 'samples';
   $('inputFileControl').hidden = input.mode !== 'file';
-  $('inputSource').value = input.mode === 'samples' ? 'sample-file' : input.mode;
+  $('inputSource').value = state.inputKind;
   $('inputSample').value = input.sampleId; $('inputLoop').checked = input.loop;
   const playbackLabel = input.pending ? 'Cancel loading' : input.playing ? 'Stop input' : 'Play input';
   $('inputPlay').firstElementChild.textContent = input.pending ? '×' : input.playing ? '■' : '▶';
@@ -142,7 +181,7 @@ function renderInput() {
       link.target = '_blank'; link.rel = 'noopener noreferrer'; $('inputCredit').append(link);
     } else $('inputCredit').textContent = input.credit;
   }
-  $('inputSummary').textContent = inputLive() ? 'input live' : state.armed ? 'pluck or input' : 'Audio off';
+  $('inputSummary').textContent = inputLive() ? 'input live' : state.armed ? 'excite or input' : 'Audio off';
   choices.get('inputSource')?.refresh(); choices.get('inputSample')?.refresh();
 }
 function renderAudio() {
@@ -156,15 +195,17 @@ function renderAudio() {
 function sendConfiguration() {
   if (!state.ready || !state.node) return;
   state.node.port.postMessage({ type: 'configure', configuration: createConfiguration(state.settings, state.context.sampleRate) });
-  sendSpatialConfiguration();
+  sendSignalConfiguration(); sendSpatialConfiguration();
 }
 function updateSettings(patch) {
   const previous = state.settings;
   const next = { ...state.settings, ...patch };
-  state.settings = { ...sanitizeSettings(next), ...musicalSpace(next) }; state.materialId = null;
+  state.settings = { ...sanitizePresetSettings(next) };
+  const bodyChanged = Object.keys(DEFAULTS).some(key => previous[key] !== state.settings[key]);
+  if (bodyChanged) state.materialId = null;
   renderSettings();
-  if (Object.keys(DEFAULTS).some(key => previous[key] !== state.settings[key])) sendConfiguration();
-  else sendSpatialConfiguration();
+  if (bodyChanged) sendConfiguration();
+  else { sendSignalConfiguration(); sendSpatialConfiguration(); }
 }
 function applyFullPreset(snapshot) {
   const next = validatePreset(snapshot);
@@ -175,7 +216,7 @@ function applyMaterial(id) {
   const preset = materialPresets.find(item => item.id === id);
   if (!preset) return;
   const fft = Object.fromEntries(Object.entries(state.settings).filter(([key]) => key.startsWith('fft')));
-  state.settings = { ...sanitizeSettings({ ...preset.settings, spectralSpan: preset.settings.modeCount, ...fft }), ...musicalSpace(state.settings) };
+  state.settings = { ...sanitizePresetSettings({ ...state.settings, ...preset.settings, spectralSpan: preset.settings.modeCount, ...fft }) };
   state.materialId = id; renderSettings(); sendConfiguration();
 }
 async function wasm(name, required = true) {
@@ -281,7 +322,7 @@ async function toggleAudio() {
     state.armed = true;
     state.master.gain.setTargetAtTime(Number($('outputLevel').value), state.context.currentTime, .012);
     state.spatialMaster.gain.setTargetAtTime(Number($('outputLevel').value), state.context.currentTime, .012);
-    renderAudio(); await recordedInput.start(); announce('Audio on. Pluck the body or play an input.');
+    renderAudio(); await recordedInput.start(); announce('Audio on. Excite the resonator or play an input.');
   } catch (error) { if (error.name !== 'AbortError') showError(error.message); }
   finally { if (armRevision === state.armRevision) { state.arming = false; renderAudio(); } }
 }
@@ -341,6 +382,7 @@ inputControl = mountAudioInputControl({
   container: $('micButton').parentElement, before: $('micButton').nextElementSibling, button: $('micButton'),
   onStart: async () => {
     const revision = ++state.micRevision;
+    state.inputKind = 'mic';
     await recordedInput.selectMode('mic');
     if (revision !== state.micRevision || state.disposed || document.hidden) return;
     return startMic();
@@ -370,14 +412,17 @@ recordedInput = createInputSource({
   onError: error => { if (!state.disposed) showError(error.message); },
 });
 
-function trigger(strength = .78) {
-  if (!state.armed || !state.ready) { announce('Turn on Audio to hear the body.'); return; }
-  state.node.port.postMessage({ type: 'trigger', strength: clamp(Number(strength) || 0, 0, 1.5) });
+function trigger(strength = 1) {
+  if (!state.armed || !state.ready) { announce('Turn on Audio to hear the excitation.'); return; }
+  state.node.port.postMessage({ type: 'excite', kind: state.settings.excitationType,
+    strength: clamp((Number(strength) || 0) * state.settings.excitationStrength, 0, 1.5), durationMs: state.settings.excitationDurationMs });
 }
 function gesture(event) {
   const rect = canvas.getBoundingClientRect();
-  updateSettings({ strikePosition: clamp((event.clientX - rect.left) / rect.width, .04, .96),
-    hardness: clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1) });
+  const x = clamp((event.clientX - rect.left) / rect.width, 0, 1), y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+  updateSettings(state.settings.bodyEnabled
+    ? { strikePosition: clamp(x, .04, .96), hardness: 1 - y }
+    : { excitationStrength: x * 1.5, excitationDurationMs: Math.round(300 ** y) });
 }
 function releasePointer(event) {
   if (state.pointer !== event.pointerId) return;
@@ -400,7 +445,11 @@ canvas.addEventListener('keydown', event => {
   const keys = { ArrowLeft: [-.02, 0], ArrowRight: [.02, 0], ArrowUp: [0, .04], ArrowDown: [0, -.04] };
   if (keys[event.key]) {
     event.preventDefault(); const [x, y] = keys[event.key];
-    updateSettings({ strikePosition: state.settings.strikePosition + x, hardness: state.settings.hardness + y }); trigger(.45);
+    updateSettings(state.settings.bodyEnabled
+      ? { strikePosition: state.settings.strikePosition + x, hardness: state.settings.hardness + y }
+      : { excitationStrength: state.settings.excitationStrength + x * 1.5,
+        excitationDurationMs: state.settings.excitationDurationMs * 300 ** -y });
+    trigger(.45);
   } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); trigger(); }
 });
 
@@ -435,18 +484,41 @@ function draw(time) {
     context2d.strokeStyle = 'rgba(105,247,204,' + (.13 + energy * .7 + Math.min(.08, state.peak * .1)) + ')';
     context2d.lineWidth = .6 + energy; context2d.stroke();
   }
-  const x = left + (right - left) * state.settings.strikePosition, y = top + (bottom - top) * (1 - state.settings.hardness);
+  const gestureX = state.settings.bodyEnabled ? state.settings.strikePosition : state.settings.excitationStrength / 1.5;
+  const gestureY = state.settings.bodyEnabled ? 1 - state.settings.hardness : Math.log(state.settings.excitationDurationMs) / Math.log(300);
+  const x = left + (right - left) * gestureX, y = top + (bottom - top) * gestureY;
   context2d.strokeStyle = '#ffd166'; context2d.beginPath(); context2d.arc(x, y, 6, 0, Math.PI * 2); context2d.stroke();
 }
 
 $('controlALabel').textContent = 'Waves';
 for (const [id, key] of fields) {
   $(id).addEventListener('input', () => updateSettings({ [key]: Number($(id).value) }));
-  knobs.push(enhanceRangeKnob($(id), { scale: key === 'modeCount' || key === 'spectralSpan' ? 'log' : 'linear' }));
+  knobs.push(enhanceRangeKnob($(id), { scale: ['modeCount', 'spectralSpan', 'filterFrequency', 'drive'].includes(key) ? 'log' : 'linear' }));
 }
 for (const id of ['fftSize', 'fftWindow']) $(id).addEventListener('change', () => updateSettings({ [id]: Number($(id).value) }));
 $('presetSelect').replaceChildren(new Option('Custom body', ''), ...materialPresets.map(preset => new Option(preset.label, preset.id)));
 $('presetSelect').addEventListener('change', () => applyMaterial($('presetSelect').value));
+$('useSelect').replaceChildren(...APPLICATION_MODES.map(mode => new Option(mode.label, mode.id)), new Option('Custom combination', 'custom'));
+$('useSelect').addEventListener('change', () => {
+  const mode = APPLICATION_MODES.find(item => item.id === $('useSelect').value);
+  if (mode) updateSettings(mode.settings);
+});
+for (const id of ['bodyEnabled', 'processingEnabled', 'resynthesisEnabled', 'reverbEnabled']) {
+  $(id).addEventListener('change', () => updateSettings({ [id]: $(id).checked }));
+}
+for (const [id, bank] of [['reverbCharacter', REVERB_CHARACTERS], ['resynthesisCharacter', RESYNTHESIS_CHARACTERS]]) {
+  $(id).replaceChildren(new Option('Custom', ''), ...bank.map(item => new Option(item.label, item.id)));
+  $(id).addEventListener('change', () => {
+    const character = bank.find(item => item.id === $(id).value);
+    if (character) updateSettings(character.settings);
+  });
+}
+$('filterType').addEventListener('change', () => updateSettings({ filterType: $('filterType').value }));
+$('excitationType').addEventListener('change', () => {
+  const excitationType = $('excitationType').value;
+  const duration = { impulse: 1, 'white-noise': 30, 'pink-noise': 30, pluck: 18, 'soft-mallet': 8, 'hard-mallet': 3 };
+  updateSettings({ excitationType, excitationDurationMs: duration[excitationType] });
+});
 $('audioButton').addEventListener('click', () => void toggleAudio());
 $('pluckButton').addEventListener('click', () => trigger());
 $('outputLevel').addEventListener('input', () => {
@@ -459,10 +531,13 @@ $('backendSelect').addEventListener('change', () => {
   state.requestedBackend = $('backendSelect').value; state.node?.port.postMessage({ type: 'backend', backend: state.requestedBackend });
 });
 $('inputSample').replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample · /, ''), option.id)));
-for (const [id, label] of [['inputSource', 'Source'], ['inputSample', 'Sample'], ['surroundLayout', 'Speakers'], ['spaceTarget', 'Spread'], ['spacePattern', 'Order']]) choices.set(id, enhanceChooseSelect($(id), { label }));
+for (const [id, label] of [['inputSource', 'Source'], ['inputSample', 'Sample'], ['useSelect', 'Use'], ['excitationType', 'Excite'],
+  ['filterType', 'Filter'], ['presetSelect', 'Material'], ['reverbCharacter', 'Reverb character'], ['resynthesisCharacter', 'Resynthesis character'],
+  ['surroundLayout', 'Speakers'], ['spaceTarget', 'Spread'], ['spacePattern', 'Order']]) choices.set(id, enhanceChooseSelect($(id), { label }));
 $('inputSource').addEventListener('change', () => {
   const mode = $('inputSource').value;
-  stopMic(); void changeInput(() => recordedInput.selectMode(mode === 'sample-file' ? 'samples' : mode), true);
+  state.inputKind = mode;
+  stopMic(); void changeInput(() => recordedInput.selectMode(mode === 'sample-file' ? 'samples' : mode === 'excitation' ? 'mic' : mode), true);
 });
 $('inputSample').addEventListener('change', () => void changeInput(() => recordedInput.selectSample($('inputSample').value), true));
 $('inputLoop').addEventListener('change', () => recordedInput.setLoop($('inputLoop').checked));
@@ -472,7 +547,16 @@ $('inputPlay').addEventListener('click', () => {
 });
 $('inputFile').addEventListener('change', () => {
   const file = $('inputFile').files?.[0]; if (!file) return;
-  stopMic(); void changeInput(() => recordedInput.loadFile(file)); $('inputFile').value = '';
+  void changeInput(async () => {
+    const loading = recordedInput.loadFile(file);
+    // loadFile validates before changing its mode. Keep the previous source
+    // and label when it rejects an empty or oversized file.
+    if (recordedInput.snapshot().mode === 'file') {
+      state.inputKind = 'file'; stopMic();
+      renderInput();
+    }
+    await loading;
+  }); $('inputFile').value = '';
 });
 $('chooseInputFile').addEventListener('click', () => $('inputFile').click());
 $('surroundEnabled').addEventListener('change', () => routeSurround({ enabled: $('surroundEnabled').checked }));
@@ -482,7 +566,7 @@ for (const id of ['spaceTarget', 'spacePattern']) $(id).addEventListener('change
 $('spaceMotion').addEventListener('change', () => updateSettings({ spaceMotion: $('spaceMotion').checked }));
 $('resetButton').addEventListener('click', () => {
   for (const knob of knobs) knob.cancelGesture();
-  state.node?.port.postMessage({ type: 'reset' }); updateSettings({ ...DEFAULTS, ...SPATIAL_PRESET_DEFAULTS }); showError();
+  state.node?.port.postMessage({ type: 'reset' }); updateSettings(DEFAULT_PRESET_SETTINGS); showError();
 });
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) {
@@ -519,7 +603,9 @@ globalThis.__MORPHAZOID_RUST_RESONATOR__ = Object.freeze({
   getState: () => ({ audioOn: state.armed && state.ready, audioReady: state.ready, audioStarting: state.starting || state.arming,
     contextState: state.context?.state || 'none', contextTime: state.context?.currentTime || 0, backend: state.backend,
     maxModes: MAX_MODES, workCount: state.settings.modeCount, settings: { ...state.settings }, micOn: Boolean(state.micStream),
-    input: recordedInput.snapshot(), inputPlaybackRevision: state.inputRevision, inputGain: Number(inputControl.gainInput.value),
+    input: { ...recordedInput.snapshot(), mode: state.inputKind === 'excitation' ? 'excitation' : recordedInput.snapshot().mode },
+    inputKind: state.inputKind, application: applicationForSettings(state.settings),
+    signal: signalConfiguration(), inputPlaybackRevision: state.inputRevision, inputGain: Number(inputControl.gainInput.value),
     outputLevel: Number($('outputLevel').value), fullPresetId: presetController?.selectedId, peak: state.peak, rms: state.rms,
     renderedFrames: state.telemetry.renderedFrames || 0, renderedModeCount: state.telemetry.modeCount || 0, callbackMicros: state.telemetry.callbackMicros || 0,
     callbackMaxMicros: state.telemetry.callbackMaxMicros || 0, callbackOverruns: state.telemetry.callbackOverruns || 0,

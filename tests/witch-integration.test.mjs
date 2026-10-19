@@ -6,6 +6,7 @@ import { CANONICAL_PAGE_ROUTES } from "../src/pages/manifest.js";
 import { instrumentById } from "../src/site/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
+import { restoreRezoidinatorModesSite } from "./helpers/rezoidinator-modes-site-reference.mjs";
 import { restoreWitchSite, witchSiteChanges } from "./helpers/witch-site-reference.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -31,7 +32,8 @@ test("Witch is a WIP gesture instrument with shared MIDI controls and no generic
 test("Witch additions preserve the preceding shared source and expose unknown drift", async () => {
   assert.match(witchSiteChanges.baseCommit, /^[0-9a-f]{40}$/);
   for (const change of witchSiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), "utf8");
+    // Main gained independent Rezoidinator and mobile-menu additions.
+    const source = restoreRezoidinatorModesSite(await readFile(new URL(change.file, root), "utf8"), change.file, { allowRestored: true });
     const restored = restoreWitchSite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     assert.equal(restoreWitchSite(restored, change.file, { allowRestored: true }), restored);

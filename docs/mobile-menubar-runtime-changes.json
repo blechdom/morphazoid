@@ -1,0 +1,40 @@
+{
+  "baseCommit": "aacc4c901d2da4548c4d70453ce93cae27d1d959",
+  "description": "Presentation-only mobile menubar installation, stylesheet and explicit release paths, including instrument-owned native audio pages. Existing navigation and audio code is unchanged.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "sha256": "7365c8ca1d8bbc86869443f481347fa47399164a170dd3bfebb6f2c8af5ba213",
+      "replacements": [
+        {
+          "before": "",
+          "after": "import { initializeMobileMenubars } from \"./src/site/mobile-menubar.js\";\n"
+        },
+        {
+          "before": "",
+          "after": "\n// Presentation is shared even by pages with instrument-owned native audio.\nif (typeof document !== \"undefined\") initializeMobileMenubars(document, globalThis);\n"
+        }
+      ]
+    },
+    {
+      "file": "style.css",
+      "sha256": "91dcdbffe8940016cda5e5aaefc0d11ed92191810e0abd16c00161d12a29d5e8",
+      "replacements": [
+        {
+          "before": "",
+          "after": "@import url(\"./src/site/mobile-menubar.css\");\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "586316732fb13d09b0100e9934a6f55477b4a3dd1eff18c8b979f29139358ebc",
+      "replacements": [
+        {
+          "before": "",
+          "after": "\n# Compact shared mobile menubar\ncopy+require\tsrc/site/mobile-menubar.js\ncopy+require\tsrc/site/mobile-menubar.css\ncopy+require\tdocs/mobile-menubar.md\n"
+        }
+      ]
+    }
+  ]
+}
