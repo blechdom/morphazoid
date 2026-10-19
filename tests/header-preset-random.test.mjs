@@ -1,3 +1,5 @@
+import { captureHiccupHeadPresetState, applyHiccupHeadPresetState } from "../src/instruments/hiccup-head/full-presets.js";
+import { captureCreaturazoidPresetState, applyCreaturazoidPresetState } from "../src/instruments/creaturazoid/full-presets.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -54,7 +56,7 @@ const cases = [
     validate(s) { validateShapePresetParameters(s.parameters); } },
   { id: "hiccup-head", bank: HICCUP_HEAD_FULL_PRESETS, randomize: randomizeHiccupHeadPreset, level: s => s.state.level,
     validate(s) {
-      assert.deepEqual(s.state, sanitizeHiccupHeadState(s.state));
+      assert.deepEqual(s.state, captureHiccupHeadPresetState(sanitizeHiccupHeadState(s.state)));
       assert.deepEqual(s.pattern, clonePattern(s.pattern));
       assert.equal(s.currentPatternId, "custom");
       assert.ok(HICCUP_HEAD_FULL_PRESETS.some(p => p.snapshot.visualSkinId === s.visualSkinId));
@@ -63,7 +65,7 @@ const cases = [
     } },
   { id: "creaturazoid", bank: CREATURAZOID_FULL_PRESETS, randomize: randomizeCreaturazoidPreset, level: s => s.state.level,
     validate(s) {
-      assert.deepEqual(s.state, sanitizeCreaturazoidState(s.state));
+      assert.deepEqual(s.state, captureCreaturazoidPresetState(sanitizeCreaturazoidState(s.state)));
       assert.deepEqual(s.pattern, sanitizeCreaturazoidPattern(s.pattern, s.pattern.length));
       assert.equal(s.state.patternLength, s.pattern.length);
       assert.equal(s.modulationTarget, s.state.modulationTarget);
@@ -133,7 +135,11 @@ test("randomization preserves zero output and does not serialize device/runtime 
     else if (current.settings && "level" in current.settings) current.settings.level = 0;
     else current.level = 0;
     const result = entry.randomize(current, seeded(9001));
-    assert.equal(entry.level(result), 0, entry.id);
+    if (entry.id === "creaturazoid" || entry.id === "hiccup-head") {
+      assert.equal(Object.hasOwn(result.state, "level"), false);
+      const apply = entry.id === "creaturazoid" ? applyCreaturazoidPresetState : applyHiccupHeadPresetState;
+      assert.equal(apply(result.state, { level: 0 }).level, 0, entry.id);
+    } else assert.equal(entry.level(result), 0, entry.id);
     assert.deepEqual(Object.keys(result).sort(), Object.keys(current).sort());
     const key = presetStateKey(result);
     assert.doesNotMatch(key, /"(?:audio|audioOn|audioContext|sequencePlaying|midiEnabled|webcam|camera)":/);

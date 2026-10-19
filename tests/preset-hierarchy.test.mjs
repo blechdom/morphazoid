@@ -1,3 +1,4 @@
+import { captureHiccupHeadPresetState, applyHiccupHeadPresetState } from "../src/instruments/hiccup-head/full-presets.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -79,9 +80,10 @@ test("Hiccup main scenes include every built-in skin, never automatic webcam cap
 test("main scenes explicitly vary decay, eyes, hair, stereo and bypasses within original limits", () => {
   const states = HICCUP_HEAD_FULL_PRESETS.map(p => p.snapshot.state);
   for (const state of states) {
-    assert.deepEqual(sanitizeHiccupHeadState(state), state);
-    assert.deepEqual(Object.keys(state).sort(), Object.keys(hiccupHeadState()).sort());
+    assert.deepEqual(captureHiccupHeadPresetState(sanitizeHiccupHeadState(state)), state);
+    assert.deepEqual(Object.keys(state).sort(), Object.keys(captureHiccupHeadPresetState(hiccupHeadState())).sort());
     for (const [key, [min, max]] of Object.entries(HICCUP_HEAD_LIMITS)) {
+      if (key === "level") { assert.equal(Object.hasOwn(state, key), false); continue; }
       assert.ok(state[key] >= min && state[key] <= max, key);
     }
   }

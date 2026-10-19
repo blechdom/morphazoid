@@ -13,7 +13,7 @@ import { amplitudeEnvelopePreset, percussionEnvelopeTimeMs, VoicePool } from "..
 import { graphDrumTriggerPlan } from "../src/families/graph/graph-drum-audio.js";
 import { presetStateKey, validateFullPresetBank } from "../src/site/header-presets.js";
 const amplitude = { enabled: true, swell: false, preset: "sustain", level: 1, points: amplitudeEnvelopePreset("sustain") };
-const makeState = snapshot => Object.assign(createDefaultState(), snapshot.shared, { mode: snapshot.mode, ...(snapshot.mic ? { mic: snapshot.mic } : { synth: snapshot.synth, drums: snapshot.drums }) });
+const makeState = snapshot => Object.assign(createDefaultState(), snapshot.shared, { mode: snapshot.mode, ...(snapshot.mic ? { mic: snapshot.mic } : { synth: snapshot.synth, drums: snapshot.drums, corners: snapshot.corners }) });
 const rng = seed => () => ((seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 2 ** 32);
 
 test("48 diverse synth/trigger scenes and the separate 16-scene Delay bank are complete", () => {

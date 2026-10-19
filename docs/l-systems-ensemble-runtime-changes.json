@@ -1,0 +1,151 @@
+{
+  "description": "Recover L-Systems natural/region readers, image-derived pitch, branch envelopes, corner controls and balanced scene pacing while preserving newer input and output lifecycle work. Reverse before shared audio-input amendments; frozen relocation references stay unchanged.",
+  "baseCommit": "beb1ea80",
+  "changes": [
+    {
+      "file": "src/instruments/l-systems/l-systems-app.js",
+      "baselineSha256": "7f9fc2226d852155e9ee867b63c7b00c129f377527990c9259160f1ac692fc28",
+      "regressionTests": [
+        "tests/l-systems-corners.test.mjs",
+        "tests/l-systems-ensemble.test.mjs",
+        "tests/l-systems-notes.test.mjs",
+        "e2e/l-systems-corners.spec.mjs",
+        "e2e/l-systems-ensemble.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import {\n  clamp,\n  pitch01ToFrequency,\n  synthParametersForMode,\n} from \"../../audio.js\";\n",
+          "after": "import {\n  clamp,\n  synthParametersForMode,\n} from \"../../audio.js\";\n"
+        },
+        {
+          "before": "import {\n  advanceLSystemTraversal,\n  branchAngleFrequency,\n  branchVoiceGain,\n  iterationPlaybackAtPhase,\n  iterationPlaybackPhaseRate,\n  L_SYSTEM_PRESETS,\n",
+          "after": "import {\n  advanceLSystemTraversal,\n  branchVoiceGain,\n  iterationPlaybackAtPhase as originalIterationPlaybackAtPhase,\n  iterationPlaybackPhaseRate,\n  L_SYSTEM_PRESETS,\n"
+        },
+        {
+          "before": "} from \"./l-systems-suite.js\";\nimport { LSystemEventClock, L_SYSTEM_NOTE_VOICES, lSystemNoteDuration, lSystemNoteEnvelope, lSystemNoteVoice } from \"./discrete-audio.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nimport { createDefaultState } from \"./state.js\";\n",
+          "after": "} from \"./l-systems-suite.js\";\nimport { LSystemEventClock, L_SYSTEM_NOTE_VOICES, lSystemNoteDuration, lSystemNoteEnvelope, lSystemNoteVoice } from \"./discrete-audio.js\";\nimport { lSystemsPlaybackAtPhase, lSystemsPlaybackHeads, lSystemsFrequency } from \"./ensemble.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nimport { DEFAULT_CORNER_STATE, lSystemsCornerGain, lSystemsCornerPulse, lSystemsCornerPoints } from \"./corners.js\";\n\nimport { createDefaultState } from \"./state.js\";\n"
+        },
+        {
+          "before": "const MODE_COPY = Object.freeze({\n  continuous: Object.freeze({\n    map: \"ANGLE PITCH\",\n  }),\n  notes: Object.freeze({\n",
+          "after": "const MODE_COPY = Object.freeze({\n  continuous: Object.freeze({\n    map: \"GEOMETRY PITCH\",\n  }),\n  notes: Object.freeze({\n"
+        },
+        {
+          "before": "]);\nconst STRUCTURE_DESCRIPTIONS = Object.freeze({\n  final: \"Only the final rewritten structure is scanned.\",\n  sequence: \"Each generation gets a turn in one shared transport loop.\",\n  accumulate: \"Earlier generations stay visible while the active generation advances.\",\n",
+          "after": "]);\nconst STRUCTURE_DESCRIPTIONS = Object.freeze({\n  final: \"Trace the final structure from one end to the other; playheads split at branches.\",\n  sequence: \"Each generation gets a turn in one shared transport loop.\",\n  accumulate: \"Earlier generations stay visible while the active generation advances.\",\n"
+        },
+        {
+          "before": "}\n\nasync function setMode(modeId) {\n  const requestedMode = lSystemPlayingModeFor(modeId);\n  const nextMode = requestedMode.id;\n",
+          "after": "}\n\nasync function setMode(modeId, { restart = false } = {}) {\n  const requestedMode = lSystemPlayingModeFor(modeId);\n  const nextMode = requestedMode.id;\n"
+        },
+        {
+          "before": "    text(\"liveStatus\", `${activeMode().title} selected`);\n  }\n  scheduleFrame();\n}\n",
+          "after": "    text(\"liveStatus\", `${activeMode().title} selected`);\n  }\n  // Engine preparation invalidates old event frontiers. A scene recall still\n  // owes its new root an initial hit once the requested engine is ready.\n  if (restart && state.mode === nextMode) restartTraversal();\n  scheduleFrame();\n}\n"
+        },
+        {
+          "before": "  state.traversalBehavior = defaults.traversalBehavior;\n  state.structureMode = defaults.structureMode;\n  updateIterationLimit();\n  syncRangeBindings();\n",
+          "after": "  state.traversalBehavior = defaults.traversalBehavior;\n  state.structureMode = defaults.structureMode;\n  state.readerMode = defaults.readerMode;\n  updateIterationLimit();\n  syncRangeBindings();\n"
+        },
+        {
+          "before": "  Object.assign(state, next);\n  state.synth = { ...next.synth };\n  state.drums = { ...next.drums };\n  state.mic = { ...next.mic };\n",
+          "after": "  Object.assign(state, next);\n  state.synth = { ...next.synth };\n  state.corners = { ...next.corners };\n  state.drums = { ...next.drums };\n  state.mic = { ...next.mic };\n"
+        },
+        {
+          "before": "}\n\nfunction applyPresetDefaults() {\n  const preset = currentPreset();\n",
+          "after": "}\n\nfunction restartTraversal(direction = state.direction) {\n  state.direction = direction;\n  state.position = direction < 0 ? 1 - 1e-9 : 0;\n  discreteClock?.configure({ position: state.position, direction, restart: true });\n  discreteIncludeStart = true;\n  lastFrameTime = performance.now();\n  $(\"position\").value = String(state.position);\n}\n\nfunction applyPresetDefaults() {\n  const preset = currentPreset();\n"
+        },
+        {
+          "before": "    : state.lengthScale;\n  state.turnAsymmetry = 0;\n  syncRangeBindings();\n  updateIterationLimit();\n",
+          "after": "    : state.lengthScale;\n  state.turnAsymmetry = 0;\n  Object.assign(state, { childTimeRatio: 1, mutation: 0, branchDecay: 1, pruningBias: 0,\n    structureMode: \"final\", readerMode: \"end-to-end\", traversalBehavior: \"loop\" });\n  restartTraversal(1);\n  syncSelects();\n  syncRangeBindings();\n  updateIterationLimit();\n"
+        },
+        {
+          "before": "  $(\"preset\").value = state.presetId;\n  $(\"structureMode\").value = state.structureMode;\n  $(\"mixPreset\").value = state.mix.presetId;\n  $(\"pitchSource\").value = state.synth.pitchSource;\n",
+          "after": "  $(\"preset\").value = state.presetId;\n  $(\"structureMode\").value = state.structureMode;\n  $(\"readerMode\").value = state.readerMode;\n  $(\"hitPlacement\").value = state.corners.placement;\n  $(\"mixPreset\").value = state.mix.presetId;\n  $(\"pitchSource\").value = state.synth.pitchSource;\n"
+        },
+        {
+          "before": "  text(\"synthBankTitle\", state.mode === \"notes\" ? \"Notes\" : \"Continuous\");\n  const generationMic = isGenerationMic();\n  $(\"subdivisionsControl\").hidden = generationMic || ![\"notes\", \"triggers\", \"mic\"].includes(state.mode);\n  for (const id of [\"speed\", \"position\"]) $(id).closest(\"label\").hidden = generationMic;\n  $(\"playheadMotion\").hidden = generationMic;\n  $(\"structureRack\").hidden = generationMic;\n  $(\"lengthScale\").closest(\"label\").hidden = state.geometryModel === \"generations\";\n  $(\"taperNote\").hidden = state.geometryModel === \"generations\";\n",
+          "after": "  text(\"synthBankTitle\", state.mode === \"notes\" ? \"Notes\" : \"Continuous\");\n  const generationMic = isGenerationMic();\n  const cornerHitsOnly = [\"notes\", \"triggers\"].includes(state.mode) && state.corners.placement === \"corners\";\n  $(\"subdivisionsControl\").hidden = cornerHitsOnly || generationMic || ![\"notes\", \"triggers\", \"mic\"].includes(state.mode);\n  for (const id of [\"speed\", \"position\"]) $(id).closest(\"label\").hidden = generationMic;\n  $(\"playheadMotion\").hidden = generationMic;\n  $(\"structureRack\").hidden = generationMic;\n  $(\"cornersRack\").hidden = state.mode === \"mic\";\n  $(\"hitPlacement\").closest(\"label\").hidden = state.mode === \"continuous\";\n  for (const id of [\"cornerEmphasis\", \"cornerWidth\"]) $(id).closest(\"label\").hidden = cornerHitsOnly;\n  $(\"readerMode\").closest(\"label\").hidden = state.mode === \"mic\";\n  $(\"lengthScale\").closest(\"label\").hidden = state.geometryModel === \"generations\";\n  $(\"taperNote\").hidden = state.geometryModel === \"generations\";\n"
+        },
+        {
+          "before": "  $(\"noteDuration\").closest(\"label\").hidden = state.mode !== \"notes\" || state.synth.articulation !== \"fixed\";\n  const hasBranches = iterationTraces.at(-1)?.maxForkDepth > 0;\n  for (const id of [\"branchDecay\", \"pruningBias\"]) $(id).closest(\"label\").hidden = !hasBranches && !generationMic;\n  $(\"pruningNote\").hidden = !hasBranches && !generationMic;\n",
+          "after": "  $(\"noteDuration\").closest(\"label\").hidden = state.mode !== \"notes\" || state.synth.articulation !== \"fixed\";\n  const hasBranches = iterationTraces.at(-1)?.maxForkDepth > 0;\n  $(\"pitchSource\").querySelector('[value=\"depth\"]').textContent = hasBranches ? \"Branch depth\" : \"Path distance\";\n  for (const id of [\"branchDecay\", \"pruningBias\"]) $(id).closest(\"label\").hidden = !hasBranches && !generationMic;\n  $(\"pruningNote\").hidden = !hasBranches && !generationMic;\n"
+        },
+        {
+          "before": "          : `final I${finalIteration}`;\n  text(\"structureReadout\", label.toUpperCase());\n  text(\"structureDescription\", STRUCTURE_DESCRIPTIONS[state.structureMode] ?? STRUCTURE_DESCRIPTIONS.final);\n  text(\"positionOut\", state.structureMode === \"sequence\"\n    ? `I${playback.activeIteration} - ${(localPhase * 100).toFixed(1)}%`\n",
+          "after": "          : `final I${finalIteration}`;\n  text(\"structureReadout\", label.toUpperCase());\n  text(\"structureDescription\", state.mode !== \"mic\" && state.readerMode === \"regions\"\n    ? \"Three readers scan separate regions; each still splits at real branches.\"\n    : STRUCTURE_DESCRIPTIONS[state.structureMode] ?? STRUCTURE_DESCRIPTIONS.final);\n  text(\"positionOut\", state.structureMode === \"sequence\"\n    ? `I${playback.activeIteration} - ${(localPhase * 100).toFixed(1)}%`\n"
+        },
+        {
+          "before": "}\n\nfunction playbackHeads(playback) {\n  return playback.entries.flatMap((entry) => entry.snapshot.heads.map((head) => ({\n    ...head,\n    iteration: entry.iteration,\n    localPhase: entry.localPhase,\n    sourceTrace: entry.trace,\n    snapshotDistance: entry.snapshot.distance,\n  })));\n}\n\n",
+          "after": "}\n\nfunction iterationPlaybackAtPhase(traces, phase, mode) {\n  return state.mode === \"mic\"\n    ? originalIterationPlaybackAtPhase(traces, phase, mode)\n    : lSystemsPlaybackAtPhase(traces, phase, mode, state.readerMode);\n}\n\nfunction playbackHeads(playback) {\n  return lSystemsPlaybackHeads(playback);\n}\n\n"
+        },
+        {
+          "before": "    const sourceDepth = Math.max(1, entry.trace.maxForkDepth);\n    const iterationHue = baseHue + entryIndex * 96 / Math.max(1, playback.entries.length - 1);\n    entry.trace.segments.forEach((segment) => {\n      const depth = segment.forkDepth / sourceDepth;\n      const completed = isGenerationMic() || segment.endDistance <= entry.snapshot.distance;\n      drawSegment(\n        segment,\n",
+          "after": "    const sourceDepth = Math.max(1, entry.trace.maxForkDepth);\n    const iterationHue = baseHue + entryIndex * 96 / Math.max(1, playback.entries.length - 1);\n    if (state.mode !== \"mic\" && (state.corners.emphasis > 0 || (state.mode !== \"continuous\" && state.corners.placement === \"corners\"))) {\n      context.strokeStyle = `hsla(${iterationHue+24},85%,72%,.55)`;\n      context.lineWidth = 1;\n      for (const point of lSystemsCornerPoints(entry.trace,state.corners.minimumAngle,Math.max(1,Math.floor(192/playback.entries.length)))) {\n        const x=transform.x(point),y=transform.y(point),r=2.4;\n        context.beginPath();context.moveTo(x,y-r);context.lineTo(x+r,y);context.lineTo(x,y+r);context.lineTo(x-r,y);context.closePath();context.stroke();\n      }\n    }\n    entry.trace.segments.forEach((segment) => {\n      const depth = segment.forkDepth / sourceDepth;\n      const completed = isGenerationMic() || (entry.snapshot.regions\n        ? entry.snapshot.regions.some(region => segment.endDistance > region.startDistance && segment.endDistance <= region.distance)\n        : segment.endDistance <= entry.snapshot.distance);\n      drawSegment(\n        segment,\n"
+        },
+        {
+          "before": "      { start: playhead.segment.start, end: playhead },\n      transform,\n      `hsla(${baseHue + 18 + depth * 75}, 92%, 72%, .95)`,\n      Math.max(1, 2.3 - depth * 0.45),\n    );\n",
+          "after": "      { start: playhead.segment.start, end: playhead },\n      transform,\n      `hsla(${baseHue + 18 + depth * 75 + (playhead.reader ?? 0) * 48}, 92%, 72%, .95)`,\n      Math.max(1, 2.3 - depth * 0.45),\n    );\n"
+        },
+        {
+          "before": "          ? \"#d7ef7f\"\n          : \"#5fe8c4\";\n    context.shadowBlur = playheads.length <= 32 ? 18 : 8;\n    context.beginPath();\n    context.arc(x, y, headRadius, 0, TAU);\n    context.fillStyle = \"#fff7df\";\n    context.fill();\n    context.restore();\n  }\n}\n\nfunction synthPitchValue(playhead, normalized) {\n  if (state.synth.pitchSource === \"angle\") return null;\n  if (state.synth.pitchSource === \"depth\") {\n    return playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);\n  }\n  if (state.synth.pitchSource === \"progress\") return playhead.localPhase;\n  return normalized.y;\n}\n\n",
+          "after": "          ? \"#d7ef7f\"\n          : \"#5fe8c4\";\n    const cornerGlow = state.mode === \"mic\" ? 0 : state.corners.emphasis * lSystemsCornerPulse(playhead,state.corners);\n    context.shadowBlur = (playheads.length <= 32 ? 18 : 8) + 8 * cornerGlow;\n    context.beginPath();\n    context.arc(x, y, headRadius + 2 * cornerGlow, 0, TAU);\n    context.fillStyle = playhead.reader === undefined ? \"#fff7df\" : `hsl(${baseHue + playhead.reader * 48}, 90%, 78%)`;\n    context.fill();\n    context.restore();\n  }\n}\n\n"
+        },
+        {
+          "before": "  const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);\n  const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);\n  const mappedPitch = synthPitchValue(playhead, normalized);\n  const frequency = state.synth.pitchSource === \"angle\"\n    ? branchAngleFrequency(playhead.cumulativeTurn, state.synth.baseFrequency, state.synth.pitchRange)\n    : pitch01ToFrequency(mappedPitch, state.synth.baseFrequency, state.synth.pitchRange);\n  const topologyBoundaryBehavior = (\n    state.traversalBehavior === \"ping-pong\"\n",
+          "after": "  const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);\n  const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);\n  const frequency = lSystemsFrequency(playhead, state.synth);\n  const topologyBoundaryBehavior = (\n    state.traversalBehavior === \"ping-pong\"\n"
+        },
+        {
+          "before": "      * branchDecayGain(playhead.depth, state.branchDecay)\n      * lSystemTimbreGain(state.synth.soundMode)\n      * amplitudeControl.sample(playhead.progress ?? 0, 1)\n      * lSystemTraversalBoundaryGain(playhead.localPhase, topologyBoundaryBehavior),\n    pan: clamp((normalized.x * 2 - 1) * state.synth.stereoSpread, -1, 1),\n    waveform: \"sine\",\n",
+          "after": "      * branchDecayGain(playhead.depth, state.branchDecay)\n      * lSystemTimbreGain(state.synth.soundMode)\n      * lSystemsCornerGain(playhead, state.corners)\n      // The tree is a score: repeat the envelope on each segment, not once\n      // over the whole traversal. Voice keys still carry smoothly across forks.\n      * amplitudeControl.sample(playhead.progress ?? 0, 1)\n      * lSystemTraversalBoundaryGain(playhead.readerPhase ?? playhead.localPhase, topologyBoundaryBehavior),\n    pan: clamp((normalized.x * 2 - 1) * state.synth.stereoSpread, -1, 1),\n    waveform: \"sine\",\n"
+        },
+        {
+          "before": "function updateSynthAudio(playheads, phaseRate, now) {\n  const lookahead = 0.065;\n  const futurePhase = advanceLSystemTraversal(\n    state.position,\n    state.direction,\n    phaseRate * lookahead,\n    state.traversalBehavior,\n  ).position;\n  const futurePlayback = iterationPlaybackAtPhase(\n    iterationTraces,\n",
+          "after": "function updateSynthAudio(playheads, phaseRate, now) {\n  const lookahead = 0.065;\n  const futurePhase = discreteClock\n    ? discreteClock.positionAt(synthPool.context.currentTime + lookahead).position\n    : advanceLSystemTraversal(state.position, state.direction,\n      phaseRate * lookahead, state.traversalBehavior).position;\n  const futurePlayback = iterationPlaybackAtPhase(\n    iterationTraces,\n"
+        },
+        {
+          "before": "    eventCount,\n  });\n  const descendantGain = branchDecayGain(event.depth, state.branchDecay);\n  if (descendantGain === 0) return;\n  const voice = lSystemsPercussionVoice({ ...mappedVoice, voiceIndex, level: mappedVoice.level * descendantGain }, { style: state.drums.percussionStyle });\n",
+          "after": "    eventCount,\n  });\n  const descendantGain = branchDecayGain(event.depth, state.branchDecay) * lSystemsCornerGain(event,state.corners,true);\n  if (descendantGain === 0) return;\n  const voice = lSystemsPercussionVoice({ ...mappedVoice, voiceIndex, level: mappedVoice.level * descendantGain }, { style: state.drums.percussionStyle });\n"
+        },
+        {
+          "before": "  if (!discreteClock || !discreteContext || discreteContext.state !== \"running\") return;\n  const entries = discreteClock.read(discreteContext.currentTime);\n  if (!entries.length) return;\n  if (state.mode === \"notes\") triggerNoteEvents(entries);\n",
+          "after": "  if (!discreteClock || !discreteContext || discreteContext.state !== \"running\") return;\n  const entries = discreteClock.read(discreteContext.currentTime);\n  if (state.mode === \"continuous\") {\n    syncDiscretePosition();\n    const playback = iterationPlaybackAtPhase(iterationTraces, drawableTraversalPhase(state.position), state.structureMode);\n    updateSynthAudio(playbackHeads(playback), state.speed, discreteContext.currentTime * 1000);\n    return;\n  }\n  if (!entries.length) return;\n  if (state.mode === \"notes\") triggerNoteEvents(entries);\n"
+        },
+        {
+          "before": "function syncDiscreteScheduler() {\n  const eligible = state.audio && audioReady && state.playing\n    && [\"notes\", \"triggers\"].includes(state.mode);\n  if (!eligible) return;\n  const configuration = {\n    traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior,\n    structureMode: state.structureMode, subdivisions: state.drums.subdivisions,\n    mappingMode: state.drums.mappingMode, pruningBias: state.pruningBias, maxPhaseStep: drumTraversalStepSize,\n  };\n",
+          "after": "function syncDiscreteScheduler() {\n  const eligible = state.audio && audioReady && state.playing\n    && [\"continuous\", \"notes\", \"triggers\"].includes(state.mode);\n  if (!eligible) return;\n  const configuration = {\n    traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior, playingMode: state.mode,\n    structureMode: state.structureMode, readerMode: state.readerMode, subdivisions: state.drums.subdivisions,\n    hitPlacement: state.corners.placement, cornerThreshold: state.corners.minimumAngle,\n    mappingMode: state.drums.mappingMode, pruningBias: state.pruningBias, maxPhaseStep: drumTraversalStepSize,\n  };\n"
+        },
+        {
+          "before": "    return;\n  }\n  if (!(state.speed > 0)) return;\n  const audioContext = state.mode === \"notes\" ? synthPool.context : drumAudio.context;\n  if (!audioContext || audioContext.state !== \"running\") return;\n  discreteContext = audioContext;\n",
+          "after": "    return;\n  }\n  if (!(state.speed > 0) && state.mode !== \"continuous\") return;\n  const audioContext = state.mode === \"triggers\" ? drumAudio.context : synthPool.context;\n  if (!audioContext || audioContext.state !== \"running\") return;\n  discreteContext = audioContext;\n"
+        },
+        {
+          "before": "\n  if (state.audio && state.playing && state.mode === \"continuous\") {\n    updateSynthAudio(playheads, phaseRate, now);\n  } else if (state.audio && state.playing && state.mode === \"notes\") {\n    // Timed notes own their envelopes; do not clear them on each paint.\n",
+          "after": "\n  if (state.audio && state.playing && state.mode === \"continuous\") {\n    // The independent audio clock submits trajectories; paint only follows it.\n    paintSynthReadouts(playheads.length, lastSoundingVoiceCount);\n  } else if (state.audio && state.playing && state.mode === \"notes\") {\n    // Timed notes own their envelopes; do not clear them on each paint.\n"
+        },
+        {
+          "before": "  try {\n    Object.assign(state, snapshot.shared);\n    if (snapshot.mode === \"mic\") {\n      Object.assign(state.mic, snapshot.mic);\n",
+          "after": "  try {\n    Object.assign(state, snapshot.shared);\n    if (snapshot.mode !== \"mic\") {\n      state.readerMode = snapshot.shared.readerMode ?? \"end-to-end\";\n      state.corners = { ...(snapshot.corners ?? DEFAULT_CORNER_STATE) };\n      restartTraversal();\n    }\n    if (snapshot.mode === \"mic\") {\n      Object.assign(state.mic, snapshot.mic);\n"
+        },
+        {
+          "before": "  // setMode changes the snapshot's mode synchronously; async engine preparation\n  // is only necessary across routes, never for an ordinary same-mode recall.\n  if (snapshot.mode !== previousMode) void setMode(snapshot.mode);\n  paintReadoutOnly();\n  scheduleFrame();\n",
+          "after": "  // setMode changes the snapshot's mode synchronously; async engine preparation\n  // is only necessary across routes, never for an ordinary same-mode recall.\n  if (snapshot.mode !== previousMode) void setMode(snapshot.mode, { restart: snapshot.mode !== \"mic\" });\n  paintReadoutOnly();\n  scheduleFrame();\n"
+        },
+        {
+          "before": "  bindRange(\"position\", \"position\", (value) => `${(value * 100).toFixed(1)}%`,\n    (position) => discreteClock?.configure({ position }));\n  bindRange(\"speed\", \"speed\", (value) => `${Number(value).toFixed(2)} cyc/s`);\n  bindRange(\"iterations\", \"iterations\", (value) => String(Math.round(value)), (value) => {\n    state.iterations = Math.round(value);\n",
+          "after": "  bindRange(\"position\", \"position\", (value) => `${(value * 100).toFixed(1)}%`,\n    (position) => discreteClock?.configure({ position }));\n  bindRange(\"cornerEmphasis\", \"corners.emphasis\", formatPercent, resetVoiceSubmission);\n  bindRange(\"cornerThreshold\", \"corners.minimumAngle\", formatDeg, resetVoiceSubmission);\n  bindRange(\"cornerWidth\", \"corners.width\", value => `${formatPercent(value)} of edge`, resetVoiceSubmission);\n  bindSelect(\"hitPlacement\", \"corners.placement\");\n  bindRange(\"speed\", \"speed\", (value) => `${Number(value).toFixed(value < .01 ? 3 : 2)} cyc/s`);\n  bindRange(\"iterations\", \"iterations\", (value) => String(Math.round(value)), (value) => {\n    state.iterations = Math.round(value);\n"
+        },
+        {
+          "before": "  });\n\n  bindSelect(\"structureMode\", \"structureMode\", () => {\n    refreshDrumTraversalStepSize();\n",
+          "after": "  });\n\n  bindSelect(\"readerMode\", \"readerMode\", resetVoiceSubmission);\n  bindSelect(\"structureMode\", \"structureMode\", () => {\n    refreshDrumTraversalStepSize();\n"
+        },
+        {
+          "before": "function setupAmplitude() {\n  amplitudeControl = createAmplitudeControl($(\"amplitudeControl\"), {\n    label: \"Synth branch amplitude\",\n    onChange: () => {\n      // New notes read the current envelope; sounding and queued notes finish.\n",
+          "after": "function setupAmplitude() {\n  amplitudeControl = createAmplitudeControl($(\"amplitudeControl\"), {\n    label: \"Branch / note amplitude\",\n    onChange: () => {\n      // New notes read the current envelope; sounding and queued notes finish.\n"
+        },
+        {
+          "before": "  setupAmplitude();\n  setupPresetBank();\n  updateIterationLimit();\n  renderDrumMap();\n",
+          "after": "  setupAmplitude();\n  setupPresetBank();\n  syncSelects();\n  updateIterationLimit();\n  renderDrumMap();\n"
+        }
+      ]
+    }
+  ]
+}

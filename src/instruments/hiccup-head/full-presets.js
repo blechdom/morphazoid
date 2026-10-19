@@ -7,6 +7,17 @@ import {
 } from "./hiccup-head.js";
 import { presetRandom, randomParameterValues, randomMonophonicRows } from "../../site/preset-random.js";
 
+// Master volume belongs to the performer, not to a musical scene.
+export function captureHiccupHeadPresetState(state) {
+  const { level, ...musicalState } = state;
+  return musicalState;
+}
+
+export function applyHiccupHeadPresetState(presetState, liveState) {
+  // Ignore a saved level in older snapshots; zero remains a deliberate mute.
+  return sanitizeHiccupHeadState({ ...presetState, level: liveState.level });
+}
+
 // Complete scenes cover all existing face and rhythm choices and all seven
 // sound banks. Main scenes include effects and a built-in visual skin; local
 // face/rhythm/skin selectors remain independent sub-presets.
@@ -139,7 +150,7 @@ export const HICCUP_HEAD_FULL_PRESETS = Object.freeze(scenes.map(([id, label, fa
     id, label,
     description: `${hiccupHeadSoundBank(bank).label}, ${effectScene} effects, ${visualSkinId} skin, complete face/voices and ${tempo} BPM. No automatic Audio, Play or camera.`,
     snapshot: {
-      state: hiccupHeadState(face, { ...effectScenes[effectScene], patternId: rhythm, tempo, swing, level: 0.62 }),
+      state: captureHiccupHeadPresetState(hiccupHeadState(face, { ...effectScenes[effectScene], patternId: rhythm, tempo, swing })),
       pattern, currentPatternId: rhythm, sequenceLength: Math.max(16, Math.ceil((lastStep + 1) / 16) * 16),
       currentSoundBankId: bank, voiceCount: 4, voiceSelectionMode: "round-robin",
       voiceSlots: fullPresetVoiceSlots(bank),
@@ -152,7 +163,7 @@ export const HICCUP_HEAD_FULL_PRESETS = Object.freeze(scenes.map(([id, label, fa
 
 export function randomizeHiccupHeadPreset(current, random = Math.random) {
   const rng = presetRandom(random);
-  const state = sanitizeHiccupHeadState({
+  const state = captureHiccupHeadPresetState(sanitizeHiccupHeadState({
     ...current.state, // IDs are provenance; every numeric musical field is rolled below.
     ...randomParameterValues({
       ...HICCUP_HEAD_LIMITS, lungPressure: [0.45, 1.05], tractLengthM: [0.09, 0.28],
@@ -160,8 +171,8 @@ export function randomizeHiccupHeadPreset(current, random = Math.random) {
       leftHairLength: [0, 0.65], rightHairLength: [0, 0.65], decay: [0.4, 1.5],
       swing: [0, 0.35], humanize: [0, 0.2],
     }, rng),
-    level: current.state.level, tempo: rng.integer(60, 240),
-  });
+    tempo: rng.integer(60, 240),
+  }));
   const sequenceLength = rng.integer(8, 64), voiceCount = rng.integer(1, 8);
   const solo = rng.unit() < 0.25 ? rng.integer(0, voiceCount - 1) : -1;
   const assignments = ["all", ...HICCUP_HEAD_SOUNDS.filter(sound => sound.voiceCapable).map(sound => sound.id)];

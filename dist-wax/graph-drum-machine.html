@@ -166,7 +166,7 @@
               <p class="graph-mapping-description" id="topologyDescription">Several forward-only routes cross between ordered layers.</p>
               <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="32" step="1" value="10" /></label>
               <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
-              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="999" step="1" value="17" /></label>
               <button class="mini-action" id="newGraphButton" type="button">Next seed</button>
               <div class="graph-layout-actions" role="group" aria-label="Topology-preserving node layouts">
                 <button class="mini-action" id="arrangeGraphButton" type="button" title="Restore a stable symmetric layout without changing graph connections">Arrange</button>
@@ -186,7 +186,7 @@
               </button>
               <label class="select-control" for="nodeMotionMode"><span class="field-label">Node path</span><span class="select-shell"><select id="nodeMotionMode"><option value="wiggle" selected>Independent wiggle</option><option value="orbit">Circular orbits</option><option value="random">Random walks</option></select></span></label>
             </div>
-            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.001" value="0.12" /></label>
             <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
             <small class="growth-parameter-note">Motion changes distance, timing, and mapping without launching a new pulse.</small>
           </div>

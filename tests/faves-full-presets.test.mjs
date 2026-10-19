@@ -42,14 +42,14 @@ test("startup retains original settings with voice caps equal to the previous fi
     hyper: { ...before.hyper, voiceLimit: 20 },
     rubix: { ...before.rubix, ...rubixSimdPreset().controls, acidEngine: "simd-303", simdPreset: "color-circuit", simdPresetCustom: false, visibilityDynamics: 1 },
   });
-  const lattice = FAVES_PRESET_CASES.find(entry => entry.id === "lattice").bank[0].snapshot.parameters;
+  const lattice = FAVES_PRESET_CASES.find(entry => entry.id === "lattice").bank.find(preset => preset.id === "ih-20").snapshot.parameters;
   const { audio, playing, position, continuousPosition, ...originalLatticeParameters } = before.lattice;
   assert.deepEqual(lattice, originalLatticeParameters, "Original net must retain the actual original sound parameters");
 });
 
 test("Faves retain implemented batch coverage and explicitly track the newly promoted page-owned banks", async () => {
   // Gesticules, Fractal Synthesis and Puggler retain their dedicated preset and browser coverage.
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "synthesis", "micmic-rust", "fractal-delay", "graphonic-calculator"]);
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "quadruped", "synthesis", "micmic-rust", "fractal-delay", "graphonic-calculator"]);
   // Fractal Delay retains its dedicated complete-preset and browser/audio checks.
   // Native Delay has twenty-six complete scenes and dedicated model/browser coverage.
   // Synthesaurus has a shared preset adapter with dedicated coverage.
@@ -68,7 +68,7 @@ test("Faves retain implemented batch coverage and explicitly track the newly pro
   }
   assert.equal(FAVE_TOOL_IDS[0], "shapes");
   assert.ok(["shape-synth", "solid-synth", "hyper-synth"].every(id => !FAVE_TOOL_IDS.includes(id)));
-  assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 173);
+  assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 217);
 });
 test("dice preserves a muted master on every newly migrated instrument", () => {
   for (const entry of FAVES_PRESET_CASES) {

@@ -26,6 +26,42 @@ const readPreset = page => page.evaluate(async () => {
 });
 const outputLevel = snapshot => snapshot.parameters?.level ?? snapshot.state?.level
   ?? snapshot.settings?.level ?? snapshot.settings?.output ?? snapshot.level;
+
+for (const [id, bank] of banks.slice(0, 2)) {
+  test(`${id}: presets, Next and dice leave live volume and mute outside scene state`, async ({ page, baseURL }) => {
+    const diagnostics = watchPageDiagnostics(page, { baseURL });
+    await page.goto(`${id}.html`);
+    await settlePage(page);
+    for (const armed of [false, true]) {
+      if (armed) {
+        await page.locator("#audioButton").click();
+        await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+        await page.locator("#playButton").click();
+        await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+      }
+      await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", String(armed));
+      for (const level of [0, 0.23]) {
+        await page.locator("#level").evaluate((input, value) => {
+          input.value = String(value);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }, level);
+        for (const action of [
+          () => select(page, bank[1].id),
+          () => page.locator(".header-preset-next").click(),
+          () => page.locator(".header-preset-random").click(),
+        ]) {
+          await action();
+          await expect(page.locator("#level")).toHaveValue(String(level));
+          await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", String(armed));
+          await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", String(armed));
+          expect(Object.hasOwn((await readPreset(page)).snapshot.state, "level")).toBe(false);
+        }
+      }
+    }
+    expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
+  });
+}
+
 async function select(page, presetId) {
   const picker = page.locator(".header-preset-picker");
   if (!await picker.evaluate(node => node.open)) await picker.locator(":scope > summary").click();

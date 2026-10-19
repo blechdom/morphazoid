@@ -125,6 +125,12 @@ is shared by all waves; scene/structural rebuilds replace this live push history
 
 ## Other full-scene adapters
 
+Creaturazoid and Hiccup Head master volume belongs to the live performance.
+Factory scenes, capture and dice omit `state.level`; recall ignores levels in
+legacy saved scenes and retains the current level, including zero-volume mute.
+Audio arming and running transport remain unchanged. Musical per-voice levels
+remain part of their existing sound state.
+
 Throat Singer's owner-requested exception starts a paused Voice after successful
 main preset selection, Next or dice recall. Audio arming and output level remain
 unchanged, so an unarmed singer starts in silent preview. An already-playing
