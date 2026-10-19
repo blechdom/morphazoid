@@ -46,7 +46,7 @@ test("rotating Shape scenes mix clockwise, counterclockwise and ping-pong rather
   validateFullPresetBank(SHAPE_FULL_PRESETS);
 });
 
-test("Hiccup swaps Tongue virtuoso and Humming head without changing their settings or other original scenes", () => {
+test("Hiccup retains the requested scene order and original musical settings while excluding master volume", () => {
   const oldIds = before.hiccup.map(p => p.id);
   const requested = [...oldIds];
   const tongue = requested.indexOf("tongue-sprint"), humming = requested.indexOf("sweet-humming");
@@ -54,8 +54,12 @@ test("Hiccup swaps Tongue virtuoso and Humming head without changing their setti
   assert.deepEqual(HICCUP_HEAD_FULL_PRESETS.slice(0, oldIds.length).map(p => p.id), requested);
   for (const old of before.hiccup) {
     const current = HICCUP_HEAD_FULL_PRESETS.find(p => p.id === old.id);
-    const sha = createHash("sha256").update(presetStateKey(current.snapshot)).digest("hex");
-    assert.equal(sha, old.snapshotCanonicalSha256, `${old.id}: only menu position changes`);
+    assert.equal(Object.hasOwn(current.snapshot.state, "level"), false);
+    // The historical scene hash includes the former factory master level.
+    // Restore that one excluded field only for the frozen musical-state proof.
+    const historical = { ...current.snapshot, state: { ...current.snapshot.state, level: 0.62 } };
+    const sha = createHash("sha256").update(presetStateKey(historical)).digest("hex");
+    assert.equal(sha, old.snapshotCanonicalSha256, `${old.id}: musical state remains unchanged`);
   }
 });
 

@@ -90,26 +90,14 @@
             id="stage"
             tabindex="0"
             role="application"
-            aria-label="A two-dimensional plane slices a Möbius band. Drag to rotate the selected band or playhead; use arrow keys to scrub and tilt the playhead."
-            aria-describedby="surfaceInstructions liveStatus"
+            aria-label="A two-dimensional plane slices a Möbius band. Drag outside the band to rotate the view; drag on the band to rotate the slicing plane. Arrow keys scrub and tilt the plane."
+            aria-describedby="liveStatus"
           >
             A projected Möbius band and the curves cut by its moving plane.
           </canvas>
           <header class="topology-identity">
-            <p>ONE SIDE · ONE EDGE · TWO-DIMENSIONAL READER</p>
             <h1 id="sceneTitle">MÖBIUS</h1>
-            <span>PLANE → SLICE CURVE → VOICE</span>
           </header>
-          <div class="topology-target-switch" role="group" aria-label="Canvas drag target">
-            <button id="selectForm" type="button" aria-pressed="false">Shape</button>
-            <button id="selectPlayhead" type="button" aria-pressed="true">2D head</button>
-          </div>
-          <div class="topology-legend" aria-hidden="true">
-            <span><i class="legend-surface"></i>surface mesh</span>
-            <span><i class="legend-plane"></i>2D playhead</span>
-            <span><i class="legend-slice"></i>sounding slice</span>
-          </div>
-          <div class="stage-meta topology-stage-meta" aria-hidden="true"><span id="stageReadout">MÖBIUS · 0 CURVES · AUDIO OFF</span></div>
         </div>
       </section>
 
@@ -122,7 +110,6 @@
               <button id="selectPlaneMode" type="button" aria-pressed="true">Plane slice</button>
               <button id="selectSequenceMode" type="button" aria-pressed="false">Counterpoint weave</button>
             </div>
-            <output class="topology-sequence-state" id="sequenceState" hidden>PASS 1 / ORIENTATION A / STEP 09/16 / NOW SUBJECT A</output>
             <div class="position-row">
               <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play two-dimensional slicing plane">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
@@ -133,18 +120,23 @@
                 <input id="position" type="range" min="0" max="1" step="0.001" value="0.5" />
               </label>
             </div>
-            <label class="control" for="speed"><span><b>Plane speed</b><output id="speedOut" for="speed">0.10 cyc/s</output></span><input id="speed" type="range" min="0.01" max="1.2" step="0.01" value="0.1" /></label>
-            <button class="mini-action direction-action" id="directionButton" type="button">Direction · forward</button>
+            <div class="topology-speed-row">
+              <label class="control" for="speed"><span><b>Plane speed</b><output id="speedOut" for="speed">0.10 cyc/s</output></span><input id="speed" type="range" min="0.01" max="1.2" step="0.01" value="0.1" /></label>
+              <button class="mini-action direction-action" id="directionButton" type="button" data-direction="forward" aria-label="Direction: forward; switch to reverse" title="Direction: forward; switch to reverse">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
+              </button>
+            </div>
             <div class="topology-angle-pair">
               <label class="control" for="planeYaw"><span><b>Plane yaw</b><output id="planeYawOut" for="planeYaw">38°</output></span><input id="planeYaw" type="range" min="-180" max="180" step="1" value="38" /></label>
               <label class="control" for="planePitch"><span><b>Plane pitch</b><output id="planePitchOut" for="planePitch">−18°</output></span><input id="planePitch" type="range" min="-180" max="180" step="1" value="-18" /></label>
             </div>
-            <div class="topology-preset-grid" role="group" aria-label="Möbius presets">
-              <button type="button" data-preset="ribbon" aria-pressed="true">Ribbon drift</button>
-                <button type="button" data-preset="edge">Edge return</button>
-                <button type="button" data-preset="triple">Triple twist</button>
+            <p class="field-label">Quick setups · form + sound</p>
+            <div class="topology-preset-grid" role="group" aria-label="Möbius quick setups" aria-describedby="quickSetupNote">
+              <button type="button" data-preset="ribbon" aria-pressed="true" title="One twist · broad ribbon · medium FM drift">Ribbon drift</button>
+                <button type="button" data-preset="edge" title="One twist · narrow ribbon · faster, bright sine">Edge return</button>
+                <button type="button" data-preset="triple" title="Three twists · slower, deep PM drift">Triple twist</button>
             </div>
-            <p class="control-note" id="surfaceInstructions">Space plays or pauses. Left/right arrows scrub the plane. Up/down arrows tilt it. Drag the selected Shape or 2D head in the stage.</p>
+            <p class="control-note" id="quickSetupNote">Ribbon drift: broad, medium FM. Edge return: narrow, faster sine. Triple twist: three twists, slow PM. These set form, speed and sound; Odd half-twists changes only the form.</p>
           </div>
         </details>
 
@@ -153,7 +145,7 @@
           <div class="group-body">
             <label class="control" for="surfaceRadius"><span><b>Loop radius</b><output id="surfaceRadiusOut" for="surfaceRadius">0.72</output></span><input id="surfaceRadius" type="range" min="0.48" max="1.05" step="0.01" value="0.72" /></label>
             <label class="control" for="surfaceWidth"><span><b>Band half-width</b><output id="surfaceWidthOut" for="surfaceWidth">0.38</output></span><input id="surfaceWidth" type="range" min="0.12" max="0.68" step="0.01" value="0.38" /></label>
-            <label class="select-control" for="surfaceTwists"><span class="field-label">Odd half-twists</span><span class="select-shell"><select id="surfaceTwists"><option value="1" selected>1 · Möbius</option><option value="3">3 · triple twist</option><option value="5">5 · fivefold</option></select></span></label>
+            <label class="select-control" for="surfaceTwists" title="Geometry only: 1, 3 or 5 half-twists; does not load a sound setup"><span class="field-label">Odd half-twists</span><span class="select-shell"><select id="surfaceTwists"><option value="1" selected>1 · Möbius</option><option value="3">3 · triple twist</option><option value="5">5 · fivefold</option></select></span></label>
             <label class="control" for="surfaceFold"><span><b>Twist lift</b><output id="surfaceFoldOut" for="surfaceFold">1.00×</output></span><input id="surfaceFold" type="range" min="0.35" max="1.65" step="0.01" value="1" /></label>
             <p class="control-note">The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.</p>
           </div>

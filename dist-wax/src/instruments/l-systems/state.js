@@ -1,3 +1,5 @@
+import { DEFAULT_CORNER_STATE } from "./corners.js";
+
 export const DEFAULT_SYNTH_STATE = Object.freeze({
   pitchSource: "angle",
   baseFrequency: 220,
@@ -54,10 +56,11 @@ export const DEFAULT_STATE = Object.freeze({
   turnAsymmetry: 0,
   lengthScale: 0.72,
   position: 0,
-  speed: 0.3,
+  speed: 0.22,
   direction: 1,
   traversalBehavior: "loop",
   structureMode: "final",
+  readerMode: "end-to-end",
   playing: false,
   audio: false,
   level: 0.58,
@@ -67,6 +70,7 @@ export function createDefaultState() {
   return {
     ...DEFAULT_STATE,
     synth: { ...DEFAULT_SYNTH_STATE },
+    corners: { ...DEFAULT_CORNER_STATE },
     drums: { ...DEFAULT_DRUM_STATE },
     mic: { ...DEFAULT_MIC_STATE },
     mix: { ...DEFAULT_MIX_STATE },

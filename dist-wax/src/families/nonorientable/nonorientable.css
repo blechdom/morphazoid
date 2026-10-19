@@ -121,22 +121,34 @@
   box-shadow: inset 0 -2px 0 var(--topology-plane);
 }
 
-.topology-sequence-state {
-  display: block;
-  min-height: 28px;
-  margin: 0 0 9px;
-  padding: 7px 9px;
-  border: 1px solid color-mix(in oklab, var(--topology-surface-a) 24%, var(--line));
-  color: color-mix(in oklab, var(--ink) 82%, var(--topology-slice));
-  background: color-mix(in oklab, var(--bg-deep) 92%, var(--topology-surface-b));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  line-height: 1.55;
-  letter-spacing: 0.045em;
+/* Möbius keeps only the meaningful direction action, beside speed. */
+.moebius-page .topology-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.topology-sequence-state[hidden] {
-  display: none;
+.moebius-page .topology-speed-row > .control { flex: 1; min-width: 0; }
+.moebius-page .direction-action {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 7px;
+  margin: 0;
+}
+.moebius-page .direction-action[hidden] { display: none; }
+.moebius-page .direction-action svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.moebius-page .direction-action[data-direction="reverse"] svg { transform: rotate(180deg); }
+@media (pointer: coarse) {
+  .moebius-page .direction-action { width: 48px; min-width: 48px; height: 48px; }
 }
 
 .topology-target-switch {

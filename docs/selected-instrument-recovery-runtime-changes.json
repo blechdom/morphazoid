@@ -3,6 +3,7 @@
   "changes": [
     {
       "file": "src/instruments/creaturazoid/creaturazoid-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "464b37009b53bf6b48635faf89098d6a56534f489fa0aa1244d1949f1ab8590b",
       "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
       "regressionTests": [
@@ -23,6 +24,7 @@
     },
     {
       "file": "src/instruments/creaturazoid/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "d62e7572dc1e356c4818e022607b74dd94e27dd1738854659198c2662dac79ee",
       "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
       "regressionTests": [
@@ -55,6 +57,7 @@
     },
     {
       "file": "src/instruments/hiccup-head/hiccup-head-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "b2775b1fa7303742d5826ccb9bdd7128c5343eea852c81cb8dedc7606af62271",
       "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
       "regressionTests": [
@@ -79,6 +82,7 @@
     },
     {
       "file": "src/instruments/hiccup-head/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "adbdf5d6e56968e1b4714ef76126ace5aed403394b56b0744a9167b225696ae5",
       "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
       "regressionTests": [
@@ -107,6 +111,7 @@
     },
     {
       "file": "src/instruments/lattice/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "2ba4dfeb036a2a0495883169b4a3d7a0b106516d3b3f90440d0102469d87d108",
       "reason": "Recover selected Lattice studies and exclude Creaturazoid/Hiccup Head master volume from scenes.",
       "regressionTests": [
@@ -131,6 +136,7 @@
     },
     {
       "file": "src/families/graph-presets/full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "ca85242ed4edcbf8da6622f1087b8ac45baeb8d385715a6189116d05a38039b1",
       "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
       "regressionTests": [
@@ -155,6 +161,7 @@
     },
     {
       "file": "src/families/graph-presets/drum-full-presets.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "6c28990d78a479ac8be4a2d892727aac56503caf2b70a2eb53d22c4a7ad23731",
       "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
       "regressionTests": [
@@ -199,6 +206,7 @@
     },
     {
       "file": "src/families/graph/graph-instrument-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "9e6d17b7734b99e88cf273ce7de48e6e083ae8d51784914aa294c0f3d203c6fc",
       "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
       "regressionTests": [
@@ -223,6 +231,7 @@
     },
     {
       "file": "src/pages/graph-synth.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "eb21c8608633ff9ccb0cb97d5a828c3a772b19e14475bf1936518357fdbdaa32",
       "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
       "regressionTests": [
@@ -243,6 +252,7 @@
     },
     {
       "file": "src/pages/graph-drum-machine.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "9f819410b090d4a83c7972bcef16a484669d2123f5b1ad7d48c323f2f5e0a020",
       "reason": "Recover twenty expressive scenes per Graph instrument and complete, backward-compatible drum-kit recall.",
       "regressionTests": [
@@ -263,6 +273,7 @@
     },
     {
       "file": "src/families/nonorientable/nonorientable-app.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "c93e7e0e4c0d446f3debe5c4438efaccba53f4ba2224231daf0f9c7261a0c350",
       "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
       "regressionTests": [
@@ -383,6 +394,7 @@
     },
     {
       "file": "src/families/nonorientable/nonorientable-surface.js",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "6b51fd6c22fd087889764435e8bac32540e1804c2a44eca69ed5a7f14ea902b2",
       "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
       "regressionTests": [
@@ -399,6 +411,7 @@
     },
     {
       "file": "src/families/nonorientable/nonorientable.css",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "180521c9b21ba5405a7f9ff8eb7b02306bf63f5d0e01645daa2ee88fbcabac16",
       "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
       "regressionTests": [
@@ -415,6 +428,7 @@
     },
     {
       "file": "src/pages/moebius-synth.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
       "baselineSha256": "d571fcb89b51a95722baab6d19de916603c44f448428cf351aa40dcdb43c21c5",
       "reason": "Recover direct Mobius band gestures, compact controls and continuous weave edits while preserving Klein Bottle behavior.",
       "regressionTests": [
@@ -438,6 +452,70 @@
         {
           "before": "            <label class=\"control\" for=\"surfaceRadius\"><span><b>Loop radius</b><output id=\"surfaceRadiusOut\" for=\"surfaceRadius\">0.72</output></span><input id=\"surfaceRadius\" type=\"range\" min=\"0.48\" max=\"1.05\" step=\"0.01\" value=\"0.72\" /></label>\n            <label class=\"control\" for=\"surfaceWidth\"><span><b>Band half-width</b><output id=\"surfaceWidthOut\" for=\"surfaceWidth\">0.38</output></span><input id=\"surfaceWidth\" type=\"range\" min=\"0.12\" max=\"0.68\" step=\"0.01\" value=\"0.38\" /></label>\n            <label class=\"select-control\" for=\"surfaceTwists\"><span class=\"field-label\">Odd half-twists</span><span class=\"select-shell\"><select id=\"surfaceTwists\"><option value=\"1\" selected>1 \u00b7 M\u00f6bius</option><option value=\"3\">3 \u00b7 triple twist</option><option value=\"5\">5 \u00b7 fivefold</option></select></span></label>\n            <label class=\"control\" for=\"surfaceFold\"><span><b>Twist lift</b><output id=\"surfaceFoldOut\" for=\"surfaceFold\">1.00\u00d7</output></span><input id=\"surfaceFold\" type=\"range\" min=\"0.35\" max=\"1.65\" step=\"0.01\" value=\"1\" /></label>\n            <p class=\"control-note\">The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.</p>\n",
           "after": "            <label class=\"control\" for=\"surfaceRadius\"><span><b>Loop radius</b><output id=\"surfaceRadiusOut\" for=\"surfaceRadius\">0.72</output></span><input id=\"surfaceRadius\" type=\"range\" min=\"0.48\" max=\"1.05\" step=\"0.01\" value=\"0.72\" /></label>\n            <label class=\"control\" for=\"surfaceWidth\"><span><b>Band half-width</b><output id=\"surfaceWidthOut\" for=\"surfaceWidth\">0.38</output></span><input id=\"surfaceWidth\" type=\"range\" min=\"0.12\" max=\"0.68\" step=\"0.01\" value=\"0.38\" /></label>\n            <label class=\"select-control\" for=\"surfaceTwists\" title=\"Geometry only: 1, 3 or 5 half-twists; does not load a sound setup\"><span class=\"field-label\">Odd half-twists</span><span class=\"select-shell\"><select id=\"surfaceTwists\"><option value=\"1\" selected>1 \u00b7 M\u00f6bius</option><option value=\"3\">3 \u00b7 triple twist</option><option value=\"5\">5 \u00b7 fivefold</option></select></span></label>\n            <label class=\"control\" for=\"surfaceFold\"><span><b>Twist lift</b><output id=\"surfaceFoldOut\" for=\"surfaceFold\">1.00\u00d7</output></span><input id=\"surfaceFold\" type=\"range\" min=\"0.35\" max=\"1.65\" step=\"0.01\" value=\"1\" /></label>\n            <p class=\"control-note\">The lateral boundaries stay real edges. The longitudinal seam joins each transverse coordinate to its opposite.</p>\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/l-systems.html",
+      "baseCommit": "beb1ea80287f163e02ec813d47ec21bbde1831ed",
+      "baselineSha256": "65b479ae80af69a8bb171006dce3f7508dca19afc43506b543e858fed1c0c455",
+      "reason": "Recover L-Systems Corners/Readers controls while preserving the latest mobile menubar and input strip.",
+      "regressionTests": [
+        "e2e/l-systems-corners.spec.mjs",
+        "e2e/l-systems-ensemble.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "        <div class=\"l-systems-stage-wrap\" id=\"stageWrap\">\n          <canvas id=\"stage\" tabindex=\"0\" aria-label=\"Animated L-system instrument canvas\" aria-describedby=\"stageReadout liveStatus\">\n            Animated L-system branches with a moving reader.\n          </canvas>\n          <div class=\"l-systems-stage-meta\" aria-hidden=\"true\">\n",
+          "after": "        <div class=\"l-systems-stage-wrap\" id=\"stageWrap\">\n          <canvas id=\"stage\" tabindex=\"0\" aria-label=\"Animated L-system instrument canvas\" aria-describedby=\"stageReadout liveStatus\">\n            Animated L-system paths with moving readers that split at real branches.\n          </canvas>\n          <div class=\"l-systems-stage-meta\" aria-hidden=\"true\">\n"
+        },
+        {
+          "before": "          </div>\n          <div class=\"l-systems-stage-meter\" aria-hidden=\"true\">\n            <span id=\"mappingReadout\">ANGLE PITCH - FINAL</span>\n          </div>\n        </div>\n",
+          "after": "          </div>\n          <div class=\"l-systems-stage-meter\" aria-hidden=\"true\">\n            <span id=\"mappingReadout\">GEOMETRY PITCH - FINAL</span>\n          </div>\n        </div>\n"
+        },
+        {
+          "before": "            </div>\n            <label class=\"control l-systems-primary-range\" for=\"speed\">\n              <span><b>Speed</b><output id=\"speedOut\" for=\"speed\">0.30 cyc/s</output></span>\n              <input id=\"speed\" type=\"range\" min=\"0\" max=\"3\" step=\"0.01\" value=\"0.3\" />\n            </label>\n            <label class=\"control l-systems-primary-range\" id=\"subdivisionsControl\" hidden for=\"subdivisions\">\n",
+          "after": "            </div>\n            <label class=\"control l-systems-primary-range\" for=\"speed\">\n              <span><b>Speed</b><output id=\"speedOut\" for=\"speed\">0.22 cyc/s</output></span>\n              <input id=\"speed\" type=\"range\" min=\"0\" max=\"3\" step=\"0.001\" value=\"0.22\" />\n            </label>\n            <label class=\"control l-systems-primary-range\" id=\"subdivisionsControl\" hidden for=\"subdivisions\">\n"
+        },
+        {
+          "before": "            </label>\n\n          </section>\n\n",
+          "after": "            </label>\n\n          </section>\n\n          <section class=\"l-systems-rack\" id=\"cornersRack\" aria-labelledby=\"cornersRackTitle\">\n            <header><h2 id=\"cornersRackTitle\">Corners</h2></header>\n            <div class=\"l-systems-grid\">\n              <label class=\"select-control l-systems-wide\" for=\"hitPlacement\">\n                <span class=\"field-label\">Hit placement</span>\n                <span class=\"select-shell\"><select id=\"hitPlacement\">\n                  <option value=\"all\">All subdivisions</option>\n                  <option value=\"corners\">Corners &amp; forks only</option>\n                </select></span>\n              </label>\n              <label class=\"control\" for=\"cornerEmphasis\">\n                <span><b>Corner accent</b><output id=\"cornerEmphasisOut\" for=\"cornerEmphasis\">45%</output></span>\n                <input id=\"cornerEmphasis\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0.45\" />\n              </label>\n              <label class=\"control\" for=\"cornerThreshold\">\n                <span><b>Minimum turn</b><output id=\"cornerThresholdOut\" for=\"cornerThreshold\">12 deg</output></span>\n                <input id=\"cornerThreshold\" type=\"range\" min=\"0\" max=\"180\" step=\"1\" value=\"12\" />\n              </label>\n              <label class=\"control l-systems-wide\" for=\"cornerWidth\">\n                <span><b>Accent width</b><output id=\"cornerWidthOut\" for=\"cornerWidth\">20% of edge</output></span>\n                <input id=\"cornerWidth\" type=\"range\" min=\"0.04\" max=\"0.5\" step=\"0.01\" value=\"0.2\" />\n              </label>\n            </div>\n            <p class=\"control-note\">Diamonds mark qualifying turns and forks. Accent adds contrast, not louder peaks; width sets its reach along each edge.</p>\n          </section>\n\n"
+        },
+        {
+          "before": "              </span>\n            </label>\n            <div class=\"l-systems-structure-readout\">\n              <b id=\"structureReadout\">FINAL I7</b>\n              <small id=\"structureDescription\">Only the final rewritten structure is scanned.</small>\n            </div>\n          </section>\n",
+          "after": "              </span>\n            </label>\n            <label class=\"select-control\" for=\"readerMode\">\n              <span class=\"field-label\">Readers</span>\n              <span class=\"select-shell\"><select id=\"readerMode\">\n                <option value=\"end-to-end\">End to end \u00b7 natural branches</option>\n                <option value=\"regions\">Three regions</option>\n              </select></span>\n            </label>\n            <div class=\"l-systems-structure-readout\">\n              <b id=\"structureReadout\">FINAL I7</b>\n              <small id=\"structureDescription\">Trace the final structure from one end to the other; playheads split at branches.</small>\n            </div>\n          </section>\n"
+        },
+        {
+          "before": "                    <option value=\"height\">Stage height</option>\n                    <option value=\"depth\">Branch depth</option>\n                    <option value=\"progress\">Segment progress</option>\n                  </select>\n                </span>\n",
+          "after": "                    <option value=\"height\">Stage height</option>\n                    <option value=\"depth\">Branch depth</option>\n                    <option value=\"progress\">Path progress</option>\n                  </select>\n                </span>\n"
+        },
+        {
+          "before": "              </label>\n              <label class=\"control\" for=\"baseFrequency\">\n                <span><b>Base frequency</b><output id=\"baseFrequencyOut\" for=\"baseFrequency\">220 Hz</output></span>\n                <input id=\"baseFrequency\" type=\"range\" min=\"55\" max=\"880\" step=\"1\" value=\"220\" />\n              </label>\n",
+          "after": "              </label>\n              <label class=\"control\" for=\"baseFrequency\">\n                <span><b>Center frequency</b><output id=\"baseFrequencyOut\" for=\"baseFrequency\">220 Hz</output></span>\n                <input id=\"baseFrequency\" type=\"range\" min=\"55\" max=\"880\" step=\"1\" value=\"220\" />\n              </label>\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "baseCommit": "20cecf90a19043f63c45c89be3e43e0712ae1849",
+      "baselineSha256": "4b0adfe8ec35bd58ae34e789f0880a672f646dfdd8e2442433472c562228a7ed",
+      "reason": "Declare only the ten new selected runtime modules and focused documentation paths.",
+      "regressionTests": [
+        "tests/release-manifest.test.mjs",
+        "tests/selected-instrument-recovery-reference.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\thyper-synth.html\ncopy+require\tmoebius-synth.html\ncopy+require\tklein-bottle-synth.html\ncopy+require\ttesselation.html\n",
+          "after": "copy+require\thyper-synth.html\ncopy+require\tmoebius-synth.html\ncopy+require\tdocs/moebius-interactions.md\ncopy+require\tklein-bottle-synth.html\ncopy+require\ttesselation.html\n"
+        },
+        {
+          "before": "copy+require\tsrc/families/graph-presets/initial-state.js\ncopy+require\tsrc/families/graph-presets/full-presets.js\ncopy+require\tsrc/families/experiments/automata-presets.js\ncopy+require\tsrc/instruments/lattice/initial-state.js\ncopy+require\tsrc/instruments/lattice/full-presets.js\ncopy+require\tsrc/families/geometry-presets/shape-sound.js\ncopy+require\tsrc/families/geometry-presets/shape-readers.js\n",
+          "after": "copy+require\tsrc/families/graph-presets/initial-state.js\ncopy+require\tsrc/families/graph-presets/full-presets.js\ncopy+require\tsrc/families/graph-presets/rhythm-studies.js\ncopy+require\tsrc/instruments/graph-synth/expressive-presets.js\ncopy+require\tsrc/instruments/graph-drum-machine/expressive-presets.js\ncopy+require\tdocs/graph-expressive-presets.md\ncopy+require\tsrc/families/experiments/automata-presets.js\ncopy+require\tsrc/instruments/lattice/initial-state.js\ncopy+require\tsrc/instruments/lattice/full-presets.js\ncopy+require\tsrc/instruments/lattice/rhythm-presets.js\ncopy+require\tsrc/families/geometry-presets/shape-sound.js\ncopy+require\tsrc/families/geometry-presets/shape-readers.js\n"
+        },
+        {
+          "before": "# L-Systems shared subdivision clock and timed Notes\ncopy+require\tsrc/instruments/l-systems/discrete-audio.js\n\ncopy+require\tsrc/instruments/gesticulating-hand/hand-rhythm.js\n",
+          "after": "# L-Systems shared subdivision clock and timed Notes\ncopy+require\tsrc/instruments/l-systems/discrete-audio.js\ncopy+require\tsrc/instruments/l-systems/corners.js\ncopy+require\tsrc/instruments/l-systems/ensemble.js\ncopy+require\tdocs/l-systems-ensemble.md\ncopy+require\tdocs/l-systems-ensemble-runtime-changes.json\n\ncopy+require\tsrc/instruments/gesticulating-hand/hand-rhythm.js\n"
         }
       ]
     }

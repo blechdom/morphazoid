@@ -1,10 +1,12 @@
+import { lSystemsCornerGain } from "./corners.js";
 import { branchDecayGain } from "./branch-parameters.js";
 import { lSystemTimbreGain } from "./sound-engines.js";
-import { clamp, percussionEnvelopeEditorX, pitch01ToFrequency, synthParametersForMode } from "../../audio.js";
-import { advanceLSystemTraversal, branchAngleFrequency } from "../l-system/l-system.js";
+import { clamp, percussionEnvelopeEditorX, synthParametersForMode } from "../../audio.js";
+import { advanceLSystemTraversal } from "../l-system/l-system.js";
+import { lSystemsEventsForTraversal, lSystemsNoteGroups, lSystemsFrequency } from "./ensemble.js";
 import {
   advanceLSystemDrumTraversal, groupedLSystemDrumEvents,
-  lSystemDrumEventsForTraversal, lSystemDrumSubdivisionCount,
+  lSystemDrumSubdivisionCount,
 } from "../l-system-drum-machine/l-system-drum-machine.js";
 
 export const L_SYSTEM_NOTE_VOICES = 128;
@@ -17,8 +19,8 @@ const STARTS_PER_SECOND = 128;
  * Keep audio time independent of paint; never replay an overdue frame's attacks.
  * Existing traversal/model bounds cap each sweep at about 64 samples. */
 export class LSystemEventClock {
-  constructor({ traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, now, includeStart = true, budget = null, pruningBias = 0 }) {
-    Object.assign(this, { traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, pruningBias });
+  constructor({ traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, now, includeStart = true, budget = null, pruningBias = 0, playingMode = "notes", readerMode = "end-to-end", cornerThreshold = 12, hitPlacement = "all" }) {
+    Object.assign(this, { traces, position, direction, rate, behavior, structureMode, subdivisions, mappingMode, maxPhaseStep, pruningBias, playingMode, readerMode, cornerThreshold, hitPlacement });
     this.until = now + LEAD;
     this.motion = [{ at: this.until, position, direction, rate, behavior }];
     this.pending = {};
@@ -36,7 +38,7 @@ export class LSystemEventClock {
   configure(settings) {
     // A drag may send many changes between polls. Only the latest values join
     // the next unscheduled window; no cancellation, lost budget, or restart.
-    for (const key of ["traces", "rate", "behavior", "structureMode", "subdivisions", "mappingMode", "maxPhaseStep", "position", "direction", "pruningBias"]) {
+    for (const key of ["traces", "rate", "behavior", "structureMode", "subdivisions", "mappingMode", "maxPhaseStep", "position", "direction", "pruningBias", "readerMode", "restart", "cornerThreshold", "hitPlacement"]) {
       if (settings[key] !== undefined && settings[key] !== (this.pending[key] ?? this[key])) this.pending[key] = settings[key];
     }
   }
@@ -44,9 +46,10 @@ export class LSystemEventClock {
     const changes = this.pending;
     this.pending = {};
     const changed = key => Object.hasOwn(changes, key) && changes[key] !== this[key];
-    const seek = changed("position");
+    const seek = changed("position") || changes.restart === true;
+    delete changes.restart;
     const motionChanged = seek || ["direction", "rate", "behavior"].some(changed);
-    const frontierChanged = ["traces", "structureMode", "subdivisions", "direction", "behavior"].some(changed);
+    const frontierChanged = ["traces", "structureMode", "readerMode", "subdivisions", "direction", "behavior", "cornerThreshold", "hitPlacement"].some(changed);
     Object.assign(this, changes);
     if (motionChanged) {
       this.motion.push({ at: this.until, position: this.position, direction: this.direction, rate: this.rate, behavior: this.behavior });
@@ -59,7 +62,8 @@ export class LSystemEventClock {
     } else if (frontierChanged) this.seedFrontier();
   }
   seedFrontier() {
-    this.activeEventKeys = lSystemDrumEventsForTraversal(this.traces,
+    if (this.playingMode === "continuous") return;
+    this.activeEventKeys = lSystemsEventsForTraversal(this.traces,
       [{ position: Math.min(1 - 1e-9, this.position), direction: this.direction }], this).activeEventKeys;
   }
   read(now) {
@@ -77,6 +81,11 @@ export class LSystemEventClock {
       this.until = end;
       return [];
     }
+    if (this.playingMode === "continuous") {
+      Object.assign(this, advanceLSystemTraversal(this.position, this.direction,
+        (end - this.until) * this.rate, this.behavior), { until: end });
+      return [];
+    }
     const advanced = advanceLSystemDrumTraversal(this.position, this.direction,
       (end - this.until) * this.rate, { behavior: this.behavior, maxPhaseStep: this.maxPhaseStep });
     const samples = this.includeStart
@@ -91,10 +100,12 @@ export class LSystemEventClock {
       previous = sample.position;
       return this.until + distance / this.rate;
     });
-    const swept = lSystemDrumEventsForTraversal(this.traces, samples, this);
+    const swept = lSystemsEventsForTraversal(this.traces, samples, this);
     this.activeEventKeys = swept.activeEventKeys;
     Object.assign(this, { position: advanced.position, direction: advanced.direction, until: end });
-    const groups = groupedLSystemDrumEvents(swept.events, { mode: this.mappingMode, maxEvents: 64 });
+    const groups = this.playingMode === "triggers"
+      ? groupedLSystemDrumEvents(swept.events, { mode: this.mappingMode, maxEvents: 64 })
+      : lSystemsNoteGroups(swept.events);
     if (this.pruningBias) groups.sort((a,b) => times[a.event.transportSampleIndex] - times[b.event.transportSampleIndex] || -this.pruningBias * (a.event.depth - b.event.depth));
     const admitted = [], perSample = new Map();
     for (const entry of groups) {
@@ -135,18 +146,14 @@ export function lSystemNoteEnvelope(duration, amplitude = {}) {
 export function lSystemNoteVoice(event, eventCount, state, amplitudeLevel = 1) {
   const depth = (Number(event.depth) || 0) / Math.max(1, Number(event.maxForkDepth) || 1);
   const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);
-  const pitch = state.synth.pitchSource === "depth" ? depth
-    : state.synth.pitchSource === "progress" ? Number(event.progress) || 0 : Number(event.normalizedY) || 0;
-  const frequency = state.synth.pitchSource === "angle"
-    ? branchAngleFrequency(event.cumulativeTurn, state.synth.baseFrequency, state.synth.pitchRange)
-    : pitch01ToFrequency(pitch, state.synth.baseFrequency, state.synth.pitchRange);
+  const frequency = lSystemsFrequency(event, state.synth);
   return {
     key: `l-system-suite:note:${event.key}`,
     frequency,
     // Leave overlap headroom as well as normalizing simultaneous branches. This does not
     // shorten old tails or turn the first subdivision into an inaudible note.
     gain: clamp((0.16 + drive * 0.16 + Math.sqrt(event.powerShare || 0) * 0.18)
-      * amplitudeLevel * branchDecayGain(event.depth, state.branchDecay ?? 1) * lSystemTimbreGain(state.synth.soundMode) / Math.sqrt(Math.max(1, eventCount)) * 0.65, 0, 0.36),
+      * lSystemsCornerGain(event, state.corners, true) * amplitudeLevel * branchDecayGain(event.depth, state.branchDecay ?? 1) * lSystemTimbreGain(state.synth.soundMode) / Math.sqrt(Math.max(1, eventCount)) * 0.65, 0, 0.36),
     pan: clamp(((Number.isFinite(event.normalizedX) ? event.normalizedX : 0.5) * 2 - 1) * state.synth.stereoSpread, -1, 1),
     waveform: "sine",
     ...synthParametersForMode(state.synth.soundMode, drive, {

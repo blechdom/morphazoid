@@ -1,3 +1,4 @@
+import { latticeRhythmStudies } from "./rhythm-presets.js";
 import { TILING_TYPES, tilingInfo, tilingParameterRange, constrainPrototileEdit, prototileIsNonOverlapping } from "./lattice.js";
 import { EdgeShape } from "../../../vendor/tactile/tactile.js";
 import { percussionEnvelopePreset, percussionEnvelopeEditorX, sanitizeAmplitudeEnvelope } from "../../audio.js";
@@ -52,7 +53,7 @@ const scenes = [
   [74, "Triangle · Sweet rain", "percussion", 0.14, 85, 0.05, "note", 15],
   [77, "Triangle · Endless lace", "shepard", 0.065, 130, -0.07, "pad", 80],
 ];
-export const LATTICE_FULL_PRESETS = Object.freeze(scenes.map(([type, label, mode, speed, angle, bend, envelope, bearing], index) => {
+export const LATTICE_ORIGINAL_PRESETS = Object.freeze(scenes.map(([type, label, mode, speed, angle, bend, envelope, bearing], index) => {
   const info = tilingInfo(type), currentEdgeCurves = info.edgeShapes.map(() => 0);
   const guarded = constrainPrototileEdit({ type, currentParameters: [...info.defaultParameters], currentEdgeCurves,
     edgeCurves: info.edgeShapes.map((shape, i) => shape === EdgeShape.I ? 0 : bend * (i % 2 ? -1 : 1)) });
@@ -70,6 +71,12 @@ export const LATTICE_FULL_PRESETS = Object.freeze(scenes.map(([type, label, mode
   return { id: `ih-${type}`, label, description: `${label}: complete guarded tile, scan/movement, sound mappings and timed envelope. Audio/Play and live scan phase remain unchanged.`,
     snapshot: validateLatticePreset(captureLatticePreset(state, { enabled: true, swell: false, preset: envelope, level: 1, points: percussionEnvelopePreset(envelope) })) };
 }));
+// Retain the original IDs and snapshots alongside the new right-angle studies.
+export const LATTICE_RHYTHM_PRESETS = Object.freeze(latticeRhythmStudies().map(({ id, label, description, state, envelope }) => ({
+  id, label, description, snapshot: validateLatticePreset(captureLatticePreset(state, envelope)),
+})));
+export const LATTICE_FULL_PRESETS = Object.freeze([...LATTICE_RHYTHM_PRESETS, ...LATTICE_ORIGINAL_PRESETS]);
+
 export function randomizeLatticePreset(current, random = Math.random) {
   const rng = presetRandom(random), info = rng.pick(TILING_TYPES);
   const currentEdgeCurves = info.edgeShapes.map(() => 0);
