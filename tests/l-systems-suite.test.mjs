@@ -159,7 +159,7 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.match(app, /setInterval\(discreteTick, 25\)/);
   assert.match(app, /micBranchPlaybackRate/);
   assert.match(app, /lSystemPlayingModeFor/);
-  assert.match(app, /async function setMode\(modeId\)/);
+  assert.match(app, /async function setMode\(modeId, \{ restart = false \} = \{\}\)/);
   assert.match(app, /if \(state\.audio\) \{\s*const request = audioRequest \+ 1;\s*try \{\s*await prepareActiveAudio\(\);/);
   assert.match(app, /function silenceAudioRoutes\(rampMilliseconds = 45\)/);
   assert.match(app, /clearError\(\);\s*\/\/ Mute the outgoing route[\s\S]*?silenceAudioRoutes\(\);\s*if \(activeAudioKind\(\) === "synth"\) \{\s*await synthPool\.enable\(\{ context \}\);/);
@@ -184,7 +184,7 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.doesNotMatch(app, /contentDocument/);
   assert.doesNotMatch(app, /l-systems-embed/);
 
-  const setModeBody = app.match(/async function setMode\(modeId\) \{(?<body>[\s\S]*?)\n\}/)?.groups.body ?? "";
+  const setModeBody = app.match(/async function setMode\(modeId, \{ restart = false \} = \{\}\) \{(?<body>[\s\S]*?)\n\}/)?.groups.body ?? "";
   assert.doesNotMatch(setModeBody, /state\.audio\s*=\s*false/);
   assert.doesNotMatch(setModeBody, /\.close\(/);
   assert.doesNotMatch(setModeBody, /(?:synthPool|drumAudio)\.disable\(/);

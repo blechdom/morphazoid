@@ -1,6 +1,5 @@
 import {
   clamp,
-  pitch01ToFrequency,
   synthParametersForMode,
 } from "../../audio.js";
 import { createAmplitudeControl } from "../../amplitude-control.js";
@@ -11,9 +10,8 @@ import {
 } from "../fm-drums/fm-drums.js";
 import {
   advanceLSystemTraversal,
-  branchAngleFrequency,
   branchVoiceGain,
-  iterationPlaybackAtPhase,
+  iterationPlaybackAtPhase as originalIterationPlaybackAtPhase,
   iterationPlaybackPhaseRate,
   L_SYSTEM_PRESETS,
   lSystemTraversalBoundaryGain,
@@ -39,14 +37,17 @@ import {
   lSystemPlayingModeFor,
 } from "./l-systems-suite.js";
 import { LSystemEventClock, L_SYSTEM_NOTE_VOICES, lSystemNoteDuration, lSystemNoteEnvelope, lSystemNoteVoice } from "./discrete-audio.js";
+import { lSystemsPlaybackAtPhase, lSystemsPlaybackHeads, lSystemsFrequency } from "./ensemble.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+
+import { DEFAULT_CORNER_STATE, lSystemsCornerGain, lSystemsCornerPulse, lSystemsCornerPoints } from "./corners.js";
 
 import { createDefaultState } from "./state.js";
 
 const TAU = Math.PI * 2;
 const MODE_COPY = Object.freeze({
   continuous: Object.freeze({
-    map: "ANGLE PITCH",
+    map: "GEOMETRY PITCH",
   }),
   notes: Object.freeze({
     map: "NOTE EVENTS",
@@ -93,7 +94,7 @@ const MIX_PRESETS = Object.freeze([
   }),
 ]);
 const STRUCTURE_DESCRIPTIONS = Object.freeze({
-  final: "Only the final rewritten structure is scanned.",
+  final: "Trace the final structure from one end to the other; playheads split at branches.",
   sequence: "Each generation gets a turn in one shared transport loop.",
   accumulate: "Earlier generations stay visible while the active generation advances.",
   together: "Every generation is phase-locked to the same reader position.",
@@ -500,7 +501,7 @@ function activeMode() {
   return lSystemPlayingModeFor(state.mode);
 }
 
-async function setMode(modeId) {
+async function setMode(modeId, { restart = false } = {}) {
   const requestedMode = lSystemPlayingModeFor(modeId);
   const nextMode = requestedMode.id;
   if (nextMode === state.mode) return;
@@ -542,6 +543,9 @@ async function setMode(modeId) {
   } else {
     text("liveStatus", `${activeMode().title} selected`);
   }
+  // Engine preparation invalidates old event frontiers. A scene recall still
+  // owes its new root an initial hit once the requested engine is ready.
+  if (restart && state.mode === nextMode) restartTraversal();
   scheduleFrame();
 }
 
@@ -583,6 +587,7 @@ function resetSystem() {
   state.direction = defaults.direction;
   state.traversalBehavior = defaults.traversalBehavior;
   state.structureMode = defaults.structureMode;
+  state.readerMode = defaults.readerMode;
   updateIterationLimit();
   syncRangeBindings();
   syncSelects();
@@ -595,6 +600,7 @@ async function resetAll() {
   invalidateDiscreteScheduler();
   Object.assign(state, next);
   state.synth = { ...next.synth };
+  state.corners = { ...next.corners };
   state.drums = { ...next.drums };
   state.mic = { ...next.mic };
   state.mix = { ...next.mix };
@@ -634,6 +640,15 @@ function applyMixPreset(presetId = state.mix.presetId) {
   scheduleFrame();
 }
 
+function restartTraversal(direction = state.direction) {
+  state.direction = direction;
+  state.position = direction < 0 ? 1 - 1e-9 : 0;
+  discreteClock?.configure({ position: state.position, direction, restart: true });
+  discreteIncludeStart = true;
+  lastFrameTime = performance.now();
+  $("position").value = String(state.position);
+}
+
 function applyPresetDefaults() {
   const preset = currentPreset();
   state.iterations = Math.min(
@@ -645,6 +660,10 @@ function applyPresetDefaults() {
     ? Number(preset.lengthScale)
     : state.lengthScale;
   state.turnAsymmetry = 0;
+  Object.assign(state, { childTimeRatio: 1, mutation: 0, branchDecay: 1, pruningBias: 0,
+    structureMode: "final", readerMode: "end-to-end", traversalBehavior: "loop" });
+  restartTraversal(1);
+  syncSelects();
   syncRangeBindings();
   updateIterationLimit();
   rebuildTrace();
@@ -669,6 +688,8 @@ function syncSelects() {
   $("articulation").value = state.synth.articulation;
   $("preset").value = state.presetId;
   $("structureMode").value = state.structureMode;
+  $("readerMode").value = state.readerMode;
+  $("hitPlacement").value = state.corners.placement;
   $("mixPreset").value = state.mix.presetId;
   $("pitchSource").value = state.synth.pitchSource;
   $("soundMode").value = state.synth.soundMode;
@@ -694,10 +715,15 @@ function paintMode() {
   $("synthBank").setAttribute("aria-labelledby", state.mode === "notes" ? "modeNotes" : "modeContinuous");
   text("synthBankTitle", state.mode === "notes" ? "Notes" : "Continuous");
   const generationMic = isGenerationMic();
-  $("subdivisionsControl").hidden = generationMic || !["notes", "triggers", "mic"].includes(state.mode);
+  const cornerHitsOnly = ["notes", "triggers"].includes(state.mode) && state.corners.placement === "corners";
+  $("subdivisionsControl").hidden = cornerHitsOnly || generationMic || !["notes", "triggers", "mic"].includes(state.mode);
   for (const id of ["speed", "position"]) $(id).closest("label").hidden = generationMic;
   $("playheadMotion").hidden = generationMic;
   $("structureRack").hidden = generationMic;
+  $("cornersRack").hidden = state.mode === "mic";
+  $("hitPlacement").closest("label").hidden = state.mode === "continuous";
+  for (const id of ["cornerEmphasis", "cornerWidth"]) $(id).closest("label").hidden = cornerHitsOnly;
+  $("readerMode").closest("label").hidden = state.mode === "mic";
   $("lengthScale").closest("label").hidden = state.geometryModel === "generations";
   $("taperNote").hidden = state.geometryModel === "generations";
   $("grammarReadout").hidden = state.geometryModel === "generations";
@@ -709,6 +735,7 @@ function paintMode() {
   $("articulation").closest("label").hidden = state.mode !== "notes";
   $("noteDuration").closest("label").hidden = state.mode !== "notes" || state.synth.articulation !== "fixed";
   const hasBranches = iterationTraces.at(-1)?.maxForkDepth > 0;
+  $("pitchSource").querySelector('[value="depth"]').textContent = hasBranches ? "Branch depth" : "Path distance";
   for (const id of ["branchDecay", "pruningBias"]) $(id).closest("label").hidden = !hasBranches && !generationMic;
   $("pruningNote").hidden = !hasBranches && !generationMic;
 }
@@ -751,7 +778,9 @@ function paintStructure(playback = iterationPlaybackAtPhase(
           ? `${iterationTraces.length} iteration canon`
           : `final I${finalIteration}`;
   text("structureReadout", label.toUpperCase());
-  text("structureDescription", STRUCTURE_DESCRIPTIONS[state.structureMode] ?? STRUCTURE_DESCRIPTIONS.final);
+  text("structureDescription", state.mode !== "mic" && state.readerMode === "regions"
+    ? "Three readers scan separate regions; each still splits at real branches."
+    : STRUCTURE_DESCRIPTIONS[state.structureMode] ?? STRUCTURE_DESCRIPTIONS.final);
   text("positionOut", state.structureMode === "sequence"
     ? `I${playback.activeIteration} - ${(localPhase * 100).toFixed(1)}%`
     : state.structureMode === "accumulate"
@@ -859,14 +888,14 @@ function paintReadoutOnly(playback = iterationPlaybackAtPhase(
   paintMapping();
 }
 
+function iterationPlaybackAtPhase(traces, phase, mode) {
+  return state.mode === "mic"
+    ? originalIterationPlaybackAtPhase(traces, phase, mode)
+    : lSystemsPlaybackAtPhase(traces, phase, mode, state.readerMode);
+}
+
 function playbackHeads(playback) {
-  return playback.entries.flatMap((entry) => entry.snapshot.heads.map((head) => ({
-    ...head,
-    iteration: entry.iteration,
-    localPhase: entry.localPhase,
-    sourceTrace: entry.trace,
-    snapshotDistance: entry.snapshot.distance,
-  })));
+  return lSystemsPlaybackHeads(playback);
 }
 
 function playbackBounds(entries) {
@@ -919,9 +948,19 @@ function drawScene(playback, playheads) {
   playback.entries.forEach((entry, entryIndex) => {
     const sourceDepth = Math.max(1, entry.trace.maxForkDepth);
     const iterationHue = baseHue + entryIndex * 96 / Math.max(1, playback.entries.length - 1);
+    if (state.mode !== "mic" && (state.corners.emphasis > 0 || (state.mode !== "continuous" && state.corners.placement === "corners"))) {
+      context.strokeStyle = `hsla(${iterationHue+24},85%,72%,.55)`;
+      context.lineWidth = 1;
+      for (const point of lSystemsCornerPoints(entry.trace,state.corners.minimumAngle,Math.max(1,Math.floor(192/playback.entries.length)))) {
+        const x=transform.x(point),y=transform.y(point),r=2.4;
+        context.beginPath();context.moveTo(x,y-r);context.lineTo(x+r,y);context.lineTo(x,y+r);context.lineTo(x-r,y);context.closePath();context.stroke();
+      }
+    }
     entry.trace.segments.forEach((segment) => {
       const depth = segment.forkDepth / sourceDepth;
-      const completed = isGenerationMic() || segment.endDistance <= entry.snapshot.distance;
+      const completed = isGenerationMic() || (entry.snapshot.regions
+        ? entry.snapshot.regions.some(region => segment.endDistance > region.startDistance && segment.endDistance <= region.distance)
+        : segment.endDistance <= entry.snapshot.distance);
       drawSegment(
         segment,
         transform,
@@ -939,7 +978,7 @@ function drawScene(playback, playheads) {
     drawSegment(
       { start: playhead.segment.start, end: playhead },
       transform,
-      `hsla(${baseHue + 18 + depth * 75}, 92%, 72%, .95)`,
+      `hsla(${baseHue + 18 + depth * 75 + (playhead.reader ?? 0) * 48}, 92%, 72%, .95)`,
       Math.max(1, 2.3 - depth * 0.45),
     );
     const x = transform.x(playhead);
@@ -952,32 +991,21 @@ function drawScene(playback, playheads) {
         : state.mode === "notes"
           ? "#d7ef7f"
           : "#5fe8c4";
-    context.shadowBlur = playheads.length <= 32 ? 18 : 8;
+    const cornerGlow = state.mode === "mic" ? 0 : state.corners.emphasis * lSystemsCornerPulse(playhead,state.corners);
+    context.shadowBlur = (playheads.length <= 32 ? 18 : 8) + 8 * cornerGlow;
     context.beginPath();
-    context.arc(x, y, headRadius, 0, TAU);
-    context.fillStyle = "#fff7df";
+    context.arc(x, y, headRadius + 2 * cornerGlow, 0, TAU);
+    context.fillStyle = playhead.reader === undefined ? "#fff7df" : `hsl(${baseHue + playhead.reader * 48}, 90%, 78%)`;
     context.fill();
     context.restore();
   }
-}
-
-function synthPitchValue(playhead, normalized) {
-  if (state.synth.pitchSource === "angle") return null;
-  if (state.synth.pitchSource === "depth") {
-    return playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
-  }
-  if (state.synth.pitchSource === "progress") return playhead.localPhase;
-  return normalized.y;
 }
 
 function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
   const normalized = normalizeLSystemPoint(playhead, playhead.sourceTrace.bounds);
   const depth = playhead.depth / Math.max(1, playhead.sourceTrace.maxForkDepth);
   const drive = clamp((0.2 + depth * 0.8) * state.synth.depthAmount, 0, 1);
-  const mappedPitch = synthPitchValue(playhead, normalized);
-  const frequency = state.synth.pitchSource === "angle"
-    ? branchAngleFrequency(playhead.cumulativeTurn, state.synth.baseFrequency, state.synth.pitchRange)
-    : pitch01ToFrequency(mappedPitch, state.synth.baseFrequency, state.synth.pitchRange);
+  const frequency = lSystemsFrequency(playhead, state.synth);
   const topologyBoundaryBehavior = (
     state.traversalBehavior === "ping-pong"
     && ["final", "together"].includes(state.structureMode)
@@ -988,8 +1016,11 @@ function synthVoiceForPlayhead(playhead, activePower, combinedGain) {
     gain: branchVoiceGain(playhead.powerShare, activePower, combinedGain)
       * branchDecayGain(playhead.depth, state.branchDecay)
       * lSystemTimbreGain(state.synth.soundMode)
+      * lSystemsCornerGain(playhead, state.corners)
+      // The tree is a score: repeat the envelope on each segment, not once
+      // over the whole traversal. Voice keys still carry smoothly across forks.
       * amplitudeControl.sample(playhead.progress ?? 0, 1)
-      * lSystemTraversalBoundaryGain(playhead.localPhase, topologyBoundaryBehavior),
+      * lSystemTraversalBoundaryGain(playhead.readerPhase ?? playhead.localPhase, topologyBoundaryBehavior),
     pan: clamp((normalized.x * 2 - 1) * state.synth.stereoSpread, -1, 1),
     waveform: "sine",
     gainSmoothingSeconds: 0.018,
@@ -1078,12 +1109,10 @@ function micVoicesForPlayheads(playheads, maxVoices = micEngine.voiceLimit) {
 
 function updateSynthAudio(playheads, phaseRate, now) {
   const lookahead = 0.065;
-  const futurePhase = advanceLSystemTraversal(
-    state.position,
-    state.direction,
-    phaseRate * lookahead,
-    state.traversalBehavior,
-  ).position;
+  const futurePhase = discreteClock
+    ? discreteClock.positionAt(synthPool.context.currentTime + lookahead).position
+    : advanceLSystemTraversal(state.position, state.direction,
+      phaseRate * lookahead, state.traversalBehavior).position;
   const futurePlayback = iterationPlaybackAtPhase(
     iterationTraces,
     drawableTraversalPhase(futurePhase),
@@ -1169,7 +1198,7 @@ function triggerEvent(event, eventCount, voiceIndex = lSystemDrumVoiceIndex(
     characterDepth: state.drums.characterDepth,
     eventCount,
   });
-  const descendantGain = branchDecayGain(event.depth, state.branchDecay);
+  const descendantGain = branchDecayGain(event.depth, state.branchDecay) * lSystemsCornerGain(event,state.corners,true);
   if (descendantGain === 0) return;
   const voice = lSystemsPercussionVoice({ ...mappedVoice, voiceIndex, level: mappedVoice.level * descendantGain }, { style: state.drums.percussionStyle });
   hitCount += 1;
@@ -1210,6 +1239,12 @@ function invalidateDiscreteScheduler({ includeStart = false } = {}) {
 function discreteTick() {
   if (!discreteClock || !discreteContext || discreteContext.state !== "running") return;
   const entries = discreteClock.read(discreteContext.currentTime);
+  if (state.mode === "continuous") {
+    syncDiscretePosition();
+    const playback = iterationPlaybackAtPhase(iterationTraces, drawableTraversalPhase(state.position), state.structureMode);
+    updateSynthAudio(playbackHeads(playback), state.speed, discreteContext.currentTime * 1000);
+    return;
+  }
   if (!entries.length) return;
   if (state.mode === "notes") triggerNoteEvents(entries);
   else triggerEvents(entries);
@@ -1217,19 +1252,20 @@ function discreteTick() {
 
 function syncDiscreteScheduler() {
   const eligible = state.audio && audioReady && state.playing
-    && ["notes", "triggers"].includes(state.mode);
+    && ["continuous", "notes", "triggers"].includes(state.mode);
   if (!eligible) return;
   const configuration = {
-    traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior,
-    structureMode: state.structureMode, subdivisions: state.drums.subdivisions,
+    traces: iterationTraces, rate: state.speed, behavior: state.traversalBehavior, playingMode: state.mode,
+    structureMode: state.structureMode, readerMode: state.readerMode, subdivisions: state.drums.subdivisions,
+    hitPlacement: state.corners.placement, cornerThreshold: state.corners.minimumAngle,
     mappingMode: state.drums.mappingMode, pruningBias: state.pruningBias, maxPhaseStep: drumTraversalStepSize,
   };
   if (discreteClock) {
     discreteClock.configure(configuration);
     return;
   }
-  if (!(state.speed > 0)) return;
-  const audioContext = state.mode === "notes" ? synthPool.context : drumAudio.context;
+  if (!(state.speed > 0) && state.mode !== "continuous") return;
+  const audioContext = state.mode === "triggers" ? drumAudio.context : synthPool.context;
   if (!audioContext || audioContext.state !== "running") return;
   discreteContext = audioContext;
   if (discreteBudgetContext !== audioContext) discreteBudget = null;
@@ -1321,7 +1357,8 @@ function frame(now) {
   drawScene(playback, isGenerationMic() ? [] : playheads);
 
   if (state.audio && state.playing && state.mode === "continuous") {
-    updateSynthAudio(playheads, phaseRate, now);
+    // The independent audio clock submits trajectories; paint only follows it.
+    paintSynthReadouts(playheads.length, lastSoundingVoiceCount);
   } else if (state.audio && state.playing && state.mode === "notes") {
     // Timed notes own their envelopes; do not clear them on each paint.
     paintMicReadouts(0, 0);
@@ -1360,6 +1397,11 @@ function applyFullPreset(snapshot) {
   applyingScene = true;
   try {
     Object.assign(state, snapshot.shared);
+    if (snapshot.mode !== "mic") {
+      state.readerMode = snapshot.shared.readerMode ?? "end-to-end";
+      state.corners = { ...(snapshot.corners ?? DEFAULT_CORNER_STATE) };
+      restartTraversal();
+    }
     if (snapshot.mode === "mic") {
       Object.assign(state.mic, snapshot.mic);
       state.mix.mic = snapshot.micLevel;
@@ -1380,7 +1422,7 @@ function applyFullPreset(snapshot) {
   } finally { applyingScene = false; }
   // setMode changes the snapshot's mode synchronously; async engine preparation
   // is only necessary across routes, never for an ordinary same-mode recall.
-  if (snapshot.mode !== previousMode) void setMode(snapshot.mode);
+  if (snapshot.mode !== previousMode) void setMode(snapshot.mode, { restart: snapshot.mode !== "mic" });
   paintReadoutOnly();
   scheduleFrame();
 }
@@ -1411,7 +1453,11 @@ function setupControls() {
   bindRange("level", "level", formatPercent, applyGlobalLevel);
   bindRange("position", "position", (value) => `${(value * 100).toFixed(1)}%`,
     (position) => discreteClock?.configure({ position }));
-  bindRange("speed", "speed", (value) => `${Number(value).toFixed(2)} cyc/s`);
+  bindRange("cornerEmphasis", "corners.emphasis", formatPercent, resetVoiceSubmission);
+  bindRange("cornerThreshold", "corners.minimumAngle", formatDeg, resetVoiceSubmission);
+  bindRange("cornerWidth", "corners.width", value => `${formatPercent(value)} of edge`, resetVoiceSubmission);
+  bindSelect("hitPlacement", "corners.placement");
+  bindRange("speed", "speed", (value) => `${Number(value).toFixed(value < .01 ? 3 : 2)} cyc/s`);
   bindRange("iterations", "iterations", (value) => String(Math.round(value)), (value) => {
     state.iterations = Math.round(value);
     rebuildTrace();
@@ -1461,6 +1507,7 @@ function setupControls() {
     updateIterationLimit(); syncRangeBindings(); rebuildTrace();
   });
 
+  bindSelect("readerMode", "readerMode", resetVoiceSubmission);
   bindSelect("structureMode", "structureMode", () => {
     refreshDrumTraversalStepSize();
   });
@@ -1519,7 +1566,7 @@ function setupControls() {
 
 function setupAmplitude() {
   amplitudeControl = createAmplitudeControl($("amplitudeControl"), {
-    label: "Synth branch amplitude",
+    label: "Branch / note amplitude",
     onChange: () => {
       // New notes read the current envelope; sounding and queued notes finish.
       resetVoiceSubmission();
@@ -1574,6 +1621,7 @@ function boot() {
   }, recordedInput));
   setupAmplitude();
   setupPresetBank();
+  syncSelects();
   updateIterationLimit();
   renderDrumMap();
   paintMode();
