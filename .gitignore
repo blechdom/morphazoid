@@ -13,6 +13,15 @@ __pycache__/
 .env.*
 !.env.example
 
+# Never accidentally stage provider-local chats or tool caches.
+/.claude/
+/.codex/
+/.copilot/
+/.cursor/agent-transcripts/
+/.cursor/mcps/
+/.cursor/projects/
+/.cursor/terminals/
+
 # Playwright browser-test artifacts
 playwright-report/
 test-results/
