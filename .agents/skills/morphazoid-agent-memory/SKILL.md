@@ -19,12 +19,16 @@ skill, or a focused document when the finding is an actual standing rule,
 workflow correction, or design decision rather than a dated observation.
 
 Do not capture anything in public Morphazoid: its updater and notes directory
-have been removed. If the owner opts in on this machine, locate the separate
-private checkout from `MORPHAZOID_PRIVATE_MEMORY_ROOT`, read **its** `AGENTS.md`
-and `README.md`, and run its `scripts/agent-memory.py preflight`. Never search
-home directories for it, infer its location from another machine, or install
-it as a submodule. If the private checkout is unavailable, explain how to opt
-in; do not improvise a public fallback.
+have been removed. If the owner opts in on this personal machine, use
+`MORPHAZOID_PRIVATE_MEMORY_ROOT` from this agent's environment. If unset, check
+**only** the explicit owner-only locator
+`${XDG_CONFIG_HOME:-$HOME/.config}/morphazoid/memory-root`, not a directory
+search. Refuse a missing, symlinked, group/world-readable, non-owner, or
+non-absolute locator. Read exactly one absolute path **as data**, never
+source or execute the file. Read the private checkout's `AGENTS.md` and
+`README.md` and run its `scripts/agent-memory.py preflight` against that exact
+root. Never infer a path from another machine or install it as a submodule.
+If it is unavailable, explain opt-in; do not improvise a public fallback.
 
 Use the private helper's `capture --project-root <verified-public-checkout>`
 to draft a note backed by a tracked personal-project path or Git revision.

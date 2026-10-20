@@ -23,11 +23,14 @@ owner-approved observations in a *separate private personal repository*.
    owner and **private** visibility before pushing anything. Do not put its
    URL, token, local path, or notes in public Morphazoid, including submodules,
    Actions secrets, examples, and pull requests.
-2. Set `MORPHAZOID_PRIVATE_MEMORY_ROOT` to that checkout **only in local,
-   untracked configuration** on each opted-in personal machine. Read its
-   `AGENTS.md` and `README.md`, then run its `scripts/agent-memory.py preflight`
-   against that exact root. If it is unavailable or fails, use the public
-   guidance without memory rather than guessing a location.
+2. Opt in on each personal machine **outside Git**: set
+   `MORPHAZOID_PRIVATE_MEMORY_ROOT` in personal-agent sessions, or write one
+   absolute checkout path to an owner-only
+   `${XDG_CONFIG_HOME:-$HOME/.config}/morphazoid/memory-root` file (directory
+   mode `0700`, file mode `0600`). Do not export into employer workflows.
+   Read that private checkout's `AGENTS.md` and `README.md`, then run its
+   `scripts/agent-memory.py preflight`. If missing or invalid, continue with
+   public guidance rather than searching for a private path.
 3. Use that private helper's `capture --project-root <Morphazoid-checkout>`
    to draft one short observation. It verifies the personal public origin and
    tracked evidence; no raw turns, quotes, URLs, emails, machine paths, or
