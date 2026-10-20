@@ -58,8 +58,9 @@ analysis local and untracked; never feed histories to an automatic Git commit.
 - Put durable repository-wide invariants in root `AGENTS.md`.
 - Put repeatable multi-step procedures in a narrowly triggered skill.
 - Put evolving aesthetic vocabulary and examples in project documentation.
-- Put individual human-reviewed observations in `docs/agent-memory/notes/` via
-  `$morphazoid-agent-memory`; do not dump session transcripts or turn excerpts.
+- Route individual human-reviewed observations to the optional private memory
+  repository via `$morphazoid-agent-memory`; never put notes, session transcripts,
+  or turn excerpts in public Morphazoid.
 - Put page-specific behavior in that page's code, tests, or focused design notes.
 - Do not generalize a one-off preference unless the user explicitly requests it.
 - Keep absolute checkout paths, preview ports and old filenames as historical

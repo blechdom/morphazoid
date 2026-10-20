@@ -55,12 +55,14 @@ Stop and report an unexpected identity; never force-push as an incidental fix.
 Changing local commit identity is different from rewriting published history;
 the latter needs separate authorization and coordination.
 
-Run `python3 scripts/agent-memory.py audit --scope staged` as a filename-only
+Run `python3 scripts/agent-privacy-audit.py audit --scope staged` as a filename-only
 cross-stream signal before a Morphazoid commit or push. Review findings and
 the actual staged diff privately; the audit intentionally flags public vendor
 mentions and policy text as well as potential leaks and cannot prove the
 absence of confidential content. Never auto-dismiss a finding or publish a
 mixed/uncertain diff. Do not include private memory inboxes or chat histories.
+Run `python3 scripts/agent-privacy-audit.py audit --scope forbidden` to reject
+private memory notes or agent caches in public Git, including forced additions.
 
 For renamed/moved runtime files, verify the current
 `scripts/site/runtime-files.tsv` and regenerate `dist-wax/` from authored source.
