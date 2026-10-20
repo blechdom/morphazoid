@@ -13,7 +13,7 @@ or agent-wide caches for project context: see the
 | Check mechanical UI/audio behavior | `$morphazoid-responsive-audio-qa` | `docs/QA_AUTOMATION.md`; `contracts/audio-transport-v1.md` |
 | Judge sound or control audibility | `$morphazoid-perceptual-qa` | Its listening-pass reference; do not infer sound quality from code tests |
 | Learn safely from personal task history | `$morphazoid-history-synthesis` | [Creative direction](creative-direction.md) and [memory workflow](memory-workflow.md) |
-| Save or synchronize a durable observation | `$morphazoid-agent-memory` | [Memory workflow](memory-workflow.md) and [reviewed notes](../agent-memory/README.md) |
+| Save or synchronize a durable observation | `$morphazoid-agent-memory` | [Private opt-in memory workflow](memory-workflow.md); never commit notes here |
 | Commit, reconcile, or publish | `$morphazoid-safe-publish` | `git status`; staged diff and privacy audit |
 
 ## Quick instrument path
@@ -31,6 +31,6 @@ or agent-wide caches for project context: see the
 4. Use the instrument skill's integration checklist, run focused checks before
    broad verification, and report what was actually exercised or heard.
 
-Keep task-specific decisions in code/tests or focused instrument docs. Notes in
-`docs/agent-memory/notes/` are dated *evidence*; do not elevate them to policy
-without checking the current implementation and the user's intent.
+Keep task-specific decisions in code/tests or focused instrument docs. Optional
+private, reviewed notes are dated *evidence*: check current code and user intent
+before treating one as a useful reference. Never commit them to public Morphazoid.
