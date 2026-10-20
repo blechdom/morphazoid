@@ -7,7 +7,7 @@ import { createSimdResonatorConfiguration } from '../src/simd-resonator.js';
 
 const root = new URL('../', import.meta.url);
 const blockSize = 128;
-const maxModes = 4096;
+const maxModes = 8192;
 const pointers = Object.freeze({ input: 'input_ptr', outputLeft: 'output_left_ptr', outputRight: 'output_right_ptr',
   real: 'real_ptr', imaginary: 'imaginary_ptr', cosine: 'cosine_ptr', sine: 'sine_ptr', decay: 'decay_ptr',
   strike: 'strike_ptr', gain: 'gain_ptr', panLeft: 'pan_left_ptr', panRight: 'pan_right_ptr', energy: 'energy_ptr' });
@@ -71,14 +71,14 @@ function assertSignal(kernel) {
   for (const key of states) assert.ok(kernel[key].every(Number.isFinite), `${key} remains finite`);
 }
 
-test('Rust scalar and SIMD expose one fixed, aligned, import-free 4,096-mode ABI', async () => {
+test('Rust scalar and SIMD expose one fixed, aligned, import-free 8,192-mode ABI', async () => {
   for (const variant of ['scalar', 'simd']) {
     const kernel = await load(variant);
-    assert.equal(kernel.e.abi_version(), 2);
+    assert.equal(kernel.e.abi_version(), 3);
     assert.equal(kernel.e.block_size(), blockSize);
     assert.equal(kernel.e.max_modes(), maxModes);
     assert.equal(kernel.e.lane_width(), variant === 'simd' ? 4 : 1);
-    assert.equal(kernel.e.memory.buffer.byteLength, 393216);
+    assert.equal(kernel.e.memory.buffer.byteLength, 16777216);
     assert.throws(() => kernel.e.memory.grow(1), RangeError);
     const regions = Object.entries(pointers).map(([key, pointer]) => {
       const start = kernel.e[pointer]();
@@ -118,7 +118,7 @@ test('Rust kernels preserve original Resonator waveforms and energy with identic
 
 test('Rust scalar and SIMD agree at expanded capacities with input and repeated strikes', async () => {
   const [scalar, simd] = await Promise.all([load('scalar'), load('simd')]);
-  for (const modes of [4, 128, 132, 1024, 4096]) {
+  for (const modes of [4, 128, 132, 1024, 4096, 8192]) {
     const configuration = denseConfiguration(modes);
     configure(scalar, configuration); configure(simd, configuration);
     let difference = 0;
@@ -189,7 +189,7 @@ test('hostile bounds and nonfinite scalar inputs cannot grow memory or poison su
     configure(kernel, configuration);
     const memory = kernel.e.memory.buffer;
     for (const frames of [-2147483648, -1, 0, 1, 127, 128, 2147483647]) {
-      for (const modes of [-2147483648, 0, 3, 4095, 4096, 2147483647]) {
+      for (const modes of [-2147483648, 0, 3, 8191, 8192, 2147483647]) {
         kernel.input.fill(Number.NaN);
         kernel.e.process_resonator(frames, modes, Infinity, Number.NaN);
         assertSignal(kernel);
@@ -228,5 +228,5 @@ test('reset clears tails and buffers while retaining coefficients and determinis
 test('Rust build provenance and both shipped artifacts verify without requiring a compiler', () => {
   const result = spawnSync(process.execPath, ['scripts/build-rust-resonator-wasm.mjs', '--check'], { cwd: fileURLToPath(root), encoding: 'utf8', env: { ...process.env, RUSTC: '/nonexistent/rustc' } });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /4,096 modes, fixed memory, no imports/);
+  assert.match(result.stdout, /8,192 modes, fixed memory, no imports/);
 });

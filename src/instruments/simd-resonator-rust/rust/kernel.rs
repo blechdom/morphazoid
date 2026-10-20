@@ -1,10 +1,11 @@
 //! SIMD Resonator's damped quadrature bank, ported from the original
-//! AssemblyScript kernels. ABI 2: fixed f32 arrays; one non-reentrant owner.
+//! AssemblyScript kernels. ABI 3: fixed f32 arrays; one non-reentrant owner.
 //! Coefficients are prepared/validated outside the render callback. No allocator,
 //! imports, shared memory, or memory growth; scalar and SIMD use the same layout.
-#![no_std]
+mod fft;
+mod signal;
 
-const MAX_MODES: usize = 4096;
+const MAX_MODES: usize = 8192;
 const BLOCK_SIZE: usize = 128;
 const TILE: usize = 4;
 const MAX_SPATIAL_CHANNELS: usize = 16;
@@ -60,11 +61,6 @@ static mut BUFFERS: Buffers = Buffers {
     route_gain_d: [0.0; MAX_MODES],
 };
 
-#[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
-    core::arch::wasm32::unreachable()
-}
-
 macro_rules! pointer {
     ($export:ident, $field:ident) => {
         #[no_mangle]
@@ -104,7 +100,7 @@ pub extern "C" fn max_spatial_channels() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn abi_version() -> u32 {
-    2
+    3
 }
 #[no_mangle]
 pub extern "C" fn max_modes() -> u32 {

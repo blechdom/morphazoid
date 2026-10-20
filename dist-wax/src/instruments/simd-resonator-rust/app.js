@@ -5,7 +5,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
 import { presetsForSimdEngine } from '../../simd-resonator.js';
-import { DEFAULTS, LIMITS, MAX_MODES, createConfiguration } from './model.js';
+import { DEFAULTS, LIMITS, MAX_MODES, MAX_FFT_BANDS, createConfiguration } from './model.js';
 import { PRESETS, DEFAULT_PRESET_SETTINGS, sanitizePresetSettings, applicationForSettings, APPLICATION_MODES, signalSettingsForPreset,
   REVERB_CHARACTERS, RESYNTHESIS_CHARACTERS, capturePreset, validatePreset, randomizePreset } from './presets.js';
 import { sanitizeSpatialSettings } from './spatial-model.js';
@@ -55,7 +55,7 @@ const state = {
   micStream: null, micSource: null, micGain: null, micPending: false, micRevision: 0, recordedGain: null,
   inputKind: 'excitation', inputRevision: 0, inputWasPlaying: false, pointer: null, lastStrike: 0, materialId: null,
   peak: 0, rms: 0, telemetry: {}, energy: new Float32Array(128), modal: new Float32Array(128),
-  fftInput: new Float32Array(128), fftOutput: new Float32Array(128), frame: 0, lastDraw: 0,
+  fftInput: new Float32Array(MAX_FFT_BANDS), fftOutput: new Float32Array(MAX_FFT_BANDS), frame: 0, lastDraw: 0,
 };
 let inputControl, recordedInput, presetController, recording;
 const knobs = [];
@@ -481,10 +481,15 @@ function draw(time) {
   const w = rect.width, h = rect.height, { left, right, top, bottom } = plotBounds(w, h);
   context2d.fillStyle = '#040d0c'; context2d.fillRect(0, 0, w, h);
   const bandCount = state.settings.fftBandCount;
-  for (let i = 0; i < bandCount; i++) {
-    const x = left + (right - left) * i / bandCount, bar = Math.max(1, (right - left) / bandCount - 1);
-    context2d.fillStyle = '#a78bfa44'; context2d.fillRect(x, bottom - state.fftInput[i] * (bottom - top), bar, state.fftInput[i] * (bottom - top));
-    context2d.fillStyle = '#ff6f9177'; context2d.fillRect(x, bottom - state.fftOutput[i] * (bottom - top), Math.max(1, bar * .35), state.fftOutput[i] * (bottom - top));
+  const visibleBands = Math.min(bandCount, Math.max(1, Math.floor(right - left)));
+  for (let i = 0; i < visibleBands; i++) {
+    // Preserve narrow peaks when several logarithmic groups share a screen pixel.
+    const first = Math.floor(i * bandCount / visibleBands), end = Math.floor((i + 1) * bandCount / visibleBands);
+    let input = 0, output = 0;
+    for (let band = first; band < end; band++) { input = Math.max(input, state.fftInput[band]); output = Math.max(output, state.fftOutput[band]); }
+    const x = left + (right - left) * i / visibleBands, bar = Math.max(1, (right - left) / visibleBands - 1);
+    context2d.fillStyle = '#a78bfa44'; context2d.fillRect(x, bottom - input * (bottom - top), bar, input * (bottom - top));
+    context2d.fillStyle = '#ff6f9177'; context2d.fillRect(x, bottom - output * (bottom - top), Math.max(1, bar * .35), output * (bottom - top));
   }
   for (let strand = 0; strand < 40; strand++) {
     const index = Math.round(strand * 127 / 39), order = 1 + strand * (state.settings.spectralSpan - 1) / 39;

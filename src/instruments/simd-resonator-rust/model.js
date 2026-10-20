@@ -3,12 +3,14 @@ import {
   sanitizeSimdResonatorSettings, createSimdResonatorConfiguration,
 } from '../../simd-resonator.js';
 
-export const MAX_MODES = 4096;
+export const MAX_MODES = 8192;
+export const FFT_SIZES = Object.freeze([256, 512, 1024, 2048, 4096]);
+export const MAX_FFT_BANDS = 1024;
 export const BLOCK_SIZE = 128;
 export const MAX_SPATIAL_CHANNELS = 16;
 export const COEFFICIENT_KEYS = Object.freeze(['cosine', 'sine', 'decay', 'strike', 'gain', 'panLeft', 'panRight']);
 export const DEFAULTS = Object.freeze({ ...SIMD_RESONATOR_DEFAULTS, modeCount: 512, spectralSpan: 128 });
-export const LIMITS = Object.freeze({ ...SIMD_RESONATOR_LIMITS, modeCount: [32, MAX_MODES], spectralSpan: [8, 512] });
+export const LIMITS = Object.freeze({ ...SIMD_RESONATOR_LIMITS, modeCount: [32, MAX_MODES], spectralSpan: [8, 512], fftBandCount: [16, MAX_FFT_BANDS] });
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
 export function sanitizeSettings(value = {}) {
@@ -16,6 +18,8 @@ export function sanitizeSettings(value = {}) {
     ...sanitizeSimdResonatorSettings(value),
     modeCount: clamp(Math.round(finite(value.modeCount, DEFAULTS.modeCount) / 4) * 4, 32, MAX_MODES),
     spectralSpan: clamp(finite(value.spectralSpan, DEFAULTS.spectralSpan), 8, 512),
+    fftSize: FFT_SIZES.reduce((best, size) => Math.abs(size - finite(value.fftSize, DEFAULTS.fftSize)) < Math.abs(best - finite(value.fftSize, DEFAULTS.fftSize)) ? size : best, FFT_SIZES[0]),
+    fftBandCount: clamp(Math.round(finite(value.fftBandCount, DEFAULTS.fftBandCount) / 4) * 4, 16, MAX_FFT_BANDS),
   });
 }
 
@@ -53,7 +57,8 @@ export function createConfiguration(value = {}, rate = 48000) {
   const outputScale = classic ? reference.outputScale
     : Math.min(.6, reference.outputScale * Math.sqrt(referenceEnergy / Math.max(energy, 1e-12)));
   return { ...reference, ...arrays, settings, sampleRate, modeCount: settings.modeCount,
-    audibleModes, outputScale, frequencies };
+    audibleModes, outputScale, frequencies, fftSize: settings.fftSize, fftBandCount: settings.fftBandCount,
+    fftHopSize: Math.max(32, Math.round(settings.fftSize * settings.fftHopRatio / 32) * 32) };
 }
 
 export const POINTERS = Object.freeze({ input: 'input_ptr', outputLeft: 'output_left_ptr', outputRight: 'output_right_ptr',
@@ -66,7 +71,7 @@ export const SPATIAL_POINTERS = Object.freeze(Object.fromEntries(['A', 'B', 'C',
 ])));
 export function kernelViews(exports) {
   if (!(exports.memory instanceof WebAssembly.Memory) || exports.max_modes?.() !== MAX_MODES
-    || exports.block_size?.() !== BLOCK_SIZE || exports.abi_version?.() !== 2 || exports.max_spatial_channels?.() !== MAX_SPATIAL_CHANNELS
+    || exports.block_size?.() !== BLOCK_SIZE || exports.abi_version?.() !== 3 || exports.max_spatial_channels?.() !== MAX_SPATIAL_CHANNELS
     || typeof exports.process_resonator_spatial !== 'function') throw new Error('Unexpected Rust resonator ABI.');
   return { exports, ...Object.fromEntries(Object.entries(POINTERS).map(([key, pointer]) => {
     if (typeof exports[pointer] !== 'function') throw new Error('Missing Rust resonator array: ' + key);

@@ -119,7 +119,7 @@ test("full presets, dice and source choices leave Audio off and never request mi
   });
   await page.goto("simd-resonator-rust.html");
   await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "unselected");
-  await expect(page.locator("button[data-full-preset]")).toHaveCount(20);
+  await expect(page.locator("button[data-full-preset]")).toHaveCount(22);
   await preset(page, "spectral-fog");
   expect((await read(page)).settings.fftResponseMs).toBe(620);
   await page.locator(".header-preset-next").click();
@@ -244,7 +244,7 @@ test("new controls remain reachable at desktop and phone sizes; Lab keeps its fo
   await expect(page.locator("#presetSelect")).toBeVisible();
 });
 
-test('all twenty presets retain live input; maximum bank keeps rendering through a UI stall', async ({ page }) => {
+test('all factory presets retain live input; maximum bank keeps rendering through a UI stall', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('simd-resonator-rust.html');
   await choose(page, "inputSource", 'sample-file');
@@ -261,13 +261,13 @@ test('all twenty presets retain live input; maximum bank keeps rendering through
   await page.locator('.header-preset-next').click();
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', bank[0].id);
   await choose(page, 'applicationMode', 'body');
-  await setRange(page, 'controlA', 4096); await setRange(page, 'spectralSpan', 128);
+  await setRange(page, 'controlA', 8192); await setRange(page, 'spectralSpan', 128);
   await choose(page, 'applicationMode', 'resynthesis');
-  await page.locator('#fftSize').selectOption('4096'); await setRange(page, 'fftHopRatio', .125);
+  await page.locator('#fftSize').selectOption('4096'); await setRange(page, 'fftBandCount', 1024); await setRange(page, 'fftHopRatio', .125);
   await toggle(page, 'surroundEnabled'); await choose(page, 'surroundLayout', '16-ring');
   await toggle(page, 'spaceMotion'); await setRange(page, 'spaceRate', .2);
   await expect.poll(async () => (await read(page)).spatialEnabled).toBe(true);
-  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(4096);
+  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(8192);
   const before = await read(page);
   await page.evaluate(() => { const until = performance.now() + 450; while (performance.now() < until) {} });
   await expect.poll(async () => (await read(page)).renderedFrames).toBeGreaterThan(before.renderedFrames + 12000);
@@ -281,12 +281,12 @@ test('all twenty presets retain live input; maximum bank keeps rendering through
 
 test('Rust scalar fallback is independently playable at the maximum count', async ({ page }) => {
   await page.goto('simd-resonator-rust.html?scalar=1');
-  await setRange(page, 'controlA', 4096);
+  await setRange(page, 'controlA', 8192);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await read(page)).backend).toBe('scalar');
   await page.locator('#pluckButton').click();
   await expect.poll(async () => (await read(page)).rms).toBeGreaterThan(.005);
-  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(4096);
+  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(8192);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await read(page)).contextState).toBe('none');
 });
@@ -307,10 +307,10 @@ test('edits made while the worklet announces readiness reach the actual running 
   });
   await page.goto('simd-resonator-rust.html'); await page.locator('#audioButton').click();
   await page.waitForFunction(() => Boolean(window.__releaseRustReady));
-  await setRange(page, 'controlA', 4096); await setRange(page, 'spectralSpan', 64);
+  await setRange(page, 'controlA', 8192); await setRange(page, 'spectralSpan', 64);
   await page.evaluate(() => window.__releaseRustReady());
   await expect.poll(async () => (await read(page)).audioOn).toBe(true);
-  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(4096);
+  await expect.poll(async () => (await read(page)).renderedModeCount).toBe(8192);
   expect((await read(page)).settings.spectralSpan).toBe(64);
 });
 

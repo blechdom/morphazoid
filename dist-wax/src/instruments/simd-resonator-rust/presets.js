@@ -1,7 +1,6 @@
 import { SIMD_RESONATOR_FULL_PRESETS } from '../../families/simd-resonator/simd-resonator-presets.js';
-import { SIMD_RESONATOR_FFT_SIZES } from '../../simd-resonator.js';
 import { createPresetSchema } from '../../site/preset-schema.js';
-import { DEFAULTS, LIMITS, sanitizeSettings } from './model.js';
+import { DEFAULTS, LIMITS, FFT_SIZES, MAX_MODES, MAX_FFT_BANDS, sanitizeSettings } from './model.js';
 import { sanitizeSpatialSettings } from './spatial-model.js';
 import {
   SIGNAL_DEFAULTS, SIGNAL_LIMITS, FILTER_TYPES, STAGE_ORDERS, sanitizeSignalSettings,
@@ -62,14 +61,15 @@ export const RESYNTHESIS_CHARACTERS = focusedBank([
   ['transients', 'Fast transients', { fftSize: 256, fftWindow: 2, fftHopRatio: .125, fftBandCount: 96, fftResponseMs: 4, fftLowFrequency: 70, fftHighFrequency: 17000, fftDetail: .9, fftGateDb: -72 }],
   ['bands', 'Broad bands', { fftSize: 1024, fftWindow: 0, fftHopRatio: .25, fftBandCount: 16, fftResponseMs: 70, fftLowFrequency: 45, fftHighFrequency: 14000, fftDetail: .18, fftGateDb: -80 }],
   ['fog', 'Spectral fog', { fftSize: 4096, fftWindow: 1, fftHopRatio: .125, fftBandCount: 80, fftResponseMs: 620, fftLowFrequency: 35, fftHighFrequency: 10000, fftDetail: .2, fftGateDb: -88 }],
+  ['fine', 'Fine spectrum', { fftSize: 4096, fftWindow: 0, fftHopRatio: .25, fftBandCount: 1024, fftResponseMs: 24, fftLowFrequency: 20, fftHighFrequency: 20000, fftDetail: 1, fftGateDb: -90 }],
   ['radio', 'Narrow radio', { fftSize: 512, fftWindow: 3, fftHopRatio: .5, fftBandCount: 24, fftResponseMs: 20, fftLowFrequency: 550, fftHighFrequency: 3750, fftDetail: .72, fftGateDb: -64 }],
 ]);
 
 const modalFields = {
   ...Object.fromEntries(Object.entries(LIMITS).map(([key, [min, max]]) => [key, { min, max }])),
-  modeCount: { choices: Array.from({ length: 1017 }, (_, i) => 32 + i * 4) },
-  fftSize: { choices: SIMD_RESONATOR_FFT_SIZES }, fftWindow: { choices: [0, 1, 2, 3] },
-  fftBandCount: { choices: Array.from({ length: 29 }, (_, i) => 16 + i * 4) },
+  modeCount: { choices: Array.from({ length: (MAX_MODES - 32) / 4 + 1 }, (_, i) => 32 + i * 4) },
+  fftSize: { choices: FFT_SIZES }, fftWindow: { choices: [0, 1, 2, 3] },
+  fftBandCount: { choices: Array.from({ length: (MAX_FFT_BANDS - 16) / 4 + 1 }, (_, i) => 16 + i * 4) },
 };
 const spatialFields = {
   spacePattern: { choices: ['ascending', 'descending', 'alternate', 'scatter'] },
@@ -146,6 +146,8 @@ const dense = [
   ['copper-spray', 'Copper spray', { ...application('processing'), modeCount: 4096, spectralSpan: 128, baseFrequency: 82, decaySeconds: 1.6, spread: .58, hardness: 1, strikePosition: .19, excitationType: 'white-noise', excitationDurationMs: 45, filterType: 'bandpass', filterFrequency: 3200, drive: 4.5, spacePattern: 'alternate', spaceSpan: 2, spaceMotion: true, spaceRate: .12 }],
   ['low-continuum', 'Low continuum', { ...application('reverb'), modeCount: 4096, spectralSpan: 192, baseFrequency: 42, decaySeconds: 5.8, spread: .12, hardness: .72, fftLowFrequency: 35, fftMix: .6, excitationType: 'pink-noise', excitationDurationMs: 160, reverbTime: 8.4, reverbDamping: .78, reverbMix: .8, spaceMotion: true, spaceRate: -.02 }],
   ['wire-cluster', 'Wire cluster', { modeCount: 256, spectralSpan: 32, baseFrequency: 180, decaySeconds: .7, spread: .9, hardness: .9, excitationType: 'pluck', excitationDurationMs: 7, spacePattern: 'alternate', spaceSpan: .5, spaceOffset: .5 }],
+  ['dense-silk', 'Dense silk · 8192 waves', { ...application('body'), modeCount: 8192, spectralSpan: 72, baseFrequency: 60, decaySeconds: 4.8, spread: .12, hardness: .68, excitationType: 'pluck', excitationDurationMs: 12 }],
+  ['spectral-lens', 'Spectral lens', { ...application('resynthesis'), fftSize: 4096, fftBandCount: 1024, fftHopRatio: .25, fftDetail: 1, fftMix: 1, fftResponseMs: 24, fftLowFrequency: 20, fftHighFrequency: 20000, fftGateDb: -90 }],
   ['voice-chamber', 'Voice chamber', { ...application('resynthesis'), modeCount: 2048, spectralSpan: 128, baseFrequency: 68, decaySeconds: 3.6, spread: .3, fftSize: 2048, fftBandCount: 128, fftMix: .72, fftResponseMs: 90, excitationType: 'soft-mallet', excitationDurationMs: 8, filterFrequency: 6000, drive: 1.4, reverbTime: 2.8, spaceMotion: true, spaceRate: .07 }],
 ];
 const classicExciters = Object.freeze({

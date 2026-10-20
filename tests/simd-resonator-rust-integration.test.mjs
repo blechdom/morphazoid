@@ -33,7 +33,7 @@ test('Rezoidinator is a separate instrument immediately beside SIMD Resonator', 
   assert.equal(item.status, null);
   assert.equal(item.imageHref, instrumentById('simd-resonator').imageHref);
   assert.deepEqual(item.tags.map(tag => tag.id), ['simd-audio', 'resonator']);
-  assert.match(item.description, /4,096 parallel modes.*spectral span/);
+  assert.match(item.description, /8,192 parallel modes.*spectral span/);
   assert.equal(CANONICAL_PAGE_ROUTES.filter(route => route === item.href).length, 1);
   assert.deepEqual(instrumentMidiCapabilityForId(id), {
     ...instrumentMidiCapabilityForId('simd-resonator'), id,
@@ -43,7 +43,7 @@ test('Rezoidinator is a separate instrument immediately beside SIMD Resonator', 
 test('Rezoidinator packaging explicitly requires its own runtime and keeps the original', async () => {
   const inventory = parseRuntimeManifest(await readFile(urlFor('scripts/site/runtime-files.tsv'), 'utf8'));
   const paths = [`${id}.html`,
-    ...['app.js', 'model.js', 'presets.js', 'processor.js', 'fft-resynth.js', 'spatial-model.js', 'surround-output.js', 'recording.js', 'style.css'].map(name => `src/instruments/${id}/${name}`),
+    ...['app.js', 'model.js', 'presets.js', 'processor.js', 'fft-rust.js', 'signal-rust.js', 'signal-path.js', 'spatial-model.js', 'surround-output.js', 'recording.js', 'style.css'].map(name => `src/instruments/${id}/${name}`),
     'assets/wasm/rust-resonator-scalar.wasm', 'assets/wasm/rust-resonator-simd.wasm', 'docs/simd-resonator-rust.md', 'docs/rezoidinator-surround-measurements.json'];
   for (const file of paths) {
     const entries = inventory.entries.filter(entry => entry.path === file);

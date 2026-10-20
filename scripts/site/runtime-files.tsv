@@ -466,7 +466,8 @@ copy+require	src/instruments/simd-resonator-rust/app.js
 copy+require	src/instruments/simd-resonator-rust/model.js
 copy+require	src/instruments/simd-resonator-rust/presets.js
 copy+require	src/instruments/simd-resonator-rust/processor.js
-copy+require	src/instruments/simd-resonator-rust/fft-resynth.js
+copy+require	src/instruments/simd-resonator-rust/fft-rust.js
+copy+require	src/instruments/simd-resonator-rust/signal-rust.js
 copy+require	src/instruments/simd-resonator-rust/signal-path.js
 copy+require	src/instruments/simd-resonator-rust/spatial-model.js
 copy+require	src/instruments/simd-resonator-rust/surround-output.js

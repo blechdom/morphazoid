@@ -608,7 +608,7 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "simd-resonator-rust": define(
     "Spatial modal instrument",
-    "A Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, microphone and recorded input, and spatial modal/FFT resynthesis across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.",
+    "A Rust WebAssembly body with up to 8,192 parallel modes, independent spectral span, microphone and recorded input, and Rust FFT resynthesis with up to 4,096-sample frames and 1,024 envelope bands. Shape input with Rust filtering, drive and reverb across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.",
     "Turn on Audio, choose a preset, then tap or drag the body. Use Waves and Spectrum span to shape its density, choose input in the side panel, and open Surround below the synthesis controls to distribute modes or FFT bands around speakers.",
     ["Modal synthesis", "Mic input", "Local file input", "Sample input", "Surround output", "Multichannel recording", "Rust WebAssembly", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
   ),

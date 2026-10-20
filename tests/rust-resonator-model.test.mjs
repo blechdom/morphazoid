@@ -44,8 +44,8 @@ test('extra waves contribute to the actual output with comparable raw levels', (
   assert.ok(rms(dense) / rms(sparse) > .5); assert.ok(rms(dense) / rms(sparse) < 2);
   for (const buffer of [sparse, dense, truncated]) assert.ok(buffer.every(value => Number.isFinite(value) && Math.abs(value) < 1));
 });
-test('all twenty scenes render finite stereo-compatible output and useful strike levels', () => {
-  assert.equal(PRESETS.length, 20);
+test('all factory scenes render finite stereo-compatible output and useful strike levels', () => {
+  assert.equal(PRESETS.length, 22);
   for (const preset of PRESETS) {
     assert.deepEqual(validatePreset(preset.snapshot), preset.snapshot);
     const audio = render(preset.snapshot);
@@ -55,8 +55,12 @@ test('all twenty scenes render finite stereo-compatible output and useful strike
 });
 test('untrusted settings stay bounded; dice covers waves and span while retaining schema', () => {
   assert.equal(sanitizeSettings({ modeCount: Infinity }).modeCount, 512);
-  assert.equal(sanitizeSettings({ modeCount: 1e9, spectralSpan: -1 }).modeCount, 4096);
+  assert.equal(sanitizeSettings({ modeCount: 1e9, spectralSpan: -1 }).modeCount, 8192);
   assert.equal(sanitizeSettings({ spectralSpan: -1 }).spectralSpan, 8);
+  const limits = sanitizeSettings({ fftBandCount: 1e9, fftSize: 8192 });
+  assert.equal(limits.fftBandCount, 1024); assert.equal(limits.fftSize, 4096);
+  assert.equal(sanitizeSettings({ fftBandCount: Infinity }).fftBandCount, 96);
+  assert.equal(sanitizeSettings({ fftBandCount: 1021 }).fftBandCount, 1020);
   const counts = new Set(), spans = new Set();
   for (let i = 0; i < 30; i++) {
     const snapshot = randomizePreset(DEFAULTS);

@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { DEFAULTS, createConfiguration } from '../src/instruments/simd-resonator-rust/model.js';
-import { SIGNAL_DEFAULTS, SIGNAL_LIMITS, EXCITATION_TYPES, ExcitationSource,
+import { SIGNAL_DEFAULTS, SIGNAL_LIMITS, EXCITATION_TYPES,
   sanitizeSignalSettings, sanitizeExcitation } from '../src/instruments/simd-resonator-rust/signal-path.js';
+import { ExcitationSource } from './helpers/rezoidinator-js-signal-reference.mjs';
 
 const scalarBytes = await readFile(new URL('../assets/wasm/rust-resonator-scalar.wasm', import.meta.url));
 const simdBytes = await readFile(new URL('../assets/wasm/rust-resonator-simd.wasm', import.meta.url));

@@ -1,7 +1,8 @@
+// Frozen JavaScript FFT oracle from d32bd6e3; never shipped or loaded by the instrument.
 // Phase-preserved overlap-add resynthesis follows the original SIMD engine,
 // including warm dual-bank topology edits. Surround splits shaped complex bins
 // before inverse transforms; the independent mono output is unchanged.
-import { MAX_SPATIAL_CHANNELS, SPATIAL_DEFAULTS, spatialPosition, equalPowerRoute, wrapTurn } from './spatial-model.js';
+import { MAX_SPATIAL_CHANNELS, SPATIAL_DEFAULTS, spatialPosition, equalPowerRoute, wrapTurn } from '../../src/instruments/simd-resonator-rust/spatial-model.js';
 const BLOCK_SIZE = 128;
 const MAX_FFT_SIZE = 4096;
 const MAX_FFT_BANDS = 128;

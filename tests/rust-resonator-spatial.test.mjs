@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import test from 'node:test';
 import { createConfiguration, DEFAULTS, kernelViews, MAX_MODES, SPATIAL_POINTERS } from '../src/instruments/simd-resonator-rust/model.js';
 import { SPATIAL_DEFAULTS, sanitizeSpatialSettings, spatialPosition, equalPowerRoute, SpatialRouter } from '../src/instruments/simd-resonator-rust/spatial-model.js';
-import { FftResynth } from '../src/instruments/simd-resonator-rust/fft-resynth.js';
+import { FftResynth } from './helpers/rezoidinator-js-fft-reference.mjs';
 
 const scalarBytes = await readFile(new URL('../assets/wasm/rust-resonator-scalar.wasm', import.meta.url));
 const simdBytes = await readFile(new URL('../assets/wasm/rust-resonator-simd.wasm', import.meta.url));
@@ -58,7 +58,7 @@ test('spatial controls bound finite native values, distribute every pattern, and
 test('spatial ABI remains fixed and separates every route and output region', async () => {
   for (const backend of ['scalar', 'simd']) {
     const k = await kernel(backend);
-    assert.equal(k.exports.max_spatial_channels(), 16); assert.equal(k.exports.memory.buffer.byteLength, 393216);
+    assert.equal(k.exports.max_spatial_channels(), 16); assert.equal(k.exports.memory.buffer.byteLength, 16777216);
     const keys = [...coefficients, 'input', 'outputLeft', 'outputRight', 'real', 'imaginary', 'energy', 'spatialOutput', ...Object.keys(SPATIAL_POINTERS)];
     const regions = keys.map(key => ({ key, start: k[key].byteOffset, end: k[key].byteOffset + k[key].byteLength })).sort((a, b) => a.start - b.start);
     for (let i = 1; i < regions.length; i++) assert.ok(regions[i - 1].end <= regions[i].start, `${regions[i].key} never aliases`);
@@ -186,9 +186,9 @@ test('FFT edits and input stop retain spatial overlap; excluded layers stay audi
   p.message({ type: 'dispose' }); const disposed = block(p); assert.equal(disposed.running, false); assert.ok(disposed.spatial.every(channel => power(channel) === 0));
 });
 
-test('4096 modes, largest overlap FFT and16 channels stay finite through live routing on both backends', () => {
+test('8192 modes, largest overlap FFT and16 channels stay finite through live routing on both backends', () => {
   for (const backend of ['simd', 'scalar']) {
-    const p = processor({ ...DEFAULTS, modeCount: 4096, fftSize: 4096, fftHopRatio: .125 }, backend);
+    const p = processor({ ...DEFAULTS, modeCount: 8192, fftSize: 4096, fftBandCount: 1024, fftHopRatio: .125 }, backend);
     p.message({ type: 'mic', active: true });
     p.message({ type: 'spatial', configuration: { ...SPATIAL_DEFAULTS, enabled: true, speakerCount: 16, motion: true, rate: 1 } });
     let energy = 0;

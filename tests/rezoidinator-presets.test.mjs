@@ -27,21 +27,21 @@ function historicalScene() {
     fftMix: resynthesisMix, excitationType: 'pluck', excitationStrength: .8, excitationDurationMs: 18 };
 }
 
-test('Rezoidinator starts as one plucked body and retains all twenty factory IDs', () => {
+test('Rezoidinator starts as one plucked body and retains all original factory IDs with two high-density additions', () => {
   assert.equal(applicationForSettings(DEFAULT_PRESET_SETTINGS), 'body');
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationType, 'pluck');
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationStrength, .8);
   assert.equal(DEFAULT_PRESET_SETTINGS.excitationDurationMs, 18);
   assert.deepEqual(PRESETS[0].snapshot, DEFAULT_PRESET_SETTINGS);
   assert.deepEqual(PRESETS.map(preset => preset.id), [
-    ...['silk-512', 'bronze-haze', 'glass-rain', 'close-choir', 'copper-spray', 'low-continuum', 'wire-cluster', 'voice-chamber'].map(id => 'rust:' + id),
+    ...['silk-512', 'bronze-haze', 'glass-rain', 'close-choir', 'copper-spray', 'low-continuum', 'wire-cluster', 'dense-silk', 'spectral-lens', 'voice-chamber'].map(id => 'rust:' + id),
     ...SIMD_RESONATOR_FULL_PRESETS.map(preset => 'classic:' + preset.id),
   ]);
-  assert.equal(PRESETS.length, 20);
-  const denseRoles = ['body', 'body', 'body', 'resynthesis', 'processing', 'reverb', 'body', 'resynthesis'];
+  assert.equal(PRESETS.length, 22);
+  const denseRoles = ['body', 'body', 'body', 'resynthesis', 'processing', 'reverb', 'body', 'body', 'resynthesis', 'resynthesis'];
   for (const [index, preset] of PRESETS.entries()) {
     const state = preset.snapshot;
-    assert.equal(state.applicationMode, index < 8 ? denseRoles[index] : index < 12 ? 'body' : 'resynthesis', preset.id);
+    assert.equal(state.applicationMode, index < 10 ? denseRoles[index] : index < 14 ? 'body' : 'resynthesis', preset.id);
     assert.deepEqual(validatePreset(state), state);
     assert.deepEqual(sanitizePresetSettings(state), state);
     assert.deepEqual(keys(state), keys(DEFAULT_PRESET_SETTINGS));
@@ -107,6 +107,16 @@ test('focused reverb and FFT characters preserve the role and every unrelated pa
   }
 });
 
+test('fine spectral scenes use the extended envelope grouping while defaults stay modest', () => {
+  const fine = RESYNTHESIS_CHARACTERS.find(character => character.id === 'fine');
+  const lens = PRESETS.find(preset => preset.id === 'rust:spectral-lens');
+  assert.equal(DEFAULTS.fftBandCount, 96);
+  for (const settings of [fine.settings, lens.snapshot]) {
+    assert.equal(settings.fftBandCount, 1024);
+    assert.equal(settings.fftSize, 4096);
+  }
+});
+
 test('live sanitization supplies complete bounded native parameter values', () => {
   assert.deepEqual(sanitizePresetSettings(), DEFAULT_PRESET_SETTINGS);
   const state = sanitizePresetSettings({ modeCount: 1e9, spectralSpan: -10, bodyMix: 2, wetMix: -1,
@@ -114,7 +124,7 @@ test('live sanitization supplies complete bounded native parameter values', () =
     drive: 100, filterFrequency: -1, reverbTime: Infinity, reverbDamping: 1,
     spaceSpan: 100, spacePattern: 'unknown', fftMix: .123, fftHopRatio: .314159 });
   assert.deepEqual(validatePreset(state), state);
-  assert.equal(state.modeCount, 4096);
+  assert.equal(state.modeCount, 8192);
   assert.equal(state.spectralSpan, 8);
   assert.equal(state.bodyMix, 1);
   assert.equal(state.wetMix, 0);

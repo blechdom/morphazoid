@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { DEFAULTS, createConfiguration } from '../src/instruments/simd-resonator-rust/model.js';
-import { STAGE_ORDERS, SIGNAL_DEFAULTS, FILTER_TYPES, sanitizeSignalSettings, SignalPath,
-  DiffusedRoom, ExcitationSource } from '../src/instruments/simd-resonator-rust/signal-path.js';
+import { STAGE_ORDERS, SIGNAL_DEFAULTS, FILTER_TYPES, sanitizeSignalSettings } from '../src/instruments/simd-resonator-rust/signal-path.js';
+import { DiffusedRoom, ExcitationSource } from './helpers/rezoidinator-js-signal-reference.mjs';
 
 const scalarBytes = await readFile(new URL('../assets/wasm/rust-resonator-scalar.wasm', import.meta.url));
 const simdBytes = await readFile(new URL('../assets/wasm/rust-resonator-simd.wasm', import.meta.url));
@@ -12,6 +12,7 @@ globalThis.sampleRate = 48000;
 globalThis.AudioWorkletProcessor = class { constructor() { this.messages = []; this.port = { postMessage: value => this.messages.push(structuredClone(value)) }; } };
 globalThis.registerProcessor = (_name, value) => { Processor = value; };
 await import('../src/instruments/simd-resonator-rust/processor.js');
+const { JavascriptReferenceProcessor } = await import('./helpers/rezoidinator-js-processor-reference.mjs');
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const zero = new Float32Array(128);
@@ -22,7 +23,7 @@ const musicalSignal = { bodyEnabled: true, processingEnabled: true, resynthesisE
   bodyMix: .8, resynthesisMix: .35, drive: 8, filterType: 'lowpass', filterFrequency: 1300,
   reverbTime: .8, reverbDamping: .3, reverbMix: .7 };
 function engine(signal = {}, { spatial = false, settings = {}, reference = false } = {}) {
-  const p = new Processor(); if (reference) p.signal = new LegacySignalPath();
+  const p = reference ? new JavascriptReferenceProcessor() : new Processor(); if (reference) p.signal = new LegacySignalPath();
   p.message({ type: 'install', scalarBytes, simdBytes, configuration: createConfiguration({ ...DEFAULTS, ...settings }) });
   p.message({ type: 'signal', configuration: signal });
   if (spatial) p.message({ type: 'spatial', configuration: { enabled: true, speakerCount: 16, pattern: 'scatter' } });
@@ -115,7 +116,7 @@ test('stage order accepts precisely the six permutations and defaults legacy set
   }
 });
 
-test('default order preserves every sample of the previous source, stereo and spatial processing', () => {
+test('default order preserves previous source, stereo and spatial processing within Float32 roundoff', () => {
   const p = engine(musicalSignal, { spatial: true }), previous = engine(musicalSignal, { spatial: true, reference: true });
   const a = outputs(), b = outputs(), input = new Float32Array(128);
   for (const value of [p, previous]) { value.message({ type: 'mic', active: true }); value.message({ type: 'excite', kind: 'white-noise', durationMs: 30, strength: .6 }); }
@@ -127,7 +128,11 @@ test('default order preserves every sample of the previous source, stereo and sp
     for (let frame = 0; frame < 128; frame++) input[frame] = .1 * Math.sin((block * 128 + frame) * .051);
     p.process([[input]], a); previous.process([[input]], b);
     assert.deepEqual(p.sourceBlock, previous.sourceBlock); assert.deepEqual(p.processedBlock, previous.processedBlock);
-    assert.deepEqual(a, b, 'default order at quantum ' + block);
+    // Rust's f64 libm FFT differs below 1e-12 from JS; final f32 rounding may
+    // land on the adjacent representable sample without an audible change.
+    for (let bus = 0; bus < a.length; bus++) for (let channel = 0; channel < a[bus].length; channel++) {
+      for (let frame = 0; frame < 128; frame++) assert.ok(Math.abs(a[bus][channel][frame] - b[bus][channel][frame]) < 1e-7, 'default order at quantum ' + block);
+    }
   }
 });
 

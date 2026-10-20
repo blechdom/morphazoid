@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const source = 'src/instruments/simd-resonator-rust/rust/kernel.rs';
 const manifestPath = 'src/instruments/simd-resonator-rust/rust/build-manifest.json';
-const sourceFiles = ['scripts/build-rust-resonator-wasm.mjs', source].sort();
+const sourceFiles = ['scripts/build-rust-resonator-wasm.mjs', source, 'src/instruments/simd-resonator-rust/rust/signal.rs', 'src/instruments/simd-resonator-rust/rust/fft.rs'].sort();
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const sourceHashes = async () => Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file, hash(await readFile(path.join(root, file)))])));
 const commonFlags = [
@@ -15,7 +15,7 @@ const commonFlags = [
   '--target=wasm32-unknown-unknown', '-Copt-level=3', '-Cpanic=abort',
   '-Clto=fat', '-Ccodegen-units=1', '-Cstrip=symbols',
   '-Clink-arg=--stack-first', '-Clink-arg=-zstack-size=65536',
-  '-Clink-arg=--initial-memory=393216', '-Clink-arg=--max-memory=393216',
+  '-Clink-arg=--initial-memory=16777216', '-Clink-arg=--max-memory=16777216',
 ];
 const builds = Object.freeze({
   scalar: { output: 'assets/wasm/rust-resonator-scalar.wasm', flags: ['-Ctarget-feature=-simd128,-relaxed-simd', '-Cno-vectorize-loops', '-Cno-vectorize-slp'] },
@@ -24,7 +24,12 @@ const builds = Object.freeze({
 const required = ['memory', 'abi_version', 'max_modes', 'block_size', 'lane_width', 'reset', 'reset_resonator', 'process_resonator',
   'input_ptr', 'output_left_ptr', 'output_right_ptr', 'real_ptr', 'imaginary_ptr', 'cosine_ptr', 'sine_ptr',
   'decay_ptr', 'strike_ptr', 'gain_ptr', 'pan_left_ptr', 'pan_right_ptr', 'energy_ptr', 'max_spatial_channels', 'process_resonator_spatial', 'spatial_output_ptr',
-  ...['a', 'b', 'c', 'd'].flatMap(id => [`route_index_${id}_ptr`, `route_gain_${id}_ptr`])];
+  ...['a', 'b', 'c', 'd'].flatMap(id => [`route_index_${id}_ptr`, `route_gain_${id}_ptr`]),
+  'signal_init', 'signal_configure', 'signal_reset', 'signal_excite', 'signal_prepare', 'signal_mix_block',
+  'signal_legacy_mix', 'signal_fft_mix', 'signal_body_mix', 'signal_order_remaining', 'signal_state_ptr', 'signal_state_bytes',
+  ...['config', 'external', 'source', 'processed', 'fft_input', 'spectral', 'spectral_spatial', 'output_left', 'output_right', 'output_spatial', 'stats', 'positions', 'target_positions', 'excitation_age'].map(name => 'signal_' + name + '_ptr'),
+  'fft_init', 'fft_history_fill', 'fft_max_size', 'fft_max_bands', 'fft_reset', 'fft_prime_silence', 'fft_configure', 'fft_configure_spatial', 'fft_begin_transition', 'fft_process', 'fft_state_ptr', 'fft_state_bytes',
+  ...['config', 'spatial_config', 'input', 'output', 'spatial_output', 'status', 'input_telemetry', 'output_telemetry'].map(name => 'fft_' + name + '_ptr')];
 
 function vectorLocals(bytes) {
   let cursor = 8;
@@ -59,9 +64,9 @@ async function inspect(bytes, variant) {
   const instance = new WebAssembly.Instance(module);
   const e = instance.exports;
   const simdLocals = vectorLocals(bytes);
-  if (imports.length || required.some(name => !exports.includes(name)) || e.abi_version() !== 2
-    || e.max_spatial_channels() !== 16 || e.max_modes() !== 4096 || e.block_size() !== 128 || e.lane_width() !== (variant === 'simd' ? 4 : 1)
-    || e.memory.buffer.byteLength !== 393216 || (simdLocals > 0) !== (variant === 'simd')) {
+  if (imports.length || required.some(name => !exports.includes(name)) || e.abi_version() !== 3
+    || e.fft_max_size() !== 4096 || e.fft_max_bands() !== 1024 || e.max_spatial_channels() !== 16 || e.max_modes() !== 8192 || e.block_size() !== 128 || e.lane_width() !== (variant === 'simd' ? 4 : 1)
+    || e.memory.buffer.byteLength !== 16777216 || (simdLocals > 0) !== (variant === 'simd')) {
     throw new Error(`The Rust resonator ${variant} ABI is invalid.`);
   }
   let grew = false;
@@ -72,7 +77,7 @@ async function inspect(bytes, variant) {
 
 if (process.argv.includes('--check')) {
   const manifest = JSON.parse(await readFile(path.join(root, manifestPath), 'utf8'));
-  if (manifest.abi !== 2 || manifest.target !== 'wasm32-unknown-unknown'
+  if (manifest.abi !== 3 || manifest.target !== 'wasm32-unknown-unknown'
     || JSON.stringify(manifest.commonFlags) !== JSON.stringify(commonFlags)
     || JSON.stringify(manifest.sourceHashes) !== JSON.stringify(await sourceHashes())) {
     throw new Error('The Rust resonator build is stale; run node scripts/build-rust-resonator-wasm.mjs.');
@@ -83,7 +88,7 @@ if (process.argv.includes('--check')) {
       throw new Error(`The Rust resonator ${variant} artifact is stale; rebuild its Wasm.`);
     }
   }
-  console.log('Checked Rust resonator scalar/SIMD: ABI 2, 4,096 modes, fixed memory, no imports.');
+  console.log('Checked Rust resonator scalar/SIMD: ABI 3, 8,192 modes, fixed memory, no imports.');
 } else {
   const compiler = process.env.RUSTC || 'rustc';
   const version = spawnSync(compiler, ['--version'], { encoding: 'utf8' });
@@ -96,7 +101,7 @@ if (process.argv.includes('--check')) {
     await chmod(path.join(root, build.output), 0o644);
     artifacts[variant] = { ...build, ...await inspect(await readFile(path.join(root, build.output)), variant) };
   }
-  await writeFile(path.join(root, manifestPath), JSON.stringify({ abi: 2, target: 'wasm32-unknown-unknown', compiler: version.stdout.trim(),
+  await writeFile(path.join(root, manifestPath), JSON.stringify({ abi: 3, target: 'wasm32-unknown-unknown', compiler: version.stdout.trim(),
     commonFlags, sourceHashes: await sourceHashes(), builds: artifacts }, null, 2) + '\n');
   console.log(`Built Rust resonator: scalar ${artifacts.scalar.bytes} bytes; SIMD ${artifacts.simd.bytes} bytes.`);
 }

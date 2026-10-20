@@ -21,7 +21,7 @@ gain; it is independent of presets and the signal-path mix.
 
 ## Waves and spectrum span
 
-The Rust scalar and `f32x4` SIMD kernels support 32–4,096 simultaneous damped
+The Rust scalar and `f32x4` SIMD kernels support 32–8,192 simultaneous damped
 quadrature oscillators, in steps of four. The default is 512. **Waves** controls
 the actual oscillator count. **Spectrum span** (8–512 modal orders) controls
 their spectral extent independently: adding waves inside the same span creates
@@ -35,13 +35,13 @@ the body readout reports both allocated and audible modes. Excitation-energy
 normalization uses audible coefficients rather than the number of muted modes.
 When `waves = span <= 128`, the original coefficients and normalization match.
 
-Twenty full presets include twelve original scenes and eight dense scenes up
-to 4,096 waves. Presets and Dice also include the selected mode, spatial pattern, span,
+Twenty-two full presets retain the original twenty scenes and add Dense silk
+with 8,192 waves and Spectral lens with a 4,096-sample, 1,024-band FFT. Presets and Dice also include the selected mode, spatial pattern, span,
 offset, motion and rate. Preset/Next/Dice controls preserve Audio, output level,
 input trim, selected source, an already playing sample, Surround enable, speaker
 layout, stereo preview and recording. The separate **Material**
 menu retains FFT settings. Reset restores the default body and clears its tail;
-it retains live input and Audio. Changing modes clears removed oscillator states
+it retains live input and Audio. Reducing Waves clears removed oscillator states
 so increasing the count cannot revive an old tail.
 Live pitch, strike-position and hardness edits preserve the ringing modal
 state and the excitation timeline, smoothing toward their target over 20 ms.
@@ -79,7 +79,7 @@ approximations, not measurements of particular objects or spaces.
 
 Reverb characters include Short room, Dark chamber, Bright tail, Long hall and
 Dark cloud; resynthesis characters include Clear detail, Fast transients, Broad
-bands, Spectral fog and Narrow radio. Each character changes only its own sound
+bands, Spectral fog, Narrow radio and Fine spectrum. Each character changes only its own sound
 parameters. Full presets and Dice select one mode and own all musical settings,
 including excitation and spatial distribution. Audio arming, source, transport,
 input trim, output level, speaker layout and recording remain session state.
@@ -124,12 +124,33 @@ independently of microphone capture. Sample playback can loop. Audio off, page
 departure, and hidden-page handling cancel pending input work; microphone tracks
 are released. Sound presets never request a microphone or restart a sample.
 
-The FFT retains 256–4,096-sample frames, four window shapes, 16–128 envelope
-bands, overlap, memory, detail, drive, gate and frequency bounds. FFT mix
-blends the source with phase-preserved spectral reconstruction. These
-FFT operations remain JavaScript in the AudioWorklet; the oscillator bank is
-Rust. JavaScript prepares coefficients outside the render callback. No server,
-CPAL, shared memory, or browser audio worker threads are required.
+The Rust FFT supports 256–4,096-sample frames, four window shapes, 16–1,024
+logarithmic envelope bands, overlap, memory, detail, drive, gate and frequency
+bounds. FFT mix blends the source with phase-preserved spectral reconstruction.
+Frame size, envelope bands and modal waves are different controls: a 4,096-point
+FFT has 2,047 positive-frequency interior bins before the selected frequency
+bounds, while the envelope groups those bins into up to 1,024 bands. More envelope
+bands cannot create frequency resolution absent from the FFT frame. The default
+remains 96 bands. At 48 kHz with a 4,096-sample frame and 20–20,000 Hz bounds,
+1,705 bins contribute to 610 of the 1,024 logarithmic groups; the other 414
+groups are empty. Each bin contributes to its two nearest groups, so an empty
+group does not remove a source frequency. More groups reduce shared envelope
+and gate behavior, especially in the upper spectrum, but add no bass resolution.
+The 1,024-sample default frame has many more empty groups at this maximum;
+use Fine spectrum or Spectral lens for the larger frame and finer grouping.
+The display combines groups that share a screen pixel, preserving their tallest
+input and output peaks on narrow screens; all groups still process audio.
+At 48 kHz a 4,096-sample frame spans 85.3 ms, versus 21.3 ms for the default
+1,024 samples: finer frequency detail trades away transient responsiveness and
+adds latency. Fine spectrum is a focused character for that high-resolution setting.
+
+The excitation, filter/drive, feedback-delay reverb, FFT analysis and reconstruction,
+spatial FFT routing, crossfades and final sample mixing all run in Rust/WASM.
+JavaScript owns the interface, input devices/files, preset validation, audio graph,
+modal-coefficient preparation/smoothing, block-rate modal spatial routes and
+telemetry. It performs bulk buffer transfers, not per-sample Wasm calls. Rust
+math support is linked into the Wasm artifact; there is no third-party Rust audio
+library, server, CPAL, shared memory or browser audio worker-thread dependency.
 
 The FFT path includes the original instrument’s later continuity improvements:
 a bounded overlap-normalization floor and startup ramp, smoothed gain/detail/
@@ -211,16 +232,26 @@ apply; recording does not create an unbounded buffer.
 AssemblyScript recurrence, using four-frame tiles and `f32x4` operations to keep
 mode state in registers. The original scalar implementation is the parity
 reference; Volumetric Rain's existing Rust modal bank informed the tiled loop.
-Both ABI v2 builds have fixed 384 KiB memory per kernel instance and no imports
-or render allocations. The FFT path uses two preallocated JavaScript banks,
-each with sixteen channel overlap-add buffers (about 4 MiB total for those
-buffers). Audio processing does not allocate per sample.
+The FFT uses f64 arithmetic with `f64x2` SIMD butterflies, processing two values
+at a time. Stage twiddles and bit-reversal indices are precomputed once; paired
+surround transforms share that work without reducing spectral precision.
+Both ABI v3 builds have fixed 16 MiB memory per kernel instance, no imports and
+no dynamic Rust allocation or memory growth. The two preallocated Rust FFT banks
+retain f64 arithmetic and sixteen overlap-add buffers each; the delay networks
+reserve enough f32 storage for supported sample rates through 384 kHz. Loading
+SIMD plus its ready scalar fallback reserves 32 MiB in total; scalar-only loads
+one instance. The Wasm binaries remain under 100 KiB each because zero
+state is allocated in memory, not embedded in the download. Backend changes copy
+the bounded DSP state, preserving room tails, excitation and in-progress FFT edits.
+JavaScript still allocates message/telemetry objects as before; the ordinary
+128-frame source, FFT and output passes use cached typed-array views.
 Unsupported SIMD falls back to the Rust scalar build. **Engine details** also
 allows selecting scalar explicitly; `?scalar=1` loads only that build.
 
-Rust does not increase WASM's four-float SIMD lane width or create more CPU
-threads. The increased capacity comes from a larger bounded bank and its dense
-spectral mapping. Real-time performance remains device-dependent. Start with
+Rust does not widen Wasm's 128-bit SIMD vectors or create more CPU threads. The increased capacity comes from a larger bounded bank and its dense
+spectral mapping. Real-time performance remains device-dependent. The maximum
+wave count leaves less timing headroom with sixteen channels than with stereo;
+the FFT frame ceiling remains 4,096 to bound transform bursts. Start with
 512 waves and reduce Waves if playback breaks up. Visuals are capped at 30 fps,
 1.5 pixel ratio and 40 representative strands; all selected modes still render
 on the audio thread.
@@ -231,8 +262,9 @@ were approximately 8 µs per 128-frame block for 128 Rust SIMD modes, 247 µs fo
 4,096 Rust SIMD modes, and 1,010 µs for 4,096 Rust scalar modes. The original
 128-mode SIMD kernel was approximately 8 µs. These measurements exclude FFT,
 browser scheduling, output devices and UI; they are not a universal speedup or
-mobile real-time guarantee. The browser's Engine details measures FFT and modal
-processing time as well as the modal kernel alone. Where a high-resolution worklet
+mobile real-time guarantee. The browser's Engine details measures the complete callback as well as the modal
+kernel alone. The FFT adapter's diagnostic timer covers its full block stage,
+including overlap-add and warm-bank work, not just transforms. Where a high-resolution worklet
 clock is unavailable, the readout is explicitly approximate.
 
 A separate pre-surround full-processor run on Node v22.23.2/Linux ARM64 used continuous input,
@@ -246,7 +278,7 @@ message transport, devices, UI and configuration-message preparation. These
 figures describe the earlier stereo engine and do not establish the added
 multichannel workload’s performance.
 
-The [surround callback measurements](rezoidinator-surround-measurements.json)
+The historical [surround callback measurements](rezoidinator-surround-measurements.json)
 cover the complete synchronous processor with continuous input, spatial motion,
 its independent stereo output and sixteen surround channels. On Node 22.23.2/
 Linux ARM64, 512 modes with a 1,024-sample FFT had a 389 µs 95th percentile using
@@ -255,7 +287,7 @@ median, 1,917 µs 95th percentile and 2,263 µs maximum in the reported run. Sca
 measured 2,122 µs median, 3,093 µs 95th percentile and 3,455 µs maximum for that same
 largest configuration: **scalar exceeded the 2,667 µs audio-block budget**.
 Reduce Waves, FFT frame size/overlap or speaker count when playback breaks up,
-especially with scalar. The default remains 512 waves. These measurements
+especially with scalar. The default remains 512 waves. These historical measurements
 exclude browser scheduling, message serialization, devices, UI, recording and
 FFT topology transitions; repeated runs showed occasional scheduling outliers.
 They do not establish physical-device real-time performance. Those measurements
@@ -282,8 +314,13 @@ source/build hashes and ABI checks; `npm run check:rust-resonator-wasm` needs no
 Rust installation. `node scripts/benchmark-rust-resonator.mjs` measures kernel
 cost separately from the browser callback.
 
-Automated checks cover original/Rust and scalar/SIMD waveform parity, high-mode
-contribution, fixed memory, finite output, reset and callback behavior. Human
+Automated checks cover original/Rust and scalar/SIMD modal waveform parity,
+high-mode contribution, fixed memory, finite output, reset and callback behavior.
+Frozen JavaScript DSP references live only under `tests/helpers/`: they compare
+Rust source/room/mix behavior, every FFT window, spectral topology edits, spatial
+routing, maximum resolution and full-state backend transfer. Float64 differences
+are bounded before comparing final Float32 output; these checks preserve the
+existing sound without claiming perceptual approval. Human
 listening and physical-device acceptance remain unperformed. Browser coverage
 includes the full preset tour with continuous input, maximum waves and FFT
 overlap, scalar fallback, delayed startup/cancellation, source looping and file

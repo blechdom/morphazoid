@@ -1,7 +1,7 @@
 import { MAX_MODES, BLOCK_SIZE, COEFFICIENT_KEYS, kernelViews } from './model.js';
-import { FftResynth } from './fft-resynth.js';
+import { RustFftResynth } from './fft-rust.js';
 import { MAX_SPATIAL_CHANNELS, SPATIAL_DEFAULTS, SpatialRouter } from './spatial-model.js';
-import { SignalPath } from './signal-path.js';
+import { RustSignalPath } from './signal-rust.js';
 
 const finite = value => Number.isFinite(value) ? value : 0;
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
@@ -14,8 +14,8 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     this.running = true; this.ready = false; this.kernel = null;
     this.kernels = {}; this.backend = 'none'; this.modeCount = 512;
     this.impulse = 0; this.inputActive = false; this.outputScale = .1;
-    this.spectrum = new FftResynth(sampleRate);
-    this.signal = new SignalPath(sampleRate); this.signalEnabled = false;
+    this.spectrum = new RustFftResynth(sampleRate);
+    this.signal = new RustSignalPath(sampleRate); this.signalEnabled = false;
     this.sourceBlock = new Float32Array(BLOCK_SIZE); this.processedBlock = new Float32Array(BLOCK_SIZE);
     this.spectralBlock = new Float32Array(BLOCK_SIZE);
     this.spectralSpatialBlock = new Float32Array(BLOCK_SIZE * MAX_SPATIAL_CHANNELS);
@@ -40,13 +40,13 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
       const module = bytes instanceof WebAssembly.Module ? bytes : new WebAssembly.Module(bytes);
       if (WebAssembly.Module.imports(module).length) throw new Error('Rust kernel unexpectedly requires imports.');
       const kernel = kernelViews(new WebAssembly.Instance(module).exports);
-      kernel.exports.reset(); return kernel;
+      kernel.exports.reset(); kernel.exports.signal_init(sampleRate); kernel.exports.fft_init(sampleRate); return kernel;
     };
     this.kernels.scalar = load(message.scalarBytes);
     if (!this.kernels.scalar) throw new Error('Rust scalar kernel is required.');
     try { this.kernels.simd = load(message.simdBytes); } catch { this.kernels.simd = null; }
-    this.configure(message.configuration);
     this.selectBackend(message.requestedBackend);
+    this.configure(message.configuration);
     this.ready = true;
     this.post('ready', { backend: this.backend, laneWidth: this.kernel.exports.lane_width(), simdAvailable: Boolean(this.kernels.simd) });
   }
@@ -147,7 +147,19 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     const backend = requested !== 'scalar' && this.kernels.simd ? 'simd' : 'scalar';
     const next = this.kernels[backend];
     if (!next) return;
-    if (this.kernel && this.kernel !== next) for (const key of STATE_KEYS) next[key].set(this.kernel[key]);
+    if (this.kernel && this.kernel !== next) {
+      for (const key of STATE_KEYS) next[key].set(this.kernel[key]);
+      // Switching SIMD/scalar preserves every excitation, filter, overlap-add
+      // and room state. This bounded copy happens only on a backend message.
+      for (const prefix of ['signal', 'fft']) {
+        const from = this.kernel.exports, to = next.exports;
+        new Uint8Array(to.memory.buffer, to[prefix + '_state_ptr'](), to[prefix + '_state_bytes']()).set(
+          new Uint8Array(from.memory.buffer, from[prefix + '_state_ptr'](), from[prefix + '_state_bytes']()));
+      }
+    }
+    this.signal.bind(next.exports); this.spectrum.bind(next.exports);
+    this.sourceBlock = this.signal.source; this.processedBlock = this.signal.processed;
+    this.spectralBlock = this.signal.spectral; this.spectralSpatialBlock = this.signal.spectralSpatial;
     this.kernel = next; this.backend = backend;
     this.post('backend', { backend, laneWidth: next.exports.lane_width(), simdAvailable: Boolean(this.kernels.simd) });
   }
@@ -180,6 +192,7 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
         this.spectrum.resetResynthesis(); this.impulse = 0; this.signal.reset();
         if (this.signalEnabled) this.spectrum.primeSilence();
         this.resonatorInputMode = this.inputActive; this.fftCurrentMix = this.inputActive ? this.spectrum.fftMix : 0;
+        this.kernel?.exports.signal_legacy_mix(this.fftCurrentMix);
       } else if (message.type === 'dispose') {
         this.running = false; this.ready = false; this.impulse = 0; this.signal.reset();
         this.performanceConfiguration = null; this.performanceFrames = 0;
@@ -214,18 +227,9 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     if (spatialEnabled) this.spatial.prepare(this.kernel, this.modeCount, frames);
     this.spectralSpatialBlock.fill(0); this.spatialPeaks.fill(0); this.spatialRms.fill(0);
     const renderFft = this.inputActive || this.spectrum.fftHistoryFill > 0;
-    for (let frame = 0; frame < BLOCK_SIZE; frame++) {
-      const external = frame < frames && this.inputActive ? finite(input?.[frame]) : 0;
-      const excitation = this.signalEnabled && frame < frames && this.transition !== 'fall' ? this.signal.excitation.nextSample() : 0;
-      const raw = this.signalEnabled ? clamp(external + excitation, -2, 2) : external;
-      const processed = this.signalEnabled && frame < frames ? this.signal.processSource(raw) : raw;
-      this.sourceBlock[frame] = raw; this.processedBlock[frame] = processed;
-      this.kernel.input[frame] = processed * .34;
-      this.spectralBlock[frame] = renderFft && frame < frames ? this.spectrum.processResynthesisSample(processed) : 0;
-      if (spatialEnabled && renderFft && frame < frames) for (let channel = 0; channel < MAX_SPATIAL_CHANNELS; channel++) {
-        this.spectralSpatialBlock[channel * BLOCK_SIZE + frame] = this.spectrum.spatialSample[channel];
-      }
-    }
+    this.signal.prepare(input, frames, this.signalEnabled, this.inputActive, this.transition !== 'fall');
+    this.spectralBlock.fill(0);
+    if (renderFft) this.spectrum.processBlock(this.signal.fftInput, this.spectralBlock, this.spectralSpatialBlock, frames);
     const kernelStart = now();
     const soundingImpulse = this.transition === 'fall' ? 0 : this.impulse;
     try {
@@ -239,64 +243,17 @@ class RustResonatorProcessor extends AudioWorkletProcessor {
     const urgent = soundingImpulse > 0;
     if (this.transition !== 'fall') this.impulse = 0;
     const targetMix = this.resonatorInputMode ? this.spectrum.fftMix : 0;
-    let peak = 0, square = 0;
-    for (let frame = 0; frame < frames; frame++) {
-      this.fftCurrentMix += (targetMix - this.fftCurrentMix) * this.fftMixStep;
-      const modalGain = Math.cos(this.fftCurrentMix * Math.PI * .5);
-      const spectralGain = Math.sin(this.fftCurrentMix * Math.PI * .5) * .5;
-      const spectral = this.spectralBlock[frame] * spectralGain;
-      const transitionGain = this.transition === 'fall' ? 1 - (frame + 1) / frames : this.transition === 'rise' ? (frame + 1) / frames : 1;
-      if (this.signalEnabled) {
-        this.signal.advanceMix();
-        const raw = this.sourceBlock[frame], processed = this.processedBlock[frame], fft = this.spectralBlock[frame] * .5;
-        const a = this.signal.mix(0, raw, processed, finite(this.kernel.outputLeft[frame]) * transitionGain, fft);
-        const b = this.signal.mix(1, raw, processed, finite(this.kernel.outputRight[frame]) * transitionGain, fft);
-        const scale = 1 / Math.max(1, Math.abs(a) / .95, Math.abs(b) / .95);
-        left[frame] = a * scale; right[frame] = b * scale;
-      } else {
-        left[frame] = clamp(finite(this.kernel.outputLeft[frame]) * modalGain * transitionGain + spectral, -1, 1);
-        right[frame] = clamp(finite(this.kernel.outputRight[frame]) * modalGain * transitionGain + spectral, -1, 1);
-      }
-      if (this.signalEnabled && !spatialEnabled) {
-        // Hidden buses keep aging instead of replaying stale room tails when
-        // surround is enabled again. No input is injected into inactive buses.
-        for (let channel = 2; channel < MAX_SPATIAL_CHANNELS + 2; channel++) this.signal.ageChannel(channel);
-      }
-      peak = Math.max(peak, Math.abs(left[frame]), Math.abs(right[frame]));
-      square += left[frame] ** 2 + right[frame] ** 2;
-      if (spatialEnabled) {
-        let spatialPeak = 0, total = 0;
-        for (let channel = 0; channel < MAX_SPATIAL_CHANNELS; channel++) {
-          const index = channel * BLOCK_SIZE + frame;
-          let value = finite(this.kernel.spatialOutput[index]) * modalGain * transitionGain
-            + this.spectralSpatialBlock[index] * spectralGain;
-          if (this.signalEnabled) {
-            // A mono dry source is localized at the stationary origin; modal
-            // modes and FFT bins retain their independently authored positions.
-            const direct = channel === 0 ? 1 : 0;
-            const active = channel < this.spatial.settings.speakerCount;
-            value = this.signal.mix(channel + 2,
-              this.sourceBlock[frame] * direct, this.processedBlock[frame] * direct,
-              active ? finite(this.kernel.spatialOutput[index]) * transitionGain : 0, active ? this.spectralSpatialBlock[index] * .5 : 0,
-              // A small diffuse send uses the actual pre-room composite, not
-              // unprocessed input. Independent lengths decorrelate its returns.
-              active ? (this.signal.composite[0] + this.signal.composite[1]) * .2 / Math.sqrt(this.spatial.settings.speakerCount) : 0);
-            if (!active) value = 0;
-          }
-          this.spatialFrame[channel] = value;
-          spatialPeak = Math.max(spatialPeak, Math.abs(value)); total += Math.abs(value);
-        }
-        // Shared gain preserves relative speaker levels; the same absolute-sum
-        // bound as SPARTIAL keeps its0.7 stereo preview below full scale.
-        const scale = 1 / Math.max(1, spatialPeak / .95, total / (.95 * Math.SQRT2));
-        for (let channel = 0; channel < MAX_SPATIAL_CHANNELS; channel++) {
-          const value = this.spatialFrame[channel] * scale;
-          if (spatialOutput?.[channel]) spatialOutput[channel][frame] = value;
-          this.spatialPeaks[channel] = Math.max(this.spatialPeaks[channel], Math.abs(value));
-          this.spatialRms[channel] += value * value / frames;
-        }
-      }
+    this.signal.mixBlock(frames, this.signalEnabled, spatialEnabled, this.spatial.settings.speakerCount,
+      this.transition === 'fall' ? -1 : this.transition === 'rise' ? 1 : 0, targetMix);
+    // Native typed-array block copies are the only JavaScript audio routing.
+    left.set(frames === BLOCK_SIZE ? this.signal.outputLeft : this.signal.outputLeft.subarray(0, frames));
+    right.set(frames === BLOCK_SIZE ? this.signal.outputRight : this.signal.outputRight.subarray(0, frames));
+    if (spatialEnabled) for (let channel = 0; channel < MAX_SPATIAL_CHANNELS; channel++) {
+      if (spatialOutput?.[channel]) spatialOutput[channel].set(frames === BLOCK_SIZE ? this.signal.outputChannels[channel] : this.signal.outputChannels[channel].subarray(0, frames));
     }
+    this.spatialPeaks.set(this.signal.spatialPeaks); this.spatialRms.set(this.signal.spatialRms);
+    this.fftCurrentMix = this.signal.stats[34];
+    const peak = this.signal.stats[0], square = this.signal.stats[1];
     this.totalFrames += frames;
     if (this.transition === 'fall') this.transition = 'apply';
     else if (this.transition === 'rise') this.transition = 'steady';

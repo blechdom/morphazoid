@@ -3,7 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { DEFAULTS, createConfiguration } from '../src/instruments/simd-resonator-rust/model.js';
-import { FftResynth } from '../src/instruments/simd-resonator-rust/fft-resynth.js';
+import { FftResynth } from './helpers/rezoidinator-js-fft-reference.mjs';
 
 const scalarBytes = await readFile(new URL('../assets/wasm/rust-resonator-scalar.wasm', import.meta.url));
 const simdBytes = await readFile(new URL('../assets/wasm/rust-resonator-simd.wasm', import.meta.url));

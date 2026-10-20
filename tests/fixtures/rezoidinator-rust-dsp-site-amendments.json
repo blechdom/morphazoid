@@ -1,0 +1,50 @@
+{
+  "baseCommit": "87eb0437bf97dfdc8a204c68dba7862d7cdb9b0e",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "f9a12f09c926c0b1e2672c0b1bc9d5587d05baffb85b78f78fc4e1cb23aa5bf6",
+      "approvedSha256": "ba40878cdade9e0a28573e5096ad2349ecd0a18d3f8f7ad4618733c47b624664",
+      "markers": [
+        "src/instruments/simd-resonator-rust/fft-rust.js",
+        "src/instruments/simd-resonator-rust/signal-rust.js"
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/signal-path.js\n",
+          "after": "copy+require\tsrc/instruments/simd-resonator-rust/fft-rust.js\ncopy+require\tsrc/instruments/simd-resonator-rust/signal-rust.js\ncopy+require\tsrc/instruments/simd-resonator-rust/signal-path.js\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "c055fa5415c2de2efde88045579948bb98c1401d5eba3461263c323f98c18f0d",
+      "approvedSha256": "42f5287096879c7bce84dc8ecc6f519d15b796fc9cd83973d1ee53e7a79fe6c2",
+      "markers": [
+        "up to 8,192 parallel modes",
+        "Shape input with Rust filtering, drive and reverb"
+      ],
+      "replacements": [
+        {
+          "before": "A Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, microphone and recorded input, and spatial modal/FFT resynthesis across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.",
+          "after": "A Rust WebAssembly body with up to 8,192 parallel modes, independent spectral span, microphone and recorded input, and Rust FFT resynthesis with up to 4,096-sample frames and 1,024 envelope bands. Shape input with Rust filtering, drive and reverb across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems."
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "1a800dfc3fa8e0d60951533dbb34060add2f955875a8874a1dc9cf89a1d69d10",
+      "approvedSha256": "f6c09d594e1a4c2f560e1000c93c20d8e2e88775703ef3a7635bfb6c56b8ad7b",
+      "markers": [
+        "Rust runs the modal bank, FFT analysis/resynthesis",
+        "Twenty-two complete presets preserve"
+      ],
+      "replacements": [
+        {
+          "before": "**[Rezoidinator](simd-resonator-rust.html)** keeps the original SIMD Resonator beside a Rust WebAssembly instrument with up to 4,096 independently ringing modes. It opens at 512 modes across a 128-order spectrum span; Waves controls density while Spectrum span controls frequency range. Twenty complete presets include twelve classic body/FFT states and eight dense demonstrations. The modal core uses four-lane `f32x4` with a Rust scalar fallback; the JavaScript FFT input path retains its 128-band ceiling. Microphone controls live in the shared menubar strip, with file and looping sample input in the side panel. Surround distributes individual modal waves or FFT bands across up to sixteen channels, with stereo monitoring and multichannel 24-bit WAV or channel-stem export. [Controls, bounds, and implementation](docs/simd-resonator-rust.md).\n",
+          "after": "**[Rezoidinator](simd-resonator-rust.html)** keeps the original SIMD Resonator beside a Rust WebAssembly instrument with up to 8,192 independently ringing modes. It opens at 512 modes across a 128-order spectrum span; Waves controls density while Spectrum span controls frequency range. Twenty-two complete presets preserve the original scenes and add dense silk and fine spectral reconstruction. Rust runs the modal bank, FFT analysis/resynthesis, excitation, filtering, drive, feedback-delay reverb and output mixing, with four-lane modal SIMD and a Rust scalar fallback. The FFT supports 256\u20134,096-sample frames and 16\u20131,024 envelope bands; these are separate from modal wave count, and larger frames add latency. Microphone controls live in the shared menubar strip, with file and looping sample input in the side panel. Surround distributes individual modal waves or FFT bands across up to sixteen channels, with stereo monitoring and multichannel 24-bit WAV or channel-stem export. [Controls, bounds, and implementation](docs/simd-resonator-rust.md).\n"
+        }
+      ]
+    }
+  ]
+}

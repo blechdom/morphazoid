@@ -29,7 +29,7 @@ test('Rezoidinator retains its catalogue identity and advertises the spatial/rec
   const item = instrumentById('simd-resonator-rust');
   assert.equal(item.label, 'Rezoidinator');
   assert.equal(item.href, 'simd-resonator-rust.html');
-  assert.match(item.description, /up to 4,096 parallel modes/);
+  assert.match(item.description, /up to 8,192 parallel modes/);
   assert.match(item.description, /sixteen output channels/);
   assert.match(item.description, /multichannel 24-bit WAV or separate channel stems/);
   assert.ok(item.features.includes('Surround output'));
