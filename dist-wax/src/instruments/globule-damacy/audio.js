@@ -7,7 +7,32 @@ import {
 
 const SCAN_SECONDS = .008;
 const LOOKAHEAD_SECONDS = .13;
-const MAX_PICKUP_ATTACKS = 12;
+const MAX_PICKUP_ATTACKS = 16;
+const FADE_SHAPE = Array.from({ length: 5 }, (_, index) =>
+  Math.sin(index * Math.PI / 8) ** 2);
+
+function fadeAt(fraction) {
+  const position = clamp(fraction, 0, 1) * (FADE_SHAPE.length - 1);
+  const index = Math.min(FADE_SHAPE.length - 2, Math.floor(position));
+  return FADE_SHAPE[index] + (FADE_SHAPE[index + 1] - FADE_SHAPE[index])
+    * (position - index);
+}
+
+function rampFade(param, when, duration, peak, backwards = false) {
+  for (let index = 1; index < FADE_SHAPE.length; index++)
+    param.linearRampToValueAtTime(
+      peak * FADE_SHAPE[backwards ? FADE_SHAPE.length - 1 - index : index],
+      when + duration * index / (FADE_SHAPE.length - 1));
+}
+
+function voiceGainAt(voice, when) {
+  if (when <= voice.startAt || when >= voice.endAt) return 0;
+  if (when < voice.startAt + voice.attack)
+    return voice.peak * fadeAt((when - voice.startAt) / voice.attack);
+  if (when > voice.endAt - voice.release)
+    return voice.peak * fadeAt((voice.endAt - when) / voice.release);
+  return voice.peak;
+}
 
 /** A grain fires on entry into its actual surface zone, using the audio clock. */
 export class GlobuleAudio {
@@ -103,7 +128,10 @@ export class GlobuleAudio {
       .map(grain => grain.key)) : null;
     if (live) {
       this.stopScheduler();
-      this.releaseVoices();
+      // Retain sounding scraps when steering or adjusting speed. Only cancel
+      // lookahead attacks from the old route; new contact is scanned below.
+      for (const voice of this.voices)
+        if (voice.startAt > now) this.releaseVoice(voice);
     }
     this.anchorPhase = wrap(phase);
     this.anchorTime = now;
@@ -236,9 +264,24 @@ export class GlobuleAudio {
     voice.released = true;
     const now = this.context?.currentTime ?? 0;
     try {
-      voice.gain.gain.cancelScheduledValues(now);
-      voice.gain.gain.setTargetAtTime(0, now, .008);
-      voice.source.stop(now + .055);
+      const gain = voice.gain.gain;
+      if (voice.startAt > now) {
+        gain.cancelScheduledValues(now);
+        gain.setValueAtTime(0, now);
+        voice.source.stop(now);
+      } else if (voice.endAt - now > .032) {
+        // cancelScheduledValues alone drops an in-flight ramp back to its
+        // previous event, producing a click. Hold its instantaneous level.
+        if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now);
+        else {
+          const level = voiceGainAt(voice, now);
+          gain.cancelScheduledValues(now);
+          gain.setValueAtTime(level, now);
+        }
+        gain.linearRampToValueAtTime(0, now + .028);
+        voice.source.stop(now + .032);
+      }
+      // Near its natural end, the original fade is shorter and already smooth.
     } catch { /* already ended or the context is closing */ }
   }
   bufferFor(ribbon, reverse) {
@@ -293,14 +336,22 @@ export class GlobuleAudio {
     gain.connect(pan);
     pan.connect(this.master);
     const duration = source.buffer.duration / source.playbackRate.value;
-    const attack = Math.min(.012, duration / 4);
-    const release = Math.min(.028, duration / 3);
-    const peak = .22 / Math.sqrt(1 + this.voices.size);
+    const attack = Math.min(.018, duration * .26);
+    const release = Math.min(.038, duration * .4);
+    let overlapping = 0;
+    for (const voice of this.voices)
+      if (!voice.released && voice.startAt <= when && voice.endAt > when) overlapping++;
+    // A stereo panner sums both input channels toward the panned side; bound
+    // that gain as well as the number of overlapping full-scale sample voices.
+    const stereoSpread = hit.ribbon.channels.length === 2
+      ? 1 + Math.sin(Math.abs(pan.pan.value) * Math.PI / 2) : 1;
+    const peak = .22 / ((1 + overlapping) ** .8 * stereoSpread);
     gain.gain.setValueAtTime(0, when);
-    gain.gain.linearRampToValueAtTime(peak, when + attack);
+    rampFade(gain.gain, when, attack, peak);
     gain.gain.setValueAtTime(peak, when + duration - release);
-    gain.gain.linearRampToValueAtTime(0, when + duration);
-    const voice = { source, gain, pan, ribbon: hit.ribbon, released: false };
+    rampFade(gain.gain, when + duration - release, release, peak, true);
+    const voice = { source, gain, pan, ribbon: hit.ribbon, released: false,
+      startAt: when, endAt: when + duration, attack, release, peak };
     source.onended = () => {
       source.disconnect();
       gain.disconnect();

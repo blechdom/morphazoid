@@ -105,6 +105,7 @@ test("one authored page ships the two phases, modules, local-only docs and an or
   assert.match(html, /id="sourceInput"[^>]*type="file"/);
   assert.match(html, /id="sourceInput"[^>]*multiple/);
   for (const id of ["grainSize", "grainMode", "grainSpread", "recordPreset", "playPreset",
+    "layerTransparency", "layerTransparencyOut",
     "floorRemaining", "sampleSelect", "useSampleButton", "micButton"])
     assert.match(html, new RegExp(`id="${id}"`));
   assert.doesNotMatch(html, /Roll sideways|01 \/ Record|02 \/ Play|01 \/ ROLL/);

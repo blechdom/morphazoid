@@ -5,7 +5,7 @@ import {
 } from "./model.js";
 import {
   MAX_FILE_BYTES, MAX_TOTAL_BYTES, SOURCE_NAMES, decodeLocalSource,
-  decodeLocalSources, demoSource, sampleSource,
+  decodeLocalSources, demoSource, sampleSource, waveTraceOf,
 } from "./sources.js";
 import { GlobuleAudio } from "./audio.js";
 import { PLAY_PRESETS, RECORD_PRESETS, matchingPreset } from "./presets.js";
@@ -25,7 +25,8 @@ const state = {
   history: null, drag: null, sourceIndex: 0, busy: false,
   grainMs: DEFAULT_GRAIN_MS, grainMode: "fixed", grainSpreadMs: 60,
   phase: 0, anchorMs: performance.now(), playing: false, audioOn: false, starting: false,
-  speed: 1, direction: 1, scatter: .68, needleWidth: 30, needle: 3.5, level: .58,
+  speed: 1, direction: 1, scatter: .68, needleWidth: 30, needle: 3.5,
+  layerTransparency: 40, level: .58,
   active: null,
 };
 let view = null, disposed = false, raf = 0, lastPaint = -Infinity, dirty = true;
@@ -56,6 +57,7 @@ function render(now) {
       mode: state.mode, sources, ribbons: state.ribbons, position: state.position,
       orientation: state.orientation, phase, needle: state.needle, wander: state.scatter,
       needleWidth: state.needleWidth, playPose: state.playPose,
+      layerTransparency: state.layerTransparency,
       active: state.active,
     });
     if (state.mode === "play") {
@@ -169,6 +171,8 @@ function updatePlayControls() {
   $("scatterOut").textContent = `${Math.round(state.scatter * 100)}%`;
   $("needleWidth").value = String(state.needleWidth);
   $("needleWidthOut").textContent = `${state.needleWidth}%`;
+  $("layerTransparency").value = String(state.layerTransparency);
+  $("layerTransparencyOut").textContent = `${state.layerTransparency}%`;
   $("needle").value = String(state.needle);
   const tilt = Math.round((3.5 - state.needle) * 180 / 7);
   $("needleOut").textContent = tilt === 0 ? "level"
@@ -224,10 +228,11 @@ function roll(from, to) {
     state.orientation, PICKUP_REACH, state.grainMs, floorIds(),
     state.grainMode, state.grainSpreadMs);
   // Make all cuts before changing the ball; one failed source cannot half-commit a gesture.
-  const copies = added.map(ribbon => ({
-    ...ribbon, name: sources[ribbon.sourceIndex].name,
-    ...cutRibbon(sources[ribbon.sourceIndex], ribbon.cell, ribbon.grainMs),
-  }));
+  const copies = added.map(ribbon => {
+    const cut = cutRibbon(sources[ribbon.sourceIndex], ribbon.cell, ribbon.grainMs);
+    return { ...ribbon, name: sources[ribbon.sourceIndex].name,
+      ...cut, waveTrace: waveTraceOf(cut.channels, 8) };
+  });
   state.position = { phase: clamp(to.phase, 0, 1), lane: clamp(to.lane, 0, 7) };
   state.orientation = orientation;
   if (copies.length) {
@@ -739,12 +744,18 @@ for (const [id, key] of [["spinSpeed", "speed"], ["scatter", "scatter"],
   ["needleWidth", "needleWidth"], ["needle", "needle"]]) on($(id), "input", event => {
   updateReader({ [key]: +event.target.value });
 });
+on($("layerTransparency"), "input", event => {
+  // Paint only: changing it never rebases the audio clock or resets contact.
+  state.layerTransparency = Math.round(clamp(+event.target.value, 0, 100));
+  updatePlayControls();
+});
 on($("directionButton"), "click", () => updateReader({ direction: -state.direction }));
 on($("playPreset"), "change", event => {
   const preset = PLAY_PRESETS.find(candidate => candidate.id === event.target.value);
   if (!preset) return;
   updateReader({ speed: preset.speed, direction: preset.direction,
-    scatter: preset.scatter, needleWidth: preset.needleWidth, needle: preset.needle });
+    scatter: preset.scatter, needleWidth: preset.needleWidth, needle: preset.needle,
+    layerTransparency: preset.layerTransparency });
   announce(`${preset.label} · the ball keeps turning where it is.`);
 });
 on($("homeButton"), "click", () => {

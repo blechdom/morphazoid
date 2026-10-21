@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   SOURCE_NAMES, MAX_FILE_BYTES, decodeLocalSource, decodeLocalSources,
-  demoSource, sampleSource, waveformOf,
+  demoSource, sampleSource, waveformOf, waveTraceOf,
 } from "../src/instruments/globule-damacy/sources.js";
 import { SLICE_CELLS, collectSweep, cutRibbon } from "../src/instruments/globule-damacy/model.js";
 
@@ -12,7 +12,10 @@ test("the eight original offline sources contain distinct, finite, real PCM and 
   assert.ok(sources.every(source => source.kind === "demo" && source.duration === 6.4
     && source.channels.length === 2 && source.channels[0].length === 16000 * 6.4
     && source.waveform.length === 128 && source.waveform.every(peak => peak >= 0 && peak <= 1)
-    && source.waveform.some(peak => peak > .05)));
+    && source.waveform.some(peak => peak > .05)
+    && source.waveTrace.length === 80 && source.waveTrace.every(Number.isFinite)
+    && source.waveTrace.some(value => value > .05)
+    && source.waveTrace.some(value => value < -.05)));
   assert.notDeepEqual(sources[0].channels[0].slice(16000, 16100),
     sources[1].channels[0].slice(16000, 16100));
   assert.notDeepEqual(waveformOf([new Float32Array(10)]), waveformOf([Float32Array.from({ length: 10 }, () => 1)]));
@@ -27,6 +30,26 @@ test("the eight original offline sources contain distinct, finite, real PCM and 
   assert.equal(sampleSource(6).kind, "sample");
   assert.equal(sampleSource(6).name, SOURCE_NAMES[6]);
   assert.equal(SLICE_CELLS, 160);
+});
+
+test("drawn waves preserve the captured PCM's positive and negative motion, including silence", () => {
+  const silent = waveTraceOf([new Float32Array(800)], 8);
+  assert.equal(silent.length, 16);
+  assert.ok(silent.every(value => value === 0));
+  const tone = Float32Array.from({ length: 800 }, (_, frame) =>
+    Math.sin(frame * Math.PI / 11) * .72);
+  const trace = waveTraceOf([tone], 8);
+  assert.ok(trace.some(value => value > .65));
+  assert.ok(trace.some(value => value < -.65));
+  assert.notDeepEqual(trace, silent);
+  const grain = cutRibbon(demoSource(5), 36, 100);
+  const cutTrace = waveTraceOf(grain.channels, 8);
+  assert.equal(cutTrace.length, 16);
+  assert.ok(cutTrace.every(value => Number.isFinite(value) && Math.abs(value) <= 1));
+  assert.notDeepEqual(cutTrace, waveTraceOf([new Float32Array(grain.channels[0].length)], 8));
+  // The preview also copes with bad decoded samples without painting fake full-scale peaks.
+  assert.deepEqual(waveTraceOf([Float32Array.from([NaN, Infinity, -Infinity])], 1),
+    new Float32Array(2));
 });
 
 test("an offline local file changes only the chosen floor ribbon, not a PCM capture already stuck on the ball", async () => {
@@ -49,6 +72,7 @@ test("an offline local file changes only the chosen floor ribbon, not a PCM capt
   assert.equal(replacement.name, "own-tape.wav");
   assert.equal(replacement.kind, "file");
   assert.equal(replacement.channels.length, 1);
+  assert.notDeepEqual(replacement.waveTrace, sources[0].waveTrace);
   assert.equal(replacement.bytes, 8000 * 4);
   sources[0] = replacement;
   replacement.channels[0].fill(0); // Even mutating the new source cannot rewrite the old capture.

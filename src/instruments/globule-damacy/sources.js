@@ -27,6 +27,32 @@ export function waveformOf(channels, bins = 128) {
   return result;
 }
 
+/** Signed PCM extrema in time order, compressed for drawing rather than sound.
+ * Keep both halves of the wave: peak-only envelopes look like solid blobs. */
+export function waveTraceOf(channels, bins = 40) {
+  const count = Math.max(1, Math.min(512, Math.trunc(bins) || 40));
+  const trace = new Float32Array(count * 2);
+  const length = channels?.[0]?.length ?? 0;
+  if (!length) return trace;
+  for (let bin = 0; bin < count; bin++) {
+    const start = Math.floor(bin * length / count);
+    const end = Math.max(start + 1, Math.floor((bin + 1) * length / count));
+    const stride = Math.max(1, Math.floor((end - start) / 64));
+    let low = Infinity, high = -Infinity, lowAt = start, highAt = start;
+    for (let frame = start; frame < end; frame += stride) {
+      for (const channel of channels) {
+        const value = channel[frame];
+        const sample = Number.isFinite(value) ? clamp(value, -1, 1) : 0;
+        if (sample < low) { low = sample; lowAt = frame; }
+        if (sample > high) { high = sample; highAt = frame; }
+      }
+    }
+    trace[bin * 2] = lowAt <= highAt ? low : high;
+    trace[bin * 2 + 1] = lowAt <= highAt ? high : low;
+  }
+  return trace;
+}
+
 /** Eight original, deterministic sounds. No context, permission, network or music asset. */
 export function demoSource(index, sampleRate = 16000) {
   if (!Number.isInteger(index) || index < 0 || index >= SOURCE_COUNT)
@@ -80,7 +106,7 @@ export function demoSource(index, sampleRate = 16000) {
   const channels = [left, right];
   return { name: SOURCE_NAMES[index], kind: "demo", sampleRate, duration, channels,
     bytes: length * channels.length * Float32Array.BYTES_PER_ELEMENT,
-    waveform: waveformOf(channels) };
+    waveform: waveformOf(channels), waveTrace: waveTraceOf(channels) };
 }
 
 /** The library contains eight original generated sounds, not third-party recordings. */
@@ -111,7 +137,7 @@ export async function decodeLocalSource(file, index, sources, Offline =
     new Float32Array(buffer.getChannelData(channel)));
   return { name: String(name || `Source ${index + 1}`).slice(0, 80),
     kind, sampleRate: rate, duration: length / rate, channels, bytes,
-    waveform: waveformOf(channels) };
+    waveform: waveformOf(channels), waveTrace: waveTraceOf(channels) };
 }
 
 /** Stage the entire batch; callers place nothing on the floor unless every

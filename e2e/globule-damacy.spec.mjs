@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { SLICE_CELLS } from "../src/instruments/globule-damacy/model.js";
 import { pageDiagnosticMessages, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
 const count = page => page.locator("#ribbonCount").textContent().then(Number);
@@ -11,13 +12,13 @@ const angle = page => page.locator("#turnOut").textContent().then(text => Number
 
 async function paintedGrainCenter(page) {
   // Follow a single, saturated pink grain in the *rendered canvas*, not an
-  // internal app state. Glass veins and the fixed straw are much less pink.
+  // internal app state. Chrome imperfections and the fixed straw are less pink.
   return page.locator("#stageCanvas").evaluate(async canvas => {
     await new Promise(requestAnimationFrame);
     const { width, height } = canvas.getBoundingClientRect();
     const scaleX = canvas.width / width, scaleY = canvas.height / height;
     const cx = width * .49, cy = height * .46;
-    const radius = Math.min(width * .30, height * .32, 44 * 3.9);
+    const radius = Math.min(width * .30, height * .32, 62 * 3.9);
     const image = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
     let count = 0, xsum = 0, ysum = 0;
     for (let y = Math.floor((cy + radius * .1) * scaleY);
@@ -55,8 +56,10 @@ async function hearPeak(page, threshold = .002, timeout = 8000) {
 }
 
 function point(box, phase, lane) {
-  const left = Math.min(62, box.width * .13), right = box.width - Math.min(30, box.width * .055);
-  const top = Math.min(117, box.height * .24), bottom = box.height - 56;
+  const radius = Math.min(62, box.width * .22, box.height * .18);
+  const left = radius + 10, right = box.width - left;
+  const top = Math.min(130, box.height * .30);
+  const bottom = box.height - Math.max(56, radius + 10);
   return { x: box.x + left + phase * (right - left),
     y: box.y + top + (lane + .5) * (bottom - top) / 8 };
 }
@@ -81,6 +84,308 @@ function wav(frequency = 220, silence = false) {
       : Math.round(Math.sin(2 * Math.PI * frequency * frame / rate) * 22000), 44 + frame * 2);
   return data;
 }
+
+test("black stage carries continuous signed audio waves into the chrome marble", async ({ page }) => {
+  await page.goto("/globule-damacy.html");
+  const floor = await page.locator("#stageCanvas").evaluate(async canvas => {
+    await new Promise(requestAnimationFrame);
+    const { width, height } = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext("2d");
+    const sx = canvas.width / width, sy = canvas.height / height;
+    const radius = Math.min(62, width * .22, height * .18);
+    const left = radius + 10, right = width - left;
+    const top = Math.min(130, height * .30);
+    const bottom = height - Math.max(56, radius + 10);
+    const row = (bottom - top) / 8, y = top + row * 1.5;
+    const pixel = (x, py) => [...ctx.getImageData(
+      Math.round(x * sx), Math.round(py * sy), 1, 1).data];
+    const inWave = (x, py) => {
+      const [red, green, blue] = pixel(x, py);
+      return red < 160 && green > 135 && blue > 135;
+    };
+    let above = 0, below = 0, leftEdge = 0, rightEdge = 0;
+    for (let x = left + (right - left) * .25; x < left + (right - left) * .8; x += 2) {
+      for (let py = y - row * .34; py < y + row * .34; py += 2) {
+        if (!inWave(x, py)) continue;
+        if (py < y - 2) above++;
+        if (py > y + 2) below++;
+      }
+    }
+    for (let x = 0; x < 20; x++)
+      for (let py = y - row * .34; py < y + row * .34; py += 2)
+        if (inWave(x, py)) leftEdge++;
+    for (let x = width - 20; x < width; x++)
+      for (let py = y - row * .34; py < y + row * .34; py += 2)
+        if (inWave(x, py)) rightEdge++;
+    return { page: getComputedStyle(document.body).backgroundColor,
+      stage: getComputedStyle(canvas.parentElement).backgroundColor,
+      corner: pixel(width - 10, 10), above, below, leftEdge, rightEdge };
+  });
+  expect(floor.page).toBe("rgb(0, 0, 0)");
+  expect(floor.stage).toBe("rgb(0, 0, 0)");
+  expect(floor.corner.slice(0, 3)).toEqual([0, 0, 0]);
+  for (const count of [floor.above, floor.below, floor.leftEdge, floor.rightEdge])
+    expect(count).toBeGreaterThan(3);
+
+  const marble = await page.evaluate(async () => {
+    const { createGlobuleView } = await import("/src/instruments/globule-damacy/view.js");
+    const { coordinatesOf, IDENTITY_ORIENTATION } =
+      await import("/src/instruments/globule-damacy/model.js");
+    const { waveTraceOf } = await import("/src/instruments/globule-damacy/sources.js");
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:fixed;left:-1100px;top:0;width:700px;height:600px";
+    document.body.append(canvas);
+    try {
+      const view = createGlobuleView(canvas);
+      const orientation = IDENTITY_ORIENTATION, cx = 700 * .49, cy = 600 * .46;
+      const radius = Math.min(700 * .30, 600 * .32, 62 * 3.9);
+      const normal = [-.45, .3, Math.sqrt(1 - .45 ** 2 - .3 ** 2)];
+      const zone = { key: 1299, sourceIndex: 0, normal, ...coordinatesOf(normal),
+        angularRadius: .046, latitudeRadius: .84, tilt: .24, shapeSeed: .2 };
+      const frame = { mode: "play", sources: [], ribbons: [],
+        orientation, phase: 0, needle: 3.5, wander: 0, needleWidth: 0,
+        playPose: orientation };
+      const ctx = canvas.getContext("2d");
+      const pixel = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+      view.render(frame);
+      const shades = [];
+      for (let y = cy - radius * .6; y <= cy + radius * .6; y += 13)
+        for (let x = cx - radius * .7; x <= cx - radius * .2; x += 13) {
+          const [red, green, blue] = pixel(Math.round(x), Math.round(y));
+          shades.push({ light: (red + green + blue) / 3,
+            spread: Math.max(red, green, blue) - Math.min(red, green, blue) });
+        }
+      const crop = () => ctx.getImageData(
+        Math.round(cx - radius * .66), Math.round(cy - radius * .55),
+        Math.round(radius * .46), Math.round(radius * .55)).data;
+      const tone = Float32Array.from({ length: 800 }, (_, index) =>
+        Math.sin(index * Math.PI / 21) * .85);
+      view.render({ ...frame, ribbons: [{ ...zone, waveTrace: waveTraceOf([tone], 8) }] });
+      const sounding = crop();
+      view.render({ ...frame, ribbons: [{ ...zone, waveTrace: new Float32Array(16) }] });
+      const silent = crop();
+      let difference = 0;
+      for (let index = 0; index < sounding.length; index += 4)
+        difference += Math.abs(sounding[index] - silent[index]);
+      return { bright: shades.filter(shade => shade.light > 190 && shade.spread < 35).length,
+        dark: shades.filter(shade => shade.light < 65).length, difference };
+    } finally { canvas.remove(); }
+  });
+  expect(marble.bright).toBeGreaterThan(10);
+  expect(marble.dark).toBeGreaterThan(10);
+  expect(marble.difference).toBeGreaterThan(2000,
+    "changing only the captured PCM trace must repaint its mark on the same ball");
+});
+
+test("newer overlapping grains become transparent; isolated paint and chrome stay put", async ({ page }) => {
+  await page.goto("/globule-damacy.html");
+  const comparison = await page.evaluate(async () => {
+    const { createGlobuleView } = await import("/src/instruments/globule-damacy/view.js");
+    const { coordinatesOf, IDENTITY_ORIENTATION } =
+      await import("/src/instruments/globule-damacy/model.js");
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:fixed;left:-1200px;top:0;width:700px;height:600px";
+    document.body.append(canvas);
+    try {
+      const view = createGlobuleView(canvas);
+      const unit = coordinates => {
+        const length = Math.hypot(...coordinates);
+        return coordinates.map(value => value / length);
+      };
+      const zone = (key, sourceIndex, normal, pitch) => ({
+        key, sourceIndex, normal, ...coordinatesOf(normal),
+        angularRadius: .075, latitudeRadius: 1.05, tilt: .1, shapeSeed: .2,
+        waveTrace: Float32Array.from({ length: 28 }, (_, i) =>
+          Math.sin(i * pitch) * .75),
+      });
+      const lower = zone(100, 1, unit([-.52, .17, .83]), .78);
+      const upper = zone(101, 0, unit([-.62, .26, .74]), 1.44);
+      const isolated = zone(102, 0, unit([.7, -.24, .68]), 1.44);
+      const frame = { mode: "play", sources: [], ribbons: [],
+        orientation: IDENTITY_ORIENTATION, phase: 0, needle: 3.5, wander: 0,
+        needleWidth: 0, playPose: IDENTITY_ORIENTATION, layerTransparency: 0 };
+      const ctx = canvas.getContext("2d");
+      const picture = (ribbons, layerTransparency, mode = "play") => {
+        view.render({ ...frame, mode, ribbons, layerTransparency,
+          position: { phase: .5, lane: 3.5 } });
+        return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      };
+      const chrome = picture([], 0);
+      const bottom = picture([lower], 0);
+      const top = picture([upper], 0);
+      const opaque = picture([lower, upper], 0);
+      const half = picture([lower, upper], 50);
+      const clear = picture([lower, upper], 100);
+      const reversed = picture([upper, lower], 100);
+      const singleClear = picture([upper], 100);
+      const isolatedOpaque = picture([lower, isolated], 0);
+      const isolatedClear = picture([lower, isolated], 100);
+      const scale = canvas.width / 700, cx = 700 * .49, cy = 600 * .46;
+      const distance = (a, b, index) =>
+        Math.abs(a[index] - b[index]) + Math.abs(a[index + 1] - b[index + 1])
+        + Math.abs(a[index + 2] - b[index + 2]);
+      let overlap = 0, exposed = 0, gain = 0, reveal = 0, middle = 0, swapped = 0;
+      let exposedFaded = 0, exposedRevealed = 0, isolatedDifference = 0;
+      for (let y = Math.floor((cy - 105) * scale); y < (cy + 90) * scale; y++)
+        for (let x = Math.floor((cx - 175) * scale); x < (cx - 25) * scale; x++) {
+          const pixel = (y * canvas.width + x) * 4;
+          const fromBottom = distance(bottom, chrome, pixel);
+          const fromTop = distance(top, chrome, pixel);
+          if (fromBottom > 38 && fromTop > 38) {
+            overlap++;
+            gain += distance(opaque, clear, pixel);
+            reveal += distance(clear, bottom, pixel);
+            middle += distance(half, bottom, pixel);
+            swapped += distance(reversed, top, pixel);
+          } else if (fromTop > 38 && fromBottom === 0) {
+            exposed++;
+            exposedFaded += distance(clear, opaque, pixel);
+            exposedRevealed += distance(clear, chrome, pixel);
+          }
+        }
+      for (let pixel = 0; pixel < isolatedOpaque.length; pixel += 4)
+        isolatedDifference += distance(isolatedOpaque, isolatedClear, pixel)
+          + distance(top, singleClear, pixel);
+      const record0 = picture([lower, upper], 0, "record");
+      const record100 = picture([lower, upper], 100, "record");
+      let recordDifference = 0;
+      for (let pixel = 0; pixel < record0.length; pixel += 4)
+        recordDifference += Math.abs(record0[pixel] - record100[pixel]);
+      return { overlap, exposed, gain: gain / overlap, reveal: reveal / overlap,
+        middle: middle / overlap, swapped: swapped / overlap, recordDifference,
+        exposedFaded: exposedFaded / exposed, exposedRevealed: exposedRevealed / exposed,
+        isolatedDifference };
+    } finally { canvas.remove(); }
+  });
+  expect(comparison.isolatedDifference).toBe(0,
+    "paint without an older intersecting zone keeps its original look at 100%");
+  expect(comparison.overlap).toBeGreaterThan(100);
+  expect(comparison.exposed).toBeGreaterThan(50);
+  expect(comparison.gain).toBeGreaterThan(20, "the top PCM waveform visibly fades");
+  expect(comparison.reveal).toBeLessThan(comparison.gain * .2,
+    "100% transparency exposes the lower mark at overlapping pixels");
+  expect(comparison.exposedFaded).toBeGreaterThan(20,
+    "a translucent grain fades as a whole, even where it extends beyond the crossing");
+  expect(comparison.exposedRevealed).toBeLessThan(1,
+    "the exposed portion becomes bare chrome at 100%");
+  expect(comparison.middle).toBeGreaterThan(comparison.reveal,
+    "the midpoint keeps some newer paint above the older mark");
+  expect(comparison.middle).toBeLessThan(comparison.gain,
+    "the midpoint reveals more of the older mark than 0%");
+  expect(comparison.swapped).toBeLessThan(comparison.gain * .2,
+    "collection order determines which waveform sits on top");
+  expect(comparison.recordDifference).toBeGreaterThan(500,
+    "the same spherical overlap is rendered on the Record marble");
+});
+
+test("Record opens with a larger marble; a surface spot rolls sideways, not around the screen", async ({ page }) => {
+  await page.goto("/globule-damacy.html");
+  const sampleOldPosition = () => page.locator("#stageCanvas").evaluate(async canvas => {
+    await new Promise(requestAnimationFrame);
+    const { width, height } = canvas.getBoundingClientRect();
+    const radius = Math.min(62, width * .22, height * .18);
+    const left = radius + 10, right = width - left;
+    const top = Math.min(130, height * .30);
+    const bottom = height - Math.max(56, radius + 10);
+    const cx = left + .15 * (right - left);
+    const cy = top + 4 * (bottom - top) / 8;
+    // This point is on the new ball, but was outside the old 44px radius.
+    const x = Math.round((cx - 50) * canvas.width / width);
+    const y = Math.round((cy - 8) * canvas.height / height);
+    return [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
+  });
+  const starting = await sampleOldPosition();
+  await page.locator("#mapPhase").fill("0.75");
+  await expect.poll(async () => {
+    const current = await sampleOldPosition();
+    return current.slice(0, 3).reduce((difference, channel, index) =>
+      difference + Math.abs(channel - starting[index]), 0);
+  }).toBeGreaterThan(30);
+  await expect(page.locator("#ribbonCount")).toHaveText("0");
+
+  // Track one luminous grain on the *rendered sphere* with its center held
+  // still. A side-on camera would rotate it around the face like a record.
+  const motion = await page.evaluate(async () => {
+    const { createGlobuleView } = await import("/src/instruments/globule-damacy/view.js");
+    const { IDENTITY_ORIENTATION, MARBLE_RADIUS, rollOrientation } =
+      await import("/src/instruments/globule-damacy/model.js");
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:fixed;left:-1000px;top:0;width:800px;height:600px;visibility:hidden";
+    document.body.append(canvas);
+    try {
+      const view = createGlobuleView(canvas);
+      const zone = {
+        key: 999, sourceIndex: 6, normal: [0, 1, 0], angle: 0, latitude: 0,
+        angularRadius: .07, latitudeRadius: .48, tilt: 0, shapeSeed: .2,
+      };
+      const frame = {
+        mode: "record", sources: [], ribbons: [zone], position: { phase: .5, lane: 3.5 },
+        active: null,
+      };
+      const spot = orientation => {
+        view.render({ ...frame, orientation });
+        const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        let count = 0, xsum = 0, ysum = 0;
+        for (let y = 270; y < 370; y++)
+          for (let x = 345; x < 455; x++) {
+            const offset = (y * canvas.width + x) * 4;
+            const red = pixels.data[offset], green = pixels.data[offset + 1];
+            const blue = pixels.data[offset + 2];
+            if (green < 115 || green < red + 16 || green < blue + 23) continue;
+            xsum += x; ysum += y; count++;
+          }
+        return { x: xsum / count, y: ysum / count, count };
+      };
+      return {
+        start: spot(IDENTITY_ORIENTATION),
+        right: spot(rollOrientation(IDENTITY_ORIENTATION, 40, 0, MARBLE_RADIUS)),
+        left: spot(rollOrientation(IDENTITY_ORIENTATION, -40, 0, MARBLE_RADIUS)),
+        down: spot(rollOrientation(IDENTITY_ORIENTATION, 0, 40, MARBLE_RADIUS)),
+      };
+    } finally { canvas.remove(); }
+  });
+  for (const { count } of Object.values(motion)) expect(count).toBeGreaterThan(60);
+  expect(motion.right.x - motion.start.x).toBeGreaterThan(24);
+  expect(motion.left.x - motion.start.x).toBeLessThan(-24);
+  expect(Math.abs(motion.right.y - motion.start.y)).toBeLessThan(12);
+  expect(motion.down.y - motion.start.y).toBeGreaterThan(24);
+  expect(Math.abs(motion.down.x - motion.start.x)).toBeLessThan(12);
+});
+
+test("Record rolls one full turn from end to end, even when the floor is already collected", async ({ page }) => {
+  test.setTimeout(60_000);
+  for (const viewport of [
+    { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/globule-damacy.html");
+    await page.locator("#mapPhase").fill("0");
+    await page.locator("#mapLane").fill("3");
+    const stage = page.locator("#stageCanvas");
+    const traverse = async () => {
+      await stage.scrollIntoViewIfNeeded();
+      const box = await stage.boundingBox();
+      const left = point(box, 0, 3), right = point(box, 1, 3);
+      await page.mouse.move(left.x, left.y);
+      await page.mouse.down();
+      await page.mouse.move(right.x + 8, right.y, { steps: 20 });
+      await page.mouse.up();
+    };
+    const atStart = async () => {
+      await page.locator("#mapPhase").fill("0");
+      await stage.scrollIntoViewIfNeeded();
+      await stage.evaluate(() => new Promise(resolve =>
+        setTimeout(() => requestAnimationFrame(resolve), 80)));
+      return stage.screenshot();
+    };
+    await traverse();
+    await expect(page.locator("#ribbonCount")).toHaveText(String(SLICE_CELLS));
+    const once = await atStart();
+    await traverse();
+    await expect(page.locator("#ribbonCount")).toHaveText(String(SLICE_CELLS));
+    expect((await atStart()).equals(once)).toBe(true);
+  }
+});
 
 test("one ball rolls over all eight source ribbons; cancel, Undo and Clear Ball are atomic", async ({ page, baseURL }) => {
   test.setTimeout(60_000);
@@ -212,6 +517,61 @@ test("Record auditions freshly picked-up PCM with Audio on, without starting Pla
   expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
 });
 
+test("real Web Audio grains release smoothly and mix 32 full-scale stereo voices without clipping", async ({ page }) => {
+  await page.goto("/globule-damacy.html");
+  const result = await page.evaluate(async () => {
+    const { GlobuleAudio } = await import("/src/instruments/globule-damacy/audio.js");
+    const rate = 48000;
+    async function render(mode) {
+      const context = new OfflineAudioContext(2, Math.round(rate * .25), rate);
+      const audio = new GlobuleAudio();
+      audio.context = context;
+      audio.master = context.createGain();
+      audio.master.gain.value = .8;
+      audio.master.connect(context.destination);
+      // A hot, non-zero-ended sample isolates envelope discontinuities from
+      // transients actually present in a user's uploaded recording.
+      const stereo = mode === "dense-stereo", dense = mode.startsWith("dense");
+      const samples = new Float32Array(800).fill(dense ? 1 : .9);
+      const ribbon = { sampleRate: 8000, channels: stereo ? [samples, samples] : [samples] };
+      const hit = { ribbon, reverse: false, rate: 1, pan: stereo ? .62 : 0 };
+      for (let voice = 0; voice < (dense ? 32 : 1); voice++)
+        audio.schedule(hit, .04, 1);
+      const pending = mode === "release"
+        ? context.suspend(.048).then(() => {
+          audio.releaseVoice([...audio.voices][0]);
+          return context.resume();
+        }) : null;
+      const rendering = context.startRendering();
+      if (pending) await pending;
+      const rendered = (await rendering).getChannelData(stereo ? 1 : 0);
+      const maxStep = (from, to) => {
+        let largest = 0;
+        for (let frame = Math.round(from * rate); frame < Math.round(to * rate); frame++)
+          largest = Math.max(largest, Math.abs(rendered[frame] - rendered[frame - 1]));
+        return largest;
+      };
+      let peak = 0;
+      for (const sample of rendered) peak = Math.max(peak, Math.abs(sample));
+      await audio.close();
+      return { peak, attack: maxStep(.041, .046), release: maxStep(.045, .052),
+        naturalEnd: maxStep(.134, .144), finite: rendered.every(Number.isFinite) };
+    }
+    return { normal: await render("normal"), stopped: await render("release"),
+      dense: await render("dense"), denseStereo: await render("dense-stereo") };
+  });
+  expect(Object.values(result).every(scene => scene.finite)).toBe(true);
+  expect(result.normal.peak).toBeGreaterThan(.01);
+  expect(result.normal.naturalEnd).toBeLessThan(.004);
+  expect(result.stopped.release).toBeLessThan(.004);
+  expect(result.stopped.release).toBeLessThan(result.normal.attack + .003);
+  expect(result.dense.peak).toBeGreaterThan(.1);
+  expect(result.dense.peak).toBeLessThan(.99);
+  expect(result.denseStereo.peak).toBeGreaterThan(.1);
+  expect(result.denseStereo.peak).toBeLessThan(.99);
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+});
+
 test("fixed/random Record and Play presets keep the ball, running turn, output and Audio ownership", async ({ page }) => {
   await page.goto("/globule-damacy.html");
   await expect(page.locator("#recordPreset")).toHaveValue("chrome-confetti");
@@ -226,27 +586,37 @@ test("fixed/random Record and Play presets keep the ball, running turn, output a
   await rollAcross(page);
   const picked = await count(page);
   await page.locator("#playTab").click();
+  await expect(page.locator("#layerTransparencyOut")).toHaveText("40%");
   await page.locator("#playButton").click();
   await expect.poll(() => angle(page)).toBeGreaterThan(2);
   const before = await angle(page);
   await page.locator("#playPreset").selectOption("backspin");
+  const phaseDifference = Math.abs((await angle(page)) - before);
+  expect(Math.min(phaseDifference, 100 - phaseDifference)).toBeLessThan(12);
   await expect(page.locator("#spinSpeedOut")).toHaveText("0.77×");
+  await expect(page.locator("#layerTransparencyOut")).toHaveText("65%");
   await expect(page.locator("#directionButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#playPreset")).toHaveValue("backspin");
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
-  expect(Math.abs((await angle(page)) - before)).toBeLessThan(12);
   await page.locator("#audioButton").click();
   await page.locator("#output").fill("0.43");
   await page.locator("#playPreset").selectOption("shattered-neon");
   await expect(page.locator("#playPreset")).toHaveValue("shattered-neon");
   await expect(page.locator("#spinSpeedOut")).toHaveText("1.60×");
+  await expect(page.locator("#layerTransparencyOut")).toHaveText("20%");
   await expect(page.locator("#needleWidthOut")).toHaveText("85%");
   await expect(page.locator("#needleOut")).toHaveText("54° south");
   await page.locator("#needleWidth").fill("0");
   await expect(page.locator("#playPreset")).toHaveValue("custom");
   await page.locator("#playPreset").selectOption("shattered-neon");
   await expect(page.locator("#needleWidthOut")).toHaveText("85%");
+  await page.locator("#layerTransparency").fill("100");
+  await expect(page.locator("#layerTransparencyOut")).toHaveText("100%");
+  await expect(page.locator("#playPreset")).toHaveValue("custom");
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#playPreset").selectOption("shattered-neon");
+  await expect(page.locator("#layerTransparencyOut")).toHaveText("20%");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#outputOut")).toHaveText("43%");
   await page.locator("#recordTab").click();
@@ -254,6 +624,8 @@ test("fixed/random Record and Play presets keep the ball, running turn, output a
   await expect(page.locator("#grainMode")).toHaveValue("fixed");
   await expect(page.locator("#ribbonCount")).toHaveText(String(picked));
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#playTab").click();
+  await expect(page.locator("#layerTransparency")).toHaveValue("20");
   await page.locator("#playButton").click();
   await page.locator("#audioButton").click();
 });
@@ -291,13 +663,13 @@ test("the stage keeps short instructions and the Morphazoid outlined transport i
   await expect(page.locator("#playButton .transport-play")).toBeVisible();
 });
 
-test("the ribbed straw stays parked while the marble tilts and spins beneath it", async ({ page }) => {
+test("the ribbed straw stays parked while the marble rolls beneath it", async ({ page }) => {
   await page.goto("/globule-damacy.html");
   await page.locator("#playTab").click();
   const sampleCanvas = () => page.evaluate(() => {
     const canvas = document.querySelector("#stageCanvas");
     const { width, height } = canvas.getBoundingClientRect();
-    const radius = Math.min(width * .30, height * .32, 44 * 3.9);
+    const radius = Math.min(width * .30, height * .32, 62 * 3.9);
     const cx = width * .49, cy = height * .46;
     const scaleX = canvas.width / width, scaleY = canvas.height / height;
     const context = canvas.getContext("2d");
@@ -350,7 +722,7 @@ test("needle width enlarges its reading mouth without moving the fixed straw tip
     await new Promise(requestAnimationFrame);
     const canvas = document.querySelector("#stageCanvas");
     const { width, height } = canvas.getBoundingClientRect();
-    const radius = Math.min(width * .30, height * .32, 44 * 3.9);
+    const radius = Math.min(width * .30, height * .32, 62 * 3.9);
     const cx = width * .49, cy = height * .46;
     const footprint = radius * Math.sin(.19);
     const context = canvas.getContext("2d");
@@ -449,7 +821,7 @@ test("Play gestures roll visible paint right/down without turning the needle; ca
   expect(before.count).toBeGreaterThan(30);
   const straw = () => page.locator("#stageCanvas").evaluate(canvas => {
     const { width, height } = canvas.getBoundingClientRect();
-    const radius = Math.min(width * .30, height * .32, 44 * 3.9);
+    const radius = Math.min(width * .30, height * .32, 62 * 3.9);
     const x = Math.round((width * .49 + radius * 1.25) * canvas.width / width);
     const y = Math.round((height * .46 - radius * .77) * canvas.height / height);
     return [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
@@ -565,6 +937,57 @@ test("imported local PCM is heard after pickup and survives replacing its floor 
   await expect(page.locator("#sourceInfo")).toContainText("replacement-silence.wav");
   await expect(page.locator("#ribbonCount")).toHaveText("1");
   expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
+});
+
+test("a silent top grain cannot mute audible PCM buried underneath at either transparency extreme", async ({ page }) => {
+  await page.goto("/globule-damacy.html");
+  await page.locator("#sourceLane").selectOption("1");
+  await page.locator("#mapPhase").fill("0.5");
+  await page.locator("#mapLane").fill("1");
+  await page.locator("#grainSize").fill("240");
+  await page.locator("#pickButton").click();
+  await expect(page.locator("#ribbonCount")).toHaveText("1");
+  await page.locator("#sourceInput").setInputFiles({
+    name: "silent-top.wav", mimeType: "audio/wav", buffer: wav(220, true),
+  });
+  await expect(page.locator("#sourceInfo")).toContainText("silent-top.wav");
+  await page.locator("#pickButton").click();
+  await expect(page.locator("#ribbonCount")).toHaveText("2");
+  const latitude = await page.evaluate(async () => {
+    const { IDENTITY_ORIENTATION, collectSweep } =
+      await import("/src/instruments/globule-damacy/model.js");
+    const where = { phase: .5, lane: 1 };
+    return collectSweep([], where, where, IDENTITY_ORIENTATION, .9, 240).added[0].latitude;
+  });
+  await page.locator("#playTab").click();
+  await page.locator("#scatter").fill("0");
+  await page.locator("#needleWidth").fill("100");
+  await page.locator("#needle").fill(latitude.toFixed(2));
+  await page.locator("#audioButton").click();
+  let lastPaint = null;
+  for (const transparency of ["100", "0"]) {
+    await page.locator("#layerTransparency").fill(transparency);
+    await expect(page.locator("#layerTransparencyOut")).toHaveText(`${transparency}%`);
+    const paint = await page.locator("#stageCanvas").evaluate(async canvas => {
+      await new Promise(requestAnimationFrame);
+      const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+      let hash = 2166136261;
+      for (let pixel = 0; pixel < pixels.length; pixel += 16)
+        hash = Math.imul(hash ^ pixels[pixel], 16777619) >>> 0;
+      return hash;
+    });
+    if (lastPaint !== null) expect(paint).not.toBe(lastPaint,
+      "the live slider repaints the same stationary ball");
+    lastPaint = paint;
+    await page.locator("#stageCanvas").focus();
+    await page.locator("#stageCanvas").press("Enter");
+    await hearPeak(page, .002);
+    await expect(page.locator("#contactStatus")).toContainText("2 zones");
+    await expect(page.locator("#nowReading")).toContainText("source");
+    await page.waitForTimeout(290);
+  }
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+  await page.locator("#audioButton").click();
 });
 
 test("the marble never fills up: exhaust the floor, lay new samples, and collect again at a new size", async ({ page }) => {
@@ -754,6 +1177,46 @@ test("mic permission, a real decoded take, cancellation and device failure never
   await expect.poll(async () => (await meter(page)).peak).toBeLessThan(.001);
 });
 
+test("the stage and controls are unframed; phase and Play indicators stay visible", async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/globule-damacy.html");
+    const styles = await page.evaluate(() => {
+      const of = selector => getComputedStyle(document.querySelector(selector));
+      const borders = style => [
+        style.borderTopWidth, style.borderRightWidth,
+        style.borderBottomWidth, style.borderLeftWidth,
+      ];
+      return {
+        stage: borders(of(".gd-stage-wrap")),
+        stageShadow: of(".gd-stage-wrap").boxShadow,
+        transport: borders(of(".gd-transport")),
+        record: borders(of("#recordControls")),
+        tab: borders(of("#recordTab")),
+        tabAccent: of("#recordTab").borderBottomColor,
+        tabColor: of("#recordTab").color,
+        playRadius: of("#playButton").borderRadius,
+        playBorder: of("#playButton").borderTopWidth,
+      };
+    });
+    expect(styles.stage).toEqual(["0px", "0px", "0px", "0px"]);
+    expect(styles.stageShadow).toBe("none");
+    expect(styles.transport).toEqual(["0px", "0px", "1px", "0px"]);
+    expect(styles.record).toEqual(["0px", "0px", "0px", "0px"]);
+    expect(styles.tab).toEqual(["0px", "0px", "2px", "0px"]);
+    expect(styles.tabAccent).toBe(styles.tabColor);
+    expect(styles.playRadius).toBe("50%");
+    expect(parseFloat(styles.playBorder)).toBeGreaterThan(0);
+    await page.locator("#playTab").click();
+    await expect(page.locator("#playControls")).toHaveCSS("border-top-width", "0px");
+  }
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.locator("#stageCanvas")).toBeFocused();
+  await expect(page.locator("#stageCanvas")).toHaveCSS("outline-style", "solid");
+});
+
 test("desktop, portrait and landscape keep the stage, transport and both phases reachable", async ({ page }) => {
   test.setTimeout(60_000);
   for (const { width, height } of [
@@ -772,7 +1235,7 @@ test("desktop, portrait and landscape keep the stage, transport and both phases 
       await expect(page.locator(`#${id}`)).toBeVisible();
     }
     await page.locator("#playTab").click();
-    for (const id of ["playPreset", "spinSpeed", "scatter", "needleWidth", "needle",
+    for (const id of ["playPreset", "spinSpeed", "scatter", "needleWidth", "layerTransparency", "needle",
       "directionButton", "homeButton"]) {
       await page.locator(`#${id}`).scrollIntoViewIfNeeded();
       await expect(page.locator(`#${id}`)).toBeVisible();

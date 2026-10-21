@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#160d22" />
-  <meta name="description" content="Globule Damacy: roll a glass marble over sounds to collect grain zones, then play it beneath a fixed bendy-straw needle." />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Globule Damacy: roll a chrome marble over audio waves to collect grain zones, then play it beneath a fixed bendy-straw needle." />
   <title>Globule Damacy — Morphazoid</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
@@ -125,6 +125,9 @@
         <input id="scatter" type="range" min="0" max="1" step="0.01" value="0.68" />
         <label for="needleWidth">Needle width · grains at once <output id="needleWidthOut" for="needleWidth">30%</output></label>
         <input id="needleWidth" type="range" min="0" max="100" step="1" value="30" />
+        <label for="layerTransparency">Top layer transparency <output id="layerTransparencyOut" for="layerTransparency">40%</output></label>
+        <input id="layerTransparency" type="range" min="0" max="100" step="1" value="40"
+          aria-description="Fades whole newer grains that overlap older zones. All layers remain playable." />
         <label for="needle">Orbit tilt · north ↔ south <output id="needleOut" for="needle">level</output></label>
         <input id="needle" type="range" min="0" max="7" step="0.01" value="3.5" />
         <div class="gd-actions">

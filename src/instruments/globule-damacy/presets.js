@@ -13,13 +13,17 @@ export const RECORD_PRESETS = Object.freeze([
 
 export const PLAY_PRESETS = Object.freeze([
   Object.freeze({ id: "mirrorball", label: "Mirrorball",
-    speed: 1, direction: 1, scatter: .68, needleWidth: 30, needle: 3.5 }),
+    speed: 1, direction: 1, scatter: .68, needleWidth: 30, needle: 3.5,
+    layerTransparency: 40 }),
   Object.freeze({ id: "backspin", label: "Backspin",
-    speed: .77, direction: -1, scatter: .35, needleWidth: 30, needle: 2 }),
+    speed: .77, direction: -1, scatter: .35, needleWidth: 30, needle: 2,
+    layerTransparency: 65 }),
   Object.freeze({ id: "shattered-neon", label: "Shattered neon",
-    speed: 1.6, direction: 1, scatter: .96, needleWidth: 85, needle: 5.6 }),
+    speed: 1.6, direction: 1, scatter: .96, needleWidth: 85, needle: 5.6,
+    layerTransparency: 20 }),
   Object.freeze({ id: "slow-burn", label: "Slow burn",
-    speed: .6, direction: 1, scatter: .18, needleWidth: 10, needle: 3.5 }),
+    speed: .6, direction: 1, scatter: .18, needleWidth: 10, needle: 3.5,
+    layerTransparency: 80 }),
 ]);
 
 export const matchingPreset = (presets, state) => presets.find(preset =>

@@ -1,15 +1,17 @@
 /** Sampled grain zones stuck to a fixed-size rolling marble. */
 export const SOURCE_COUNT = 8;
 export const SLICE_CELLS = 160;
-export const MARBLE_RADIUS = 44;
+export const MARBLE_RADIUS = 62;
 export const PICKUP_REACH = .9;
 export const MIN_GRAIN_MS = 40;
 export const DEFAULT_GRAIN_MS = 100;
 export const MAX_GRAIN_MS = 240;
 export const ORBIT_SECONDS = 4.8;
-export const MAX_VOICES = 18;
+export const MAX_VOICES = 32;
 const TAU = 2 * Math.PI;
-const FLOOR_WIDTH = 640, FLOOR_LANE = 56;
+// Across the full waveform width, the ball travels exactly one circumference.
+// Lane spacing is independent so vertical steering still reaches both poles.
+const FLOOR_WIDTH = TAU * MARBLE_RADIUS, FLOOR_LANE = 79;
 export const IDENTITY_ORIENTATION = Object.freeze([0, 0, 0, 1]);
 const INITIAL_FLOOR_IDS = Object.freeze(Array.from({ length: SOURCE_COUNT }, (_, index) => index));
 
@@ -225,10 +227,17 @@ export function cutRibbon(source, cell, grainMs = DEFAULT_GRAIN_MS) {
     throw new RangeError("A source ribbon needs bounded decoded mono or stereo audio.");
   const length = channels[0].length;
   const frames = Math.round(sampleRate * grainMs / 1000);
-  const start = Math.floor((cell + .5) / SLICE_CELLS * length - frames / 2);
+  const centered = Math.floor((cell + .5) / SLICE_CELLS * length - frames / 2);
+  // Wrapping a cut across unrelated file endpoints adds an audible step *inside*
+  // the grain, beyond the reach of its start/end envelope. Keep normal clips in
+  // bounds; bounce only clips shorter than the requested grain.
+  const start = frames <= length ? clamp(centered, 0, length - frames) : centered;
+  const period = 2 * (length - 1);
   return { sampleRate, duration: frames / sampleRate,
     channels: channels.map(data => Float32Array.from({ length: frames }, (_, frame) => {
-      const sample = data[((start + frame) % length + length) % length];
+      const offset = start + frame;
+      const reflected = frames <= length ? offset : ((offset % period) + period) % period;
+      const sample = data[reflected < length ? reflected : period - reflected];
       return Number.isFinite(sample) ? clamp(sample, -1, 1) : 0;
     })) };
 }

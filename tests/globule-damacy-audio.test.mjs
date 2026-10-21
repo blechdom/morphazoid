@@ -16,8 +16,12 @@ function motorZone(key, phase, latitudeRadius = .5) {
 }
 
 function param() {
-  return { value: 0, cancelScheduledValues() {}, setTargetAtTime() {},
-    setValueAtTime() {}, linearRampToValueAtTime() {} };
+  const events = [];
+  return { value: 0, events,
+    cancelScheduledValues(time) { events.push({ kind: "cancel", time }); },
+    setTargetAtTime() {},
+    setValueAtTime(value, time) { events.push({ kind: "set", value, time }); },
+    linearRampToValueAtTime(value, time) { events.push({ kind: "ramp", value, time }); } };
 }
 function node(extra = {}) {
   return { connect() {}, disconnect() {}, ...extra };
@@ -47,6 +51,7 @@ function fakeContext() {
 }
 
 test("bounded Web Audio voices read owned sample copies, reverse without altering PCM, and release on removal", async () => {
+  assert.equal(MAX_VOICES, 32, "denser crossings have room for more simultaneous scraps");
   const audio = new GlobuleAudio();
   const context = fakeContext();
   audio.context = context;
@@ -78,6 +83,70 @@ test("bounded Web Audio voices read owned sample copies, reverse without alterin
   assert.equal(context.state, "closed");
 });
 
+test("full-scale mono and panned stereo grains retain headroom at the 32-voice limit", async () => {
+  for (const [channels, pan] of [[1, 0], [2, 0], [2, .62]]) {
+    const audio = new GlobuleAudio(), context = fakeContext();
+    audio.context = context;
+    audio.master = context.createGain();
+    const ribbon = { ...motorZone(1, .4),
+      channels: Array.from({ length: channels }, () => new Float32Array(800).fill(1)) };
+    for (let index = 0; index < MAX_VOICES; index++)
+      assert.equal(audio.schedule({ ribbon, reverse: false, rate: 1, pan }, 1.04), true);
+    const peakSum = [...audio.voices].reduce((sum, voice) => sum + voice.peak, 0);
+    const channelGain = channels === 2 ? 1 + Math.sin(Math.PI * Math.abs(pan) / 2) : 1;
+    assert.ok(peakSum * .8 * channelGain < 1,
+      `${channels}-channel grains at pan ${pan} must not clip at maximum output`);
+    assert.equal(audio.schedule({ ribbon, reverse: false, rate: 1, pan }, 1.04), false);
+    await audio.close();
+  }
+});
+
+test("releasing a grain during its attack holds the current gain before a short fade", async () => {
+  const audio = new GlobuleAudio(), context = fakeContext();
+  audio.context = context;
+  audio.master = context.createGain();
+  const ribbon = motorZone(1, .4);
+  audio.schedule({ ribbon, reverse: false, rate: 1, pan: 0 }, 1.02);
+  const [voice] = audio.voices;
+  context.currentTime = voice.startAt + voice.attack / 2;
+  audio.releaseVoice(voice);
+  const events = voice.gain.gain.events;
+  const cancel = events.findLastIndex(event => event.kind === "cancel");
+  assert.ok(cancel >= 0, "the old release automation is cancelled");
+  assert.equal(events[cancel + 1].kind, "set");
+  assert.ok(events[cancel + 1].value > 0 && events[cancel + 1].value < voice.peak,
+    "the in-flight gain is restored rather than jumping to zero");
+  assert.equal(events.at(-1).kind, "ramp");
+  assert.equal(events.at(-1).value, 0);
+  assert.ok(voice.source.stopped >= context.currentTime + .02);
+  await audio.close();
+});
+
+test("live play-control edits leave audible grains ringing, cancelling only future attacks", async t => {
+  const audio = new GlobuleAudio(), context = fakeContext();
+  t.after(() => audio.close());
+  audio.context = context;
+  audio.master = context.createGain();
+  audio.enabled = true;
+  audio.playing = true;
+  audio.scatter = 0;
+  audio.needleWidth = 0;
+  audio.anchorPhase = .4;
+  audio.anchorTime = context.currentTime;
+  const ribbon = motorZone(1, .4);
+  audio.setRibbons([ribbon]);
+  const hit = { ribbon, reverse: false, rate: 1, pan: 0 };
+  audio.schedule(hit, 1.01);
+  audio.schedule(hit, 1.10);
+  const [ringing, future] = audio.voices;
+  context.currentTime = 1.04;
+  audio.setControls({ phase: .4, speed: 1.2, needleWidth: 30 });
+  assert.equal(ringing.released, false, "the note already sounding gets its full envelope");
+  assert.equal(future.released, true, "old-path lookahead attacks never play after rebase");
+  assert.ok(future.source.stopped <= future.startAt);
+  await audio.close();
+});
+
 test("new pickups audition immediately only after explicit Audio, bounded on a long roll", async () => {
   const heard = [];
   const audio = new GlobuleAudio({ onHit: (grain, hit) => heard.push([grain.key, hit.pickup]) });
@@ -95,15 +164,15 @@ test("new pickups audition immediately only after explicit Audio, bounded on a l
   assert.equal(context.sources.length, 0, "rolling does not silently arm Audio");
   assert.equal(audio.context, context);
   audio.setEnabled(true);
-  assert.equal(audio.auditionPickup(grains), 12);
-  assert.equal(context.sources.length, 12);
+  assert.equal(audio.auditionPickup(grains), 16);
+  assert.equal(context.sources.length, 16);
   assert.ok(heard.every(([, pickup]) => pickup === true));
-  assert.ok(new Set(heard.map(([key]) => key)).size === 12);
+  assert.ok(new Set(heard.map(([key]) => key)).size === 16);
   assert.ok(context.sources.every(source => source.playbackRate.value === 1
     && source.started >= context.currentTime + .012
-    && source.started <= context.currentTime + .11));
-  assert.ok(audio.auditionPickup(grains) <= 6,
-    "the shared 18-voice cap also applies when Play and Record overlap");
+    && source.started <= context.currentTime + .14));
+  assert.equal(audio.auditionPickup(grains), MAX_VOICES - 16,
+    "the shared voice cap still applies when Play and Record overlap");
   assert.equal(audio.voices.size, MAX_VOICES);
   audio.setRibbons([]);
   assert.ok([...audio.voices].every(voice => voice.released),
@@ -165,6 +234,38 @@ test("needle width reads neighboring grains together, only on entry, without pla
   assert.deepEqual(hits, [1, 2, 1, 2], "returning to overlapping zones plays both together");
   assert.equal(context.sources[2].started, context.sources[3].started);
   assert.ok(!hits.includes(3), "a width setting is not a nearest-grain fallback");
+  await audio.close();
+});
+
+test("all grains in a three-layer stack play their own PCM on entry", async () => {
+  const hits = [], audio = new GlobuleAudio({ onHit: grain => hits.push(grain.key) });
+  const context = fakeContext();
+  audio.context = context;
+  audio.master = context.createGain();
+  audio.scatter = 0;
+  audio.needleWidth = 0;
+  const lower = motorZone(1, .4), upper = {
+    ...motorZone(2, .4),
+    channels: [new Float32Array(800).fill(.75)],
+  };
+  const newest = { ...motorZone(3, .4),
+    channels: [new Float32Array(800).fill(-.5)] };
+  audio.setRibbons([lower, upper, newest]); // Later pickups are painted on top.
+  let inside = audio.scanAt(.3, 1.04, new Set());
+  assert.equal(inside.size, 0, "bare chrome is still quiet");
+  inside = audio.scanAt(.4, 1.05, inside);
+  assert.deepEqual(hits, [1, 2, 3]);
+  assert.deepEqual([...inside], [1, 2, 3]);
+  assert.equal(context.sources[0].buffer.channels[0][0], lower.channels[0][0]);
+  assert.equal(context.sources[1].buffer.channels[0][0], upper.channels[0][0]);
+  assert.equal(context.sources[2].buffer.channels[0][0], newest.channels[0][0]);
+  assert.equal(context.sources[0].started, context.sources[1].started);
+  assert.equal(context.sources[1].started, context.sources[2].started);
+  inside = audio.scanAt(.4, 1.06, inside);
+  assert.deepEqual(hits, [1, 2, 3], "no layer retriggers while the tip remains inside");
+  inside = audio.scanAt(.3, 1.07, inside);
+  audio.scanAt(.4, 1.08, inside);
+  assert.deepEqual(hits, [1, 2, 3, 1, 2, 3], "every layer can be revisited");
   await audio.close();
 });
 

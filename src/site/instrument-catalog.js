@@ -17,7 +17,7 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   "globule-damacy": define(
     "Rolling grain-zone sampler",
-    "A larger, fixed-size lacquered marble rolls over straight audio waveforms and keeps collecting granular samples until the floor is bare. With Audio on, pickups sound as they stick; a needle later triggers scattered spots on entry.",
+    "A fixed-size chrome marble rolls over straight audio waves on a black floor and keeps collecting granular samples until the floor is bare. With Audio on, pickups sound as they stick; a fixed needle later triggers their scattered waveform marks on entry.",
     "Lay generated sounds, uploaded clips, or a mic take on eight active waves. Set fixed or random grain size, then explore Record and Play presets without losing your ball or stopping playback.",
     ["Generated demo", "Audio file", "Microphone", "Grain size", "Random grain size", "Presets", "Sample collage", "Pointer", "Touch", "Undo"],
   ),

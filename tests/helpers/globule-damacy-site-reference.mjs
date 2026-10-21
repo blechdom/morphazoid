@@ -9,6 +9,23 @@ export const globuleDamacySiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/globule-damacy-site-changes.json", import.meta.url), "utf8",
 ));
 
+/** The older Rig Lab and Rezoidinator proofs pin the first published Globule
+ * copy. Reverse only this later copy refresh before comparing their old hashes. */
+export function restorePreviousGlobuleCopy(source, file) {
+  if (typeof source !== "string") return source;
+  const change = [
+    ...globuleDamacySiteChanges.changes,
+    ...globuleDamacySiteChanges.sharedChanges,
+  ].find(item => item.file === file);
+  const replacement = change?.replacements?.find(item => item.previousAfter);
+  const current = replacement?.after ?? change?.addition;
+  const previous = replacement?.previousAfter ?? change?.previousAddition;
+  if (!previous) return source;
+  assert.equal(source.split(current).length - 1, 1, `${file}: exact refreshed Globule copy`);
+  assert.equal(source.split(previous).length - 1, 0, `${file}: no duplicate prior Globule copy`);
+  return source.replace(current, () => previous);
+}
+
 /** Peel exactly this instrument's additions before older frozen proofs. */
 export function restoreGlobuleDamacySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;

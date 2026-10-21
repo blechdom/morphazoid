@@ -20,7 +20,7 @@ test("rolling collects many independent surface zones from all eight sounds, not
   assert.equal(coveredSources(roll.added), SOURCE_COUNT);
   assert.notDeepEqual(roll.orientation, IDENTITY_ORIENTATION);
   assert.ok(Math.abs(Math.hypot(...roll.orientation) - 1) < 1e-12);
-  assert.equal(MARBLE_RADIUS, 44);
+  assert.equal(MARBLE_RADIUS, 62, "the recording marble starts larger but stays one size");
   assert.equal(PICKUP_REACH, .9, "the marble keeps one nearby-lane pickup footprint");
   assert.equal(DEFAULT_GRAIN_MS, 100);
   assert.equal(collectSweep(roll.added, { phase: .15, lane: 0 }, { phase: .86, lane: 7 },
@@ -34,10 +34,10 @@ test("rolling collects many independent surface zones from all eight sounds, not
     && ribbon.grainMs === DEFAULT_GRAIN_MS));
   assert.deepEqual(roll, collectSweep([], { phase: .15, lane: 0 }, { phase: .86, lane: 7 },
     IDENTITY_ORIENTATION, .85));
-  const firstSource = roll.added.filter(zone => zone.sourceIndex === 0);
-  assert.ok(Math.max(...firstSource.map(zone => zone.latitude))
-    - Math.min(...firstSource.map(zone => zone.latitude)) > 2,
-  "grains from one source scatter over the sphere instead of making a latitude stripe");
+  const crossedSource = roll.added.filter(zone => zone.sourceIndex === 1);
+  assert.ok(Math.max(...crossedSource.map(zone => zone.latitude))
+    - Math.min(...crossedSource.map(zone => zone.latitude)) > 2,
+  "a fully crossed source scatters grains over the sphere instead of making a latitude stripe");
   let crowded = roll.added;
   let orientation = roll.orientation;
   for (let lane = 0; lane < SOURCE_COUNT; lane++) {
@@ -75,6 +75,35 @@ test("rolling collects many independent surface zones from all eight sounds, not
     Array(8).fill(0)), /Invalid globule roll/);
 });
 
+test("one full left-to-right Record traverse rolls once around the marble", () => {
+  const at = phase => ({ phase, lane: 3 });
+  const face = result => rotateNormal(result.orientation, [1, 0, 0]);
+  const expected = phase => [Math.cos(2 * Math.PI * phase),
+    -Math.sin(2 * Math.PI * phase), 0];
+  const near = (actual, target, message = `${actual} should match ${target}`) =>
+    assert.ok(actual.every((value, index) => Math.abs(value - target[index]) < 1e-10),
+      message);
+
+  for (const phase of [.1, .25, .5, 1])
+    near(face(collectSweep([], at(0), at(phase))), expected(phase));
+
+  const full = collectSweep([], at(0), at(1));
+  assert.equal(full.added.length, SLICE_CELLS);
+  const first = full.added.find(grain => grain.cell === 0);
+  const last = full.added.find(grain => grain.cell === SLICE_CELLS - 1);
+  assert.ok(first.normal.reduce((sum, value, index) => sum + value * last.normal[index], 0) > .95,
+    "the first and last picked-up grains meet on adjacent sides of the same seam");
+
+  let partial = { orientation: IDENTITY_ORIENTATION };
+  let start = 0;
+  for (const end of [.24, .67, 1]) {
+    partial = collectSweep([], at(start), at(end), partial.orientation);
+    start = end;
+  }
+  near(face(partial), face(full), "pointer moves do not change the total turn");
+  near(face(collectSweep([], at(1), at(0), full.orientation)), [1, 0, 0]);
+});
+
 test("two-axis rolling marks both poles and turns corners without changing the marble's radius", () => {
   const across = collectSweep([], { phase: .1, lane: 2 }, { phase: .9, lane: 2 });
   const down = collectSweep(across.added, { phase: .9, lane: 2 }, { phase: .9, lane: 6 },
@@ -110,7 +139,7 @@ test("the Play marble follows screen gestures and motors around a horizontal rol
   assert.notDeepEqual(xThenY, yThenX, "turning a corner accumulates a free 3D roll");
   const returned = rollPlayPose(rollPlayPose(xThenY, 0, -60, radius), -60, 0, radius);
   assert.ok(returned.every((value, index) => Math.abs(value - IDENTITY_ORIENTATION[index]) < 1e-12));
-  assert.equal(playRadius(1000, 600), MARBLE_RADIUS * 3.9);
+  assert.equal(playRadius(1000, 600), 192);
   assert.equal(playRadius(320, 500), 96);
   assert.throws(() => rollPlayPose(IDENTITY_ORIENTATION, 1, 1, 0), /Invalid globule play roll/);
 
@@ -155,6 +184,21 @@ test("grain size changes owned PCM duration and spherical footprint, without res
     /bounded decoded/);
 });
 
+test("source endpoints never introduce an internal discontinuity into a cut grain", () => {
+  const sampleRate = 8000;
+  for (const length of [sampleRate, sampleRate / 10]) {
+    const source = { sampleRate,
+      channels: [Float32Array.from({ length }, (_, frame) => frame / (length - 1) * 1.8 - .9)] };
+    for (const cell of [0, SLICE_CELLS - 1]) {
+      const { channels: [grain] } = cutRibbon(source, cell, MAX_GRAIN_MS);
+      let largestJump = 0;
+      for (let frame = 1; frame < grain.length; frame++)
+        largestJump = Math.max(largestJump, Math.abs(grain[frame] - grain[frame - 1]));
+      assert.ok(largestJump < .003, `cell ${cell} of ${length} frames jumped ${largestJump}`);
+    }
+  }
+});
+
 test("random pickup sizes are keyed to each new floor cell and change BOTH cut length and contact", () => {
   const start = { phase: .2, lane: 2 };
   const end = { phase: .8, lane: 5 };
@@ -195,12 +239,18 @@ test("Record and Play presets cover their own musical controls without storing a
   assert.equal(matchingPreset(PLAY_PRESETS, { ...PLAY_PRESETS[0], speed: 1.4 }), "custom");
   assert.equal(matchingPreset(PLAY_PRESETS, { ...PLAY_PRESETS[0], needleWidth: 100 }), "custom",
     "needle width is an expressive Play preset parameter");
+  assert.equal(matchingPreset(PLAY_PRESETS, { ...PLAY_PRESETS[0], layerTransparency: 100 }),
+    "custom", "paint transparency is recalled with the Play preset");
   assert.ok(RECORD_PRESETS.some(preset => preset.grainMode === "random"));
   assert.ok(PLAY_PRESETS.some(preset => preset.direction === -1));
   assert.ok(PLAY_PRESETS.some(preset => preset.needle !== 3.5));
   assert.ok(PLAY_PRESETS.some(preset => preset.needleWidth >= 80)
     && PLAY_PRESETS.some(preset => preset.needleWidth <= 10),
   "Play presets include wide collage and fine single-zone pickup");
+  assert.ok(PLAY_PRESETS.every(preset => Number.isInteger(preset.layerTransparency)
+    && preset.layerTransparency >= 0 && preset.layerTransparency <= 100));
+  assert.ok(new Set(PLAY_PRESETS.map(preset => preset.layerTransparency)).size > 1,
+    "each Play preset can start with a different layered look");
   for (const preset of [...RECORD_PRESETS, ...PLAY_PRESETS]) {
     assert.ok(Object.isFrozen(preset));
     assert.ok(!["playing", "audioOn", "ribbons", "sources", "position", "phase", "level"]
