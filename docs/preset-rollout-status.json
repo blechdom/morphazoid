@@ -704,7 +704,7 @@
     },
     {
       "id": "shepard-risset",
-      "label": "Shepard–Risset",
+      "label": "Shepard\u2013Risset",
       "href": "shepard-risset.html",
       "category": "infinite-illusion",
       "scope": "regular",
@@ -1028,6 +1028,15 @@
       "status": "deferred"
     },
     {
+      "id": "rig-a-jig",
+      "label": "Rig-a-Jig",
+      "href": "rig-a-jig.html",
+      "category": "wip",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "vector-fractals",
       "label": "Vector Fractals",
       "href": "vector-fractals.html",
@@ -1074,7 +1083,7 @@
     },
     {
       "id": "moebius-synth",
-      "label": "Möbius",
+      "label": "M\u00f6bius",
       "href": "moebius-synth.html",
       "category": "wip",
       "scope": "deferred-wip",
@@ -1937,6 +1946,7 @@
       "wobblini",
       "striped-staircase-rust",
       "rig-lab",
+      "rig-a-jig",
       "vector-fractals",
       "room-lobby",
       "vocal-effects-room",

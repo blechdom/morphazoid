@@ -1,0 +1,288 @@
+/* Rig-a-Jig: bones and joints only — no meshes, materials or textures. */
+.rig-a-jig-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0a0f12;
+  color: #dce8ee;
+}
+.rig-a-jig-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21.5rem;
+  gap: 0;
+  min-height: 0;
+}
+.rig-a-jig-stage {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rig-a-jig-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+#zooCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+#zooCanvas.is-dragging { cursor: grabbing; }
+.rig-a-jig-heading {
+  position: absolute;
+  top: 0.85rem;
+  left: 1rem;
+  pointer-events: none;
+}
+.rig-a-jig-heading span {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  color: #7fa8b4;
+  text-transform: uppercase;
+}
+.rig-a-jig-heading h1 {
+  margin: 0.15rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.rig-a-jig-status {
+  position: absolute;
+  left: 1rem;
+  bottom: 0.9rem;
+  margin: 0;
+  max-width: min(34rem, 70%);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #93b3bd;
+}
+.rig-a-jig-readout {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.9rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: #a9c6cf;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.rig-a-jig-camera {
+  position: absolute;
+  top: 0.9rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.3rem;
+}
+.rig-a-jig-camera button {
+  min-width: 2.2rem;
+  height: 2rem;
+  border: 1px solid #24414c;
+  background: #101c22;
+  color: #bcd4dc;
+  font-size: 0.72rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+.rig-a-jig-camera button:hover { background: #152933; }
+.rig-a-jig-panel {
+  border-left: 1px solid #16303a;
+  background: #0c1419;
+  padding: 1rem 1rem 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.rig-a-jig-panel h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #dce8ee;
+}
+.rig-a-jig-panel p {
+  margin: 0.3rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: #90aeb9;
+}
+.rig-a-jig-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.rig-a-jig-switch button {
+  border: 1px solid #1e3a45;
+  background: #0f1a20;
+  color: #b7cdd5;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.55rem;
+  text-align: left;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.rig-a-jig-switch button small { color: #6d8b97; font-size: 0.64rem; }
+.rig-a-jig-switch button.is-selected {
+  border-color: #58b7d6;
+  background: #10303e;
+  color: #e6f4f9;
+}
+.rig-a-jig-scene label,
+.rig-a-jig-scene-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.rig-a-jig-scene label {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: #7fa4b0;
+  text-transform: uppercase;
+}
+.rig-a-jig-scene-row { margin-top: 0.45rem; }
+.rig-a-jig-scene select {
+  flex: 1;
+  min-width: 0;
+  background: #0f1a20;
+  color: #d7e6ec;
+  border: 1px solid #1e3a45;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.8rem;
+}
+.rig-a-jig-scene p {
+  font-size: 0.72rem;
+  color: #84a2ad;
+  margin-top: 0.45rem;
+}
+.rig-a-jig-play-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+.rig-a-jig-play-row button,
+.rig-a-jig-actions button,
+.rig-a-jig-scene-row button {
+  border: 1px solid #1e3a45;
+  border-radius: 0.45rem;
+  background: #13242d;
+  color: #cfe2e9;
+  font-size: 0.78rem;
+  min-height: 2.5rem;
+  cursor: pointer;
+}
+#playButton[aria-pressed="true"] {
+  border-color: #58b7d6;
+  background: #12465c;
+}
+.rig-a-jig-controls {
+  border: 1px solid #16303a;
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.rig-a-jig-controls legend {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: #6f97a4;
+  text-transform: uppercase;
+  padding: 0 0.3rem;
+}
+.rig-a-jig-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.76rem;
+  color: #a9c3cc;
+}
+.rig-a-jig-controls label span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.rig-a-jig-controls output { color: #79d3ef; font-variant-numeric: tabular-nums; }
+.rig-a-jig-controls select {
+  background: #0f1a20;
+  color: #d7e6ec;
+  border: 1px solid #1e3a45;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.45rem;
+  font-size: 0.78rem;
+}
+.rig-a-jig-controls input[type="range"] { width: 100%; accent-color: #58b7d6; }
+.rig-a-jig-check { flex-direction: row !important; align-items: center; gap: 0.45rem; }
+.rig-a-jig-check input { accent-color: #58b7d6; width: 1.05rem; height: 1.05rem; }
+.rig-a-jig-actions { display: flex; gap: 0.4rem; }
+.rig-a-jig-actions button { flex: 1; }
+.rig-a-jig-page .masthead { border-bottom: 1px solid #14242c; }
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 900px) {
+  .rig-a-jig-shell { grid-template-columns: 1fr; }
+  .rig-a-jig-stage { min-height: 52dvh; }
+  .rig-a-jig-panel {
+    border-left: none;
+    border-top: 1px solid #16303a;
+    max-height: 46dvh;
+  }
+}
+
+.rig-a-jig-group {
+  grid-column: 1 / -1;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6f97a4;
+  margin-top: 0.4rem;
+}
+.rig-a-jig-group:first-child { margin-top: 0; }
+.rig-a-jig-group-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+/* Masthead audio slot (matches the shared instrument menubar layout). */
+.rig-a-jig-audio-slot { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.rig-a-jig-audio-slot .mz-audio-strip { gap: 10px; }
+.rig-a-jig-audio-slot .header-output-meter-shell { flex: none; }
+@media (max-width: 720px) {
+  .rig-a-jig-audio-slot .header-output-meter-shell { display: none; }
+}
+
+.rig-a-jig-actions-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+.rig-a-jig-actions-row button {
+  border: 1px solid #24414c;
+  background: #11222b;
+  color: #cfe6ee;
+  border-radius: 0.45rem;
+  min-height: 2.4rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.rig-a-jig-actions-row button:hover { background: #163240; border-color: #58b7d6; }

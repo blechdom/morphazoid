@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreRigAJigSite } from './rig-a-jig-site-reference.mjs';
 export const rezoidinatorRustDspSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/rezoidinator-rust-dsp-site-amendments.json', import.meta.url), 'utf8'));
 
@@ -7,6 +8,9 @@ export const rezoidinatorRustDspSiteChanges = JSON.parse(readFileSync(
 // partial additions, duplicated adapters and altered copy policy remain failures.
 export function restoreRezoidinatorRustDspSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  // Rig-a-Jig is the newest amendment on the shared runtime inventory; peel it
+  // first so the frozen pre-Rig-a-Jig hashes still match byte-for-byte.
+  source = restoreRigAJigSite(source, file, { allowRestored: true });
   const change = rezoidinatorRustDspSiteChanges.changes.find(item => item.file === file);
   if (!change) return source;
   const count = text => source.split(text).length - 1;

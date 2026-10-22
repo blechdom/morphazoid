@@ -2298,6 +2298,14 @@ copy+require	src/instruments/globule-damacy/globule-damacy.css
 copy+require	assets/instruments/globule-damacy.webp
 copy+require	docs/globule-damacy.md
 
+# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.
+copy+require	rig-a-jig.html
+copy+require	src/instruments/rig-a-jig/rig-a-jig-app.js
+copy+require	src/instruments/rig-a-jig/rig-a-jig-viewer.js
+copy+require	src/instruments/rig-a-jig/rig-a-jig-rigs.js
+copy+require	src/instruments/rig-a-jig/rig-a-jig-audio.js
+copy+require	src/instruments/rig-a-jig/rig-a-jig.css
+
 # Rig Lab: one WIP lab, with credited downloaded animals and live geometry.
 copy+require	src/families/rig-lab/demo-motion.js
 copy+require	src/families/rig-lab/demo-presets.js

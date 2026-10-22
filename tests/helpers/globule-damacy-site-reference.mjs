@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { restoreRigLabSite } from "./rig-lab-site-reference.mjs";
+import { restoreRigAJigSite } from "./rig-a-jig-site-reference.mjs";
 
 export const globuleDamacySiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/globule-damacy-site-changes.json", import.meta.url), "utf8",
@@ -13,6 +14,9 @@ export const globuleDamacySiteChanges = JSON.parse(readFileSync(
  * copy. Reverse only this later copy refresh before comparing their old hashes. */
 export function restorePreviousGlobuleCopy(source, file) {
   if (typeof source !== "string") return source;
+  // Rig-a-Jig is the newest amendment on the shared runtime inventory; peel it
+  // first so the older frozen hashes still match byte-for-byte.
+  source = restoreRigAJigSite(source, file, { allowRestored: true });
   const change = [
     ...globuleDamacySiteChanges.changes,
     ...globuleDamacySiteChanges.sharedChanges,
@@ -30,6 +34,7 @@ export function restorePreviousGlobuleCopy(source, file) {
 export function restoreGlobuleDamacySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
   source = restoreRigLabSite(source, file, { allowRestored: true });
+  source = restoreRigAJigSite(source, file, { allowRestored: true });
   for (const change of [
     ...globuleDamacySiteChanges.changes,
     ...globuleDamacySiteChanges.sharedChanges,

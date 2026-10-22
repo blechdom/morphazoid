@@ -182,6 +182,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "wobblini", label: "Wobblini", href: "wobblini.html", imageHref: "assets/instruments/wobblini.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "rig-lab", label: "Rig Lab", href: "rig-lab.html", imageHref: "assets/instruments/lab-placeholder.webp", catalogue: false, browse: true, entryType: "lab" },
+    { id: "rig-a-jig", label: "Rig-a-Jig", href: "rig-a-jig.html", imageHref: "assets/instruments/lab-placeholder.webp", catalogue: false, browse: true, entryType: "lab" },
     { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
     { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },
     { id: "vocal-effects-room", label: "Vocal Effects Room", href: "vocal-effects-room.html", catalogue: false },

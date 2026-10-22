@@ -1,0 +1,49 @@
+{
+  "baseCommit": "7f5a9b3223d7a0e97e84dd48bf9e94d6b159262e",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "832b6264736e40ec16504b4c19020ad2a9a7f4dcd6b35b6b020e84b86d101bde",
+      "replacements": [
+        {
+          "before": "",
+          "after": "    { id: \"rig-a-jig\", label: \"Rig-a-Jig\", href: \"rig-a-jig.html\", imageHref: \"assets/instruments/lab-placeholder.webp\", catalogue: false, browse: true, entryType: \"lab\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "6cb043f582c31686d0ce8799db9f6367f50ec96c8aaf56b2472eb7e881e3f21b",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"rig-a-jig\": [\"3d\", \"geometric\", \"synthesizer\"],\n"
+        },
+        {
+          "before": "",
+          "after": "  \"rig-a-jig\": {\n    \"kind\": \"Mesh-free rig lab\",\n    \"description\": \"A collection of pure skeletons \u2014 joints and connecting vectors with no 3D model, material or texture. Bend, watch and hear spiders, caterpillars, fish, bats, whips, strikers, walkers and cranes.\",\n    \"start\": \"Choose a skeleton and press Walk. Drag a glowing joint to select it; enable Audio to hear joint contacts.\",\n    \"features\": [\"Mesh-free rigs\", \"Vector skeletons\", \"Joint contacts\", \"Motion studies\", \"Presets\"],\n    \"pluginHref\": null\n  },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "e37e43f6d1817d9175ddacdb79b327b4d2336e2a56afe69a972cf63a85063aaf",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"rig-a-jig.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "ba40878cdade9e0a28573e5096ad2349ecd0a18d3f8f7ad4618733c47b624664",
+      "replacements": [
+        {
+          "before": "",
+          "after": "# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.\ncopy+require\trig-a-jig.html\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-app.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-viewer.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-rigs.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-audio.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig.css\n\n"
+        }
+      ]
+    }
+  ]
+}

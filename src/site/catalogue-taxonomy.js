@@ -187,6 +187,7 @@ export const CATALOGUE_TAGS = Object.freeze([
 ].map(tag => Object.freeze(tag)));
 export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({
   "rig-lab": ["3d", "geometric"],
+  "rig-a-jig": ["3d", "geometric", "synthesizer"],
   "witch": ["voice", "graphic-ui", "synthesizer"],
   "wobblini": ["app", "audio-effect"],
   "trackazoid": ["looper", "audio-effect"],
@@ -660,6 +661,13 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "hollowphonic": []
 }).map(([id, tags]) => [id, Object.freeze(tags)])));
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
+  "rig-a-jig": {
+    "kind": "Mesh-free rig lab",
+    "description": "A collection of pure skeletons — joints and connecting vectors with no 3D model, material or texture. Bend, watch and hear spiders, caterpillars, fish, bats, whips, strikers, walkers and cranes.",
+    "start": "Choose a skeleton and press Walk. Drag a glowing joint to select it; enable Audio to hear joint contacts.",
+    "features": ["Mesh-free rigs", "Vector skeletons", "Joint contacts", "Motion studies", "Presets"],
+    "pluginHref": null
+  },
   "rig-lab": {
     "kind": "3D instrument lab",
     "description": "Seven playable studies: five stages using credited downloaded animal and kitchen rigs, plus live, editable Voronoi foam and polyhedral geometry.",

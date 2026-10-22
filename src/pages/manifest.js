@@ -153,6 +153,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "recursive-pm.html",
   "ricochet.html",
   "rig-lab.html",
+  "rig-a-jig.html",
   "rigidity.html",
   "roach-synth.html",
   "rolling-measure.html",

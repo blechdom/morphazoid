@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Rig-a-Jig — Morphazoid" />
+    <meta property="og:description" content="A zoo of mesh-free rigs — joints and connecting vectors only. Bend, watch and hear spiders, ants, centipedes, scorpions, fish, jellyfish, octopuses, crabs, bats, birds, butterflies, dragonflies, snakes, caterpillars, worms, horses, cats, dogs, frogs, kangaroos, cranes, giraffes and more as pure skeletons; no 3D models, materials or textures." />
+    <meta property="og:url" content="https://morphazoid.com/rig-a-jig.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rig-a-Jig — Morphazoid" />
+    <meta name="twitter:description" content="A zoo of mesh-free rigs — joints and connecting vectors only. Bend, watch and hear spiders, ants, centipedes, scorpions, fish, jellyfish, octopuses, crabs, bats, birds, butterflies, dragonflies, snakes, caterpillars, worms, horses, cats, dogs, frogs, kangaroos, cranes, giraffes and more as pure skeletons; no 3D models, materials or textures." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0f12" />
+    <meta name="description" content="A zoo of mesh-free rigs — joints and connecting vectors only. Bend, watch and hear spiders, ants, centipedes, scorpions, fish, jellyfish, octopuses, crabs, bats, birds, butterflies, dragonflies, snakes, caterpillars, worms, horses, cats, dogs, frogs, kangaroos, cranes, giraffes and more as pure skeletons; no 3D models, materials or textures." />
+    <title>Rig-a-Jig — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/ui/index.css" />
+    <link rel="stylesheet" href="src/instruments/rig-a-jig/rig-a-jig.css" />
+  </head>
+  <body class="rig-a-jig-page" data-instrument-info="off">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="rig-a-jig.html" aria-current="page">Rig-a-Jig</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="rig-a-jig.html" selected>Rig-a-Jig</option>
+        </select>
+      </label>
+      <div id="audioSlot" class="rig-a-jig-audio-slot" aria-label="Stereo output and Audio control">
+        <span>Audio controls need JavaScript.</span>
+      </div>
+    </header>
+
+    <main class="rig-a-jig-shell">
+      <section class="rig-a-jig-stage" aria-labelledby="zooTitle">
+        <div class="rig-a-jig-viewport">
+          <canvas id="zooCanvas" tabindex="0" role="application"
+            aria-label="Animated skeleton. Drag a joint to select it; drag empty space to orbit; scroll to zoom."
+            aria-describedby="stageHelp liveStatus">
+            Mesh-free rigs: joints and vectors only.
+          </canvas>
+          <header class="rig-a-jig-heading">
+            <span>Rigs only · no models · no materials · no textures</span>
+            <h1 id="zooTitle">Rig-a-Jig</h1>
+          </header>
+          <div class="rig-a-jig-camera" role="group" aria-label="3D camera">
+            <button id="viewFront" type="button">Front</button>
+            <button id="viewSide" type="button">Side</button>
+            <button id="viewTop" type="button">Top</button>
+            <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
+            <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
+          </div>
+          <output id="modelReadout" class="rig-a-jig-readout" aria-live="off">SPIDER · joints · no mesh</output>
+          <p id="stageHelp" class="rig-a-jig-status">
+            Drag a glowing joint to make the limb reach for it · empty space orbits · scroll zooms. Try Dance, Jump and Karate. Enable Audio to hear joint contacts; press Walk to animate. These are pure bone hierarchies — there is no 3D model behind them.
+          </p>
+        </div>
+      </section>
+
+      <aside class="rig-a-jig-panel" aria-label="Rig and sound controls">
+        <div>
+          <h2>Rig &amp; motion</h2>
+          <p>Pure bone hierarchies — the moving vectors are the instrument. <strong id="rigName">spider</strong></p>
+        </div>
+
+        <div class="rig-a-jig-scene">
+          <label for="rigSelect">Rig</label>
+          <div class="rig-a-jig-scene-row">
+            <select id="rigSelect" aria-label="Choose a rig"></select>
+            <button id="randomRig" type="button" aria-label="Randomize body plan" title="Randomize joints & limbs">Random</button>
+          </div>
+        </div>
+
+        <div class="rig-a-jig-scene">
+          <label for="motionSelect">Motion</label>
+          <div class="rig-a-jig-scene-row">
+            <select id="motionSelect" aria-label="Choose a motion">
+              <option value="walk">Walk</option>
+              <option value="dance">Dance</option>
+              <option value="jump">Jump</option>
+              <option value="karate">Karate</option>
+              <option value="stomp">Stomp</option>
+            </select>
+            <button id="playButton" data-primary-transport type="button" aria-pressed="false" aria-keyshortcuts="Space" aria-label="Play motion">Play</button>
+          </div>
+          <p id="sceneDescription">Steady gait</p>
+        </div>
+
+        <fieldset class="rig-a-jig-controls">
+          <legend>Tempo &amp; energy</legend>
+          <label><span>Tempo <output id="rateOut">0.30</output></span>
+            <input id="rateInput" type="range" min="0.05" max="1.5" step="0.01" value="0.3" /></label>
+          <label><span>Amplitude <output id="ampOut">0.50</output></span>
+            <input id="ampInput" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+          <label><span>Sway <output id="swayOut">0.30</output></span>
+            <input id="swayInput" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
+          <label><span>Fold <output id="foldOut">0.50</output></span>
+            <input id="foldInput" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+        </fieldset>
+
+        <fieldset class="rig-a-jig-controls">
+          <legend>Joint focus</legend>
+          <label><span>Selected joint <output id="jointOut">0</output></span>
+            <input id="jointSelect" type="range" min="0" max="60" step="1" value="0" /></label>
+          <div class="rig-a-jig-actions">
+            <button id="strikeButton" type="button">Strike tip</button>
+            <button id="resetButton" data-reset-all data-reset-in-place type="button">Reset rig</button>
+          </div>
+        </fieldset>
+      </aside>
+    </main>
+    <p id="liveStatus" class="sr-only" role="status" aria-live="polite"></p>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/rig-a-jig/rig-a-jig-app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>
