@@ -346,6 +346,7 @@ class MocapFigure extends RigFigure {
     this.root.add(skinnedRoot);
     this.mixer = new THREE.AnimationMixer(skinnedRoot);
     this.clips = gltf.animations ?? [];
+    this._contactPrevious = this.rig.contacts.map(() => null);
     this.activeAction = null;
     this.currentClip = null;
     if (clip) this.playClip(clip);
@@ -369,20 +370,41 @@ class MocapFigure extends RigFigure {
     action.reset();
     action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     if (!loop) action.clampWhenFinished = true;
-    if (this.activeAction) {
+    if (this.activeAction && this.activeAction !== action) {
       this.activeAction.fadeOut(fade);
       action.fadeIn(fade);
     }
     action.play();
     this.activeAction = action;
     this.currentClip = clip.name;
+    this.clipDuration = clip.duration;
     return true;
   }
 
+  setPlaying(value) {
+    if (this.activeAction) this.activeAction.paused = !value;
+    this.isPlaying = Boolean(value);
+  }
+
+  setSpeed(value) {
+    this.speed = Math.max(0.05, Math.min(2.5, value));
+    if (this.activeAction) this.activeAction.timeScale = this.speed;
+  }
+
+  setScrub(fraction) {
+    if (this.activeAction && this.clipDuration) {
+      this.activeAction.time = Math.max(0, Math.min(1, fraction)) * this.clipDuration;
+    }
+  }
+
+  setBlend(value) { this.blendAmount = Math.max(0, Math.min(1, value)); }
+
   update(pose, time) {
-    // Mocap path: mixer advances the bones; skip the authored procedural update.
-    this.mixer.setTime((this.mixer.time ?? 0) + 0);
-    this.mixer.update((pose.rate > 0 ? pose.rate : 0.3) / 30);
+    // Mocap path: the mixer advances the bones; skip the procedural update.
+    if (this.speed == null) this.speed = 0.6;
+    const speed = Math.max(0.05, pose.rate * 2);
+    if (this.activeAction) this.activeAction.timeScale = speed;
+    this.mixer.update(1 / 30);
     this.root.updateMatrixWorld(true);
     for (let i = 0; i < this.jointSprites.length; i += 1) {
       this.rig.joints[i].getWorldPosition(this.jointSprites[i].position);
@@ -401,7 +423,14 @@ class MocapFigure extends RigFigure {
     }
     this.lineGeometry.attributes.position.needsUpdate = true;
     this.rig.contacts.forEach((contactItem, i) => {
-      contactItem.joint.getWorldPosition(this.contactSprites[i].position);
+      const sprite = this.contactSprites[i];
+      contactItem.joint.getWorldPosition(sprite.position);
+      const previous = this._contactPrevious[i] ?? sprite.position.clone();
+      contactItem.speed = sprite.position.distanceTo(previous);
+      previous.copy(sprite.position);
+      this._contactPrevious[i] = previous;
+      const glow = Math.min(0.3, contactItem.speed * 6);
+      sprite.scale.setScalar(0.06 + glow);
     });
   }
 
@@ -643,6 +672,9 @@ export function createRigAJigViewer(canvas, {
   setRig('spider');
   function playClip(name, opts) { return figure?.playClip ? figure.playClip(name, opts) : false; }
   function clipNames() { return figure?.clipNames ? figure.clipNames() : []; }
+  function setMocapPlaying(value) { figure?.setPlaying?.(value); }
+  function setMocapScrub(fraction) { figure?.setScrub?.(fraction); }
+  function isMocap() { return figure instanceof MocapFigure; }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
     rootJointY, jointSpriteScale, playClip, clipNames,

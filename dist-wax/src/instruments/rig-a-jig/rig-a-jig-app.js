@@ -91,6 +91,8 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
       return option;
     }));
     select.value = currentClip;
+    viewer.playClip(currentClip);
+    if (rig === 'mocap' && playing) viewer.setMocapPlaying?.(true);
     $('jointSelect').max = String(viewer.getState().joints - 1);
     updateReadout();
   },
@@ -135,9 +137,11 @@ function buildRig() {
 function setRig(next) {
   if (!RIG_DESCRIPTIONS[next] && next !== 'random' && next !== 'mocap') return;
   if (playing) stopWalkClock();
+  if (next === 'mocap' && !playing) setPlaying(true);
   rig = next;
   if (next !== 'random') randomSeed = null;
   $('clipRow').hidden = next !== 'mocap';
+  $('motionRow').hidden = next === 'mocap';
   buildRig();
   $('rigSelect').value = next;
   const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}`
@@ -163,7 +167,7 @@ function syncControls() {
 
 function updateReadout() {
   const state = viewer.getState();
-  const motion = motions[currentRigId()];
+  const motion = rig === 'mocap' ? currentClip.replace(/_/g, ' ') : motions[currentRigId()];
   $('modelReadout').textContent =
     `${(currentRigId()).toUpperCase()} · ${state.joints} joints · ${motion} · `
     + `${playing ? 'playing' : 'paused'} · no mesh`;
@@ -173,7 +177,9 @@ function setPlaying(value) {
   if (value === playing) return;
   playing = value;
   frozenAt = null;
-  if (value) startWalkClock(); else stopWalkClock();
+  if (rig === 'mocap') {
+    viewer.setMocapPlaying?.(value);
+  } else if (value) startWalkClock(); else stopWalkClock();
   $('playButton').setAttribute('aria-pressed', String(value));
   $('playButton').textContent = value ? 'Pause' : 'Play';
   $('playButton').setAttribute('aria-label', value ? 'Pause motion' : 'Play motion');
@@ -342,6 +348,15 @@ $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
   viewer.playClip(currentClip);
   status(`Mocap: ${currentClip.replace(/_/g, ' ')}`);
+});
+$('clipSpeed')?.addEventListener('input', (event) => {
+  settings.mocap.rate = clamp(Number(event.target.value), 0.05, 2);
+  $('clipSpeedOut').textContent = settings.mocap.rate.toFixed(2);
+});
+$('clipScrub')?.addEventListener('input', (event) => {
+  const fraction = Number(event.target.value);
+  $('clipScrubOut').textContent = `${Math.round(fraction * 100)}%`;
+  viewer.setMocapScrub?.(fraction);
 });
 $('randomRig').addEventListener('click', () => {
   randomSeed = Math.floor(Math.random() * 0xffffffff);

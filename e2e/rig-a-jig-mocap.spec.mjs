@@ -26,6 +26,22 @@ test('Rig-a-Jig mocap humanoid loads bones, lists clips, and plays real mocap', 
   expect(stats.textures).toBe(0);
   expect(stats.sprites).toBeGreaterThan(0);
 
+  // Procedural motion menu is hidden for mocap (it has its own transport).
+  await expect(page.locator('#motionRow')).toBeHidden();
+
+  // Transport: Play/Pause toggles.
+  await expect(page.locator('#playButton')).toHaveText('Pause');
+  await page.locator('#playButton').click();
+  await expect(page.locator('#playButton')).toHaveText('Play');
+  await page.locator('#playButton').click();
+  await expect(page.locator('#playButton')).toHaveText('Pause');
+
+  // Clip speed + scrub controls exist and update readouts.
+  await page.locator('#clipSpeed').fill('1.5');
+  await expect(page.locator('#clipSpeedOut')).toHaveText('1.50');
+  await page.locator('#clipScrub').fill('0.5');
+  await expect(page.locator('#clipScrubOut')).toHaveText('50%');
+
   // Switch to a different clip.
   await page.locator('#clipSelect').selectOption('Jump_Start');
   await page.waitForTimeout(200);

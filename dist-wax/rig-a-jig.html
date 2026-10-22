@@ -91,7 +91,7 @@
           </div>
         </div>
 
-        <div class="rig-a-jig-scene">
+        <div class="rig-a-jig-scene" id="motionRow">
           <label for="motionSelect">Motion</label>
           <div class="rig-a-jig-scene-row">
             <select id="motionSelect" aria-label="Choose a motion">
@@ -101,9 +101,15 @@
               <option value="karate">Karate</option>
               <option value="stomp">Stomp</option>
             </select>
-            <button id="playButton" data-primary-transport type="button" aria-pressed="false" aria-keyshortcuts="Space" aria-label="Play motion">Play</button>
           </div>
           <p id="sceneDescription">Steady gait</p>
+        </div>
+
+        <div class="rig-a-jig-scene">
+          <div class="rig-a-jig-scene-row">
+            <button id="playButton" data-primary-transport type="button" aria-pressed="false" aria-keyshortcuts="Space" aria-label="Play motion">Play</button>
+            <button id="resetButton" data-reset-all data-reset-in-place type="button">Reset rig</button>
+          </div>
         </div>
 
         <div class="rig-a-jig-scene" id="clipRow" hidden>
@@ -112,6 +118,10 @@
             <select id="clipSelect" aria-label="Choose a mocap clip"></select>
           </div>
           <p id="clipInfo">43 clips · dance, jump, punch, walk, run</p>
+          <label><span>Clip speed <output id="clipSpeedOut">0.60</output></span>
+            <input id="clipSpeed" type="range" min="0.05" max="2" step="0.01" value="0.6" /></label>
+          <label><span>Scrub <output id="clipScrubOut">0%</output></span>
+            <input id="clipScrub" type="range" min="0" max="1" step="0.01" value="0" /></label>
         </div>
 
         <fieldset class="rig-a-jig-controls">
@@ -132,7 +142,6 @@
             <input id="jointSelect" type="range" min="0" max="60" step="1" value="0" /></label>
           <div class="rig-a-jig-actions">
             <button id="strikeButton" type="button">Strike tip</button>
-            <button id="resetButton" data-reset-all data-reset-in-place type="button">Reset rig</button>
           </div>
         </fieldset>
       </aside>
