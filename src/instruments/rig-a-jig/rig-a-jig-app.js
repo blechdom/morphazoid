@@ -22,6 +22,7 @@ const defaultSettings = () => ({ rate: 0.35, amp: 0.5, sway: 0.3, fold: 0.5 });
 let rig = 'spider', randomSeed = null;
 const settings = Object.fromEntries(rigIds.map((id) => [id, defaultSettings()]));
 settings.random = defaultSettings();
+settings.mocap = defaultSettings();
 const motions = Object.fromEntries(rigIds.map((id) => [id, 'walk']));
 motions.random = 'walk';
 const clocks = { walk: { playing: false, anchor: 0, cycles: 0 } };
@@ -62,9 +63,14 @@ for (const [group, ids] of Object.entries(RIG_GROUPS)) {
   option.value = 'random';
   option.textContent = RANDOM_LABEL;
   optgroup.append(option);
+  const mocap = document.createElement('option');
+  mocap.value = 'mocap';
+  mocap.textContent = 'Mocap humanoid (Quaternius UAL · CC0)';
+  optgroup.append(mocap);
   rigSelect.append(optgroup);
 }
 
+let currentClip = 'Dance_Loop';
 const viewer = createRigAJigViewer($('zooCanvas'), {
   onJointGrab({ joint }) {
     $('jointSelect').value = String(joint);
@@ -76,9 +82,24 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
       audio.engine?.contact(currentRigId(), settings[currentRigId()], { index: joint, strength: 0.9, pan: 0 });
     }
   },
+  onRigReady({ clipNames }) {
+    const select = $('clipSelect');
+    select.replaceChildren(...clipNames.map((name) => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name.replace(/_/g, ' ');
+      return option;
+    }));
+    select.value = currentClip;
+    $('jointSelect').max = String(viewer.getState().joints - 1);
+    updateReadout();
+  },
+  onRigError(error) {
+    status(`Mocap rig could not load: ${error?.message ?? error}. Other rigs still work.`);
+  },
 });
 
-function currentRigId() { return rig === 'random' ? 'random' : rig; }
+function currentRigId() { return rig === 'random' ? 'random' : rig === 'mocap' ? 'mocap' : rig; }
 function poseAt() { return { ...settings[currentRigId()] }; }
 
 function motionCycles(clock, rate, time) {
@@ -101,6 +122,8 @@ function buildRig() {
   if (rig === 'random') {
     randomSeed = randomSeed ?? Math.floor(Math.random() * 0xffffffff);
     viewer.setRig('random', { seed: randomSeed });
+  } else if (rig === 'mocap') {
+    viewer.setRig('mocap', { clip: currentClip });
   } else {
     viewer.setRig(rig);
   }
@@ -110,13 +133,16 @@ function buildRig() {
 }
 
 function setRig(next) {
-  if (!RIG_DESCRIPTIONS[next] && next !== 'random') return;
+  if (!RIG_DESCRIPTIONS[next] && next !== 'random' && next !== 'mocap') return;
   if (playing) stopWalkClock();
   rig = next;
   if (next !== 'random') randomSeed = null;
+  $('clipRow').hidden = next !== 'mocap';
   buildRig();
   $('rigSelect').value = next;
-  const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}` : next.replace(/([A-Z])/g, ' $1');
+  const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}`
+    : next === 'mocap' ? 'Mocap humanoid'
+    : next.replace(/([A-Z])/g, ' $1');
   $('rigName').textContent = label;
   document.title = `Rig-a-Jig · ${label} — Morphazoid`;
   syncControls();
@@ -312,6 +338,11 @@ function frozenTime(time) {
 }
 
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
+$('clipSelect').addEventListener('change', (event) => {
+  currentClip = event.target.value;
+  viewer.playClip(currentClip);
+  status(`Mocap: ${currentClip.replace(/_/g, ' ')}`);
+});
 $('randomRig').addEventListener('click', () => {
   randomSeed = Math.floor(Math.random() * 0xffffffff);
   setRig('random');

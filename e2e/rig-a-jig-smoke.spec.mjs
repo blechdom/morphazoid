@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Rig-a-Jig renders the zoo, animates, and keeps Audio off by default', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('http://127.0.0.1:3457/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Rig-a-Jig' })).toBeVisible();
 
   // The rig pulldown is populated with the full zoo.
@@ -29,7 +29,7 @@ test('Rig-a-Jig renders the zoo, animates, and keeps Audio off by default', asyn
 });
 
 test('Rig-a-Jig scene has no meshes, materials or textures across many rigs', async ({ page }) => {
-  await page.goto('http://127.0.0.1:3457/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   for (const rig of ['spider', 'octopus', 'snake', 'horse', 'striker']) {
     await page.locator('#rigSelect').selectOption(rig);
     const stats = await page.evaluate(() => window.__zooDebug.viewer.sceneStats());

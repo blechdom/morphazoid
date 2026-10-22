@@ -41,7 +41,7 @@
       "replacements": [
         {
           "before": "",
-          "after": "# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.\ncopy+require\trig-a-jig.html\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-app.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-viewer.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-rigs.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-audio.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig.css\n\n"
+          "after": "# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.\ncopy+require\trig-a-jig.html\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-app.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-viewer.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-rigs.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-audio.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig.css\ncopy+require\tassets/rig-a-jig/ual-humanoid-bones.glb\n\n"
         }
       ]
     }

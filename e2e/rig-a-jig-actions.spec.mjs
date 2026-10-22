@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Rig-a-Jig supports IK grab, laser joints, and dance/jump/karate actions', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('http://127.0.0.1:3457/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
 
   // Motion pulldown exposes the action overlays.
@@ -37,7 +37,7 @@ test('Rig-a-Jig supports IK grab, laser joints, and dance/jump/karate actions', 
 });
 
 test('grabbing a joint engages IK reach', async ({ page }) => {
-  await page.goto('http://127.0.0.1:3457/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
   // Programmatically grab joint 1 via the viewer and confirm IK engages.
   const ikActive = await page.evaluate(() => {

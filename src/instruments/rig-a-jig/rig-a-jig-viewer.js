@@ -1,4 +1,5 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
+import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { RIG_FACTORIES, createRandom } from './rig-a-jig-rigs.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -316,8 +317,114 @@ class RigFigure {
   }
 }
 
+
+/* A downloaded, mesh-free mocap rig: bones + AnimationClips from a GLB with no
+ * mesh. Renders as the same laser joints/vectors; the clip drives the bones. */
+class MocapFigure extends RigFigure {
+  constructor(gltf, rigId, rootGroup, { clip = null } = {}) {
+    // Build a RigFigure-compatible joint list from the GLB's bone hierarchy.
+    const skinnedRoot = gltf.scene;
+    const joints = [];
+    skinnedRoot.traverse((object) => { if (object.isBone) joints.push(object); });
+    const rig = {
+      id: rigId,
+      joints,
+      contacts: MocapFigure.pickContacts(joints),
+      update: () => {},
+    };
+    super(rig, rigId, rootGroup);
+    // Replace the authored root with the downloaded scene's root bone.
+    this.root.remove(this.rig.joints[0]);
+    // Fit the downloaded skeleton to the shared stage scale (like fittedScene).
+    skinnedRoot.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(skinnedRoot);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const scale = 1.6 / Math.max(size.x, size.y, size.z, 1e-4);
+    skinnedRoot.scale.setScalar(scale);
+    skinnedRoot.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+    this.root.add(skinnedRoot);
+    this.mixer = new THREE.AnimationMixer(skinnedRoot);
+    this.clips = gltf.animations ?? [];
+    this.activeAction = null;
+    this.currentClip = null;
+    if (clip) this.playClip(clip);
+  }
+
+  static pickContacts(joints) {
+    // Use hands/feet/head as sound contacts, by common UAL bone names.
+    const names = ['hand', 'foot', 'head', 'toe', 'ball', 'lowerarm', 'upperarm'];
+    const picks = joints.filter((joint) =>
+      names.some((name) => joint.name.toLowerCase().includes(name)));
+    const chosen = picks.length ? picks.slice(0, 6) : joints.slice(-3);
+    return chosen.map((joint, i) => ({ joint, lift: 0.12, index: i }));
+  }
+
+  clipNames() { return this.clips.map((clip) => clip.name); }
+
+  playClip(name, { fade = 0.2, loop = true } = {}) {
+    const clip = this.clips.find((entry) => entry.name === name) ?? this.clips[0];
+    if (!clip) return false;
+    const action = this.mixer.clipAction(clip);
+    action.reset();
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    if (!loop) action.clampWhenFinished = true;
+    if (this.activeAction) {
+      this.activeAction.fadeOut(fade);
+      action.fadeIn(fade);
+    }
+    action.play();
+    this.activeAction = action;
+    this.currentClip = clip.name;
+    return true;
+  }
+
+  update(pose, time) {
+    // Mocap path: mixer advances the bones; skip the authored procedural update.
+    this.mixer.setTime((this.mixer.time ?? 0) + 0);
+    this.mixer.update((pose.rate > 0 ? pose.rate : 0.3) / 30);
+    this.root.updateMatrixWorld(true);
+    for (let i = 0; i < this.jointSprites.length; i += 1) {
+      this.rig.joints[i].getWorldPosition(this.jointSprites[i].position);
+      this.jointCores[i].position.copy(this.jointSprites[i].position);
+    }
+    for (let i = 0; i < this.edges.length; i += 1) {
+      const joint = this.edges[i];
+      joint.getWorldPosition(this._a);
+      joint.parent.getWorldPosition(this._b);
+      this.linePositions[i * 6 + 0] = this._a.x;
+      this.linePositions[i * 6 + 1] = this._a.y;
+      this.linePositions[i * 6 + 2] = this._a.z;
+      this.linePositions[i * 6 + 3] = this._b.x;
+      this.linePositions[i * 6 + 4] = this._b.y;
+      this.linePositions[i * 6 + 5] = this._b.z;
+    }
+    this.lineGeometry.attributes.position.needsUpdate = true;
+    this.rig.contacts.forEach((contactItem, i) => {
+      contactItem.joint.getWorldPosition(this.contactSprites[i].position);
+    });
+  }
+
+  dispose(rootGroup) {
+    this.mixer.stopAllAction();
+    super.dispose(rootGroup);
+  }
+}
+
+const gltfLoader = new GLTFLoader();
+const mocapCache = new Map();
+function loadMocap(url) {
+  if (!mocapCache.has(url)) {
+    mocapCache.set(url, new Promise((resolve, reject) => {
+      gltfLoader.load(url, resolve, undefined, reject);
+    }));
+  }
+  return mocapCache.get(url);
+}
+
 export function createRigAJigViewer(canvas, {
   onJointGrab = () => {}, onOrbit = () => {}, onFinish = () => {},
+  onRigReady = () => {}, onRigError = () => {},
 } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -380,9 +487,19 @@ export function createRigAJigViewer(canvas, {
   resize();
 
   function setRig(next, options = {}) {
-    if (disposed || (next !== 'random' && !RIG_FACTORIES[next])) return;
+    if (disposed || (next !== 'random' && next !== 'mocap' && !RIG_FACTORIES[next])) return;
     if (figure) figure.dispose(figureRoot);
     rigId = next;
+    if (next === 'mocap') {
+      const url = options.url ?? 'assets/rig-a-jig/ual-humanoid-bones.glb';
+      loadMocap(url).then((gltf) => {
+        if (disposed || rigId !== 'mocap') return;
+        figure = new MocapFigure(gltf, 'mocap', figureRoot, { clip: options.clip });
+        figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
+        onRigReady?.({ clipNames: figure.clipNames() });
+      }).catch((error) => onRigError?.(error));
+      return;
+    }
     const rig = next === 'random' ? createRandom(options) : RIG_FACTORIES[next](options);
     figure = new RigFigure(rig, next, figureRoot);
     figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
@@ -524,9 +641,11 @@ export function createRigAJigViewer(canvas, {
     return stats;
   }
   setRig('spider');
+  function playClip(name, opts) { return figure?.playClip ? figure.playClip(name, opts) : false; }
+  function clipNames() { return figure?.clipNames ? figure.clipNames() : []; }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
-    rootJointY, jointSpriteScale,
+    rootJointY, jointSpriteScale, playClip, clipNames,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
       joints: figure ? figure.rig.joints.length : 0,
       contacts: figure ? figure.rig.contacts.length : 0 }),

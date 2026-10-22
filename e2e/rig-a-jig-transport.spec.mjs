@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('Rig-a-Jig has rig + motion pulldowns, Play/Pause, tempo, and random body plans', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('http://127.0.0.1:3457/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(300);
 
   // Rig pulldown with grouped options.

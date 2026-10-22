@@ -27,6 +27,7 @@ const BASE = {
   scorpionTail: { hz: 240, type: 'square', noise: 0.26, cutoff: 1800 },
   whip: { hz: 260, type: 'square', noise: 0.16, cutoff: 2200 },
   random: { hz: 160, type: 'triangle', noise: 0.15, cutoff: 1500 },
+  mocap: { hz: 140, type: 'sine', noise: 0.18, cutoff: 1200 },
   striker: { hz: 180, type: 'sine', noise: 0.3, cutoff: 1400 },
 };
 
