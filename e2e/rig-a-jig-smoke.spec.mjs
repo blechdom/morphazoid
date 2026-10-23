@@ -23,8 +23,8 @@ test('Rig-a-Jig renders the zoo, animates, and keeps Audio off by default', asyn
     await expect(page.locator('#rigName')).toHaveText(new RegExp(rig, 'i'));
     expect(await page.locator('#motionSelect option').count()).toBe(5);
   }
-  const readout = await page.locator('#modelReadout').textContent();
-  expect(readout).toContain('no mesh');
+  // The stage overlay is minimal: title + camera buttons only, no readout text.
+  await expect(page.locator('#modelReadout')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

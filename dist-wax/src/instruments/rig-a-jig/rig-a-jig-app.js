@@ -174,9 +174,11 @@ function syncControls() {
 }
 
 function updateReadout() {
+  const readout = $('modelReadout');
+  if (!readout) return; // readout element removed from the stage overlay
   const state = viewer.getState();
   const motion = rig === 'mocap' ? currentClip.replace(/_/g, ' ') : motions[currentRigId()];
-  $('modelReadout').textContent =
+  readout.textContent =
     `${(currentRigId()).toUpperCase()} · ${state.joints} joints · ${motion} · `
     + `${playing ? 'playing' : 'paused'} · no mesh`;
 }

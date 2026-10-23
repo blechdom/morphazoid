@@ -40,38 +40,11 @@
   left: 1rem;
   pointer-events: none;
 }
-.rig-a-jig-heading span {
-  display: block;
-  font-size: 0.62rem;
-  letter-spacing: 0.22em;
-  color: #7fa8b4;
-  text-transform: uppercase;
-}
 .rig-a-jig-heading h1 {
   margin: 0.15rem 0 0;
   font-size: 1.6rem;
   font-weight: 650;
   letter-spacing: 0.01em;
-}
-.rig-a-jig-status {
-  position: absolute;
-  left: 1rem;
-  bottom: 0.9rem;
-  margin: 0;
-  max-width: min(34rem, 70%);
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: #93b3bd;
-}
-.rig-a-jig-readout {
-  position: absolute;
-  right: 1rem;
-  bottom: 0.9rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  color: #a9c6cf;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
 }
 .rig-a-jig-camera {
   position: absolute;
