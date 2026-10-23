@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 test('dance does not fly away: root stays near ground after repeated dances', async ({ page }) => {
   await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
+  // The dance overlay is procedural; pick a procedural rig (mocap is the default).
+  await page.locator('#rigSelect').selectOption('spider');
+  await page.waitForTimeout(200);
 
   // Read root Y over time through a debug hook on the first joint.
   const rootY = () => page.evaluate(() => {

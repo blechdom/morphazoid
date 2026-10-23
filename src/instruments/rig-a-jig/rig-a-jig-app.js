@@ -1,4 +1,3 @@
-import { createAudioStrip } from '../../ui/patterns/audio-strip.js';
 import { createStereoMeter } from '../../ui/patterns/level-meter.js';
 import { createRigAJigViewer } from './rig-a-jig-viewer.js';
 import { RIG_DESCRIPTIONS, RIG_GROUPS } from './rig-a-jig-rigs.js';
@@ -19,7 +18,7 @@ const MOTIONS = [
 const RANDOM_LABEL = 'Random body plan';
 
 const defaultSettings = () => ({ rate: 0.35, amp: 0.5, sway: 0.3, fold: 0.5 });
-let rig = 'spider', randomSeed = null;
+let rig = 'mocap', randomSeed = null;
 const settings = Object.fromEntries(rigIds.map((id) => [id, defaultSettings()]));
 settings.random = defaultSettings();
 settings.mocap = defaultSettings();
@@ -33,14 +32,23 @@ const audio = { context: null, master: null, splitter: null, merger: null,
   analysers: null, buffers: null, engine: null, levels: { left: 0, right: 0 } };
 
 const meter = createStereoMeter({ ariaLabel: 'Rig-a-Jig stereo output', active: false });
-const strip = createAudioStrip({
-  buttonId: 'audioButton', levelId: 'level', level: 0.4, min: 0, max: 0.8, step: 0.01,
-  levelLabel: 'Output', onAudioClick: () => { void toggleAudio(); },
-  onLevelInput(value) {
-    if (armed && audio.master) audio.master.gain.setTargetAtTime(value, audio.context.currentTime, 0.025);
-  },
+const audioButton = $('audioButton');
+const audioStateLabel = $('audioState');
+const outputInput = $('output');
+const outputOut = $('outputOut');
+audioButton.insertAdjacentElement('afterend', meter);
+audioButton.addEventListener('click', () => { void toggleAudio(); });
+outputInput.addEventListener('input', () => {
+  const value = Number(outputInput.value);
+  outputOut.textContent = `${Math.round(value * 100)}%`;
+  if (armed && audio.master) audio.master.gain.setTargetAtTime(value, audio.context.currentTime, 0.025);
 });
-$('audioSlot').replaceChildren(meter, strip);
+function setAudioVisual(on) {
+  audioButton.setAttribute('aria-pressed', String(on));
+  audioButton.setAttribute('aria-label', on ? 'Turn audio off' : 'Turn audio on');
+  audioStateLabel.textContent = on ? 'on' : 'off';
+  meter.setActive(on);
+}
 const status = (message) => { $('liveStatus').textContent = message; };
 
 /* Build the rig dropdown with grouped options. */
@@ -137,7 +145,7 @@ function buildRig() {
 function setRig(next) {
   if (!RIG_DESCRIPTIONS[next] && next !== 'random' && next !== 'mocap') return;
   if (playing) stopWalkClock();
-  if (next === 'mocap' && !playing) setPlaying(true);
+
   rig = next;
   if (next !== 'random') randomSeed = null;
   $('clipRow').hidden = next !== 'mocap';
@@ -178,10 +186,10 @@ function setPlaying(value) {
   playing = value;
   frozenAt = null;
   if (rig === 'mocap') {
+    if (value) viewer.playClip?.(currentClip);
     viewer.setMocapPlaying?.(value);
   } else if (value) startWalkClock(); else stopWalkClock();
   $('playButton').setAttribute('aria-pressed', String(value));
-  $('playButton').textContent = value ? 'Pause' : 'Play';
   $('playButton').setAttribute('aria-label', value ? 'Pause motion' : 'Play motion');
   updateReadout();
 }
@@ -300,9 +308,8 @@ async function toggleAudio() {
         try { await audio.context.resume(); } catch { /* next gesture */ }
       }
       armed = true;
-      audio.master.gain.setTargetAtTime(Number(strip.level), audio.context.currentTime, 0.03);
-      meter.setActive(true);
-      strip.setAudioState(true);
+      audio.master.gain.setTargetAtTime(Number(outputInput.value), audio.context.currentTime, 0.03);
+      setAudioVisual(true);
       status(`Rig-a-Jig audio on · ${currentRigId()} joint contacts drive the sound`);
       suspendTimer = window.setInterval(() => {
         if (audio.context?.state === 'suspended' && armed) void audio.context.resume();
@@ -310,9 +317,8 @@ async function toggleAudio() {
     } else {
       armed = false;
       if (audio.master) audio.master.gain.setTargetAtTime(0, audio.context.currentTime, 0.025);
-      meter.setActive(false);
+      setAudioVisual(false);
       meter.setLevels(0, 0);
-      strip.setAudioState(false);
       window.clearInterval(suspendTimer);
       suspendTimer = null;
       status('Audio off. Motion continues silently.');
@@ -370,8 +376,9 @@ $('resetButton').addEventListener('click', () => {
 });
 for (const key of ['rate', 'amp', 'sway', 'fold']) {
   $(`${key}Input`).addEventListener('input', (event) => {
-    settings[currentRigId()][key] = clamp(Number(event.target.value), 0, key === 'rate' ? 1.5 : 1);
-    $(`${key}Out`).textContent = settings[currentRigId()][key].toFixed(2);
+    settings[currentRigId()][key] = clamp(Number(event.target.value), 0, key === 'rate' ? 2 : 1);
+    $(`${key}Out`).textContent = settings[currentRigId()][key].toFixed(2) + (key === 'rate' ? '×' : '');
+    if (key === 'rate' && rig === 'mocap') viewer.setMocapSpeed?.(settings.mocap.rate);
   });
 }
 $('jointSelect').addEventListener('input', (event) => viewer.setSelected(Number(event.target.value)));
@@ -411,7 +418,7 @@ function dispose() {
   viewer.dispose();
 }
 
-setRig('spider');
+setRig('mocap');
 window.__zooDebug = {
   viewer, getRig: () => rig, getState: () => viewer.getState(),
   rootY: () => viewer.rootJointY(), jointScale: () => viewer.jointSpriteScale(),

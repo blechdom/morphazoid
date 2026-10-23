@@ -361,7 +361,7 @@ class MocapFigure extends RigFigure {
     this._contactPrevious = this.rig.contacts.map(() => null);
     this.activeAction = null;
     this.currentClip = null;
-    if (clip) this.playClip(clip);
+    if (clip) { this.playClip(clip); this.setPlaying(false); }
   }
 
   static pickContacts(joints) {
@@ -387,6 +387,9 @@ class MocapFigure extends RigFigure {
       action.fadeIn(fade);
     }
     action.play();
+    // Preserve the paused/playing state across clip changes: action.reset()
+    // clears paused, so re-apply the flag explicitly.
+    action.paused = this.isPlaying === false;
     this.activeAction = action;
     this.currentClip = clip.name;
     this.clipDuration = clip.duration;
@@ -412,11 +415,11 @@ class MocapFigure extends RigFigure {
   setBlend(value) { this.blendAmount = Math.max(0, Math.min(1, value)); }
 
   update(pose, time) {
-    // Mocap path: the mixer advances the bones; skip the procedural update.
+    // Mocap path: the mixer advances the bones only while playing.
     if (this.speed == null) this.speed = 0.6;
     const speed = Math.max(0.05, pose.rate * 2);
     if (this.activeAction) this.activeAction.timeScale = speed;
-    this.mixer.update(1 / 30);
+    if (this.isPlaying !== false) this.mixer.update(1 / 30);
     this.root.updateMatrixWorld(true);
     for (let i = 0; i < this.jointSprites.length; i += 1) {
       this.rig.joints[i].getWorldPosition(this.jointSprites[i].position);
@@ -688,11 +691,13 @@ export function createRigAJigViewer(canvas, {
   function playClip(name, opts) { return figure?.playClip ? figure.playClip(name, opts) : false; }
   function clipNames() { return figure?.clipNames ? figure.clipNames() : []; }
   function setMocapPlaying(value) { figure?.setPlaying?.(value); }
+  function setMocapSpeed(value) { figure?.setSpeed?.(value); }
   function setMocapScrub(fraction) { figure?.setScrub?.(fraction); }
   function isMocap() { return figure instanceof MocapFigure; }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
     rootJointY, jointSpriteScale, playClip, clipNames, debugFigure: () => figure,
+    setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
       joints: figure ? figure.rig.joints.length : 0,
       contacts: figure ? figure.rig.contacts.length : 0 }),

@@ -18,17 +18,16 @@ test('Rig-a-Jig has rig + motion pulldowns, Play/Pause, tempo, and random body p
   await expect(page.locator('#motionSelect')).toContainText('Karate');
   await expect(page.locator('#motionSelect')).toContainText('Stomp');
 
-  // Play/Pause toggles.
-  await expect(page.locator('#playButton')).toHaveText('Play');
+  // Circle Play/Pause toggles via aria-pressed.
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#playButton').click();
-  await expect(page.locator('#playButton')).toHaveText('Pause');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#playButton').click();
-  await expect(page.locator('#playButton')).toHaveText('Play');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
 
   // Tempo slider exists and updates its readout.
   await page.locator('#rateInput').fill('1.2');
-  await expect(page.locator('#rateOut')).toHaveText('1.20');
+  await expect(page.locator('#rateOut')).toHaveText('1.20×');
 
   // Pick a different rig from the pulldown.
   await page.locator('#rigSelect').selectOption('octopus');

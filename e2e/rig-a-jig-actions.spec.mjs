@@ -5,6 +5,9 @@ test('Rig-a-Jig supports IK grab, laser joints, and dance/jump/karate actions', 
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
+  // These overlays are procedural; pick a procedural rig (mocap is the default).
+  await page.locator('#rigSelect').selectOption('spider');
+  await page.waitForTimeout(200);
 
   // Motion pulldown exposes the action overlays.
   for (const motion of ['dance', 'jump', 'karate', 'stomp']) {

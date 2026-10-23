@@ -29,12 +29,12 @@ test('Rig-a-Jig mocap humanoid loads bones, lists clips, and plays real mocap', 
   // Procedural motion menu is hidden for mocap (it has its own transport).
   await expect(page.locator('#motionRow')).toBeHidden();
 
-  // Transport: Play/Pause toggles.
-  await expect(page.locator('#playButton')).toHaveText('Pause');
+  // Transport: starts paused; Play starts the dance loop.
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#playButton').click();
-  await expect(page.locator('#playButton')).toHaveText('Play');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#playButton').click();
-  await expect(page.locator('#playButton')).toHaveText('Pause');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
 
   // Clip speed + scrub controls exist and update readouts.
   await page.locator('#clipSpeed').fill('1.5');
@@ -42,7 +42,8 @@ test('Rig-a-Jig mocap humanoid loads bones, lists clips, and plays real mocap', 
   await page.locator('#clipScrub').fill('0.5');
   await expect(page.locator('#clipScrubOut')).toHaveText('50%');
 
-  // The humanoid actually animates: the mixer's clock advances and a bone moves.
+  // Start the dance loop, then confirm the humanoid actually animates.
+  await page.locator('#playButton').click();
   await page.waitForFunction(() => {
     const f = window.__zooDebug?.viewer?.debugFigure?.();
     return Boolean(f?.rig?.joints?.some?.((j) => j.name === 'thigh_l'));
