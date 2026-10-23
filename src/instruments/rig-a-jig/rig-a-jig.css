@@ -263,12 +263,25 @@
   gap: 0.35rem;
 }
 
-/* Masthead audio slot (matches the shared instrument menubar layout). */
-.rig-a-jig-audio-slot { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.rig-a-jig-audio-slot .mz-audio-strip { gap: 10px; }
-.rig-a-jig-audio-slot .header-output-meter-shell { flex: none; }
-@media (max-width: 720px) {
-  .rig-a-jig-audio-slot .header-output-meter-shell { display: none; }
+/* Masthead menubar: keep the audio controls on a single 44px row like the
+ * other instruments. The shared nav can nest a duplicate stereo meter inside
+ * the audio-strip grid (which otherwise forces it to two rows); pull that
+ * stray copy out of the layout so the strip stays one row tall. */
+.rig-a-jig-page .masthead .audio-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  height: 44px;
+  gap: 10px;
+}
+.rig-a-jig-page .masthead .audio-strip > .mz-stereo-meter {
+  display: none;
+}
+.rig-a-jig-page .masthead .header-io-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
 }
 
 .rig-a-jig-actions-row {
