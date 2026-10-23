@@ -1,6 +1,5 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
-import { clone as cloneSkeleton } from '../../../vendor/three/utils/SkeletonUtils.js';
 import { RIG_FACTORIES, createRandom } from './rig-a-jig-rigs.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -58,13 +57,13 @@ class RigFigure {
     this.glowTexture = texture;
     this.jointSprites = rig.joints.map((joint, index) => {
       const sprite = new THREE.Sprite(material.clone());
-      sprite.scale.setScalar(0.09);
+      sprite.scale.setScalar(this.rigId === 'mocap' ? 0.2 : 0.09);
       sprite.userData.pick = { kind: 'joint', index };
       sprite.userData.joint = joint;
       this.root.add(sprite);
       return sprite;
     });
-    const coreGeometry = new THREE.OctahedronGeometry(0.011);
+    const coreGeometry = new THREE.OctahedronGeometry(this.rigId === 'mocap' ? 0.02 : 0.011);
     this.jointCores = rig.joints.map((joint, index) => {
       const mesh = new THREE.Mesh(coreGeometry,
         new THREE.MeshBasicMaterial({ color: 0xffffff }));
@@ -81,7 +80,8 @@ class RigFigure {
     this.lineGeometry.setAttribute('position', new THREE.BufferAttribute(this.linePositions, 3));
     this.line = new THREE.LineSegments(this.lineGeometry,
       new THREE.LineBasicMaterial({
-        color: this.base, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.55,
+        color: this.base, blending: THREE.AdditiveBlending, transparent: true,
+        opacity: this.rigId === 'mocap' ? 0.85 : 0.55,
       }));
     this.line.frustumCulled = false;
     this.root.add(this.line);
@@ -107,7 +107,9 @@ class RigFigure {
   refreshSelection() {
     this.jointSprites.forEach((sprite, index) => {
       const selected = index === this.selected;
-      sprite.scale.setScalar(selected ? 0.16 : 0.09);
+      sprite.scale.setScalar(selected
+          ? (this.rigId === 'mocap' ? 0.26 : 0.16)
+          : (this.rigId === 'mocap' ? 0.2 : 0.09));
       sprite.material.color.setHex(selected ? 0xffffff : this.base);
       this.jointCores[index].scale.setScalar(selected ? 1.45 : 1);
     });
@@ -303,6 +305,7 @@ class RigFigure {
   }
 
   jointWorld(index, target) {
+    this.root.updateMatrixWorld(true);
     return this.rig.joints[index].getWorldPosition(target);
   }
 
@@ -323,15 +326,15 @@ class RigFigure {
  * mesh. Renders as the same laser joints/vectors; the clip drives the bones. */
 class MocapFigure extends RigFigure {
   constructor(gltf, rigId, rootGroup, { clip = null } = {}) {
-    // Clone once with SkeletonUtils so the joints we render and the mixer's
-    // bone hierarchy are the SAME objects (clips bind by bone name).
-    let skinnedRoot;
-    try {
-      skinnedRoot = cloneSkeleton(gltf.scene);
-    } catch (error) {
-      console.error('MocapFigure clone failed, using source scene', error);
-      skinnedRoot = gltf.scene;
-    }
+    // Use the parsed scene directly. We never mutate the source GLB and only
+    // one mocap figure is alive at a time, so the expensive SkeletonUtils.clone
+    // is unnecessary -- and on this mesh-free bone hierarchy it produced NaN
+    // world matrices, which made the whole skeleton invisible.
+    const skinnedRoot = gltf.scene;
+    // Strip any stray placeholder meshes: the rig renders as laser joints/lines.
+    const stray = [];
+    skinnedRoot.traverse((object) => { if (object.isMesh || object.isSkinnedMesh) stray.push(object); });
+    stray.forEach((object) => object.parent?.remove(object));
     const joints = [];
     skinnedRoot.traverse((object) => { if (object.isBone) joints.push(object); });
     const rig = {
@@ -346,14 +349,22 @@ class MocapFigure extends RigFigure {
     this.figureId = MocapFigure.count;
     globalThis.__mocapFigures = globalThis.__mocapFigures ?? [];
     globalThis.__mocapFigures.push(this);
-    // Fit the downloaded skeleton to the shared stage scale (like fittedScene).
+    // Fit the skeleton to the stage from BONE world positions (not the scene
+    // bounding box), so stray geometry can never blow up the scale. Guard
+    // against NaN so a bad measure can never poison the whole hierarchy.
     skinnedRoot.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(skinnedRoot);
+    const box = new THREE.Box3();
+    const _v = new THREE.Vector3();
+    joints.forEach((joint) => { joint.getWorldPosition(_v); if (!Number.isNaN(_v.x + _v.y + _v.z)) box.expandByPoint(_v); });
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const scale = 1.6 / Math.max(size.x, size.y, size.z, 1e-4);
+    const span = Math.max(size.x, size.y, size.z);
+    const scale = Number.isFinite(span) && span > 1e-4 ? 1.6 / span : 1;
     skinnedRoot.scale.setScalar(scale);
-    skinnedRoot.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+    skinnedRoot.position.set(
+      Number.isFinite(center.x) ? -center.x * scale : 0,
+      Number.isFinite(box.min.y) ? -box.min.y * scale : 0,
+      Number.isFinite(center.z) ? -center.z * scale : 0);
     this.root.add(skinnedRoot);
     // Bind the mixer to the cloned scene root so clip tracks resolve to these bones.
     this.mixer = new THREE.AnimationMixer(skinnedRoot);
@@ -531,10 +542,17 @@ export function createRigAJigViewer(canvas, {
   resize();
 
   let mocapToken = 0;
+  const RIG_VIEWS = {
+    mocap: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 },
+  };
   function setRig(next, options = {}) {
     if (disposed || (next !== 'random' && next !== 'mocap' && !RIG_FACTORIES[next])) return;
     if (figure) { figure.dispose(figureRoot); figure = null; }
     rigId = next;
+    // Frame this rig: humanoid and other large rigs get a closer, centered camera.
+    const view = RIG_VIEWS[next] ?? { yaw: 0.45, pitch: 0.28, zoom: 3.4, lookY: 0.35 };
+    ({ yaw, pitch, zoom, lookY } = view);
+    updateCamera();
     if (next === 'mocap') {
       const url = options.url ?? 'assets/rig-a-jig/ual-humanoid-bones.glb';
       const token = ++mocapToken;

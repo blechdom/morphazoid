@@ -39,9 +39,12 @@ test('dance does not fly away: root stays near ground after repeated dances', as
   }
 });
 
-test('joints render small: sprite scale stays tight', async ({ page }) => {
+test('procedural-rig joints render small: sprite scale stays tight', async ({ page }) => {
   await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(300);
+  // The small-joint aesthetic applies to the procedural rigs; mocap uses larger ones.
+  await page.locator('#rigSelect').selectOption('spider');
+  await page.waitForTimeout(200);
   const scale = await page.evaluate(() => window.__zooDebug.jointScale?.() ?? null);
   if (scale != null) expect(scale).toBeLessThan(0.18);
 });
