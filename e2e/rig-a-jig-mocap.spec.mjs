@@ -42,6 +42,21 @@ test('Rig-a-Jig mocap humanoid loads bones, lists clips, and plays real mocap', 
   await page.locator('#clipScrub').fill('0.5');
   await expect(page.locator('#clipScrubOut')).toHaveText('50%');
 
+  // The humanoid actually animates: the mixer's clock advances and a bone moves.
+  await page.waitForFunction(() => {
+    const f = window.__zooDebug?.viewer?.debugFigure?.();
+    return Boolean(f?.rig?.joints?.some?.((j) => j.name === 'thigh_l'));
+  }, { timeout: 15000 });
+  const moved = await page.evaluate(async () => {
+    const f = window.__zooDebug.viewer.debugFigure();
+    const bone = f.rig.joints.find((j) => j.name === 'thigh_l');
+    const before = bone.quaternion.toArray();
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const after = bone.quaternion.toArray();
+    return Math.hypot(...before.map((v, i) => v - after[i]));
+  });
+  expect(moved, 'mocap bone should move while the clip plays').toBeGreaterThan(0.01);
+
   // Switch to a different clip.
   await page.locator('#clipSelect').selectOption('Jump_Start');
   await page.waitForTimeout(200);

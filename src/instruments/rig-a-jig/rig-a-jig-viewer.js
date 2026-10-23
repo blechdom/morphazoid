@@ -1,5 +1,6 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
+import { clone as cloneSkeleton } from '../../../vendor/three/utils/SkeletonUtils.js';
 import { RIG_FACTORIES, createRandom } from './rig-a-jig-rigs.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -49,7 +50,7 @@ class RigFigure {
     this.rigId = rigId;
     this.base = color(rigId);
     this.root = new THREE.Group();
-    this.root.add(rig.joints[0]);
+    if (rig.joints[0] && !rig.externalScene) this.root.add(rig.joints[0]);
     rootGroup.add(this.root);
 
     // Joints as additive glow sprites + tiny diamond cores.
@@ -322,8 +323,15 @@ class RigFigure {
  * mesh. Renders as the same laser joints/vectors; the clip drives the bones. */
 class MocapFigure extends RigFigure {
   constructor(gltf, rigId, rootGroup, { clip = null } = {}) {
-    // Build a RigFigure-compatible joint list from the GLB's bone hierarchy.
-    const skinnedRoot = gltf.scene;
+    // Clone once with SkeletonUtils so the joints we render and the mixer's
+    // bone hierarchy are the SAME objects (clips bind by bone name).
+    let skinnedRoot;
+    try {
+      skinnedRoot = cloneSkeleton(gltf.scene);
+    } catch (error) {
+      console.error('MocapFigure clone failed, using source scene', error);
+      skinnedRoot = gltf.scene;
+    }
     const joints = [];
     skinnedRoot.traverse((object) => { if (object.isBone) joints.push(object); });
     const rig = {
@@ -331,10 +339,13 @@ class MocapFigure extends RigFigure {
       joints,
       contacts: MocapFigure.pickContacts(joints),
       update: () => {},
+      externalScene: true,
     };
     super(rig, rigId, rootGroup);
-    // Replace the authored root with the downloaded scene's root bone.
-    this.root.remove(this.rig.joints[0]);
+    MocapFigure.count = (MocapFigure.count ?? 0) + 1;
+    this.figureId = MocapFigure.count;
+    globalThis.__mocapFigures = globalThis.__mocapFigures ?? [];
+    globalThis.__mocapFigures.push(this);
     // Fit the downloaded skeleton to the shared stage scale (like fittedScene).
     skinnedRoot.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(skinnedRoot);
@@ -344,6 +355,7 @@ class MocapFigure extends RigFigure {
     skinnedRoot.scale.setScalar(scale);
     skinnedRoot.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
     this.root.add(skinnedRoot);
+    // Bind the mixer to the cloned scene root so clip tracks resolve to these bones.
     this.mixer = new THREE.AnimationMixer(skinnedRoot);
     this.clips = gltf.animations ?? [];
     this._contactPrevious = this.rig.contacts.map(() => null);
@@ -515,14 +527,17 @@ export function createRigAJigViewer(canvas, {
   if (!observer) window.addEventListener('resize', resize, { signal });
   resize();
 
+  let mocapToken = 0;
   function setRig(next, options = {}) {
     if (disposed || (next !== 'random' && next !== 'mocap' && !RIG_FACTORIES[next])) return;
-    if (figure) figure.dispose(figureRoot);
+    if (figure) { figure.dispose(figureRoot); figure = null; }
     rigId = next;
     if (next === 'mocap') {
       const url = options.url ?? 'assets/rig-a-jig/ual-humanoid-bones.glb';
+      const token = ++mocapToken;
       loadMocap(url).then((gltf) => {
-        if (disposed || rigId !== 'mocap') return;
+        // Ignore stale loads (a newer setRig already created a figure).
+        if (disposed || rigId !== 'mocap' || token !== mocapToken) return;
         figure = new MocapFigure(gltf, 'mocap', figureRoot, { clip: options.clip });
         figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
         onRigReady?.({ clipNames: figure.clipNames() });
@@ -677,7 +692,7 @@ export function createRigAJigViewer(canvas, {
   function isMocap() { return figure instanceof MocapFigure; }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
-    rootJointY, jointSpriteScale, playClip, clipNames,
+    rootJointY, jointSpriteScale, playClip, clipNames, debugFigure: () => figure,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
       joints: figure ? figure.rig.joints.length : 0,
       contacts: figure ? figure.rig.contacts.length : 0 }),
