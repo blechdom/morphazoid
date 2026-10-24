@@ -123,28 +123,6 @@
   text-transform: uppercase;
 }
 .rig-a-jig-scene-row { margin-top: 0.45rem; }
-/* Prev/next + dice steppers flank the rig/motion pulldowns, matching the
- * menubar Choose-menu instrument-picker-next style. */
-.rig-a-jig-scene-row .rig-a-jig-step {
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: 0 0 2.5rem;
-  min-height: 0;
-  padding: 0;
-  border-radius: 0.45rem;
-  display: grid;
-  place-items: center;
-  font-size: 0.7rem;
-  color: #58b7d6;
-  background: #13242d;
-  border: 1px solid #1e3a45;
-}
-.rig-a-jig-scene-row .rig-a-jig-step:hover {
-  border-color: #58b7d6;
-  background: #163240;
-  color: #8fe0ff;
-}
-.rig-a-jig-scene-row .rig-a-jig-step svg { display: block; }
 .rig-a-jig-scene select {
   flex: 1;
   min-width: 0;
@@ -337,3 +315,60 @@
   cursor: pointer;
 }
 .rig-a-jig-reset:hover { border-color: #58b7d6; }
+
+/* Faves-style picker rows (Rig / Motion): a details dropdown + next + dice,
+ * mirroring the header preset cluster. The shared .header-preset-controls and
+ * .instrument-picker* classes provide the base look; these rules scope the
+ * panel to the side column instead of the masthead. */
+.rig-a-jig-picker-row { margin-top: 0.45rem; gap: 6px; }
+.rig-a-jig-picker { position: relative; flex: 1 1 0; min-width: 0; }
+.rig-a-jig-picker > .instrument-picker-trigger {
+  border-radius: 0.45rem;
+  height: 2.5rem;
+}
+.rig-a-jig-picker-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  width: auto;
+  height: auto;
+  max-height: 320px;
+  z-index: 40;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  display: none;
+}
+.rig-a-jig-picker[open] .rig-a-jig-picker-panel { display: block; }
+.rig-a-jig-picker-panel .instrument-picker-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: block;
+}
+.rig-a-jig-picker-group {
+  padding: 6px 10px 4px 12px;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #6b8590);
+  position: sticky;
+  top: 0;
+  background: var(--bg-deep, #0b1114);
+}
+.rig-a-jig-picker-row .header-preset-next,
+.rig-a-jig-picker-row .header-preset-random {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  border-radius: 0.45rem;
+  color: #58b7d6;
+  background: #13242d;
+  border: 1px solid #1e3a45;
+}
+.rig-a-jig-picker-row .header-preset-next:hover,
+.rig-a-jig-picker-row .header-preset-random:hover {
+  border-color: #58b7d6;
+  background: #163240;
+  color: #8fe0ff;
+}

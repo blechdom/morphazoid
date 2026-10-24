@@ -89,15 +89,22 @@
         </div>
 
         <div class="rig-a-jig-scene">
-          <label for="rigSelect">Rig</label>
-          <div class="rig-a-jig-scene-row">
-            <button id="diceRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Random rig" title="Random rig">
+          <label id="rigLabel">Rig</label>
+          <div class="header-preset-controls instrument-preset-controls rig-a-jig-picker-row" role="group" aria-labelledby="rigLabel">
+            <details class="instrument-picker header-preset-picker rig-a-jig-picker" id="rigPicker">
+              <summary class="instrument-picker-trigger" aria-label="Choose a rig">
+                <strong class="instrument-picker-current" id="rigPickerCurrent">Mocap humanoid</strong>
+                <span class="instrument-picker-chevron" aria-hidden="true"></span>
+              </summary>
+              <div class="instrument-picker-panel rig-a-jig-picker-panel">
+                <div class="instrument-picker-list" id="rigPickerList" aria-label="Rigs"></div>
+              </div>
+            </details>
+            <button id="nextRig" type="button" class="instrument-picker-next header-preset-next" aria-label="Next rig" title="Next rig"><span aria-hidden="true">▶</span></button>
+            <button id="diceRig" type="button" class="instrument-picker-next header-preset-random" aria-label="Random rig" title="Random rig">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="7.5" cy="16.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="16.5" r="1.4" fill="currentColor"/></svg>
             </button>
-            <button id="prevRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Previous rig" title="Previous rig"><span aria-hidden="true">◀</span></button>
-            <select id="rigSelect" aria-label="Choose a rig"></select>
-            <button id="nextRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Next rig" title="Next rig"><span aria-hidden="true">▶</span></button>
-            <button id="randomRig" type="button" aria-label="Randomize body plan" title="Randomize joints & limbs">Random</button>
+            <select id="rigSelect" class="sr-only" aria-label="Choose a rig" tabindex="-1"></select>
           </div>
         </div>
 
@@ -114,20 +121,28 @@
         </div>
 
         <div class="rig-a-jig-scene" id="motionRow">
-          <label for="motionSelect">Motion</label>
-          <div class="rig-a-jig-scene-row">
-            <button id="diceMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Random motion" title="Random motion">
+          <label id="motionLabel">Motion</label>
+          <div class="header-preset-controls instrument-preset-controls rig-a-jig-picker-row" role="group" aria-labelledby="motionLabel">
+            <details class="instrument-picker header-preset-picker rig-a-jig-picker" id="motionPicker">
+              <summary class="instrument-picker-trigger" aria-label="Choose a motion">
+                <strong class="instrument-picker-current" id="motionPickerCurrent">Walk</strong>
+                <span class="instrument-picker-chevron" aria-hidden="true"></span>
+              </summary>
+              <div class="instrument-picker-panel rig-a-jig-picker-panel">
+                <div class="instrument-picker-list" id="motionPickerList" aria-label="Motions"></div>
+              </div>
+            </details>
+            <button id="nextMotion" type="button" class="instrument-picker-next header-preset-next" aria-label="Next motion" title="Next motion"><span aria-hidden="true">▶</span></button>
+            <button id="diceMotion" type="button" class="instrument-picker-next header-preset-random" aria-label="Random motion" title="Random motion">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="7.5" cy="16.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="16.5" r="1.4" fill="currentColor"/></svg>
             </button>
-            <button id="prevMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Previous motion" title="Previous motion"><span aria-hidden="true">◀</span></button>
-            <select id="motionSelect" aria-label="Choose a motion">
+            <select id="motionSelect" class="sr-only" aria-label="Choose a motion" tabindex="-1">
               <option value="walk">Walk</option>
               <option value="dance">Dance</option>
               <option value="jump">Jump</option>
               <option value="karate">Karate</option>
               <option value="stomp">Stomp</option>
             </select>
-            <button id="nextMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Next motion" title="Next motion"><span aria-hidden="true">▶</span></button>
           </div>
           <p id="sceneDescription">Steady gait</p>
         </div>

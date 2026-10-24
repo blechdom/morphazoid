@@ -196,6 +196,7 @@ function setRig(next) {
   $('motionRow').hidden = isMocapRig(next);
   buildRig();
   $('rigSelect').value = next;
+  $('rigSelect').dispatchEvent(new Event('picker:sync'));
   const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}`
     : isMocapRig(next) ? MOCAP_RIGS[next].label
     : next.replace(/([A-Z])/g, ' $1');
@@ -244,6 +245,7 @@ function selectMotion(id, { autoplay = false } = {}) {
   frozenAt = null;
   motions[currentRigId()] = id;
   $('motionSelect').value = id;
+  $('motionSelect').dispatchEvent(new Event('picker:sync'));
   const motion = MOTIONS.find((entry) => entry.id === id);
   if (motion.overlay) {
     overlay = { name: motion.overlay, start: now(), duration: motion.duration };
@@ -406,6 +408,7 @@ function stepSelect(select, delta) {
   const index = values.indexOf(select.value);
   const next = values[(index + delta + values.length) % values.length];
   select.value = next;
+  select.dispatchEvent(new Event('picker:sync'));
   return next;
 }
 function randomOption(select) {
@@ -416,11 +419,80 @@ function randomOption(select) {
     while (next === select.value) next = values[Math.floor(Math.random() * values.length)];
   }
   select.value = next;
+  select.dispatchEvent(new Event('picker:sync'));
   return next;
 }
 
+/* A faves-style picker: a details/summary dropdown that mirrors a hidden
+ * <select>, with the trigger showing the current label. Selecting a row drives
+ * the same handler a manual choice would. */
+function buildPicker({ pickerId, listId, currentId, select, onChoose }) {
+  const picker = $(pickerId);
+  const list = $(listId);
+  const current = $(currentId);
+  const paint = () => {
+    const selected = select.selectedOptions?.[0];
+    current.textContent = selected ? selected.textContent : '';
+    list.querySelectorAll('button[data-value]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.value === select.value));
+    });
+  };
+  const build = () => {
+    list.replaceChildren();
+    for (const child of select.children) {
+      if (child.tagName === 'OPTGROUP') {
+        const heading = document.createElement('div');
+        heading.className = 'rig-a-jig-picker-group';
+        heading.textContent = child.label;
+        list.append(heading);
+        for (const option of child.querySelectorAll('option')) addOption(option);
+      } else if (child.tagName === 'OPTION') {
+        addOption(child);
+      }
+    }
+    paint();
+  };
+  function addOption(option) {
+    const row = document.createElement('div');
+    row.className = 'instrument-picker-row';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'instrument-picker-link';
+    button.dataset.value = option.value;
+    button.textContent = option.textContent;
+    button.setAttribute('aria-pressed', 'false');
+    button.addEventListener('click', () => {
+      select.value = option.value;
+      picker.open = false;
+      onChoose(option.value);
+      paint();
+    });
+    row.append(button);
+    list.append(row);
+  }
+  // Close when clicking elsewhere or pressing Escape.
+  document.addEventListener('click', (event) => {
+    if (picker.open && !picker.contains(event.target)) picker.open = false;
+  });
+  picker.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') picker.open = false;
+  });
+  // Repaint when the value changes programmatically (next/dice, setRig, etc.).
+  select.addEventListener('picker:sync', paint);
+  build();
+  return { paint, rebuild: build };
+}
+
+const rigPicker = buildPicker({
+  pickerId: 'rigPicker', listId: 'rigPickerList', currentId: 'rigPickerCurrent',
+  select: $('rigSelect'), onChoose: (value) => setRig(value),
+});
+const motionPicker = buildPicker({
+  pickerId: 'motionPicker', listId: 'motionPickerList', currentId: 'motionPickerCurrent',
+  select: $('motionSelect'), onChoose: (value) => selectMotion(value, { autoplay: true }),
+});
+
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
-$('prevRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), -1); if (v) setRig(v); });
 $('nextRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), 1); if (v) setRig(v); });
 $('diceRig').addEventListener('click', () => { const v = randomOption($('rigSelect')); if (v) setRig(v); });
 $('bodySelect').addEventListener('change', (event) => viewer.setBodyMode(event.target.value));
@@ -439,12 +511,7 @@ $('clipScrub')?.addEventListener('input', (event) => {
   $('clipScrubOut').textContent = `${Math.round(fraction * 100)}%`;
   viewer.setMocapScrub?.(fraction);
 });
-$('randomRig').addEventListener('click', () => {
-  randomSeed = Math.floor(Math.random() * 0xffffffff);
-  setRig('random');
-});
 $('motionSelect').addEventListener('change', (event) => selectMotion(event.target.value, { autoplay: true }));
-$('prevMotion').addEventListener('click', () => { const v = stepSelect($('motionSelect'), -1); if (v) selectMotion(v, { autoplay: true }); });
 $('nextMotion').addEventListener('click', () => { const v = stepSelect($('motionSelect'), 1); if (v) selectMotion(v, { autoplay: true }); });
 $('diceMotion').addEventListener('click', () => { const v = randomOption($('motionSelect')); if (v) selectMotion(v, { autoplay: true }); });
 $('playButton').addEventListener('click', () => setPlaying(!playing));

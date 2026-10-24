@@ -33,14 +33,14 @@ test('Rig-a-Jig has rig + motion pulldowns, Play/Pause, tempo, and random body p
   await page.locator('#rigSelect').selectOption('octopus');
   await expect(page.locator('#rigName')).toContainText('octopus');
 
-  // Random body plan produces a valid rig with joints.
-  await page.locator('#randomRig').click();
+  // Random body plan (chosen from the rig pulldown) produces a valid rig with joints.
+  await page.locator('#rigSelect').selectOption('random');
   await expect(page.locator('#rigName')).toContainText('Random body plan');
   const joints = await page.evaluate(() => window.__zooDebug.getState().joints);
   expect(joints).toBeGreaterThan(2);
 
-  // Two randoms in a row give different seeds (readout seed changes or joint count can differ).
-  await page.locator('#randomRig').click();
+  // The dice stepper lands on a valid rig too (never throws).
+  await page.locator('#diceRig').click();
   const joints2 = await page.evaluate(() => window.__zooDebug.getState().joints);
   expect(joints2).toBeGreaterThan(2);
 
