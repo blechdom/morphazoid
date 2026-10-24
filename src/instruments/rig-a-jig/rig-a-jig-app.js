@@ -396,6 +396,7 @@ function frozenTime(time) {
 }
 
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
+$('bodySelect').addEventListener('change', (event) => viewer.setBodyMode(event.target.value));
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
   if (isMocapRig(rig)) rigClips[rig] = currentClip;

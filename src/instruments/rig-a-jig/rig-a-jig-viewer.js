@@ -96,6 +96,27 @@ class RigFigure {
       return sprite;
     });
 
+    /* Body proxy: a lightweight silhouette synthesized from bone positions (no
+     * loaded mesh). Three modes, toggled at runtime; all reuse one shared
+     * capsule geometry and one additive material. Off by default. */
+    this.bodyMode = 'off'; // 'off' | 'bones' | 'joints' | 'cloud'
+    this.bodyGroup = new THREE.Group();
+    this.bodyGroup.visible = false;
+    this.root.add(this.bodyGroup);
+    this._bodyCapsule = new THREE.CapsuleGeometry(0.5, 1, 3, 8);
+    this._bodySphere = new THREE.IcosahedronGeometry(0.5, 1);
+    this._bodyMaterial = new THREE.MeshBasicMaterial({
+      color: this.base, transparent: true, opacity: 0.14,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    this._bodyCloud = null; // THREE.Points, built lazily for 'cloud' mode
+    this._up = new THREE.Vector3(0, 1, 0);
+    this._dir = new THREE.Vector3();
+    this._mid = new THREE.Vector3();
+    this._scl = new THREE.Vector3();
+    this._quat = new THREE.Quaternion();
+    this._mat4 = new THREE.Matrix4();
+
     // Spring state per joint (tendon-like settle).
     this.spring = rig.joints.map(() => ({ offset: new THREE.Vector3(), velocity: new THREE.Vector3() }));
     this.ik = null; // { chain: [bones], target: Vector3 }
@@ -119,6 +140,98 @@ class RigFigure {
   setSelected(index) {
     this.selected = clamp(index, 0, this.rig.joints.length - 1);
     this.refreshSelection();
+  }
+
+  /* Body proxy modes — synthesized from the skeleton, never a loaded mesh:
+   *  off    -> bare laser skeleton (default)
+   *  bones  -> tapered capsules along each bone segment (limb volume)
+   *  joints -> translucent ellipsoids at each joint (blobby mass)
+   *  cloud  -> a faint point-cloud hugging joints + bone midpoints
+   */
+  setBodyMode(mode) {
+    if (!['off', 'bones', 'joints', 'cloud'].includes(mode)) return;
+    this.bodyMode = mode;
+    this.bodyGroup.visible = mode !== 'off';
+    this._rebuildBody();
+  }
+
+  _rebuildBody() {
+    // Clear previous proxy children (keep shared geometry/material).
+    for (const child of [...this.bodyGroup.children]) this.bodyGroup.remove(child);
+    this._bodyCloud = null;
+    if (this.bodyMode === 'off') return;
+
+    if (this.bodyMode === 'bones') {
+      this.bodyMesh = new THREE.InstancedMesh(this._bodyCapsule, this._bodyMaterial, Math.max(1, this.edges.length));
+      this.bodyMesh.frustumCulled = false;
+      this.bodyGroup.add(this.bodyMesh);
+    } else if (this.bodyMode === 'joints') {
+      this.bodyMesh = new THREE.InstancedMesh(this._bodySphere, this._bodyMaterial, Math.max(1, this.rig.joints.length));
+      this.bodyMesh.frustumCulled = false;
+      this.bodyGroup.add(this.bodyMesh);
+    } else if (this.bodyMode === 'cloud') {
+      // joints + one midpoint per edge
+      const count = this.rig.joints.length + this.edges.length;
+      const positions = new Float32Array(count * 3);
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      this._bodyCloud = new THREE.Points(geometry, new THREE.PointsMaterial({
+        color: this.base, size: this.mocapLike ? 0.05 : 0.035, transparent: true,
+        opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
+        sizeAttenuation: true,
+      }));
+      this._bodyCloud.frustumCulled = false;
+      this.bodyGroup.add(this._bodyCloud);
+    }
+  }
+
+  /* Re-pose the body proxy each frame from live bone world positions. Called at
+   * the end of update() once joints/lines are placed. */
+  _updateBody() {
+    if (this.bodyMode === 'off') return;
+    const joints = this.rig.joints;
+    if (this.bodyMode === 'bones' && this.bodyMesh) {
+      for (let i = 0; i < this.edges.length; i += 1) {
+        const joint = this.edges[i];
+        joint.getWorldPosition(this._a);
+        joint.parent.getWorldPosition(this._b);
+        this._dir.subVectors(this._b, this._a);
+        const len = Math.max(this._dir.length(), 1e-4);
+        this._mid.addVectors(this._a, this._b).multiplyScalar(0.5);
+        this._quat.setFromUnitVectors(this._up, this._dir.normalize());
+        // radius scales gently with bone length; capped so thin rigs stay readable
+        const radius = Math.min(0.09, 0.02 + len * 0.06) * (this.mocapLike ? 1.5 : 1);
+        this._scl.set(radius, len, radius);
+        this._mat4.compose(this._mid, this._quat, this._scl);
+        this.bodyMesh.setMatrixAt(i, this._mat4);
+      }
+      this.bodyMesh.instanceMatrix.needsUpdate = true;
+    } else if (this.bodyMode === 'joints' && this.bodyMesh) {
+      for (let i = 0; i < joints.length; i += 1) {
+        joints[i].getWorldPosition(this._a);
+        const radius = (this.mocapLike ? 0.09 : 0.06);
+        this._quat.identity();
+        this._scl.setScalar(radius);
+        this._mat4.compose(this._a, this._quat, this._scl);
+        this.bodyMesh.setMatrixAt(i, this._mat4);
+      }
+      this.bodyMesh.instanceMatrix.needsUpdate = true;
+    } else if (this.bodyMode === 'cloud' && this._bodyCloud) {
+      const pos = this._bodyCloud.geometry.attributes.position.array;
+      let w = 0;
+      for (let i = 0; i < joints.length; i += 1) {
+        joints[i].getWorldPosition(this._a);
+        pos[w++] = this._a.x; pos[w++] = this._a.y; pos[w++] = this._a.z;
+      }
+      for (let i = 0; i < this.edges.length; i += 1) {
+        this.edges[i].getWorldPosition(this._a);
+        this.edges[i].parent.getWorldPosition(this._b);
+        pos[w++] = (this._a.x + this._b.x) / 2;
+        pos[w++] = (this._a.y + this._b.y) / 2;
+        pos[w++] = (this._a.z + this._b.z) / 2;
+      }
+      this._bodyCloud.geometry.attributes.position.needsUpdate = true;
+    }
   }
 
   /* Build an IK chain from a joint up to the first branching/leaf ancestor. */
@@ -245,6 +358,8 @@ class RigFigure {
     for (let i = 0; i < rig.joints.length; i += 1) {
       rig.joints[i].position.sub(this.spring[i].offset);
     }
+
+    this._updateBody();
   }
 
   applyAction(name, t, pose) {
@@ -318,6 +433,11 @@ class RigFigure {
 
   dispose(rootGroup) {
     this.glowTexture.dispose();
+    this._bodyCapsule.dispose();
+    this._bodySphere.dispose();
+    this._bodyMaterial.dispose();
+    this._bodyCloud?.geometry.dispose();
+    this._bodyCloud?.material.dispose();
     rootGroup.remove(this.root);
   }
 }
@@ -459,6 +579,8 @@ class MocapFigure extends RigFigure {
       const glow = Math.min(0.3, contactItem.speed * 6);
       sprite.scale.setScalar(0.06 + glow);
     });
+
+    this._updateBody();
   }
 
   dispose(rootGroup) {
@@ -543,6 +665,7 @@ export function createRigAJigViewer(canvas, {
   resize();
 
   let mocapToken = 0;
+  let bodyMode = 'off';
   const DEFAULT_MOCAP_URL = 'assets/rig-a-jig/ual-humanoid-bones.glb';
   const RIG_VIEWS = {
     mocap: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 },
@@ -564,6 +687,7 @@ export function createRigAJigViewer(canvas, {
         // Ignore stale loads (a newer setRig already created a figure).
         if (disposed || rigId !== next || token !== mocapToken) return;
         figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip });
+        figure.setBodyMode(bodyMode);
         figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
         onRigReady?.({ clipNames: figure.clipNames() });
       }).catch((error) => onRigError?.(error));
@@ -571,6 +695,7 @@ export function createRigAJigViewer(canvas, {
     }
     const rig = next === 'random' ? createRandom(options) : RIG_FACTORIES[next](options);
     figure = new RigFigure(rig, next, figureRoot);
+    figure.setBodyMode(bodyMode);
     figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
   }
 
@@ -716,10 +841,12 @@ export function createRigAJigViewer(canvas, {
   function setMocapSpeed(value) { figure?.setSpeed?.(value); }
   function setMocapScrub(fraction) { figure?.setScrub?.(fraction); }
   function isMocap() { return figure instanceof MocapFigure; }
+  function setBodyMode(mode) { bodyMode = mode; figure?.setBodyMode?.(mode); }
+  function getBodyMode() { return bodyMode; }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
     rootJointY, jointSpriteScale, playClip, clipNames, debugFigure: () => figure,
-    setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap,
+    setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap, setBodyMode, getBodyMode,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
       joints: figure ? figure.rig.joints.length : 0,
       contacts: figure ? figure.rig.contacts.length : 0 }),
