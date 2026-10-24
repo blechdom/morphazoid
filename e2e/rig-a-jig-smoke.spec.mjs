@@ -8,7 +8,7 @@ test('Rig-a-Jig renders the zoo, animates, and keeps Audio off by default', asyn
 
   // The rig pulldown is populated with the full zoo.
   const rigOptions = await page.locator('#rigSelect option').count();
-  expect(rigOptions).toBeGreaterThanOrEqual(26);
+  expect(rigOptions).toBeGreaterThanOrEqual(40); // 26 procedural + 14 mocap + Random
 
   await page.locator('#playButton').click();
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');

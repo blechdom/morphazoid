@@ -44,9 +44,10 @@ function glowSprite(hex) {
 }
 
 class RigFigure {
-  constructor(rig, rigId, rootGroup) {
+  constructor(rig, rigId, rootGroup, { mocapLike = false } = {}) {
     this.rig = rig;
     this.rigId = rigId;
+    this.mocapLike = mocapLike;
     this.base = color(rigId);
     this.root = new THREE.Group();
     if (rig.joints[0] && !rig.externalScene) this.root.add(rig.joints[0]);
@@ -57,13 +58,13 @@ class RigFigure {
     this.glowTexture = texture;
     this.jointSprites = rig.joints.map((joint, index) => {
       const sprite = new THREE.Sprite(material.clone());
-      sprite.scale.setScalar(this.rigId === 'mocap' ? 0.2 : 0.09);
+      sprite.scale.setScalar(this.mocapLike ? 0.2 : 0.09);
       sprite.userData.pick = { kind: 'joint', index };
       sprite.userData.joint = joint;
       this.root.add(sprite);
       return sprite;
     });
-    const coreGeometry = new THREE.OctahedronGeometry(this.rigId === 'mocap' ? 0.02 : 0.011);
+    const coreGeometry = new THREE.OctahedronGeometry(this.mocapLike ? 0.02 : 0.011);
     this.jointCores = rig.joints.map((joint, index) => {
       const mesh = new THREE.Mesh(coreGeometry,
         new THREE.MeshBasicMaterial({ color: 0xffffff }));
@@ -81,7 +82,7 @@ class RigFigure {
     this.line = new THREE.LineSegments(this.lineGeometry,
       new THREE.LineBasicMaterial({
         color: this.base, blending: THREE.AdditiveBlending, transparent: true,
-        opacity: this.rigId === 'mocap' ? 0.85 : 0.55,
+        opacity: this.mocapLike ? 0.85 : 0.55,
       }));
     this.line.frustumCulled = false;
     this.root.add(this.line);
@@ -108,8 +109,8 @@ class RigFigure {
     this.jointSprites.forEach((sprite, index) => {
       const selected = index === this.selected;
       sprite.scale.setScalar(selected
-          ? (this.rigId === 'mocap' ? 0.26 : 0.16)
-          : (this.rigId === 'mocap' ? 0.2 : 0.09));
+          ? (this.mocapLike ? 0.26 : 0.16)
+          : (this.mocapLike ? 0.2 : 0.09));
       sprite.material.color.setHex(selected ? 0xffffff : this.base);
       this.jointCores[index].scale.setScalar(selected ? 1.45 : 1);
     });
@@ -344,7 +345,7 @@ class MocapFigure extends RigFigure {
       update: () => {},
       externalScene: true,
     };
-    super(rig, rigId, rootGroup);
+    super(rig, rigId, rootGroup, { mocapLike: true });
     MocapFigure.count = (MocapFigure.count ?? 0) + 1;
     this.figureId = MocapFigure.count;
     globalThis.__mocapFigures = globalThis.__mocapFigures ?? [];
@@ -542,24 +543,27 @@ export function createRigAJigViewer(canvas, {
   resize();
 
   let mocapToken = 0;
+  const DEFAULT_MOCAP_URL = 'assets/rig-a-jig/ual-humanoid-bones.glb';
   const RIG_VIEWS = {
     mocap: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 },
   };
+  const DEFAULT_VIEW = { yaw: 0.45, pitch: 0.28, zoom: 3.4, lookY: 0.35 };
   function setRig(next, options = {}) {
-    if (disposed || (next !== 'random' && next !== 'mocap' && !RIG_FACTORIES[next])) return;
+    const isMocapRig = Boolean(options.url) || next === 'mocap';
+    if (disposed || (!isMocapRig && next !== 'random' && !RIG_FACTORIES[next])) return;
     if (figure) { figure.dispose(figureRoot); figure = null; }
     rigId = next;
     // Frame this rig: humanoid and other large rigs get a closer, centered camera.
-    const view = RIG_VIEWS[next] ?? { yaw: 0.45, pitch: 0.28, zoom: 3.4, lookY: 0.35 };
+    const view = options.view ?? RIG_VIEWS[next] ?? DEFAULT_VIEW;
     ({ yaw, pitch, zoom, lookY } = view);
     updateCamera();
-    if (next === 'mocap') {
-      const url = options.url ?? 'assets/rig-a-jig/ual-humanoid-bones.glb';
+    if (isMocapRig) {
+      const url = options.url ?? DEFAULT_MOCAP_URL;
       const token = ++mocapToken;
       loadMocap(url).then((gltf) => {
         // Ignore stale loads (a newer setRig already created a figure).
-        if (disposed || rigId !== 'mocap' || token !== mocapToken) return;
-        figure = new MocapFigure(gltf, 'mocap', figureRoot, { clip: options.clip });
+        if (disposed || rigId !== next || token !== mocapToken) return;
+        figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip });
         figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
         onRigReady?.({ clipNames: figure.clipNames() });
       }).catch((error) => onRigError?.(error));

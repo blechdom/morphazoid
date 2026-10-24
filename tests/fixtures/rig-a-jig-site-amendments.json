@@ -21,7 +21,7 @@
         },
         {
           "before": "",
-          "after": "  \"rig-a-jig\": {\n    \"kind\": \"Mesh-free rig lab\",\n    \"description\": \"A collection of pure skeletons \u2014 joints and connecting vectors with no 3D model, material or texture. Bend, watch and hear spiders, caterpillars, fish, bats, whips, strikers, walkers and cranes.\",\n    \"start\": \"Choose a skeleton and press Walk. Drag a glowing joint to select it; enable Audio to hear joint contacts.\",\n    \"features\": [\"Mesh-free rigs\", \"Vector skeletons\", \"Joint contacts\", \"Motion studies\", \"Presets\"],\n    \"pluginHref\": null\n  },\n"
+          "after": "  \"rig-a-jig\": {\n    \"kind\": \"Mesh-free rig lab\",\n    \"description\": \"A collection of pure skeletons — joints and connecting vectors with no 3D model, material or texture. Bend, watch and hear spiders, caterpillars, fish, bats, whips, strikers, walkers and cranes.\",\n    \"start\": \"Choose a skeleton and press Walk. Drag a glowing joint to select it; enable Audio to hear joint contacts.\",\n    \"features\": [\"Mesh-free rigs\", \"Vector skeletons\", \"Joint contacts\", \"Motion studies\", \"Presets\"],\n    \"pluginHref\": null\n  },\n"
         }
       ]
     },
@@ -41,7 +41,7 @@
       "replacements": [
         {
           "before": "",
-          "after": "# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.\ncopy+require\trig-a-jig.html\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-app.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-viewer.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-rigs.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-audio.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig.css\ncopy+require\tassets/rig-a-jig/ual-humanoid-bones.glb\n\n"
+          "after": "# Rig-a-Jig: mesh-free rigs (joints + vectors only), no downloaded models.\ncopy+require\trig-a-jig.html\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-app.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-viewer.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-rigs.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig-audio.js\ncopy+require\tsrc/instruments/rig-a-jig/rig-a-jig.css\ncopy+require\tassets/rig-a-jig/ual-humanoid-bones.glb\ncopy+require\tassets/rig-a-jig/KayKit_Skeleton_bones.glb\ncopy+require\tassets/rig-a-jig/Cow_bones.glb\ncopy+require\tassets/rig-a-jig/Horse_bones.glb\ncopy+require\tassets/rig-a-jig/Llama_bones.glb\ncopy+require\tassets/rig-a-jig/Pig_bones.glb\ncopy+require\tassets/rig-a-jig/Pug_bones.glb\ncopy+require\tassets/rig-a-jig/Sheep_bones.glb\ncopy+require\tassets/rig-a-jig/Zebra_bones.glb\ncopy+require\tassets/rig-a-jig/Frog_bones.glb\ncopy+require\tassets/rig-a-jig/Rat_bones.glb\ncopy+require\tassets/rig-a-jig/Snake_bones.glb\ncopy+require\tassets/rig-a-jig/Spider_bones.glb\ncopy+require\tassets/rig-a-jig/Wasp_bones.glb\n\n"
         }
       ]
     }

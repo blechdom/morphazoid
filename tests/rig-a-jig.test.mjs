@@ -53,5 +53,8 @@ test('page and runtime inventory ship the rig-a-jig modules', async () => {
   }
   const html = await readFile('src/pages/rig-a-jig.html', 'utf8');
   assert.match(html, /rig-a-jig-app\.js/);
-  assert.match(html, /no models · no materials · no textures/);
+  // Stage overlay is minimal: title + camera controls only (the descriptive
+  // subtitle was removed); the mesh-free guarantee is enforced by the
+  // mesh-free rig test above, not by page copy.
+  assert.match(html, /id="zooTitle"/);
 });

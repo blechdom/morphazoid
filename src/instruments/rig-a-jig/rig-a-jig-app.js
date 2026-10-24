@@ -17,11 +17,37 @@ const MOTIONS = [
 ];
 const RANDOM_LABEL = 'Random body plan';
 
+/* Downloaded, mesh-free mocap rigs (bones + AnimationClips from CC0 packs,
+ * converted to bones-only GLB). Each is selectable and plays its clips through
+ * the shared MocapFigure path. */
+const MOCAP_RIGS = {
+  mocap: { label: 'Mocap humanoid (Quaternius UAL · CC0)', url: 'assets/rig-a-jig/ual-humanoid-bones.glb', clip: 'Dance_Loop', view: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 } },
+  kaykit: { label: 'Skeleton (KayKit · CC0)', url: 'assets/rig-a-jig/KayKit_Skeleton_bones.glb', clip: 'Idle_A' },
+  cow: { label: 'Cow (Quaternius · CC0)', url: 'assets/rig-a-jig/Cow_bones.glb', clip: 'Walk' },
+  horseMocap: { label: 'Horse (Quaternius · CC0)', url: 'assets/rig-a-jig/Horse_bones.glb', clip: 'Walk' },
+  llama: { label: 'Llama (Quaternius · CC0)', url: 'assets/rig-a-jig/Llama_bones.glb', clip: 'Idle' },
+  pig: { label: 'Pig (Quaternius · CC0)', url: 'assets/rig-a-jig/Pig_bones.glb', clip: 'Idle' },
+  pug: { label: 'Pug (Quaternius · CC0)', url: 'assets/rig-a-jig/Pug_bones.glb', clip: 'Idle' },
+  sheep: { label: 'Sheep (Quaternius · CC0)', url: 'assets/rig-a-jig/Sheep_bones.glb', clip: 'Idle' },
+  zebra: { label: 'Zebra (Quaternius · CC0)', url: 'assets/rig-a-jig/Zebra_bones.glb', clip: 'Walk' },
+  frogMocap: { label: 'Frog (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Frog_bones.glb', clip: 'Frog_Idle' },
+  rat: { label: 'Rat (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Rat_bones.glb', clip: 'Rat_Walk' },
+  snakeMocap: { label: 'Snake (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Snake_bones.glb', clip: 'Snake_Walk' },
+  spiderMocap: { label: 'Spider (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Spider_bones.glb', clip: 'Spider_Walk' },
+  wasp: { label: 'Wasp (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Wasp_bones.glb', clip: 'Wasp_Flying' },
+};
+const isMocapRig = (id) => id in MOCAP_RIGS;
+const MOCAP_GROUP = [
+  ['mocap', 'kaykit'],
+  ['cow', 'horseMocap', 'llama', 'pig', 'pug', 'sheep', 'zebra'],
+  ['frogMocap', 'rat', 'snakeMocap', 'spiderMocap', 'wasp'],
+];
+
 const defaultSettings = () => ({ rate: 0.35, amp: 0.5, sway: 0.3, fold: 0.5 });
 let rig = 'mocap', randomSeed = null;
 const settings = Object.fromEntries(rigIds.map((id) => [id, defaultSettings()]));
 settings.random = defaultSettings();
-settings.mocap = defaultSettings();
+for (const id of Object.keys(MOCAP_RIGS)) settings[id] = defaultSettings();
 const motions = Object.fromEntries(rigIds.map((id) => [id, 'walk']));
 motions.random = 'walk';
 const clocks = { walk: { playing: false, anchor: 0, cycles: 0 } };
@@ -71,14 +97,30 @@ for (const [group, ids] of Object.entries(RIG_GROUPS)) {
   option.value = 'random';
   option.textContent = RANDOM_LABEL;
   optgroup.append(option);
-  const mocap = document.createElement('option');
-  mocap.value = 'mocap';
-  mocap.textContent = 'Mocap humanoid (Quaternius UAL · CC0)';
-  optgroup.append(mocap);
   rigSelect.append(optgroup);
 }
+{
+  // Mocap creatures (downloaded bones+clips, CC0), in labeled groups.
+  const groups = [
+    ['Humanoid & skeleton', MOCAP_GROUP[0]],
+    ['Farm animals', MOCAP_GROUP[1]],
+    ['Creepy crawlies', MOCAP_GROUP[2]],
+  ];
+  for (const [label, ids] of groups) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = label;
+    for (const id of ids) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = MOCAP_RIGS[id].label;
+      optgroup.append(option);
+    }
+    rigSelect.append(optgroup);
+  }
+}
 
-let currentClip = 'Dance_Loop';
+let currentClip = MOCAP_RIGS.mocap.clip;
+const rigClips = Object.fromEntries(Object.entries(MOCAP_RIGS).map(([id, def]) => [id, def.clip]));
 const viewer = createRigAJigViewer($('zooCanvas'), {
   onJointGrab({ joint }) {
     $('jointSelect').value = String(joint);
@@ -100,7 +142,7 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
     }));
     select.value = currentClip;
     viewer.playClip(currentClip);
-    if (rig === 'mocap' && playing) viewer.setMocapPlaying?.(true);
+    if (isMocapRig(rig) && playing) viewer.setMocapPlaying?.(true);
     $('jointSelect').max = String(viewer.getState().joints - 1);
     updateReadout();
   },
@@ -109,7 +151,7 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
   },
 });
 
-function currentRigId() { return rig === 'random' ? 'random' : rig === 'mocap' ? 'mocap' : rig; }
+function currentRigId() { return rig; }
 function poseAt() { return { ...settings[currentRigId()] }; }
 
 function motionCycles(clock, rate, time) {
@@ -132,8 +174,9 @@ function buildRig() {
   if (rig === 'random') {
     randomSeed = randomSeed ?? Math.floor(Math.random() * 0xffffffff);
     viewer.setRig('random', { seed: randomSeed });
-  } else if (rig === 'mocap') {
-    viewer.setRig('mocap', { clip: currentClip });
+  } else if (isMocapRig(rig)) {
+    const def = MOCAP_RIGS[rig];
+    viewer.setRig(rig, { url: def.url, clip: currentClip, view: def.view });
   } else {
     viewer.setRig(rig);
   }
@@ -143,17 +186,18 @@ function buildRig() {
 }
 
 function setRig(next) {
-  if (!RIG_DESCRIPTIONS[next] && next !== 'random' && next !== 'mocap') return;
+  if (!RIG_DESCRIPTIONS[next] && next !== 'random' && !isMocapRig(next)) return;
   if (playing) stopWalkClock();
 
   rig = next;
   if (next !== 'random') randomSeed = null;
-  $('clipRow').hidden = next !== 'mocap';
-  $('motionRow').hidden = next === 'mocap';
+  if (isMocapRig(next)) currentClip = rigClips[next] ?? MOCAP_RIGS[next].clip;
+  $('clipRow').hidden = !isMocapRig(next);
+  $('motionRow').hidden = isMocapRig(next);
   buildRig();
   $('rigSelect').value = next;
   const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}`
-    : next === 'mocap' ? 'Mocap humanoid'
+    : isMocapRig(next) ? MOCAP_RIGS[next].label
     : next.replace(/([A-Z])/g, ' $1');
   $('rigName').textContent = label;
   document.title = `Rig-a-Jig · ${label} — Morphazoid`;
@@ -177,7 +221,7 @@ function updateReadout() {
   const readout = $('modelReadout');
   if (!readout) return; // readout element removed from the stage overlay
   const state = viewer.getState();
-  const motion = rig === 'mocap' ? currentClip.replace(/_/g, ' ') : motions[currentRigId()];
+  const motion = isMocapRig(rig) ? currentClip.replace(/_/g, ' ') : motions[currentRigId()];
   readout.textContent =
     `${(currentRigId()).toUpperCase()} · ${state.joints} joints · ${motion} · `
     + `${playing ? 'playing' : 'paused'} · no mesh`;
@@ -187,7 +231,7 @@ function setPlaying(value) {
   if (value === playing) return;
   playing = value;
   frozenAt = null;
-  if (rig === 'mocap') {
+  if (isMocapRig(rig)) {
     if (value) viewer.playClip?.(currentClip);
     viewer.setMocapPlaying?.(value);
   } else if (value) startWalkClock(); else stopWalkClock();
@@ -354,12 +398,13 @@ function frozenTime(time) {
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
+  if (isMocapRig(rig)) rigClips[rig] = currentClip;
   viewer.playClip(currentClip);
   status(`Mocap: ${currentClip.replace(/_/g, ' ')}`);
 });
 $('clipSpeed')?.addEventListener('input', (event) => {
-  settings.mocap.rate = clamp(Number(event.target.value), 0.05, 2);
-  $('clipSpeedOut').textContent = settings.mocap.rate.toFixed(2);
+  settings[currentRigId()].rate = clamp(Number(event.target.value), 0.05, 2);
+  $('clipSpeedOut').textContent = settings[currentRigId()].rate.toFixed(2);
 });
 $('clipScrub')?.addEventListener('input', (event) => {
   const fraction = Number(event.target.value);
@@ -380,7 +425,7 @@ for (const key of ['rate', 'amp', 'sway', 'fold']) {
   $(`${key}Input`).addEventListener('input', (event) => {
     settings[currentRigId()][key] = clamp(Number(event.target.value), 0, key === 'rate' ? 2 : 1);
     $(`${key}Out`).textContent = settings[currentRigId()][key].toFixed(2) + (key === 'rate' ? '×' : '');
-    if (key === 'rate' && rig === 'mocap') viewer.setMocapSpeed?.(settings.mocap.rate);
+    if (key === 'rate' && isMocapRig(rig)) viewer.setMocapSpeed?.(settings[currentRigId()].rate);
   });
 }
 $('jointSelect').addEventListener('input', (event) => viewer.setSelected(Number(event.target.value)));
