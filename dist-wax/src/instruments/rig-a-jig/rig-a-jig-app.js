@@ -535,6 +535,7 @@ $('viewFront').addEventListener('click', () => viewer.setView('front'));
 $('viewSide').addEventListener('click', () => viewer.setView('side'));
 $('viewTop').addEventListener('click', () => viewer.setView('top'));
 $('zoomIn').addEventListener('click', () => viewer.zoomBy(0.9));
+$('fitView').addEventListener('click', () => viewer.fitToScreen());
 $('zoomOut').addEventListener('click', () => viewer.zoomBy(1.11));
 
 window.addEventListener('keydown', (event) => {

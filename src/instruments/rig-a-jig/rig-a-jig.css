@@ -64,6 +64,7 @@
   cursor: pointer;
 }
 .rig-a-jig-camera button:hover { background: #152933; }
+.rig-a-jig-camera button svg { display: block; margin: 0 auto; }
 .rig-a-jig-panel {
   border-left: 1px solid #16303a;
   background: #0c1419;

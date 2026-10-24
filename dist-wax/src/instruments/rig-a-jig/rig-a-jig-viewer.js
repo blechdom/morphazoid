@@ -791,6 +791,33 @@ export function createRigAJigViewer(canvas, {
     updateCamera();
   }
   function zoomBy(factor) { zoom = clamp(zoom * factor, 1.6, 7.5); updateCamera(); }
+
+  /* Fit the current skeleton to the viewport: measure its live joint bounding
+   * box, center the orbit target on it, and pick a zoom that frames it with a
+   * small margin. Keeps the current yaw/pitch so the angle is preserved. */
+  function fitToScreen() {
+    if (!figure || !figure.rig?.joints?.length) return;
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    figure.root.updateMatrixWorld(true);
+    for (const joint of figure.rig.joints) {
+      joint.getWorldPosition(v);
+      if (!Number.isNaN(v.x + v.y + v.z)) box.expandByPoint(v);
+    }
+    if (box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    // The orbit looks at (0, lookY, 0): track the skeleton's vertical center.
+    lookY = center.y;
+    // Distance so the larger of height/width fits the 40deg fov, with margin.
+    const fov = THREE.MathUtils.degToRad(camera.fov);
+    const fitHeight = size.y / (2 * Math.tan(fov / 2));
+    const fitWidth = size.x / (2 * Math.tan(fov / 2) * camera.aspect);
+    const fitDepth = size.z / (2 * Math.tan(fov / 2));
+    const needed = Math.max(fitHeight, fitWidth, fitDepth, 0.5) * 1.25;
+    zoom = clamp(needed, 1.6, 7.5);
+    updateCamera();
+  }
   function dispose() {
     if (disposed) return;
     disposed = true;
@@ -844,7 +871,7 @@ export function createRigAJigViewer(canvas, {
   function setBodyMode(mode) { bodyMode = mode; figure?.setBodyMode?.(mode); }
   function getBodyMode() { return bodyMode; }
   return {
-    draw, setRig, setSelected, setAction, impulse, setView, zoomBy, screenPoint, sceneStats, dispose,
+    draw, setRig, setSelected, setAction, impulse, setView, zoomBy, fitToScreen, screenPoint, sceneStats, dispose,
     rootJointY, jointSpriteScale, playClip, clipNames, debugFigure: () => figure,
     setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap, setBodyMode, getBodyMode,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
