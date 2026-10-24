@@ -71,7 +71,12 @@
         <div class="rig-a-jig-scene">
           <label for="rigSelect">Rig</label>
           <div class="rig-a-jig-scene-row">
+            <button id="diceRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Random rig" title="Random rig">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="7.5" cy="16.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="16.5" r="1.4" fill="currentColor"/></svg>
+            </button>
+            <button id="prevRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Previous rig" title="Previous rig"><span aria-hidden="true">◀</span></button>
             <select id="rigSelect" aria-label="Choose a rig"></select>
+            <button id="nextRig" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Next rig" title="Next rig"><span aria-hidden="true">▶</span></button>
             <button id="randomRig" type="button" aria-label="Randomize body plan" title="Randomize joints & limbs">Random</button>
           </div>
         </div>
@@ -91,6 +96,10 @@
         <div class="rig-a-jig-scene" id="motionRow">
           <label for="motionSelect">Motion</label>
           <div class="rig-a-jig-scene-row">
+            <button id="diceMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Random motion" title="Random motion">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="7.5" cy="16.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="16.5" r="1.4" fill="currentColor"/></svg>
+            </button>
+            <button id="prevMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Previous motion" title="Previous motion"><span aria-hidden="true">◀</span></button>
             <select id="motionSelect" aria-label="Choose a motion">
               <option value="walk">Walk</option>
               <option value="dance">Dance</option>
@@ -98,6 +107,7 @@
               <option value="karate">Karate</option>
               <option value="stomp">Stomp</option>
             </select>
+            <button id="nextMotion" type="button" class="instrument-picker-next rig-a-jig-step" aria-label="Next motion" title="Next motion"><span aria-hidden="true">▶</span></button>
           </div>
           <p id="sceneDescription">Steady gait</p>
         </div>

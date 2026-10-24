@@ -123,6 +123,28 @@
   text-transform: uppercase;
 }
 .rig-a-jig-scene-row { margin-top: 0.45rem; }
+/* Prev/next + dice steppers flank the rig/motion pulldowns, matching the
+ * menubar Choose-menu instrument-picker-next style. */
+.rig-a-jig-scene-row .rig-a-jig-step {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0.45rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  color: #58b7d6;
+  background: #13242d;
+  border: 1px solid #1e3a45;
+}
+.rig-a-jig-scene-row .rig-a-jig-step:hover {
+  border-color: #58b7d6;
+  background: #163240;
+  color: #8fe0ff;
+}
+.rig-a-jig-scene-row .rig-a-jig-step svg { display: block; }
 .rig-a-jig-scene select {
   flex: 1;
   min-width: 0;

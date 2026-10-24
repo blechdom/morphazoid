@@ -395,7 +395,34 @@ function frozenTime(time) {
   return frozenAt;
 }
 
+/* Cycle a <select> through its enabled option values (optgroup-aware) and
+ * fire the same handler a manual choice would. */
+function optionValues(select) {
+  return [...select.querySelectorAll('option')].filter((o) => !o.disabled).map((o) => o.value);
+}
+function stepSelect(select, delta) {
+  const values = optionValues(select);
+  if (!values.length) return null;
+  const index = values.indexOf(select.value);
+  const next = values[(index + delta + values.length) % values.length];
+  select.value = next;
+  return next;
+}
+function randomOption(select) {
+  const values = optionValues(select);
+  if (!values.length) return null;
+  let next = select.value;
+  if (values.length > 1) {
+    while (next === select.value) next = values[Math.floor(Math.random() * values.length)];
+  }
+  select.value = next;
+  return next;
+}
+
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
+$('prevRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), -1); if (v) setRig(v); });
+$('nextRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), 1); if (v) setRig(v); });
+$('diceRig').addEventListener('click', () => { const v = randomOption($('rigSelect')); if (v) setRig(v); });
 $('bodySelect').addEventListener('change', (event) => viewer.setBodyMode(event.target.value));
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
@@ -417,6 +444,9 @@ $('randomRig').addEventListener('click', () => {
   setRig('random');
 });
 $('motionSelect').addEventListener('change', (event) => selectMotion(event.target.value, { autoplay: true }));
+$('prevMotion').addEventListener('click', () => { const v = stepSelect($('motionSelect'), -1); if (v) selectMotion(v, { autoplay: true }); });
+$('nextMotion').addEventListener('click', () => { const v = stepSelect($('motionSelect'), 1); if (v) selectMotion(v, { autoplay: true }); });
+$('diceMotion').addEventListener('click', () => { const v = randomOption($('motionSelect')); if (v) selectMotion(v, { autoplay: true }); });
 $('playButton').addEventListener('click', () => setPlaying(!playing));
 $('resetButton').addEventListener('click', () => {
   randomSeed = null;
