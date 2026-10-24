@@ -5,6 +5,7 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { restoreRigLabSite } from "./rig-lab-site-reference.mjs";
 import { restoreRigAJigSite } from "./rig-a-jig-site-reference.mjs";
+import { restoreTapezoidSite } from "./tapezoid-site-reference.mjs";
 
 export const globuleDamacySiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/globule-damacy-site-changes.json", import.meta.url), "utf8",
@@ -14,6 +15,7 @@ export const globuleDamacySiteChanges = JSON.parse(readFileSync(
  * copy. Reverse only this later copy refresh before comparing their old hashes. */
 export function restorePreviousGlobuleCopy(source, file) {
   if (typeof source !== "string") return source;
+  source = restoreTapezoidSite(source, file, { allowRestored: true });
   // Rig-a-Jig is the newest amendment on the shared runtime inventory; peel it
   // first so the older frozen hashes still match byte-for-byte.
   source = restoreRigAJigSite(source, file, { allowRestored: true });
@@ -33,6 +35,8 @@ export function restorePreviousGlobuleCopy(source, file) {
 /** Peel exactly this instrument's additions before older frozen proofs. */
 export function restoreGlobuleDamacySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  // Tapezoid was added later on several of these same shared metadata files.
+  source = restoreTapezoidSite(source, file, { allowRestored: true });
   source = restoreRigLabSite(source, file, { allowRestored: true });
   source = restoreRigAJigSite(source, file, { allowRestored: true });
   for (const change of [

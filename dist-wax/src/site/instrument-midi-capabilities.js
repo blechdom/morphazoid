@@ -28,6 +28,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "exceptional",
     "head-shed",
     "splice-ring",
+    "tapezoid",
     "onset-atlas",
     "synaptic-resonance",
     "sandy-syrup-delay",
@@ -299,6 +300,7 @@ export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
   "enveloper",
   "penrose-tilings",
   "algorithmic-mazes",
+  "tapezoid",
   "paths",
   "yoyodyne",
   "globule-damacy",
@@ -311,7 +313,7 @@ const processorAudioIds = new Set([
   "time-loom",
   "witch",
   "moire-drone", "recursion", "tape-worm", "loop-soup", "hollowphonic",
-  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "onset-atlas", "synaptic-resonance",
+  "crab-loom", "freeze-point", "scatter-ghost", "exceptional", "head-shed", "splice-ring", "tapezoid", "onset-atlas", "synaptic-resonance",
   "loopini",
 ]);
 const audioInputIds = new Set([

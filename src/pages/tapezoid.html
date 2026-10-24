@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090e16" />
+  <meta name="description" content="Tapezoid: draw a moving tape maze with your hand, phase virtual tape loops, and route timed echoes through a cassette and movable heads." />
+  <title>Tapezoid · Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/tapezoid/tapezoid.css" />
+</head>
+<body class="tapezoid-page" style="--accent:#dafa72">
+  <header class="masthead" data-audio-output-meter>
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument">
+      <a class="tab" href="head-shed.html">Head Shed</a>
+      <a class="tab" href="splice-ring.html">Splice Ring</a>
+      <a class="tab active" href="tapezoid.html" aria-current="page">Tapezoid</a>
+    </nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="head-shed.html">Head Shed</option><option value="splice-ring.html">Splice Ring</option><option value="tapezoid.html" selected>Tapezoid</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button id="audioButton" class="audio-button" type="button" aria-pressed="false">
+        <span class="audio-glyph" aria-hidden="true">◖</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+      </button>
+      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">72%</output></span><input id="outputLevel" type="range" min="0" max="1" step="0.01" value="0.72" aria-label="Tapezoid output level" /></label>
+    </div>
+  </header>
+
+  <main class="shell tapezoid-shell">
+    <section class="stage tapezoid-workspace" aria-label="Tapezoid tape maze">
+      <div class="stage-wrap tapezoid-stage-wrap">
+        <div id="scene" class="tapezoid-scene" tabindex="0" role="application" data-space-key-owner
+          aria-label="Overhead tape maze. Turn on Audio, then drag a blue PLAY head relative to red REC to change its read delay. MOVE pulls one bend or moves a post; DRAW traces several bends from bare tape. Fork branches and the Scotch join also move in MOVE. TIME displays segment durations only. Focus the desk for keyboard editing."
+          aria-describedby="stageInstructions segmentTiming"></div>
+        <div id="timeLabels" class="tapezoid-time-labels" aria-hidden="true"></div>
+        <div class="tapezoid-title"><h1>Tapezoid</h1></div>
+        <div class="tapezoid-deck" role="group" aria-label="Cassette transport">
+          <div class="tapezoid-deck-display">
+            <span class="tapezoid-deck-brand">TZ–01 <span aria-hidden="true">●</span> SIDE A</span>
+            <output id="trackClock" aria-label="Track position">00:00</output>
+            <output id="tapeStatus" aria-label="Tape edit status"></output>
+            <output id="speedValue" aria-label="Tape speed">+1.0×</output>
+          </div>
+          <div class="tapezoid-transport" role="group" aria-label="Tape transport">
+            <button type="button" data-speed="-4" aria-label="Fast rewind"><span aria-hidden="true">◀◀</span><small>REW</small></button>
+            <button type="button" data-speed="-1" aria-label="Reverse"><span aria-hidden="true">◀</span><small>REV</small></button>
+            <button type="button" data-speed="0" aria-label="Stop tape"><span aria-hidden="true">■</span><small>STOP</small></button>
+            <button id="playButton" type="button" data-speed="1" data-primary-transport aria-label="Pause forward tape" aria-pressed="true"><span aria-hidden="true">▶</span><small>PLAY</small></button>
+            <button type="button" data-speed="4" aria-label="Fast forward"><span aria-hidden="true">▶▶</span><small>FF</small></button>
+          </div>
+        </div>
+        <div class="tapezoid-toolbar" role="toolbar" aria-orientation="vertical" aria-label="Tape editing tools; scroll vertically for more tools on short screens">
+          <button id="routeTool" type="button" data-tool="route" aria-pressed="true" aria-label="Move. Drag a post to move only that post; pull bare tape to add one bend. Move heads, pools and fork halves." title="Move one post or pull one bend"><span aria-hidden="true">↝</span><small>MOVE</small></button>
+          <button id="drawTool" type="button" data-tool="draw" aria-pressed="false" aria-label="Draw. Drag bare tape across the desk to trace several guide posts in one stroke. A tap makes no posts." title="Draw multiple bends from bare tape"><span aria-hidden="true">∿</span><small>DRAW</small></button>
+          <button id="timeButton" type="button" aria-pressed="true" aria-label="Show segment travel times at normal speed; this display button does not change sound" title="Show/hide segment travel times (display only)"><span aria-hidden="true">◷</span><small>TIME</small></button>
+          <button id="newPlayTool" type="button" data-tool="new-play" aria-pressed="false" aria-label="New playhead. Select, then touch the tape." title="New playhead"><span aria-hidden="true">▷+</span><small>PLAY</small></button>
+          <button id="newRecordTool" type="button" data-tool="new-record" aria-pressed="false" aria-label="New record head. Touch the tape to print the loaded track and optional head return into the shared tape loop during forward Play; not a separate output." title="Add a writer to the shared tape loop"><span aria-hidden="true">●+</span><small>REC</small></button>
+          <button id="newPostTool" type="button" data-tool="new-post" aria-pressed="false" aria-label="New guide post. Select, then touch the desk beside the tape." title="New guide post"><span aria-hidden="true">◎+</span><small>POST</small></button>
+          <button id="newPoolTool" type="button" data-tool="new-pool" aria-pressed="false" aria-label="New delay pool. Select, then touch intact tape or either split half." title="New delay pool"><span aria-hidden="true">↺+</span><small>POOL</small></button>
+          <button id="razorTool" type="button" data-tool="razor" aria-pressed="false" aria-label="Razor tool. Select, then touch tape after REC and before PLAY to fork its sound into two delayed routes." title="Razor: make two timed routes"><span aria-hidden="true">╱</span><small>RAZOR</small></button>
+          <button id="tapeTool" type="button" data-tool="tape" aria-pressed="false" aria-label="Scotch tape. Touch a later stretch to reconnect the blue branch there as an audio mixer, or touch its original join to restore one path." title="Scotch tape"><span aria-hidden="true">▱</span><small>TAPE</small></button>
+          <button id="eraseTool" type="button" data-tool="erase" aria-pressed="false" aria-label="Eraser. Remove a playhead, record head, added or separating post, or delay pool." title="Eraser"><span aria-hidden="true">⌫</span><small>ERASE</small></button>
+        </div>
+        <p id="stageInstructions" class="sr-only">Start with Audio on and forward Play: REC prints the loaded track into one shared loop, and blue PLAY heads read it after the measured travel time. Drag PLAY 01 to hear its delay change. In MOVE, drag an existing post to move just that post, or pull bare tape for one new bend. Choose DRAW to trace multiple bends from bare tape in one stroke. TIME toggles the display only; New Pool adds stored seconds. Razor adds two differently timed virtual routes and a movable blue join. Drag that join onto a later intact stretch before a playhead to Scotch it there as a mixer, or choose Scotch and touch that stretch. On the focused desk, R selects Razor, T Scotch, G Move, D Draw, E Eraser, brackets select a part or either branch, arrows move it, Delete erases the selection and Enter applies the tool. Space plays or pauses.</p>
+        <output id="segmentTiming" class="sr-only" aria-label="Exposed tape segment times at normal speed"></output>
+      </div>
+    </section>
+
+    <aside class="panel tapezoid-panel" data-instrument-preset-host aria-label="Tapezoid controls">
+      <div class="tapezoid-first-listen">
+        <p><strong>Start here</strong> · Turn on Audio. Once the recording reaches blue PLAY 01, drag that head along the tape to change the delay.</p>
+        <p class="tapezoid-first-read"><span id="firstReadHeads">REC 01 → PLAY 01</span><span class="tapezoid-first-time"><output id="firstReadDelay" aria-label="Travel time from REC to first PLAY at normal speed" aria-live="off">0.00 s</output><span>at 1×</span></span></p>
+        <details>
+          <summary>What changes the sound?</summary>
+          <ul>
+            <li><b>Audio / ▶ deck</b> Audio enables sound; ▶ moves the tape. STOP silences it.</li>
+            <li><b>REC / PLAY heads</b> In forward Play, red REC writes the loaded track plus any selected PLAY-head return into <em>one shared looping tape memory</em>. More RECs overdub that same loop at other positions: they do not create tracks, capture your mic or send to a separate output. Blue PLAY heads read the loop into the stereo monitor; set Monitor to 100% tape to hear only them. The masthead Record captures the stereo output separately.</li>
+            <li><b>MOVE / DRAW / TIME</b> MOVE drags one post or adds one bend from bare tape. DRAW traces multiple posts from bare tape. TIME only displays seconds; moving a post or adding a POOL changes travel time and sound.</li>
+            <li><b>RAZOR / TAPE</b> Touch tape after REC and before PLAY with Razor to make two differently timed reads. Scotch rejoins them later as an A/B mixer, or restores one path.</li>
+          </ul>
+          <p id="editCapacity">This desk allows 32 added posts, 6 pools, 4 PLAY and 3 REC heads. Pools share a 12-second loop; heads use bounded real-time audio contacts.</p>
+          <a href="docs/tapezoid.md#phase-studies">Phase studies · two → four → eight ↗</a>
+        </details>
+      </div>
+      <div id="poolAdjust" class="tapezoid-pool-adjust" hidden>
+        <label for="poolSeconds"><b id="poolLabel">Delay pool</b><output id="poolSecondsOut" for="poolSeconds">1.00 s</output></label>
+        <input id="poolSeconds" type="range" min="0.15" max="3" step="0.05" value="1" aria-label="Selected delay pool storage time in seconds" />
+      </div>
+      <div id="junctionAdjust" class="tapezoid-junction-adjust" hidden>
+        <label for="junctionMix"><b>Scotch · A / B mix</b><output id="junctionMixOut" for="junctionMix">50% B</output></label>
+        <input id="junctionMix" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Scotch junction mixer, from amber route to blue route" />
+        <output id="junctionArrival" aria-label="Arrival times of amber and blue tape at Scotch junction"></output>
+      </div>
+      <section class="tapezoid-control-group tapezoid-track-controls" aria-labelledby="trackHeading">
+        <div class="tapezoid-section-heading"><h2 id="trackHeading">On the tape</h2></div>
+        <output id="trackName" aria-label="Loaded track">Afterimage · original track</output>
+        <div class="tapezoid-track-actions">
+          <button id="loadTrack" type="button">Load local track</button>
+          <input id="trackFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac,.aiff" aria-label="Load a local audio track onto the tape" hidden />
+          <button id="originalTrack" type="button">Original track</button>
+        </div>
+        <div class="tapezoid-model-actions">
+          <button id="bundledCassette" type="button" title="Use the bundled Cassette Tape model by joshtmc">Artist cassette</button>
+          <button id="loadCassette" type="button" title="Choose a different cassette .glb from this device">Choose .glb</button>
+          <input id="cassetteFile" type="file" accept=".glb,model/gltf-binary" aria-label="Load a cassette model from your device" hidden />
+          <button id="stockCassette" type="button">Generated shell</button>
+        </div>
+        <output id="cassetteName" aria-label="Cassette model" aria-live="polite">Loading artist cassette…</output>
+        <p class="tapezoid-model-credit">3D model: <a href="https://sketchfab.com/3d-models/cassette-tape-4613411c569d4185a2e07f31b1bf9e49">Cassette Tape by joshtmc</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></p>
+        <p id="cassetteError" class="tapezoid-error" role="alert" hidden></p>
+      </section>
+
+      <section class="tapezoid-control-group tapezoid-echo-controls" aria-labelledby="echoHeading">
+        <div class="tapezoid-section-heading"><h2 id="echoHeading">Tape memory</h2><output id="phaseSeparation" aria-label="Virtual motor separation">0.00 s apart</output></div>
+        <label class="tapezoid-echo-switch" for="printTape"><input id="printTape" type="checkbox" checked /> Print the track onto tape</label>
+        <label class="tapezoid-echo-range" for="feedbackAmount"><span><b>Sound-on-sound</b><output id="feedbackOut" for="feedbackAmount">45%</output></span>
+          <input id="feedbackAmount" type="range" min="0" max="0.88" step="0.01" value="0.45" aria-label="Tape feedback per lap" /></label>
+        <div class="tapezoid-return-head">
+          <label for="returnHead">Return to REC from</label>
+          <select id="returnHead" aria-label="Playback head feeding the record head">
+            <option value="play-1">PLAY 01</option>
+            <option value="play-2">PLAY 02</option>
+          </select>
+        </div>
+        <label class="tapezoid-echo-range" for="echoReturn"><span><b>Head return</b><output id="echoReturnOut" for="echoReturn">0%</output></span>
+          <input id="echoReturn" type="range" min="0" max="0.8" step="0.01" value="0" aria-label="Playback-head return level into REC" /></label>
+        <label class="tapezoid-echo-range" for="monitorMix"><span><b>Monitor · track / tape</b><output id="monitorMixOut" for="monitorMix">75% tape</output></span>
+          <input id="monitorMix" type="range" min="0" max="1" step="0.01" value="0.75" aria-label="Tape playback level in monitor mix" /></label>
+        <div class="tapezoid-return-head">
+          <label for="sourceVoices">Source motors</label>
+          <select id="sourceVoices" aria-label="Number of virtual source motors">
+            <option value="1" selected>SOLO · 1</option>
+            <option value="2">PAIR · 2</option>
+            <option value="4">DOUBLE · 4</option>
+            <option value="8">DOUBLE · 8</option>
+          </select>
+        </div>
+        <label class="tapezoid-echo-range" for="phaseSlip"><span><b>Source motor slip</b><output id="phaseSlipOut" for="phaseSlip">0.0%</output></span>
+          <input id="phaseSlip" type="range" min="0" max="0.06" step="0.001" value="0" aria-label="Fastest virtual source motor speed offset" /></label>
+        <div class="tapezoid-memory-actions">
+          <button id="syncMotors" type="button">Re-sync motors</button>
+          <button id="eraseEcho" type="button">Erase tape memory</button>
+        </div>
+      </section>
+
+      <section class="tapezoid-control-group" aria-label="Editing and recovery">
+        <div class="tapezoid-edit-actions">
+          <button id="joinButton" class="tapezoid-join" type="button" disabled>Scotch · restore one path</button>
+          <button id="undoButton" type="button" disabled>Undo</button>
+          <button id="resetButton" type="button" data-reset-all data-reset-in-place>Reset</button>
+        </div>
+        <p id="feedback" class="tapezoid-feedback" role="status" aria-live="polite"></p>
+        <p id="audioError" class="tapezoid-error" role="alert" hidden></p>
+      </section>
+      <p class="tapezoid-boundary"><a href="docs/tapezoid.md">Controls &amp; limitations ↗</a></p>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/tapezoid/tapezoid-app.js"></script>
+</body>
+</html>

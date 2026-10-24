@@ -512,7 +512,11 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   const pickerGroups = expectedPickerGroups();
   const basePickerGroups = expectedBasePickerGroups();
   const pickerTools = pickerGroups.flatMap((group) => group.tools);
-  assert.equal(pickerGroups.some(({ id }) => id === "wip"), false);
+  assert.deepEqual(
+    pickerGroups.find(({ id }) => id === "wip")?.tools.map(({ id }) => id),
+    ["tapezoid"],
+    "Tapezoid is the sole reviewed WIP Choose-menu exception",
+  );
   assert.deepEqual(
     picker.findAll((node) => node.classList.contains("instrument-picker-group-title"))
       .map((heading) => heading.querySelector(".instrument-picker-group-label").textContent),

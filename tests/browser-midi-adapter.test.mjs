@@ -272,6 +272,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "enveloper",
     "penrose-tilings",
     "algorithmic-mazes",
+    "tapezoid",
     "paths",
     "yoyodyne",
     "globule-damacy",

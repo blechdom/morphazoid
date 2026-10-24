@@ -177,6 +177,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, click the ring to add a splice, then shift-click two splices to connect them with a chord.",
     ["Mic input", "Pointer", "Self-contained app"],
   ),
+  "tapezoid": define(
+    "Overhead 3D tape instrument · work in progress",
+    "One cassette feeds a moving tape maze. Grab bare tape to draw several turns across the desk in one stroke; the route changes a bounded recording loop's travel and echo. Add movable REC/PLAY heads, up to 32 posts, and zigzag delay pools. Reich-inspired two/four/eight virtual-motor phase studies use original or local audio; head-to-REC feedback is a separate echo. TIME labels each stretch. Razor forks continuous routes with different arrivals; move its end or use Scotch on later tape for an adjustable A/B mixer, or Scotch the original join to restore one path. Bundled CC BY-SA 4.0 artist cassette by joshtmc, optional local GLB or generated shell. No microphone recording.",
+    "Turn on Audio for Afterimage, then grab the bare tape and draw a maze. Try the Phase studies, or add a pool and Razor to send two paths out of sync; Scotch their new join to mix the arrivals.",
+    ["Original track", "Local audio file", "Bundled 3D cassette", "Local 3D model", "3D", "Pointer", "Touch", "Freehand tape routing", "Tape echo", "Phase studies", "Delay pools", "Editable heads and posts", "Razor, fork and patch", "Presets"],
+  ),
   "onset-atlas": define(
     "Segmentation preview",
     "Segments a phrase into families and proposes a transition graph, showing the measured order period so a collapse is visible before the graph is accepted.",

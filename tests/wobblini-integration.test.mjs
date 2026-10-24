@@ -14,6 +14,7 @@ import { restoreWobbliniSite, wobbliniSiteChanges } from './helpers/wobblini-sit
 import { restoreWipRolloutSite } from './helpers/wip-rollout-site-reference.mjs';
 import { restoreEsi32Site } from './helpers/esi-32-site-reference.mjs';
 import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
+import { restoreTapezoidSite } from './helpers/tapezoid-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const digest = (source, file) => createHash('sha256').update(restoreStaircaseSpiralRuntime(source, file)).digest('hex');
@@ -130,7 +131,11 @@ test('Wobblini controls copy peels to the exact previous publication without hid
 test('Wobblini performance amendments preserve preceding bytes and expose unrelated drift', async () => {
   assert.equal(wobbliniDjaySiteChanges.baseCommit, '263f00b37166552d3714989ebdb8adf54d9ed4f7');
   for (const change of wobbliniDjaySiteChanges.changes) {
-    const source = restoreRoachPerformance(await readFile(new URL(change.file, root), 'utf8'), change.file);
+    // Keep the older approved hash while requiring Tapezoid's exact additive rows.
+    const source = restoreTapezoidSite(
+      restoreRoachPerformance(await readFile(new URL(change.file, root), 'utf8'), change.file),
+      change.file, { allowRestored: true },
+    );
     const restored = restoreWobbliniDjaySite(source, change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256);
     assert.equal(restoreWobbliniDjaySite(restored, change.file, { allowRestored: true }), restored);

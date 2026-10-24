@@ -182,6 +182,24 @@ original demo material, explicit Audio, direct stage gestures, and four
 recoverable presets. Names are provisional; all five are Works in progress.
 [Models, boundaries, and recording behavior](docs/starting-instruments.md).
 
+**[Tapezoid](tapezoid.html)** puts a continuous original track—or your local
+audio—on a ribbon routed out of a cassette at the top of an overhead desk.
+Grab bare tape and draw a multi-turn maze in one stroke; drag a post back to
+squeeze its delay. TIME shows each stretch's own length-dependent seconds;
+pools add storage on their stretch. The toolbar adds heads, up to 32 posts,
+delay pools, Razor, Scotch and Eraser. Reich-inspired two-, four- and eight-loop phase studies
+use original or local audio; head-to-REC feedback is a separate tape echo.
+Razor makes two continuous paths with different arrivals, rejoining before
+the next part by default. Drag the blue end to a later tape segment—or touch
+that segment with Scotch—to make an adjustable A/B mixer. Scotch at the original
+join restores one path. The transport sits above one
+cassette: the downloaded [“Cassette Tape” by joshtmc](https://sketchfab.com/3d-models/cassette-tape-4613411c569d4185a2e07f31b1bf9e49)
+(CC BY-SA 4.0) is now the default 3D model. Choose a different local GLB or
+the generated shell instead. Audio starts off; REC prints the track,
+**not microphone input**.
+Find it in Work in Progress.
+[Controls and limitations](docs/tapezoid.md).
+
 Tape Worm and Loop Soup now support up to eight movable loops with center
 record/pause/mute/solo controls and live directed-route editing. Tape Worm routes
 transfer its reader at per-route gates; Loop Soup routes feed filtered audio.

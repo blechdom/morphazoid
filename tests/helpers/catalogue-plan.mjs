@@ -18,6 +18,10 @@ export const mainAdditions = [
     categoryId: 'wip', categoryLabel: 'Work in Progress',
     tags: [{ id: 'voice', label: 'Voice' }, { id: 'graphic-ui', label: 'Graphic-UI' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
+  // Tapezoid is the cassette maze in Work in Progress.
+  { id: 'tapezoid', label: 'Tapezoid', href: 'tapezoid.html', imageHref: 'assets/instruments/tapezoid.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: '3d', label: '3D' }, { id: 'graphic-ui', label: 'Graphic-UI' }] },
   // October 15: eight-deck Wobblini; October 16 owner request removes looping.
   { id: 'wobblini', label: 'Wobblini', href: 'wobblini.html', imageHref: 'assets/instruments/wobblini.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',

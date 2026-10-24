@@ -1,0 +1,25 @@
+Cassette Tape — 3D model and embedded textures
+
+Creator: joshtmc (https://sketchfab.com/joshtmc)
+Original: https://sketchfab.com/3d-models/cassette-tape-4613411c569d4185a2e07f31b1bf9e49
+License: Creative Commons Attribution-ShareAlike 4.0 International
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Attribution: "Cassette Tape" by joshtmc, licensed under CC BY-SA 4.0.
+The license, creator, title, and source are also recorded in the GLB's
+asset.extras metadata. This is not the different cassette at
+https://sketchfab.com/3d-models/cassette-a9534b2dcaa94b299f1a5ae029517c3c.
+
+The bundled cassette-tape.glb is the user's 1024-pixel-texture download,
+included byte-for-byte without changing the mesh or textures. Its SHA-256 is
+19f27f4eb2b0c5463623dd1479fee7e6874c3b8f2df88bd022f28ef325009668.
+It has one textured mesh (3,837 vertices), three embedded images, and no
+separately authored reel nodes or animation. The browser partitions six
+disconnected mesh components into two rotating reels *in memory*, and renders
+the plastic as an opaque depth layer with translucent windows. The distributed
+GLB itself remains unchanged. The tape path, transport, ports, heads and tools
+are separate Morphazoid geometry/code. An artist-model failure falls back to
+the generated shell. There is no claim of endorsement by the model's creator.
+
+The model and any adaptations of the model retain CC BY-SA 4.0; separately
+authored Morphazoid source code remains under the repository's MIT license.

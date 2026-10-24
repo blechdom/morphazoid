@@ -2010,6 +2010,18 @@ copy+require	src/instruments/trackazoid/beat-analysis-client.js
 copy+require	src/instruments/trackazoid/demo-tracks.js
 copy+require	assets/instruments/trackazoid.webp
 copy+require	docs/trackazoid.md
+# Tapezoid: overhead 3D tape with freehand routing and continuous virtual forks.
+copy+require	src/instruments/tapezoid/tapezoid-app.js
+copy+require	src/instruments/tapezoid/tapezoid.css
+copy+require	src/instruments/tapezoid/artist-cassette.js
+copy+require	src/instruments/tapezoid/path.js
+copy+require	src/instruments/tapezoid/full-presets.js
+copy+require	src/instruments/tapezoid/demo-material.js
+copy+require	src/instruments/tapezoid/tapezoid-processor.js
+copy+require	assets/instruments/tapezoid.webp
+copy+require	assets/tapezoid/cassette-tape.glb
+copy+require	assets/tapezoid/cassette-tape.LICENSE.txt
+copy+require	docs/tapezoid.md
 # Standalone Blech MIDI drawing, stamps and automata.
 copy+require	src/instruments/blech-midi/blech-midi-app.js
 copy+require	src/instruments/blech-midi/blech-midi.css

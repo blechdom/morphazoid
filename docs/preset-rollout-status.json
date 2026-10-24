@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 55,
-    "fullPresets": 2273,
+    "implemented": 56,
+    "fullPresets": 2293,
     "favesImplemented": 19,
     "activeRemaining": 58,
     "regularRemaining": 130
@@ -1816,6 +1816,16 @@
       "status": "deferred"
     },
     {
+      "id": "tapezoid",
+      "label": "Tapezoid",
+      "href": "tapezoid.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 20,
+      "status": "implemented-verification-pending",
+      "evidence": "Twenty complete route/head/post/storage-pool/continuous-fork/patch scenes include three Reich-inspired virtual phasing studies and two echo/fork extensions. Freehand gestures and bounded full-scene dice are covered in tests/tapezoid-model.test.mjs, tests/tapezoid-processor.test.mjs and e2e/tapezoid.spec.mjs. Human listening and physical touch remain unperformed."
+    },
+    {
       "id": "onset-atlas",
       "label": "Onset Atlas",
       "href": "onset-atlas.html",
@@ -2033,6 +2043,7 @@
       "exceptional",
       "head-shed",
       "splice-ring",
+      "tapezoid",
       "onset-atlas",
       "synaptic-resonance",
       "globule-damacy",

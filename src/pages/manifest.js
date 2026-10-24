@@ -196,6 +196,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "syrinx-ui.html",
   "syrinx.html",
   "tape-worm.html",
+  "tapezoid.html",
   "time-loom.html",
   "tempo-tantrum.html",
   "tesselation.html",

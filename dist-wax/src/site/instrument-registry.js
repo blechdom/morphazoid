@@ -269,6 +269,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "exceptional", label: "Exceptional", href: "exceptional.html" },
     { id: "head-shed", label: "Head Shed", href: "head-shed.html" },
     { id: "splice-ring", label: "Splice Ring", href: "splice-ring.html" },
+    { id: "tapezoid", label: "Tapezoid", href: "tapezoid.html", picker: true, imageHref: "assets/instruments/tapezoid.webp" },
     { id: "onset-atlas", label: "Onset Atlas", href: "onset-atlas.html" },
     { id: "synaptic-resonance", label: "Synaptic Resonance", href: "synaptic-resonance.html" },
     { id: "globule-damacy", label: "Globule Damacy", href: "globule-damacy.html", imageHref: "assets/instruments/globule-damacy.webp" },

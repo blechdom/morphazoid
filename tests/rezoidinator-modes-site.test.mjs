@@ -12,6 +12,7 @@ import { restoreRustResonatorSite } from './helpers/simd-resonator-rust-site-ref
 
 const file = 'scripts/site/runtime-files.tsv';
 // Remove the independently tested Time Loom, Witch and mobile presentation additions.
+// The shared reference reader has already peeled the newer Tapezoid rows.
 const source = restoreMobileMenubar(restoreWitchSite(restoreTimeLoomSite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file, { allowRestored: true }), file), file);
 const digest = value => createHash('sha256').update(value).digest('hex');
 

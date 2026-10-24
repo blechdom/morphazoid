@@ -182,9 +182,12 @@ Knowledge Labels remain applicable.
 
 ## Three.js
 
-Dentaphone, Nightingale Manifold, and Acoustic Manifold vendor Three.js 0.185.1
-for local, offline-safe WebGL rendering. Dentaphone also vendors the GLTFLoader
-utilities needed by its anatomical jaw:
+Dentaphone, Nightingale Manifold, Acoustic Manifold, and Tapezoid use the
+existing local Three.js 0.185.1 bundle for offline-safe WebGL rendering.
+Tapezoid's tape, ports, tools and fallback shell are code-generated. Its default
+cassette is the credited model below. A performer can replace it with their own
+GLB for a local session without uploading or redistributing that chosen model.
+Dentaphone and Tapezoid use the vendored GLTFLoader utilities:
 
 - https://threejs.org/
 - https://github.com/mrdoob/three.js
@@ -194,6 +197,20 @@ Copyright © 2010-2026 three.js authors
 Three.js is MIT-licensed. The complete license text is in
 `vendor/three/LICENSE.txt`. Dentaphone's vendored loader utility imports were
 changed only to point at the adjacent local Three.js ESM build.
+
+## Tapezoid cassette
+
+[“Cassette Tape” by joshtmc](https://sketchfab.com/3d-models/cassette-tape-4613411c569d4185a2e07f31b1bf9e49)
+is licensed under [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+The author's 3D model and its three embedded textures are distributed unchanged
+in `assets/tapezoid/cassette-tape.glb` (SHA-256
+`19f27f4eb2b0c5463623dd1479fee7e6874c3b8f2df88bd022f28ef325009668`).
+The bundled file is the user's smaller-texture download, **not** the cassette
+from the earlier Sketchfab link `cassette-a9534b2dcaa94b299f1a5ae029517c3c`.
+The full credit, original source, license and model limitations are alongside it
+in [`assets/tapezoid/cassette-tape.LICENSE.txt`](../assets/tapezoid/cassette-tape.LICENSE.txt).
+The model and adaptations retain CC BY-SA 4.0; separately authored Morphazoid
+code remains MIT. The creator has not endorsed the instrument.
 
 ## Fluid Music Open Drums / Hyperreal TR-808 and TR-909 samples
 

@@ -1,5 +1,20 @@
 # Full-instrument preset rollout
 
+## October 18 — Tapezoid routed tape workbench
+
+Tapezoid joins Work in Progress with twenty complete route, head, continuous-fork,
+storage-pool, patch, feedback, print and virtual-motor-slip scenes, including
+three Reich-inspired phasing studies and two original echo/fork studies. Its pure,
+bounded dice varies every factory guide, added post, REC/PLAY head, storage
+duration and tape-memory control, with optional separating posts and automatic
+joins; Audio, output level, tape contents,
+loaded PCM/3D model, tape motion,
+phase and edit history remain performer-owned. The shared preset row stays at
+the top of the scrollable control rail. Model and browser interaction checks are in
+`tests/tapezoid-model.test.mjs` and `e2e/tapezoid.spec.mjs`. Status remains
+`implemented-verification-pending`; human listening and physical touch have
+not been performed. See [Tapezoid](tapezoid.md).
+
 ## October 15 — Shared preset row on 56 more instruments
 
 FM Drums, the Shape/Solid/Hyper/Graph/Lattice/Spiral/L-System/Sample drum machines,

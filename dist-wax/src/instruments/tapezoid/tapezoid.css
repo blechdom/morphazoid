@@ -1,0 +1,282 @@
+/* An overhead workbench with its own cassette-player fascia, inside the
+   Morphazoid shell, masthead and scrollable preset/control rail. */
+.tapezoid-page {
+  --tape-pink: #ff6686;
+  --tape-blue: #7cdbed;
+  --tape-yellow: #dafa72;
+  background: #090e16;
+}
+.tapezoid-shell { min-height: 0; overflow: hidden; }
+.tapezoid-page .tapezoid-workspace { min-height: 0; border: 0; box-shadow: none; background: #101722; }
+.tapezoid-stage-wrap {
+  --tool-rail: 46px;
+  min-height: 0; isolation: isolate; flex: 1; overflow: hidden;
+  background: #101722;
+}
+/* The dock owns its own thin strip: no editing tool sits over the drag canvas. */
+.tapezoid-scene { position: absolute; inset: 0 var(--tool-rail) 0 0; cursor: grab; touch-action: none; }
+.tapezoid-scene:active { cursor: grabbing; }
+.tapezoid-scene.drawing { cursor: crosshair; }
+.tapezoid-scene.razor { cursor: crosshair; }
+.tapezoid-scene.tape { cursor: cell; }
+.tapezoid-scene.placing, .tapezoid-scene.erasing { cursor: crosshair; }
+.tapezoid-scene:focus-visible { outline: 2px solid var(--tape-yellow); outline-offset: -4px; }
+.tapezoid-scene.dragging-model::after {
+  position: absolute; inset: 12px; display: grid; place-items: center;
+  border: 2px dashed var(--tape-yellow); background: #101722d9;
+  color: #f4f5ec; content: "DROP CASSETTE .GLB";
+  font: 750 clamp(15px, 2vw, 24px)/1.3 var(--mono);
+  letter-spacing: .08em; pointer-events: none;
+}
+.tapezoid-scene canvas { display: block; width: 100%; height: 100%; }
+/* Timings follow the projected ribbon, but never steal a tape gesture. */
+.tapezoid-time-labels {
+  position: absolute; z-index: 3; inset: 0 var(--tool-rail) 0 0;
+  overflow: hidden; pointer-events: none;
+}
+.tapezoid-time-labels[hidden] { display: none; }
+.tapezoid-time-label {
+  position: absolute; transform: translate(-50%, -50%);
+  padding: 2px 4px; border-radius: 2px;
+  background: #121e28dc; color: #fae5ae;
+  font: 700 10px/1.2 var(--mono);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.tapezoid-time-label.branch { color: var(--tape-blue); }
+.tapezoid-time-label.junction { color: #f5b2c1; }
+.tapezoid-title { position: absolute; z-index: 1; top: 14px; left: 20px; pointer-events: none; }
+.tapezoid-title h1 {
+  margin: 0; color: #f4f5f0; font: 800 clamp(25px, 3.1vw, 42px)/1 var(--mono);
+  letter-spacing: -.07em; text-transform: uppercase;
+}
+/* The player follows the cassette until extreme zoom would make PLAY smaller
+   than a usable touch target. Keys reflow instead of clipping at its sides. */
+.tapezoid-deck {
+  position: absolute; z-index: 2; top: var(--transport-top, 10px);
+  left: var(--transport-center-x, 50%);
+  display: grid; width: var(--transport-width, 220px);
+  min-width: 52px; padding: 2px; gap: 2px;
+  transform: translateX(-50%);
+  background: #263640ed;
+  container-type: inline-size;
+}
+.tapezoid-deck-display {
+  display: flex; min-width: 0; min-height: 14px; padding: 0 4px;
+  align-items: center; justify-content: space-between; gap: 5px;
+  background: #172921; color: var(--tape-yellow);
+  font: 700 8px/1.2 var(--mono);
+}
+.tapezoid-deck-brand { display: none; }
+#trackClock { font: 700 11px/1 var(--mono); }
+#tapeStatus { min-width: 0; overflow: hidden; color: #ffb48e; font-size: 8px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+#speedValue { color: #c2dcad; font-size: 8px; text-align: right; }
+@container (max-width: 120px) {
+  .tapezoid-deck-display #tapeStatus { display: none; }
+}
+@container (max-width: 85px) {
+  .tapezoid-deck-display #speedValue { display: none; }
+}
+.tapezoid-panel { background: #111a23; overscroll-behavior-y: contain; }
+.tapezoid-first-listen {
+  margin: 9px 18px 0; padding-bottom: 12px; border-bottom: 1px solid #34414e;
+  color: #e0e9e5; font: 600 11px/1.45 var(--mono);
+}
+.tapezoid-first-listen p { margin: 0 0 6px; }
+.tapezoid-first-listen strong { color: var(--tape-yellow); text-transform: uppercase; letter-spacing: .06em; }
+.tapezoid-first-read { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 6px; font-variant-numeric: tabular-nums; }
+.tapezoid-first-read > span:first-child { white-space: nowrap; }
+.tapezoid-first-time { display: inline-flex; align-items: baseline; gap: 6px; margin-left: auto; white-space: nowrap; }
+.tapezoid-first-time output { color: var(--tape-blue); font-weight: 750; }
+.tapezoid-first-time span { color: #a8b9bc; }
+.tapezoid-first-listen summary { color: var(--tape-blue); cursor: pointer; }
+.tapezoid-first-listen summary:focus-visible { outline: 2px solid var(--tape-yellow); outline-offset: 2px; }
+.tapezoid-first-listen ul { margin: 8px 0; padding-left: 18px; }
+.tapezoid-first-listen li + li { margin-top: 6px; }
+.tapezoid-first-listen #editCapacity { margin-top: 8px; color: #a8b9bc; }
+.tapezoid-first-listen a { color: var(--tape-blue); text-underline-offset: 2px; }
+.tapezoid-control-group { padding: 17px 18px 16px; border-bottom: 1px solid #34414e; }
+.tapezoid-section-heading { display: flex; margin-bottom: 13px; align-items: center; justify-content: space-between; gap: 10px; }
+.tapezoid-section-heading h2 { margin: 0; color: #f4f2ed; font: 750 12px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .07em; }
+.tapezoid-section-heading output { color: var(--tape-yellow); font: 650 11px/1.2 var(--mono); white-space: nowrap; }
+.tapezoid-transport {
+  display: grid; width: 100%; min-width: 0; gap: 2px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.tapezoid-transport button {
+  display: flex; min-width: 0; min-height: 40px; padding: 3px 1px;
+  flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 1px solid #71828a;
+  background: #465963;
+  color: #f4f5ec; cursor: pointer;
+}
+.tapezoid-transport button:hover { background: #607681; }
+.tapezoid-transport button:active, .tapezoid-transport button[aria-pressed="true"] {
+  border-color: var(--tape-yellow); background: #30444a;
+  color: var(--tape-yellow);
+}
+.tapezoid-transport button:focus-visible, .tapezoid-track-actions button:focus-visible,
+.tapezoid-model-actions button:focus-visible, .tapezoid-memory-actions button:focus-visible,
+.tapezoid-return-head select:focus-visible, .tapezoid-toolbar button:focus-visible,
+.tapezoid-pool-adjust input:focus-visible, .tapezoid-junction-adjust input:focus-visible {
+  outline: 2px solid var(--tape-yellow); outline-offset: 2px;
+}
+.tapezoid-transport button > span { font: 750 14px/1 var(--mono); letter-spacing: -.14em; }
+.tapezoid-transport small { font: 750 8px/1.2 var(--mono); }
+.tapezoid-track-controls #trackName {
+  display: block; overflow: hidden; margin-bottom: 12px;
+  color: var(--tape-yellow); font: 650 12px/1.35 var(--mono); text-overflow: ellipsis; white-space: nowrap;
+}
+.tapezoid-track-actions, .tapezoid-model-actions { display: flex; gap: 7px; }
+.tapezoid-model-actions { margin-top: 8px; gap: 4px; }
+.tapezoid-track-actions button, .tapezoid-model-actions button {
+  min-width: 0; min-height: 42px; padding: 7px 10px; flex: 1; border: 1px solid #566373;
+  border-radius: 4px; background: #26313c; color: #f4f2ed; cursor: pointer;
+  font: 700 10px/1.2 var(--mono);
+}
+.tapezoid-model-actions button { padding-inline: 5px; }
+.tapezoid-track-actions button:hover, .tapezoid-model-actions button:hover { background: #35424d; }
+.tapezoid-track-controls #cassetteName {
+  display: block; margin-top: 6px; overflow: hidden;
+  color: #afc2c8; font: 600 10px/1.4 var(--mono);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.tapezoid-model-credit { margin: 4px 0 0; color: #afc2c8; font: 600 10px/1.4 var(--mono); }
+.tapezoid-model-credit a { color: var(--tape-blue); text-underline-offset: 2px; }
+.tapezoid-echo-controls { display: grid; gap: 12px; }
+.tapezoid-echo-controls .tapezoid-section-heading { margin-bottom: 0; }
+.tapezoid-echo-controls .tapezoid-section-heading output { color: var(--tape-blue); }
+.tapezoid-echo-switch {
+  display: flex; min-height: 38px; gap: 9px; align-items: center;
+  color: #f0efe7; font: 700 11px/1.3 var(--mono); cursor: pointer;
+}
+.tapezoid-echo-switch input { width: 18px; height: 18px; flex: none; accent-color: var(--tape-pink); }
+.tapezoid-echo-range { display: grid; gap: 4px; color: #f0efe7; font: 680 11px/1.2 var(--mono); }
+.tapezoid-echo-range span { display: flex; justify-content: space-between; gap: 8px; }
+.tapezoid-echo-range output { color: var(--tape-pink); }
+.tapezoid-echo-range input { width: 100%; margin: 0; accent-color: var(--tape-pink); cursor: pointer; }
+.tapezoid-return-head { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 9px; }
+.tapezoid-return-head label { color: #f0efe7; font: 680 11px/1.2 var(--mono); }
+.tapezoid-return-head select {
+  min-width: 112px; min-height: 36px; padding: 5px;
+  border: 1px solid #566373; border-radius: 4px;
+  background: #26313c; color: #f4f2ed; cursor: pointer;
+  font: 700 10px/1.2 var(--mono);
+}
+.tapezoid-memory-actions { display: flex; gap: 7px; }
+.tapezoid-memory-actions button { min-width: 0; min-height: 42px; flex: 1; padding: 7px; border: 1px solid #566373;
+  border-radius: 4px; background: #26313c; color: #f4f2ed; cursor: pointer; font: 700 10px/1.2 var(--mono);
+}
+.tapezoid-memory-actions button:hover { background: #35424d; }
+#eraseEcho { color: #ffb4c3; }
+/* A compact vertical tool dock beside, never on top of, the canvas.
+   Short landscape layouts scroll vertically without sacrificing tape space. */
+.tapezoid-toolbar {
+  position: absolute; z-index: 4; top: 0; right: 0; bottom: 0;
+  display: flex; width: var(--tool-rail); min-width: 0;
+  flex-direction: column; gap: 3px; padding: 6px 3px;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain;
+  background: #151f29;
+  scrollbar-width: thin;
+  touch-action: pan-y;
+}
+.tapezoid-toolbar button {
+  display: flex; width: 100%; min-width: 0; min-height: 38px; flex: 0 0 38px;
+  flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 2px 0; border: 1px solid #4a5b65; border-radius: 2px;
+  background: #293743; color: #f4f2ed; cursor: pointer;
+  font: 720 9px/1 var(--mono); white-space: nowrap;
+}
+.tapezoid-toolbar button > span { font: 800 17px/1 var(--mono); }
+.tapezoid-toolbar button small { font: 730 7px/1 var(--mono); letter-spacing: -.035em; }
+.tapezoid-toolbar button[data-tool="new-play"] > span { color: var(--tape-blue); }
+.tapezoid-toolbar button[data-tool="new-record"] > span { color: #ff96ab; }
+.tapezoid-toolbar button[data-tool="new-post"] > span { color: var(--tape-yellow); }
+.tapezoid-toolbar button[data-tool="new-pool"] > span { color: #cf9fff; }
+.tapezoid-toolbar button[data-tool="tape"] > span { color: #aee4ef; }
+.tapezoid-toolbar #timeButton > span { color: #fae5ae; }
+.tapezoid-toolbar button[data-tool="erase"] > span { color: #ffbb91; }
+.tapezoid-toolbar button:hover:not(:disabled) { background: #3b4a58; }
+.tapezoid-toolbar button[aria-pressed="true"] {
+  border-color: var(--tape-yellow); background: #33413b;
+}
+.tapezoid-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+.tapezoid-pool-adjust {
+  margin: 8px 12px; padding: 9px 12px;
+  border-radius: 4px; background: #202b37ed;
+  color: #ede7f4;
+}
+.tapezoid-pool-adjust[hidden] { display: none; }
+.tapezoid-pool-adjust label { display: flex; justify-content: space-between; gap: 8px; font: 700 11px/1.3 var(--mono); }
+.tapezoid-pool-adjust output { color: #cf9fff; white-space: nowrap; }
+.tapezoid-pool-adjust input { width: 100%; margin: 8px 0 0; accent-color: #cf9fff; cursor: pointer; }
+.tapezoid-junction-adjust {
+  display: grid; gap: 8px; margin: 8px 12px; padding: 9px 12px;
+  border-radius: 4px; background: #202b37ed; color: #ede7f4;
+  font: 700 11px/1.3 var(--mono);
+}
+.tapezoid-junction-adjust[hidden] { display: none; }
+.tapezoid-junction-adjust label { display: flex; justify-content: space-between; gap: 8px; }
+.tapezoid-junction-adjust #junctionMixOut { color: var(--tape-blue); white-space: nowrap; }
+.tapezoid-junction-adjust input { width: 100%; margin: 0; accent-color: var(--tape-blue); cursor: pointer; }
+.tapezoid-junction-adjust #junctionArrival {
+  color: #f5b2c1; font: 650 10px/1.3 var(--mono); font-variant-numeric: tabular-nums;
+}
+.tapezoid-edit-actions { display: flex; gap: 6px; }
+.tapezoid-edit-actions button { min-height: 44px; padding: 7px 9px; border: 1px solid #566373; border-radius: 4px; background: #26313c; color: #f4f2ed; cursor: pointer; font: 700 10px/1.2 var(--mono); }
+.tapezoid-edit-actions button:not(:disabled):hover { background: #384754; }
+.tapezoid-edit-actions .tapezoid-join { flex: 1; border-color: var(--tape-pink); background: #a53554; }
+.tapezoid-edit-actions .tapezoid-join:not(:disabled):hover { background: #ce4a6b; }
+.tapezoid-panel button:disabled { opacity: .52; cursor: not-allowed; }
+.tapezoid-feedback { min-height: 15px; margin: 9px 0 0; color: var(--tape-yellow); font-size: 11px; line-height: 1.4; }
+.tapezoid-error { margin: 8px 0 0; color: #ffd0d9; font-size: 11px; }
+.tapezoid-boundary { margin: 0; padding: 16px 18px 24px; font: 11px/1.55 var(--mono); }
+.tapezoid-boundary a { color: var(--tape-blue); }
+@media (pointer: coarse) {
+  .tapezoid-stage-wrap { --tool-rail: 50px; }
+  .tapezoid-toolbar button { min-height: 42px; flex-basis: 42px; }
+}
+@media (pointer: coarse), (max-width: 960px) {
+  .tapezoid-transport button, .tapezoid-edit-actions button { min-height: 48px; }
+}
+/* The 48px PLAY target stays visible; secondary keys take two rows instead
+   of disappearing past a clipped, scrollbar-less cassette fascia. */
+@container (max-width: 199px) {
+  .tapezoid-transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tapezoid-transport #playButton { grid-column: span 2; min-height: 48px; }
+  .tapezoid-transport button:not(#playButton) { min-height: 36px; }
+}
+@media (pointer: coarse), (max-width: 960px) {
+  @container (max-width: 247px) {
+    .tapezoid-transport { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tapezoid-transport #playButton { grid-column: span 2; }
+    .tapezoid-transport button:not(#playButton) { min-height: 36px; }
+  }
+}
+@container (max-width: 130px) {
+  .tapezoid-transport button:not(#playButton) small { display: none; }
+}
+@container (max-width: 72px) {
+  .tapezoid-transport #playButton,
+  .tapezoid-transport button[data-speed="4"] { grid-column: 1 / -1; }
+  .tapezoid-transport button[data-speed="-4"] > span { font-size: 10px; }
+}
+@media (pointer: coarse) {
+  .tapezoid-track-actions button, .tapezoid-model-actions button,
+  .tapezoid-memory-actions button, .tapezoid-return-head select { min-height: 48px; }
+}
+@media (max-width: 960px) {
+  .tapezoid-shell { grid-template-rows: clamp(345px, 50dvh, 465px) minmax(0, 1fr); }
+  .tapezoid-workspace { position: relative; top: auto; }
+  .tapezoid-panel { min-height: 0; overflow-y: auto; }
+}
+@media (max-width: 520px) {
+  /* Above-left of the cassette: a reflowed deck may have several key rows. */
+  .tapezoid-title { top: 14px; left: 12px; }
+  .tapezoid-title h1 { font-size: 20px; }
+}
+@media (max-width: 960px) and (max-height: 560px) and (orientation: landscape) {
+  .tapezoid-shell { grid-template-columns: minmax(0, 1fr) minmax(280px, 35vw); grid-template-rows: minmax(0, 1fr); }
+  .tapezoid-title { top: 8px; left: 10px; }
+  .tapezoid-title h1 { font-size: 24px; }
+  .tapezoid-control-group { padding: 10px 12px; }
+}
