@@ -116,6 +116,7 @@ function stopGesture() {
 }
 function setScene(scene) { advancePerformanceTime();spellTransition=null;stopGesture(); config.scene=scene; if(scene!=='flight') world.handOpen=scene==='fingers'; sync(); send(); }
 function worldAction(action) {
+  if(action==='moon'||action==='mushrooms')refillShelf();
   if(action==='hand') {
     if(config.scene==='flight') { stopGesture();world.handOpen=!world.handOpen;sync();send(); }
     else setScene(world.handOpen?'brew':'fingers');
@@ -180,7 +181,7 @@ function dropObject(id) {
     spellTransition={from:structuredClone(config),to:target,start:performanceTime+(object.phraseDuration||0),duration:object.flightDuration||1.5,mix:0};
   }
   Object.assign(object,{x:origin.x,y:origin.y,dragging:false,dropped:true,dropAge:0,droppedAt:performanceTime});
-  trigger(object.kind);sync();$('gestureReadout').value=`${object.name} joins the brew. Choose a preset to refill the shelf.`;
+  trigger(object.kind);sync();$('gestureReadout').value=`${object.name} joins the brew. Touch the mushrooms or moon to refill the ingredients.`;
 }
 function advanceSpell() {
   if(!spellTransition)return;
@@ -195,7 +196,7 @@ function captureAnimal(id) {
   advancePerformanceTime();
   const state=visualState(),animal=id==='cat'?getWitchCatFrame(state):getWitchVisitors(state).find(frame=>frame.id===id||frame.animalId===id);
   if(!animal||!animal.active||animal.captured||state.flightLift>.1)return;
-  capturedAnimals[id]={startedAt:performanceTime,from:{x:animal.x,y:animal.y}};
+  capturedAnimals[id]={startedAt:performanceTime,from:{x:animal.x,y:animal.y,rotation:animal.rotation,direction:animal.direction}};
   if(id==='cat')catMeowAt=performance.now();
   send();audio.trigger(`drop-${id}`);$('gestureReadout').value=`${id==='cat'?'Meow! ':''}The ${id} dives into the potion.`;
 }

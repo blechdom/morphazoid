@@ -22,7 +22,7 @@ Brightness remains in Parameters and on the **+ / −** keys.
 | Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
 | Touch a branch | Plays a short phrase from the native L-system synth while reshaping its branches. |
 | Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
-| Click the broom or moon | Toggles flight. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
+| Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
 | Click the giant right mushrooms | Chooses the next complete preset, including sounds, finger animation, scene and colors, and refills the instrument shelves. During flight she stays airborne. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
@@ -43,8 +43,8 @@ and authored sources. They include fast Rubix rhythms, cascading Rattlesnake
 notes, and Puggler's punk drums and Oi. These bites sit within the ongoing mix;
 they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.
-Consumed icons stay absent until another preset, Next, dice or Reset refills
-the scene. Successive ingredient clicks preserve previously used icons. A new
+Consumed icons return when you click the mushrooms or moon, or choose another
+preset, Next, dice or Reset. Successive ingredient clicks preserve previously used icons. A new
 click can redirect an ongoing preset transition; direct musical gestures take
 over from the transition without resetting the audio clocks or output level.
 
@@ -77,6 +77,8 @@ flight.
 The black cat is 20% larger than its preceding appearance and keeps its
 Quadruped gait and contact sounds. It crosses every thirty seconds of Play;
 a mouse and lizard make staggered visits using their own Quadruped anatomy.
+The lizard crawls upside down across the top edge. The mouse follows the left
+edge and bottom, reversing direction on alternate visits to climb up or down.
 Capturing a visitor hides it for the rest of that visit. It can return on a later
 visit. Stop freezes the visitor clock; changing presets does not restart it.
 Ghost portraits keep a quiet background beat while grounded, and can still be
