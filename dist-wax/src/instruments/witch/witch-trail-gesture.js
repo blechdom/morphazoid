@@ -69,6 +69,19 @@ export function witchTrailSpaceAtPoint(point,anchor) {
   return clamp((Math.hypot(finite(point?.x)-finite(anchor?.x),finite(point?.y)-finite(anchor?.y))-100)/650,0,1);
 }
 
+/** Head-local hair pulls reach the same Candy Coil/Sandy Syrup controls as
+ * the sky ropes. Reversing a pull unwinds time/pitch; circling winds feedback.
+ * Every target is bounded and the existing delay smoothers own audible motion. */
+export function witchHairDelayControls(start={},delta={},winding=0) {
+  const x=clamp(delta.x,-300,300),y=clamp(delta.y,-240,240),reach=Math.hypot(x,y);
+  return {
+    trailPull:clamp(finite(start.trailPull,.5)-x/230,0,1),
+    trailTwist:clamp(finite(start.trailTwist,.5)-y/230,0,1),
+    trailSpace:clamp(finite(start.trailSpace,.5)+reach/430,0,1),
+    trailFeedback:clamp(finite(start.trailFeedback,.55)+reach/1050+finite(winding)/(Math.PI*3),0,1),
+  };
+}
+
 /** dt is seconds, input timestamps are milliseconds. dt=0 freezes all state.
  * At most ten 1/120s substeps run; old elapsed time never creates a catch-up loop. */
 export function advanceWitchTrailGesture(state,paths,dt) {

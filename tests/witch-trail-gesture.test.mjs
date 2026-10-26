@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createWitchTrailGesture,beginWitchTrailGesture,moveWitchTrailGesture,
-  releaseWitchTrailGesture,advanceWitchTrailGesture,witchTrailSpaceAtPoint} from '../src/instruments/witch/witch-trail-gesture.js';
+  releaseWitchTrailGesture,advanceWitchTrailGesture,witchTrailSpaceAtPoint,witchHairDelayControls} from '../src/instruments/witch/witch-trail-gesture.js';
 
 const paths=()=>[10,17].map((index,s)=>({index,points:Array.from({length:257},(_,i)=>({x:100+i*3,y:190+s*170+Math.sin(i/14)*22}))}));
 const grabbed=state=>{
@@ -57,4 +57,14 @@ test('extreme captured drags stay finite with bounded nodes and bounded time ste
   }
   releaseWitchTrailGesture(s);advanceWitchTrailGesture(s,dense,1e9);
   assert.ok(s.releaseAge<=1/12+.00001,'a suspended page does not schedule an unbounded catch-up');
+});
+
+test('flying hair pulls and circles reach distinct bounded delay controls',()=>{
+  const start={trailPull:.5,trailTwist:.5,trailFeedback:.35,trailSpace:.2};
+  assert.deepEqual(witchHairDelayControls(start,{x:0,y:0}),start);
+  const back=witchHairDelayControls(start,{x:-170,y:95}),forward=witchHairDelayControls(start,{x:100,y:-80});
+  assert.ok(back.trailPull>.95&&back.trailTwist<.1&&back.trailSpace>.6&&back.trailFeedback>.5);
+  assert.ok(forward.trailPull<.1&&forward.trailTwist>.8);
+  assert.ok(witchHairDelayControls(start,{x:-170,y:95},Math.PI).trailFeedback>back.trailFeedback+.3);
+  for(const delta of [{x:1e9,y:-1e9},{x:NaN,y:Infinity}])for(const value of Object.values(witchHairDelayControls(start,delta,-1e9)))assert.ok(Number.isFinite(value)&&value>=0&&value<=1);
 });

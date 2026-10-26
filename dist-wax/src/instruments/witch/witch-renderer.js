@@ -25,7 +25,7 @@ export const WITCH_LAYOUT = Object.freeze({
   die: Object.freeze({ x: 344, y: 657, r: 38 }),
   moon: Object.freeze({ x: 720, y: 164, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
-  mushrooms: Object.freeze([{x:844,y:610,r:105,scale:2.58}]),
+  mushrooms: Object.freeze([{x:844,y:610,r:52.5,scale:1.29}]),
   ghosts: Object.freeze([
     Object.freeze({id:'creaturazoid',x:300,y:115,r:45,size:115,color:'#a7ccc7'}),
     Object.freeze({id:'monstroid',x:590,y:80,r:44,size:116,color:'#a5bcd3'}),
@@ -238,14 +238,20 @@ function hat(c,state) {
   }
 }
 
-// Hair is a small bundle of fixed-budget strands in head coordinates. The
-// pull vector adds exactly the same displacement to every free tip; roots stay
-// tucked beneath the brim while the playing clock drives the frayed curls.
+// Hair is a small bundle of fixed-budget strands in head coordinates.
+// The sound amount retains its old resting shape. A separate two-dimensional
+// pull moves every tip directly, leaving the scalp fixed; the interior locks
+// wind around that pull instead of constraining the hand to one diagonal.
 function witchHairLocal(state = {}) {
   const amount=clamp(state.hair),lift=clamp(state.flightLift);
   const time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
   const phase=state.reducedMotion?0:(state.flightPhase??time*.72);
   const pull={x:-85,y:48},pullDistance=Math.hypot(pull.x,pull.y);
+  const drag={x:clamp(Number.isFinite(state.hairPullX)?state.hairPullX:0,-300,300),
+    y:clamp(Number.isFinite(state.hairPullY)?state.hairPullY:0,-240,240)};
+  const dragLength=Math.hypot(drag.x,drag.y),pullAmount=clamp(dragLength/300);
+  const tangent=dragLength?{x:drag.x/dragLength,y:drag.y/dragLength}:{x:0,y:0};
+  const twist=(drag.x/300-drag.y/240)*Math.PI;
   const strands=[];
   for(let i=0;i<23;i++) {
     const root={x:-88+i*3.1,y:-24+Math.sin(i*.7)*4},points=[];
@@ -255,8 +261,14 @@ function witchHairLocal(state = {}) {
       const fray=Math.sin(u*29-time*2.7+i*1.9)*amount*5;
       const curl=envelope*(snake*(7+amount*18+lift*32)+fray);
       const sweep=lift*(110+Math.sin(phase*1.4)*23)*u**1.5;
-      points.push({x:root.x-13*free+pull.x*amount*free-sweep+curl,
-        y:root.y+(168+(i%3)*9)*u+pull.y*amount*free-lift*(50+Math.cos(phase*1.4)*21)*free+curl*.63});
+      // Extra knots vanish at both ends: even the wildest flight pull keeps
+      // exact tip tracking and cannot unroot a strand from the witch's head.
+      const loose=envelope*u*pullAmount;
+      const coil=loose*((22+lift*56)*Math.sin(u*(11+pullAmount*10+lift*8)-time*(1.8+lift*3)+i*.79+twist)
+        +(i-11)*1.35*Math.sin(u*8+twist));
+      const fold=loose*(9+lift*24)*Math.sin(u*(20+lift*10)+time*(1.3+lift*2.1)+i*.57-twist);
+      points.push({x:root.x-13*free+pull.x*amount*free-sweep+curl+drag.x*free-tangent.y*coil+tangent.x*fold,
+        y:root.y+(168+(i%3)*9)*u+pull.y*amount*free-lift*(50+Math.cos(phase*1.4)*21)*free+curl*.63+drag.y*free+tangent.x*coil+tangent.y*fold});
     }
     strands.push({points,width:i%3===0?3.1:4.4,index:i});
   }
@@ -265,7 +277,7 @@ function witchHairLocal(state = {}) {
   const targets=[];
   for(const index of [2,6,10])for(const sample of [9,13,17,20])
     targets.push({...strands[index].points[sample],r:11});
-  return {root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,strands,targets};
+  return {root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,drag,pullAmount,strands,targets};
 }
 function headTransform(state = {}, flying = clamp(state.flightLift)>.5) {
   if(flying) {
@@ -280,28 +292,28 @@ function headPoint(point,transform) {
   return {...point,x:transform.x+(cos*point.x-sin*point.y)*transform.scale,
     y:transform.y+(sin*point.x+cos*point.y)*transform.scale};
 }
-/** Render/pick geometry before mushroom warping, using the visible head's
- * transform. The axis and full pull range let pointer motion stay head-relative. */
+/** Render/pick geometry before mushroom warping. Transform converts free X/Y
+ * dragging into head coordinates; axis/range retain the sound/hush projection. */
 export function getWitchHair(state = {}) {
   const local=witchHairLocal(state),transform=headTransform(state);
   const cos=Math.cos(transform.rotation),sin=Math.sin(transform.rotation);
   return {root:headPoint(local.root,transform),tip:headPoint(local.tip,transform),
     axis:{x:cos*local.axis.x-sin*local.axis.y,y:sin*local.axis.x+cos*local.axis.y},
-    pullDistance:local.pullDistance*transform.scale,scale:transform.scale,
+    pullDistance:local.pullDistance*transform.scale,scale:transform.scale,transform,pull:local.drag,
     targets:local.targets.map(point=>({...headPoint(point,transform),r:point.r*transform.scale})),
     strands:local.strands.map(strand=>({...strand,width:strand.width*transform.scale,
       points:strand.points.map(point=>headPoint(point,transform))}))};
 }
 function drawWitchHair(c,state) {
-  const {strands}=witchHairLocal(state),amount=clamp(state.hair),lift=clamp(state.flightLift);
+  const {strands,pullAmount}=witchHairLocal(state),amount=clamp(state.hair),lift=clamp(state.flightLift);
   const colors=['#bcc5ac','#81758e','#6c7286','#92b9ae','#bb9cb9'];
   for(const strand of strands) {
     const points=strand.points.map(point=>[point.x,point.y]);
     line(c,points,INK,strand.width+3.5);
     line(c,points,colors[strand.index%colors.length],strand.width);
     // Fine split ends become tangled and electrically wiry when pulled.
-    if(amount>.01||lift>.01) {
-      const end=strand.points[17],tip=strand.points.at(-1),curl=(amount*12+lift*18)*(strand.index%2?1:-1);
+    if(amount>.01||lift>.01||pullAmount>.01) {
+      const end=strand.points[17],tip=strand.points.at(-1),curl=(amount*12+lift*18+pullAmount*(16+lift*25))*(strand.index%2?1:-1);
       curve(c,[end.x,end.y,tip.x+curl,tip.y-18,tip.x-curl*1.5,tip.y+16,tip.x-8-amount*8,tip.y+7],colors[(strand.index+2)%colors.length],.8+amount*.5);
     }
   }
@@ -678,10 +690,14 @@ export function getWitchRestTrails(state={}) {
     const joinLength=Math.max(0,Math.min(45,width*.15,height*.22,availableX*.85,availableY*.85));
     const a={x:anchor.x+tx*joinLength,y:anchor.y+ty*joinLength};
     const b={x:clamp(end.x+(end.x-next.x)*4,bounds.left,bounds.right),y:clamp(end.y+(end.y-next.y)*4,bounds.top,bounds.bottom)};
+    // The sky coil remains bounded, but a pulled hair tip can reach beyond
+    // the frame. Let only its short joining curve travel with that real tip.
+    const joinBounds={left:Math.min(24,anchor.x),right:Math.max(976,anchor.x),
+      top:Math.min(38,anchor.y),bottom:Math.max(674,anchor.y)};
     for(let i=join;i<=samples;i++) {
       const t=(samples-i)/(samples-join),v=1-t;
-      points[i]={x:clamp(v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,24,976),
-        y:clamp(v*v*v*anchor.y+3*v*v*t*a.y+3*v*t*t*b.y+t*t*t*end.y,38,674)};
+      points[i]={x:clamp(v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,joinBounds.left,joinBounds.right),
+        y:clamp(v*v*v*anchor.y+3*v*v*t*a.y+3*v*t*t*b.y+t*t*t*end.y,joinBounds.top,joinBounds.bottom)};
     }
     return {...trailStyle(index,strandIndex,state),points};
   });

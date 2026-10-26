@@ -3,10 +3,11 @@
 Witches Brew is one continuous animated instrument. Her cauldron voice and
 Gesticules fingers keep playing together, with different foreground balances in
 the presets. The scene starts still and silent. A real click in the picture
-arms Audio and fades in the performance. Pull her hair firmly backward
-to fade out and hold the scene still until the next click. This works on the
-ground and in flight. The full-width picture contains the controls: mushrooms cycle presets, the floor
-die randomizes settings, and hair pulling hushes the scene. There is no preset
+arms Audio and fades in the performance. On the ground, pulling her hair firmly backward fades the
+ensemble over 3.2 seconds, then holds the scene still. Stir the pot to wake it
+again. In flight, hair pulls reshape the shared delay while the ensemble keeps
+playing. The full-width picture contains the controls: mushrooms cycle presets,
+the floor die randomizes settings, and grounded hair pulling hushes the scene. There is no preset
 menu, playback/reset overlay, help button or parameter sidebar.
 The cauldron sits over flickering flames, charred logs and rising embers.
 Brightness remains on the **+ / −** keys.
@@ -18,7 +19,7 @@ Brightness remains on the **+ / −** keys.
 | Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or dice roll; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
 | Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and dice. |
-| Pull her hair | Small tugs stretch the tangles and add scratchy noise. A firm pull backward fades out the whole mix and holds the scene still until the next click. |
+| Pull her hair | Longer two-dimensional tugs stretch and curl the tangles. On the ground, a firm backward pull fades the complete mix over 3.2 seconds before resting; manual stirring fades it back in. In flight, pulling and circling change delay time, pitch travel, echo history and feedback, with no hush. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
@@ -29,7 +30,7 @@ Brightness remains on the **+ / −** keys.
 | Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
-| Click the giant right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
+| Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
 | Click the twenty-sided die | A ringing charm accompanies full-state randomization of every musical and visual setting. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 

@@ -361,7 +361,7 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
     if(snapshot.clearance<30)return false;
     const candidate=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y);
     await page.mouse.move(candidate.x,candidate.y);
-    if(!(await canvas.getAttribute('title'))?.startsWith('Pull her hair back to hush'))return false;
+    if(!(await canvas.getAttribute('title'))?.startsWith('Pull her hair'))return false;
     const fresh=await candidateSnapshot(snapshot.index);
     if(fresh.clearance<30)return false;
     from=stagePoint(fresh.rect,fresh.from.x,fresh.from.y);to=stagePoint(fresh.rect,fresh.to.x,fresh.to.y);
@@ -905,7 +905,7 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       await preset(page,'small-spell');const authored=(await bank(page)).find(item=>item.id==='small-spell').snapshot;
       expect((await state(page)).config).toMatchObject({treeShape:authored.treeShape,treeSpread:authored.treeSpread,treeCurl:authored.treeCurl});
     });
-    test(`${label}: full-width graphic controls and backward hair hush/wake in both modes`,async({page},testInfo)=>{
+    test(`${label}: full-width controls, slow grounded hair hush and flying hair delay`,async({page},testInfo)=>{
       test.setTimeout(60000);await observeWorklet(page);await open(page);
       const touch=label!=='desktop';await wake(page,{touch});
       await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
@@ -919,13 +919,35 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
         const before=await state(page);expectHairInScene(before);
         await dragHair(page,.3,{touch,cancel:true});
         expect((await state(page)).config.hair).toBeGreaterThan(before.config.hair+.15);expect((await state(page)).quiet).toBe(false);
-        await dragHair(page,.85,{touch});
-        expect(await state(page)).toMatchObject({quiet:true,playing:false,audioOn:true,presence:0,config:{scene}});
-        const frozen=await assertFrozen(page);await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
-        expect(await page.evaluate(()=>window.witchGainRamps.some(ramp=>ramp.value===0))).toBe(true);
-        await page.screenshot({path:testInfo.outputPath(`${label}-${scene}-hushed.png`),fullPage:true});
-        await wake(page,{touch});await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(frozen.performanceTime);
+        if(scene==='brew') {
+          await dragHair(page,.85,{touch});
+          expect(await state(page)).toMatchObject({hushing:true,playing:true,audioOn:true,presence:0});
+          const fading=await state(page);
+          expect(fading.presenceLevel).toBeGreaterThan(.1);
+          await page.waitForTimeout(650);
+          const later=await state(page);
+          expect(later.performanceTime).toBeGreaterThan(fading.performanceTime);
+          expect(later.presenceLevel).toBeLessThan(fading.presenceLevel);
+          await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
+          const frozen=await assertFrozen(page);await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
+          // A real ladle turn resumes the complete mix after the long hush.
+          const from=await point(page,440,520);await page.mouse.move(from.x,from.y);await page.mouse.down();
+          for(let i=1;i<=6;i++){const angle=Math.PI+i/6*Math.PI,p=await point(page,600+155*Math.cos(angle),520+48*Math.sin(angle));await page.mouse.move(p.x,p.y);}
+          await page.mouse.up();await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(frozen.performanceTime);
+        } else {
+          const beforePull=await state(page);
+          await dragHair(page,touch?1.3:2.2,{touch});
+          const pulled=await state(page);
+          expect(pulled).toMatchObject({hushing:false,playing:true,audioOn:true,presence:1});
+          expect(Math.abs(pulled.world.hairPullX)+Math.abs(pulled.world.hairPullY)).toBeGreaterThan(70);
+          expect(pulled.config.trailPull).not.toBe(beforePull.config.trailPull);
+          expect(pulled.config.trailTwist).not.toBe(beforePull.config.trailTwist);
+          expect(pulled.config.trailSpace).toBeGreaterThan(beforePull.config.trailSpace);
+          expect(pulled.config.trailFeedback).toBeGreaterThan(beforePull.config.trailFeedback);
+          expect(pulled.performanceTime).toBeGreaterThan(beforePull.performanceTime);
+        }
         expect((await state(page)).config.scene).toBe(scene);await audible(page);
+        await page.screenshot({path:testInfo.outputPath(`${label}-${scene}-hair.png`),fullPage:true});
         await clickWorld(page,'die',{touch});expect((await state(page)).config.scene).toBe(scene);
         // Return to a moderate authored hair amount for the next mode without
         // changing flight or reaching through a removed parameter panel.

@@ -1,5 +1,5 @@
 import { WitchAudio } from './witch-audio.js';
-import { createWitchTrailGesture, beginWitchTrailGesture, moveWitchTrailGesture, releaseWitchTrailGesture, advanceWitchTrailGesture, witchTrailSpaceAtPoint } from './witch-trail-gesture.js';
+import { createWitchTrailGesture, beginWitchTrailGesture, moveWitchTrailGesture, releaseWitchTrailGesture, advanceWitchTrailGesture, witchTrailSpaceAtPoint, witchHairDelayControls } from './witch-trail-gesture.js';
 import { createWitchFabricGesture, beginWitchFabricGesture, moveWitchFabricGesture, releaseWitchFabricGesture, advanceWitchFabricGesture } from './witch-fabric-gesture.js';
 import { WITCH_VOICES, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
 import { blendWitchSpell, witchAccentEnvelope, getWitchBlechFlyby } from './witch-scene-model.js';
@@ -28,7 +28,8 @@ const pendingAccents=[];
 let performanceTime=0,lastPerformanceTick=performance.now();
 const catClock=createWitchCatClock(0,config);
 let catMeowAt=-Infinity, eyeShockAt=-Infinity, spiderAt=-Infinity, webAt=-Infinity, webIndex=0, fabricWindAt=-Infinity;
-let spellTransition=null,lastCatCaptured=false;
+let spellTransition=null,lastCatCaptured=false,hairHush=null;
+const HAIR_HUSH_SECONDS=3.2;
 const capturedAnimals={};
 const fabricGesture=createWitchFabricGesture();
 let fabricTick=0;
@@ -43,7 +44,7 @@ const ghostFrames=Array.from({length:3},()=>({}));
 const fingerPointers = new Map(), fingerKeys = new Set(), arrowKeys = new Set();
 let instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
 let width = 1000, height = 720, presets;
-const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0,hatClicks:0,hatDrop:null};
+const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0,hatClicks:0,hatDrop:null,hairPullX:0,hairPullY:0};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let handReady=false,handSurface=null,handSurfaces=[],pageSuspended=false,audioMotionReady=false;
@@ -53,7 +54,7 @@ audio.onError=error => { audioMotionReady=false;audioOn=false;starting=false;hus
 const sceneCopy = {
   brew: ['She brews her own voice.', 'Stir the pot. Pull her hair back to hush. Touch the moon to fly, mushrooms for a preset, or the die for new settings.', 'Stir for me', 'stirring'],
   fingers: ['An instrument in every finger.', 'Pull her fingertips. Touch the pot to return, the moon to fly, or mushrooms for trouble.', 'Play the hand', 'hand'],
-  flight: ['Music for a midnight ride.', 'Pull the sky noodles to bend the delay. Pull her hair back to hush. Click the moon or broom again to land.', 'Take flight', 'flight'],
+  flight: ['Music for a midnight ride.', 'Pull her hair or the sky noodles to stretch and coil the delay. Click the moon or broom again to land.', 'Take flight', 'flight'],
 };
 function fingerMask() {
   let mask=0;
@@ -79,15 +80,26 @@ function setPlaying(value) {
   if(playing)quietVisual=null;
   else {catMeowAt=-Infinity;if(!audioMotionReady)silentSpeed=0;}
 }
-function hushPerformance() {
-  setPlaying(false);stopGesture();pendingAccents.length=0;audio.releaseAccents();audio.setPresence(0,.8);
+function hushPerformance(fadeSeconds=.8) {
+  hairHush=null;
+  setPlaying(false);stopGesture();pendingAccents.length=0;audio.releaseAccents();audio.setPresence(0,fadeSeconds);
   sync();$('gestureReadout').value='The spell rests. Touch the picture to wake her.';
+}
+function beginHairHush() {
+  if(hairHush||!playing||config.scene==='flight')return;
+  hairHush={until:performance.now()+HAIR_HUSH_SECONDS*1000};
+  // Keep the generators and their clocks alive while the AudioParam fades.
+  // Releasing their gates now would cut the sound off before the long fade.
+  audio.setPresence(0,HAIR_HUSH_SECONDS);sync();
+  $('gestureReadout').value='The brew slowly settles. Stir the pot to wake it again.';
 }
 function cue(kind) {
   if(starting&&!audio.node) {pendingAccents.push(kind);if(pendingAccents.length>4)pendingAccents.shift();return;}
   audio.trigger(kind);
 }
 function wakePerformance() {
+  const fading=Boolean(hairHush);hairHush=null;
+  if(fading)sync();
   if(!playing) {setPlaying(true);send();sync();}
   if(audioOn)audio.setPresence(1,.85);
   else if(!starting)void startAudio();
@@ -99,7 +111,7 @@ function sync() {
   const [caption,hint] = sceneCopy[config.scene];
   $('sceneLabel').textContent=caption;
   const manualHint=[!config.stirAuto?'Turn the ladle to stir; release to let it rest.':'',!config.handAuto?'Her fingers wait for you to bend them.':''].filter(Boolean).join(' ');
-  $('gestureHint').textContent=playing?[hint,manualHint].filter(Boolean).join(' '):'Touch the picture to wake the spell. Pull her hair back to hush it again.';
+  $('gestureHint').textContent=hairHush?'The brew is fading slowly. Stir the pot to wake it again.':playing?[hint,manualHint].filter(Boolean).join(' '):'Stir the pot or touch the picture to wake the spell.';
   $('audioButton').setAttribute('aria-pressed',String(audioOn));
   $('audioState').textContent=starting?'starting':audioOn?'on':'off';
   $('audioButton').disabled=starting;
@@ -195,7 +207,7 @@ function applySpell(snapshot,{refill=true}={}) {
   spellTransition=null;advancePerformanceTime();
   const scene=config.scene;
   stopGesture();releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});config=normalizeWitchPreset({...snapshot,scene});
-  world.trip=config.trip;restoreHat();
+  world.trip=config.trip;restoreHat();world.hairPullX=world.hairPullY=0;
   if(refill)refillShelf();
   send();sync();
 }
@@ -206,7 +218,7 @@ function dropObject(id) {
   const origin=getWitchObjectPosition(object,visualState());
   const spell=WITCH_PRESETS.find(preset=>preset.id===object.presetId);
   if(spell) {
-    restoreHat();
+    restoreHat();world.hairPullX=world.hairPullY=0;
     if(pointer?.type==='trail')stopGesture();
     releaseWitchTrailGesture(trailGesture,{cancel:true});
     const target=normalizeWitchPreset(spell.snapshot);
@@ -254,7 +266,8 @@ async function startAudio() {
     if(disposed||generation!==request)return;
     if(!hadNode) {advancePerformanceTime();audio.syncPhase(silentPhase,silentSpeed,silentHandTime,undefined,silentFlightPhase,silentGhostPhase,snapshotWitchCatClock(catClock),silentFlybyTime,capturedAnimals);}
     audioMotionReady=true;audioOn=true;send();audio.setAudible(!document.hidden);
-    audio.setPresence(playing?1:0,playing?.85:0);
+    if(hairHush)audio.setPresence(0,Math.max(0,(hairHush.until-performance.now())/1000));
+    else audio.setPresence(playing?1:0,playing?.85:0);
     if(playing)for(const kind of pendingAccents.splice(0))audio.trigger(kind);
     else pendingAccents.length=0;
   } catch(error) {audioOn=false;hushPerformance();$('liveStatus').textContent=`Sound could not start: ${error.message}. Touch Audio to try again.`;}
@@ -269,7 +282,7 @@ function resetPerformance() {
   hushPerformance();performanceTime=0;fabricTick=trailTick=0;quietVisual=null;
   releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});
   catMeowAt=eyeShockAt=spiderAt=webAt=fabricWindAt=diceRolledAt=-Infinity;
-  restoreHat();spellTransition=null;
+  restoreHat();world.hairPullX=world.hairPullY=0;spellTransition=null;
   for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id];
   config=normalizeWitchPreset({...WITCH_DEFAULTS,scene});Object.assign(catClock,createWitchCatClock(0,config));
   silentPhase=silentSpeed=ladleOffset=motionTime=silentHandTime=silentFlightPhase=silentGhostPhase=silentFlybyTime=0;
@@ -349,7 +362,7 @@ listen(canvas,'pointerdown',e => {
   const hair=hit.type==='hair'?getWitchHair(initial):null;
   const hat=hit.type==='hat'?getWitchHat(initial):null;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat||hit.type==='fabric'||hit.type==='trail')?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,trailFeedback:config.trailFeedback,trailSpace:config.trailSpace,trailAnchor:hit.type==='trail'?getWitchHair(initial).tip:null,trailAngle:null,trailWinding:0,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairTransform:hair?.transform,hairPullX:world.hairPullX,hairPullY:world.hairPullY,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat||hit.type==='fabric'||hit.type==='trail')?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,trailFeedback:config.trailFeedback,trailSpace:config.trailSpace,trailAnchor:hit.type==='trail'?getWitchHair(initial).tip:null,trailAngle:null,trailWinding:0,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
   if(hit.type==='trail') {
@@ -377,7 +390,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir the pot to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -416,8 +429,18 @@ listen(canvas,'pointermove',e => {
     // from tugging the control underneath a stationary pointer.
     const dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
     const pull=(dx*pointer.hairAxis.x+dy*pointer.hairAxis.y)/Math.max(1,pointer.hairDistance);
+    const transform=pointer.hairTransform,cos=Math.cos(transform.rotation),sin=Math.sin(transform.rotation);
+    const x=(cos*dx+sin*dy)/transform.scale,y=(-sin*dx+cos*dy)/transform.scale;
+    world.hairPullX=clamp(pointer.hairPullX+x,-300,300);world.hairPullY=clamp(pointer.hairPullY+y,-240,240);
     config.hair=clamp(pointer.hair+pull);
-    if(pull>.62)hushPerformance();
+    if(config.scene==='flight') {
+      if(Math.hypot(x,y)>18) {
+        const angle=Math.atan2(y,x);
+        if(pointer.trailAngle!==null)pointer.trailWinding+=Math.atan2(Math.sin(angle-pointer.trailAngle),Math.cos(angle-pointer.trailAngle));
+        pointer.trailAngle=angle;
+      }
+      Object.assign(config,witchHairDelayControls(pointer,{x,y},pointer.trailWinding));
+    } else if(pull>.62&&!pointer.hushed) {pointer.hushed=true;beginHairHush();}
   }
   else if(pointer.type==='hat') {
     const t=pointer.hatTransform,dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
@@ -532,6 +555,11 @@ function draw(now) {
   }
   if(!(audioMotionReady&&audio.node) && playing) silentGhostPhase+=dt*config.ghostTempo/60;
   if(event) { event.age+=dt; if(event.age>3.5) event=null; }
+  if(pointer?.type!=='hair') {
+    const relax=Math.exp(-dt/1.15);
+    world.hairPullX*=relax;world.hairPullY*=relax;
+    if(Math.abs(world.hairPullX)<.01)world.hairPullX=0;if(Math.abs(world.hairPullY)<.01)world.hairPullY=0;
+  }
   if(pointer?.type!=='hat') {
     const relax=reducedMotion.matches?0:Math.exp(-dt/.42);
     world.hatPullX*=relax;world.hatPullY*=relax;
@@ -553,7 +581,9 @@ function draw(now) {
 }
 let readoutTick=0;
 const clock=setInterval(() => {
-  if(document.hidden || disposed) return;
+  if(disposed)return;
+  if(hairHush&&performance.now()>=hairHush.until)hushPerformance(0);
+  if(document.hidden)return;
   advancePerformanceTime();advanceSpell();
   const fabricActive=fabricGesture.held||fabricGesture.audio.fabricPull>0||fabricGesture.audio.fabricVelocity>0;
   advanceWitchFabricGesture(fabricGesture,playing?Math.max(0,Math.min(.08,performanceTime-fabricTick)):0);fabricTick=performanceTime;
@@ -588,7 +618,7 @@ listen(window,'pagehide',e => {
 presets=registerHeaderPresets({id:'witch',host:document.createElement('div'),presets:WITCH_SETTING_PRESETS,capture:()=>witchPresetSettings(config),apply:snapshot=>applySpell(snapshot),randomize:(previous,random)=>witchPresetSettings(randomizeWitchPreset(previous,random))});
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
   const state=visualState(),catTargets=getWitchCatTargets(state),hair=getWitchHair(state);
-  return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime),flybyLevel:audio.visual.flybyLevel??0,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,quiet:!playing,presence:audio.presence,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
+  return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime),flybyLevel:audio.visual.flybyLevel??0,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,hushing:Boolean(hairHush),quiet:!playing,presence:audio.presence,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),
