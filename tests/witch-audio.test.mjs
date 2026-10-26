@@ -284,7 +284,8 @@ test('silent hand transport never arms sound and joins its phase when explicitly
 
 test('flight controls change the shared stereo delay while both original performers continue', () => {
   const slow = playing({ mode: 'flight', speed: .05 }), fast = playing({ mode: 'flight', speed: .95 });
-  render(slow, 2); render(fast, 2);
+  // Longer flight delays take three seconds to reach their slewed targets.
+  render(slow, 3); render(fast, 3);
   assert.ok(fast.delay.feedback > slow.delay.feedback + .18);
   assert.ok(slow.visual.delayTime > fast.visual.delayTime + .05);
   assert.ok(fast.visual.brewLevel > .001 && fast.visual.handLevel > .001);
@@ -294,7 +295,7 @@ test('flight controls change the shared stereo delay while both original perform
   assert.ok(difference(render(low, 3), render(high, 3)) > .01);
   assert.ok(high.visual.delayTime > low.visual.delayTime + .3);
   const left = playing({ mode: 'flight', flightX: 0 }), right = playing({ mode: 'flight', flightX: 1 });
-  assert.ok(difference(render(left, 2), render(right, 2)) > .005);
+  assert.ok(difference(render(left, 3), render(right, 3)) > .005);
   assert.ok(right.delay.delayR > left.delay.delayR * 1.4);
 });
 
@@ -335,7 +336,9 @@ test('takeoff does not restart or automatically repeat over either ongoing perfo
   withLaunch.trigger('launch');
   assert.ok(difference(render(withLaunch, .6), render(musicOnly, .6)) > .02);
   render(withLaunch, WITCH_LAUNCH_DURATION); render(musicOnly, WITCH_LAUNCH_DURATION);
-  render(withLaunch, 8); render(musicOnly, 8);
+  // The stronger, longer flight feedback deliberately keeps audible echoes
+  // longer; they still converge while the underlying performance continues.
+  render(withLaunch, 12); render(musicOnly, 12);
   assert.ok(difference(render(withLaunch, 1), render(musicOnly, 1)) < .00001, 'the finite accent and echoes decay');
   assert.equal(withLaunch.visual.launchEnvelope, 0); assert.ok(withLaunch.visual.mouth > 0, 'singing continues');
   assert.equal(withLaunch.visual.handTime, musicOnly.visual.handTime);
@@ -398,7 +401,7 @@ test('hand focus ducks the voice; flight changes neither performer clock nor the
   assert.ok(Math.abs(interrupted.weights[0] - .18) < 1e-12, 'the hand may remain foreground during flight');
 });
 
-test('all fourteen ingredients feature distinct short solos, duck both performers, then return the mix', () => {
+test('all ingredients add distinct softer bites while the continuing ensemble stays present', () => {
   const sounds = [];
   for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = playing(), reference = playing(); render(dsp, .5); render(reference, .5);
@@ -413,9 +416,10 @@ test('all fourteen ingredients feature distinct short solos, duck both performer
     }
     sounds.push(sound); render(reference, .8);
     assert.equal(dsp.visual.dropKind, kind); assert.ok(dsp.visual.dropEnvelope > .95);
-    assert.ok(soloEnergy > backingEnergy * 1.5, `${kind} takes the foreground over its phrase, including spaces between percussive hits`);
+    assert.ok(soloEnergy > backingEnergy * .06, `${kind} contributes a recognizable bite, including spaces between percussive hits`);
     assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001, 'the performers remain underneath');
-    assert.ok(dsp.visual.brewLevel < reference.visual.brewLevel * .3);
+    assert.ok(dsp.visual.brewLevel > reference.visual.brewLevel * .65 && dsp.visual.brewLevel < reference.visual.brewLevel * .8,
+      'falling sounds sit inside the brew without nearly muting its singer');
     assert.equal(dsp.chantPhase, reference.chantPhase); assert.equal(dsp.visual.handTime, reference.visual.handTime);
     render(dsp, 6); render(reference, 6);
     assert.ok(dsp.visual.dropEnvelope < 1e-6); assert.equal(dsp.visual.dropKind, '');
@@ -432,7 +436,7 @@ test('all four layers coexist in flight; fixed solo slots and the complete mix r
   assert.equal(dsp.drops.slots.length, WITCH_DROP_EFFECTS.length); assert.equal(dsp.drops.hand.voices.length, 5);
   assert.equal(dsp.drops.tastes.spider.voices.length, 24); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
   for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
-  assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .68);
+  assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .8);
   dsp.setControls({ gate: false }); const handTime = dsp.visual.handTime;
   assert.ok(rms(render(dsp, .04)) > .001, 'all layers release smoothly');
   render(dsp, 9);
@@ -462,7 +466,7 @@ test('the shared flight delay has smooth live control changes, bounded feedback 
     delay.next(source, source * .7, true);
     largestStep = Math.max(largestStep, Math.abs(delay.left - previous)); previous = delay.left;
     heardEcho ||= Math.abs(delay.wetLeft) > .01;
-    assert.ok(Number.isFinite(delay.left) && Math.abs(delay.left) <= .54 && delay.feedback <= .68);
+    assert.ok(Number.isFinite(delay.left) && Math.abs(delay.left) <= .54 && delay.feedback <= .8);
   }
   assert.ok(heardEcho); assert.ok(largestStep < .08, 'pointer jumps slew instead of clicking the read head');
   for (let i = 0; i < rate; i++) delay.next(0, 0, false);
@@ -543,6 +547,17 @@ test('audio boundary creates only on start, stays muted until explicitly armed, 
   await audio.dispose(); assert.equal(calls.closed, 1); assert.equal(manager.connectionCount(), 0);
   assert.equal(audio.context, null); assert.equal(audio.node, null);
   await assert.rejects(audio.start(), /disposed/);
+});
+
+test('explicit accent release posts a separate message without arming or changing transport', async () => {
+  const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
+  audio.releaseAccents(); assert.equal(calls.contexts, 0); assert.equal(calls.messages.length, 0);
+  audio.update({ gate: false, ghostGate: false }); await audio.start();
+  const controls = audio.controls, phaseGeneration = audio.phaseGeneration, resumed = calls.resumed;
+  audio.releaseAccents(); assert.deepEqual(calls.messages.at(-1), { type: 'release-accents' });
+  assert.equal(audio.controls, controls); assert.equal(audio.phaseGeneration, phaseGeneration);
+  assert.equal(audio.audible, false); assert.equal(calls.resumed, resumed);
+  await audio.dispose();
 });
 
 test('concurrent start has one graph, and disposal during module loading cannot revive audio', async () => {

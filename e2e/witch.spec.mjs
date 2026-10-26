@@ -8,7 +8,9 @@ async function open(page) {
   await page.waitForFunction(()=>Boolean(window.witchInstrument?.state));
 }
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
-const ingredientIds=['glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir','blowhole','syrinx','throat-singing','julie-saw','puggler'];
+const shelfIds=['glass','tail','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
+const treeIds=['blech','syrinx','eyeball'];
+const ingredientIds=[...shelfIds,...treeIds];
 const ghostIds=['creaturazoid','monstroid','hiccup'];
 async function parameters(page,open=true) {
   const panel=page.locator('#witchParameters');
@@ -79,7 +81,7 @@ async function clickIngredient(page,id,touch=false) {
   const object=await page.evaluate(async id=>{
     const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const state=window.witchInstrument.state,object=state.objects.find(item=>item.id===id);
-    return {...object,...warpWitchPoint(object,{trip:state.config.trip,
+    return {...object,...warpWitchPoint(object,{trip:state.config.trip,visualMode:state.config.visualMode,eyeShock:state.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
       warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000})};
   },id);
   expect(object,`${id} has a visible scene object`).toBeTruthy();
@@ -103,48 +105,88 @@ async function expectIngredientSolo(page,id) {
       solo:visual?.dropLevel>.0001,voice:visual?.brewLevel>.0001,fingers:visual?.handLevel>.0001};
   },`drop-${id}`)).toEqual({triggered:true,kind:`drop-${id}`,solo:true,voice:true,fingers:true});
 }
-async function clickCat(page,{touch=false,part='body'}={}) {
+async function clickWorld(page,key,{touch=false,index=0}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
-  const session=touch?await page.context().newCDPSession(page):null;
-  if(session)await session.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
-  // The diagnostic targets follow the real Quadruped pose and include the
-  // world's current distortion, so this is a click on the visible animal.
-  const snapshot=await page.evaluate(part=>{
-    const state=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-    return {active:state.cat.active,target:state.catTargets?.[part],rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
-  },part);
-  const target=snapshot.target;
-  expect(snapshot.active).toBe(true);expect(target).toBeTruthy();
+  const session=await page.context().newCDPSession(page);
+  const snapshot=await inputSnapshot(session,async({key,index})=>{
+    const {WITCH_LAYOUT,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+    const target=key==='moon'?WITCH_LAYOUT.moon:key==='mushrooms'?WITCH_LAYOUT.mushrooms[0]
+      :key==='web'?{x:993,y:235+(index+.5)*270/7}:current.targets[key];
+    return {target:warpWitchPoint(target,{...current.config,eyeShock:current.eyeShock,
+      reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:performance.now()/1000}),
+      rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{key,index});
+  const from=stagePoint(snapshot.rect,snapshot.target.x,snapshot.target.y);
+  if(touch) {
+    await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+    await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  } else {
+    await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+    await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...from,button:'left',buttons:0,clickCount:1});
+  }
+  await session.detach();
+}
+async function clickAnimal(page,id,{touch=false,part='body'}={}) {
+  await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
+  const session=await page.context().newCDPSession(page);
+  if(touch)await session.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+  const snapshot=await inputSnapshot(session,({id,part})=>{
+    const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+    return {target:(id==='cat'?current.catTargets:current.visitorTargets[id])?.[part],
+      rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{id,part});
+  const target=snapshot.target;expect(target,`${id} has a live ${part} target`).toBeTruthy();
   expect(target.x).toBeGreaterThan(0);expect(target.x).toBeLessThan(1000);
   expect(target.y).toBeGreaterThan(0);expect(target.y).toBeLessThan(720);
   const from=stagePoint(snapshot.rect,target.x,target.y);
-  if(session) {
+  if(touch) {
     await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
     await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await session.detach();
-  } else await page.mouse.click(from.x,from.y);
-  return target;
+    await session.send('Emulation.setTouchEmulationEnabled',{enabled:false});
+  } else {
+    await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+    await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...from,button:'left',buttons:0,clickCount:1});
+  }
+  await session.detach();return target;
 }
 async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
   const session=await page.context().newCDPSession(page);
+  await page.locator('#witchCanvas').evaluate((canvas,id)=>{
+    window.witchGhostPointerId=null;
+    canvas.addEventListener('pointerdown',event=>{
+      window.witchGhostPointerId=event.pointerId;
+      const current=window.witchInstrument.state;
+      window.witchGhostDown={id,title:canvas.title,clientX:event.clientX,clientY:event.clientY,
+        ghost:current.ghosts.find(ghost=>ghost.id===id),config:current.config,world:current.world};
+    },{once:true,capture:true});
+  },id);
   const candidateSnapshot=(offset=null)=>inputSnapshot(session,async({id,dy,offset})=>{
-    const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    const {warpWitchPoint,getWitchGhostPosition,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,ghost=current.ghosts.find(item=>item.id===id);
     const rect=document.querySelector('#witchCanvas').getBoundingClientRect(),minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
-    const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+    const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
     const blockers=[...current.fingerTips.map(point=>({...point,r:minRadius})),
       ...current.hands.slice(0,1).flatMap(hand=>hand.palm?[{...hand.palm,r:minRadius},{...hand.wrist,r:minRadius*.55}]:[]),
       ...current.hairGeometry.strands.flatMap(strand=>strand.points.map(point=>({...point,r:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32))}))),
       ...['nose','hat','tone','fabric'].map(key=>({...warpWitchPoint(current.targets[key],visual),r:Math.max(current.targets[key].r,minRadius*.7)})),
       ...current.objects.filter(object=>!object.dropped).map(object=>({...warpWitchPoint(object,visual),r:object.r+8})),
       {...warpWitchPoint({x:current.ladle.hx-8,y:current.ladle.hy-24},visual),r:Math.max(27,minRadius*.75)}];
-    const offsets=offset?[offset]:[[0,0],[-.65,0],[0,-.65],[0,.65],[.65,0],[-.46,-.46],[.46,-.46],[-.46,.46],[.46,.46]];
+    const offsets=offset?[offset]:[[0,0],[-.35,0],[0,-.35],[0,.35],[.35,0],[-.25,-.25],[.25,-.25],[-.25,.25],[.25,.25],[-.65,0],[0,-.65],[0,.65],[.65,0],[-.46,-.46],[.46,-.46],[-.46,.46],[.46,.46]];
+    const rawGhost=getWitchGhostPosition(id,{ghostPhase:ghost.phase}),pot=WITCH_LAYOUT.cauldron;
     const candidates=offsets.map(offset=>{
-      const from={x:ghost.x+offset[0]*ghost.r,y:ghost.y+offset[1]*ghost.r};
-      return {offset,from,to:{x:from.x,y:from.y+dy},clearance:Math.min(...blockers.map(blocker=>Math.hypot(from.x-blocker.x,from.y-blocker.y)-blocker.r))};
+      // A vertical offset crosses different static/VHS strips, so offset the
+      // raw wisp before applying the same warp as the painted scene.
+      const raw={x:rawGhost.x+offset[0]*ghost.r,y:rawGhost.y+offset[1]*ghost.r};
+      const from=warpWitchPoint(raw,visual),dx=raw.x-pot.x,dyPot=raw.y-pot.y;
+      const normalized=Math.hypot(dx/(pot.rx+30),dyPot/(pot.ry+33));
+      const potClearance=Math.hypot(dx,dyPot)*(1-1/Math.max(.00001,normalized));
+      const clearance=Math.min(potClearance,...blockers.map(blocker=>Math.hypot(from.x-blocker.x,from.y-blocker.y)-blocker.r));
+      const interior=ghost.r*(1-Math.hypot(...offset));
+      return {offset,from,to:warpWitchPoint({x:raw.x,y:raw.y+dy},visual),clearance,score:Math.min(clearance,interior)};
     });
-    const ranked=candidates.toSorted((a,b)=>b.clearance-a.clearance);
+    const ranked=candidates.toSorted((a,b)=>b.score-a.score);
     return {...ranked[0],offsets:ranked.map(candidate=>candidate.offset),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
   },{id,dy,offset});
   let from,to;
@@ -167,8 +209,10 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
     }
     return false;
   },{intervals:[50,100]}).toBe(true);
+  const capture=await inputSnapshot(session,()=>({captured:document.querySelector('#witchCanvas').hasPointerCapture(window.witchGhostPointerId),down:window.witchGhostDown}));
+  expect(capture.captured,JSON.stringify(capture.down)).toBe(true);
   for(let step=1;step<=5;step++) {
-    const position={x:from.x,y:from.y+(to.y-from.y)*step/5};
+    const position={x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5};
     if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[position]});
     else await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...position,button:'left',buttons:1});
   }
@@ -194,16 +238,18 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
     canvas.addEventListener('pointerdown',event=>{
       window.witchHairPointerId=event.pointerId;
       const current=window.witchInstrument.state,rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/1000,rect.height/720);
-      const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+      const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
       const raw={x:(event.clientX-rect.x-(rect.width-1000*scale)/2)/scale,y:(event.clientY-rect.y-(rect.height-720*scale)/2)/scale};
       const p=warpWitchPoint(raw,visual,true),minRadius=Math.max(46,24/scale);
-      const hairDistances=current.hairGeometry.strands.slice(0,8).flatMap(strand=>strand.points.slice(7).map((_,index)=>{
+      const hairDistances=current.hairGeometry.strands.slice(0,12).flatMap(strand=>strand.points.slice(7).map((_,index)=>{
         const a=warpWitchPoint(strand.points[index+6],visual,true),b=warpWitchPoint(strand.points[index+7],visual,true),dx=b.x-a.x,dy=b.y-a.y;
         const along=Math.min(1,Math.max(0,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
         return Math.hypot(p.x-a.x-along*dx,p.y-a.y-along*dy);
       }));
-      window.witchHairDown={x:p.x,y:p.y,minRadius,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,sampleAge:performance.now()-window.witchHairSampleAt,
+      window.witchHairDown={x:p.x,y:p.y,title:canvas.title,config:{...current.config},world:{...current.world},minRadius,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,sampleAge:performance.now()-window.witchHairSampleAt,
         hairDistance:Math.min(...hairDistances),hairRadius:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32)),
+        mouth:Math.hypot(p.x-current.targets.mouth.x,p.y-current.targets.mouth.y)-Math.max(current.targets.mouth.r,Math.min(27,minRadius*.38)),
+        eyes:Math.hypot(p.x-current.targets.eyes.x,p.y-current.targets.eyes.y)-Math.max(current.targets.eyes.r,Math.min(27,minRadius*.38)),
         nose:Math.hypot(p.x-current.targets.nose.x,p.y-current.targets.nose.y)-Math.max(current.targets.nose.r,minRadius*.65),
         hat:Math.hypot(p.x-current.targets.hat.x,p.y-current.targets.hat.y)-Math.max(current.targets.hat.r,minRadius*.7),
         spoon:Math.hypot(p.x-current.ladle.hx+8,p.y-current.ladle.hy+24)-Math.max(27,minRadius*.75),
@@ -215,12 +261,12 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
   const candidateSnapshot=(index=null)=>inputSnapshot(session,async({amount,index})=>{
     const {warpWitchPoint,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,geometry=current.hairGeometry;
-    const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+    const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
     const rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
     const unwarp=point=>warpWitchPoint(point,visual,true);
-    const blockers=[...['nose','hat','tone','fabric'].map(key=>{
-      const target=current.targets[key],radius={nose:minRadius*.65,hat:minRadius*.7,tone:Math.min(50,minRadius*.7),fabric:minRadius*.6}[key];
+    const blockers=[...['nose','mouth','eyes','hat','tone','fabric'].map(key=>{
+      const target=current.targets[key],radius={nose:minRadius*.65,mouth:Math.min(27,minRadius*.38),eyes:Math.min(27,minRadius*.38),hat:minRadius*.7,tone:Math.min(50,minRadius*.7),fabric:minRadius*.6}[key];
       return {...target,r:Math.max(target.r,radius)};
     }),{x:current.ladle.hx-8,y:current.ladle.hy-24,r:Math.max(27,minRadius*.75)},
       ...current.fingerTips.map(target=>({...unwarp(target),r:minRadius})),
@@ -251,8 +297,8 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
     else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
     return true;
   },{intervals:[50,100]}).toBe(true);
-  expect(await canvas.evaluate(canvas=>canvas.hasPointerCapture(window.witchHairPointerId))).toBe(true);
   const down=await page.evaluate(()=>window.witchHairDown);
+  expect(await canvas.evaluate(canvas=>canvas.hasPointerCapture(window.witchHairPointerId)),JSON.stringify(down)).toBe(true);
   expect(down.hairDistance,JSON.stringify(down)).toBeLessThan(down.hairRadius);
   if(hold) {
     const before=await state(page);
@@ -303,14 +349,18 @@ test('parameters start tucked away while presets, transport and every ingredient
   await expect(page.locator('.mz-tap-tempo[data-tap-control="#ghostTempo"]')).toBeHidden();
   expect((await state(page)).objects.map(object=>object.id)).toEqual(ingredientIds);
   const icons=await page.evaluate(async()=>{
-    const {WITCH_SHELF}=await import('/src/instruments/witch/witch-model.js');
-    return Promise.all(WITCH_SHELF.map(async item=>{
+    const {WITCH_INGREDIENTS}=await import('/src/instruments/witch/witch-model.js');
+    return Promise.all(WITCH_INGREDIENTS.map(async item=>{
       const image=new Image();image.src=item.imageHref;await image.decode();
-      return {id:item.id,instrumentId:item.instrumentId,imageHref:item.imageHref,presetId:item.presetId,loaded:image.naturalWidth>0};
+      return {id:item.id,instrumentId:item.instrumentId,imageHref:item.imageHref,presetId:item.presetId,location:item.location,loaded:image.naturalWidth>0};
     }));
   });
   expect(icons).toHaveLength(ingredientIds.length);expect(icons.every(icon=>icon.loaded&&icon.instrumentId)).toBe(true);
-  expect(icons.find(icon=>icon.id==='puggler')).toEqual({id:'puggler',instrumentId:'puggler',imageHref:'assets/instruments/puggler.webp',presetId:'shelf-puggler',loaded:true});
+  expect(icons.filter(icon=>icon.location==='shelf')).toHaveLength(18);
+  expect(icons.filter(icon=>icon.location==='tree')).toHaveLength(3);
+  expect(icons.find(icon=>icon.id==='puggler')).toEqual({id:'puggler',instrumentId:'puggler',imageHref:'assets/instruments/puggler.webp',presetId:'shelf-puggler',location:'shelf',loaded:true});
+  const rows=Object.groupBy((await state(page)).objects.filter(object=>object.location==='shelf'),object=>object.y);
+  expect(Object.values(rows).map(row=>row.length)).toEqual([3,3,3,3,3,3]);
   await page.locator('#witchParameters > summary').focus();await page.keyboard.press('Enter');
   for(const slider of await sliders.all()) await expect(slider).toBeVisible();
   await expect(page.locator('.mz-tap-tempo[data-tap-control="#ghostTempo"]')).toBeVisible();
@@ -494,15 +544,14 @@ test('nose, hat, ember and flight reshape the ensemble without leaving the share
   expect((await state(page)).world.handOpen).toBe(true);
 });
 
-test('the broom is clickable and pulling fabric or flight strings changes their parameters',async({page})=>{
+test('grounded fabric filters the brew and the broom toggles playable flight strings',async({page})=>{
   await open(page);
-  const grounded=await state(page),broom=await point(page,grounded.targets.broom.x,grounded.targets.broom.y);
-  await page.mouse.click(broom.x,broom.y);
-  await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
-  expect((await state(page)).config.scene).toBe('flight');
-  expect((await state(page)).audioOn).toBe(false);
-  await page.locator('#playButton').click();
   for(const [targetName,xKey,yKey] of [['fabric','fabricX','fabricY'],['trail','trailPull','trailTwist']]) {
+    if(targetName==='trail') {
+      await clickWorld(page,'broom');
+      await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+      expect((await state(page)).config.scene).toBe('flight');
+    }
     const before=await state(page),target=before.targets[targetName],from=await point(page,target.x,target.y);
     await page.mouse.move(from.x,from.y);await page.mouse.down();
     await page.mouse.move(from.x+35,from.y-32,{steps:5});
@@ -523,8 +572,83 @@ test('the broom is clickable and pulling fabric or flight strings changes their 
     expect((await state(page)).config[xKey]).toBeLessThan(pulled.config[xKey]);
     expect((await state(page)).config[yKey]).toBeLessThan(pulled.config[yKey]);
   }
-  expect((await state(page))).toMatchObject({playing:false,audioOn:false,config:{scene:'flight'}});
+  await clickWorld(page,'moon');
+  await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);
+  expect((await state(page))).toMatchObject({playing:true,audioOn:false,config:{scene:'brew'}});
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
+});
+
+test('mouth, eyes, tree, spider and seven web strings respond over the continuous ensemble',async({page},testInfo)=>{
+  test.setTimeout(60000);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await observeWorklet(page);await open(page);
+  await expect.poll(async()=>(await state(page)).spiderReady,{timeout:15000}).toBe(true);
+  await page.locator('#audioButton').click();
+  await clickWorld(page,'mouth');
+  const voices=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-model.js')).WITCH_VOICES);
+  const seen=new Set();
+  for(let i=0;i<voices.length;i++) {
+    const before=await state(page);await clickWorld(page,'mouth');
+    await expect.poll(async()=>(await state(page)).activeVoice).toBe(voices[(voices.indexOf(before.activeVoice)+1)%voices.length]);
+    seen.add((await state(page)).activeVoice);expect((await state(page)).config.spoonAuto).toBe(false);
+  }
+  expect([...seen].sort()).toEqual([...voices].sort());
+  for(let i=0;i<6;i++) {
+    const before=await state(page);await clickWorld(page,'tree');
+    expect((await state(page)).config.treeShape).toBe((before.config.treeShape+1)%6);
+  }
+  await clickWorld(page,'spider');
+  await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('spider-groan'))).toBe(true);
+  for(let index=0;index<7;index++) {
+    await clickWorld(page,'web',{index});
+    await expect.poll(()=>page.evaluate(index=>window.witchTriggers.includes(`web-${index}`),index)).toBe(true);
+  }
+  const audioBefore=await readAudioStatus(page),timeBefore=(await state(page)).performanceTime;
+  await clickWorld(page,'eyes');
+  await expect.poll(async()=>(await state(page)).eyeShock).toBeGreaterThan(.1);
+  await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('eye-shock'))).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('desktop-electrical-hex.png'),fullPage:true});
+  const shock=await sampleAudioEnvelope(page,{durationMs:350});
+  expect(shock.summary.finite).toBe(true);expect(shock.summary.maxPeak).toBeGreaterThan(.001);expect(shock.summary.clippedSamples).toBe(0);
+  await expect.poll(async()=>(await state(page)).eyeShock,{timeout:3000}).toBe(0);
+  expect((await state(page))).toMatchObject({playing:true,audioOn:true});
+  expect((await state(page)).performanceTime).toBeGreaterThan(timeBefore);
+  expect((await readAudioStatus(page)).connectionCount).toBe(audioBefore.connectionCount);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.0001&&window.witchVisual?.handLevel>.0001)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('all eight mushroom pictures preserve native scene picking and continuous sound',async({page},testInfo)=>{
+  test.setTimeout(45000);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await observeWorklet(page);await open(page);await page.locator('#audioButton').click();
+  await clickWorld(page,'mouth');
+  for(let mode=1;mode<=8;mode++) {
+    await clickWorld(page,'mushrooms');expect((await state(page)).config.visualMode).toBe(mode%8);
+    const voice=(await state(page)).activeVoice;await clickWorld(page,'mouth');
+    await expect.poll(async()=>(await state(page)).activeVoice).not.toBe(voice);
+    if([4,5,6,7].includes(mode))await page.screenshot({path:testInfo.outputPath(`desktop-picture-${mode}.png`),fullPage:true});
+  }
+  expect((await state(page))).toMatchObject({playing:true,audioOn:true});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.0001&&window.witchVisual?.handLevel>.0001)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('Reset releases a new electrical accent even when primary Play was already stopped',async({page})=>{
+  await observeWorklet(page);await open(page);await page.locator('#audioButton').click();
+  await page.locator('#playButton').click();
+  expect((await state(page))).toMatchObject({playing:false,audioOn:true});
+  await clickWorld(page,'eyes');
+  await expect.poll(async()=>(await state(page)).eyeShock).toBeGreaterThan(.1);
+  await page.locator('#resetButton').click();
+  await expect.poll(async()=>(await state(page)).eyeShock).toBe(0);
+  expect((await state(page))).toMatchObject({playing:false,audioOn:true,performanceTime:0});
+  const release=await sampleAudioEnvelope(page,{durationMs:300});
+  expect(release.summary.finite).toBe(true);expect(release.summary.clippedSamples).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.shockEnvelope)).toBe(0);
+  await expect.poll(async()=>(await readAudioStatus(page)).peak,{timeout:6000}).toBeLessThan(.00001);
+  const silence=await sampleAudioEnvelope(page,{durationMs:300});
+  expect(silence.summary.finite).toBe(true);expect(silence.summary.maxPeak).toBeLessThan(.00001);
 });
 
 test('ten instrumental hand banks and sixteen Gesticules motions change without restarting the ensemble',async({page})=>{
@@ -562,6 +686,7 @@ test('ten instrumental hand banks and sixteen Gesticules motions change without 
 });
 
 test('three background ghosts share a faster or slower beat without taking the witch focus',async({page})=>{
+  test.setTimeout(60000);
   await open(page);
   const initial=await state(page);
   expect(initial.ghosts.map(ghost=>ghost.id)).toEqual(ghostIds);
@@ -710,152 +835,129 @@ test('expanded presets recall night colors while the cat clock follows Play and 
   expect((await state(page))).toMatchObject({playing:false,performanceTime:0,cat:{active:false},config:{palette:0,trip:0},world:{trip:0}});
 });
 
-test('the first cat crossing arrives at thirty Play seconds, meows on mouse, touch and C, and keeps its clock through Stop and rearm',async({page},testInfo)=>{
+test('mouse, cat and lizard make real timed visits and native clicks send each into the pot once',async({page},testInfo)=>{
   test.setTimeout(90000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  const togglePlay=async()=>{await page.locator('#playButton').focus();await page.keyboard.press('Space');};
   await observeWorklet(page);await open(page);
   expect((await state(page)).cat.active).toBe(false);
-  await range(page,'catSpeed',.5);await range(page,'lineBend',2);
-  // This is a real first visit, with no test-only seek or accelerated clock.
-  await expect.poll(async()=>(await state(page)).performanceTime,{timeout:32000,intervals:[150,250,400]}).toBeGreaterThanOrEqual(27);
-  const silent=await state(page);
-  expect(silent.performanceTime).toBeLessThan(30);expect(silent.cat.active).toBe(false);
-  await expect.poll(async()=>(await state(page)).cat.active,{timeout:6000,intervals:[50,100]}).toBe(true);
-  const first=await state(page);
-  expect(first.performanceTime).toBeGreaterThanOrEqual(30);expect(first.performanceTime).toBeLessThan(31.5);
-  expect(first.cat).toMatchObject({visit:1,source:'quadruped',animalId:'cat',behaviorId:'cat-prowl'});
-  await expect.poll(async()=>(await state(page)).cat.progress,{intervals:[50,100]}).toBeGreaterThan(.16);
-  // Pause only between stages, keeping a single visit on screen while browser
-  // assertions, screenshots and viewport setup run. Every meow input is live.
-  await togglePlay();
-  const unarmed=await state(page);
-  await togglePlay();await clickCat(page,{part:'head'});
-  await expect.poll(async()=>(await state(page)).catMeow).toBeGreaterThan(.01);
-  const firstReaction=await state(page);
-  expect(firstReaction.config).toEqual(unarmed.config);
-  expect(firstReaction).toMatchObject({playing:true,audioOn:false});
-  expect(firstReaction.cat.position).toBeGreaterThan(unarmed.cat.position);
-  await togglePlay();
-  expect((await state(page)).catMeow).toBe(0);
-  await togglePlay();
-  expect((await state(page)).catMeow).toBe(0);
-  await togglePlay();
-  expect((await readAudioStatus(page)).connectionCount).toBe(0);
-  const handoff=await state(page);
-  await page.locator('#audioButton').click();
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catClock?.time??0)).toBeGreaterThanOrEqual(handoff.performanceTime);
-  expect((await state(page)).cat.position).toBeCloseTo(handoff.cat.position,5);
-  expect((await state(page))).toMatchObject({playing:false,audioOn:true});
-  const meowCount=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='meow').length);
-  const settleStoppedClock=async()=>{
-    // The stop control and its last clock packet cross the worklet port.
-    const audioTime=await page.evaluate(()=>window.witchVisual.audioTime);
-    await page.waitForFunction(time=>window.witchVisual.audioTime>time+.07,audioTime);
-  };
-  async function audibleMeow(gesture,{capture=false,decay=false,stop=true}={}) {
-    const before=await state(page),count=await meowCount();
-    await togglePlay();
-    await gesture();
-    let after;
-    await expect.poll(async()=>{
-      const snapshot=await page.evaluate(()=>({state:window.witchInstrument.state,visual:window.witchVisual,
-        count:window.witchTriggers.filter(kind=>kind==='meow').length}));
-      after=snapshot.state;
-      return snapshot.count===count+1 && snapshot.visual?.catMeow>0 && snapshot.visual.catMeow<=1
-        && snapshot.visual.catMeowLevel>.00001 && after.catMeow>0;
-    },{intervals:[50,100]}).toBe(true);
-    if(capture)await page.screenshot({path:testInfo.outputPath('desktop-cat-meow.png'),fullPage:true});
-    if(decay)await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catMeowLevel<.00001
-      && window.witchInstrument.state.catMeow<.001),{timeout:4000,intervals:[50,100]}).toBe(true);
-    if(stop)await togglePlay();
-    expect(after.config).toEqual(before.config);
-    expect(after).toMatchObject({playing:true,audioOn:true});
-    expect(after.cat.visit).toBe(before.cat.visit);
-    expect(after.cat.position).toBeGreaterThan(before.cat.position);
-    expect(after.cat.progress).toBeGreaterThan(before.cat.progress);
-  }
-  await audibleMeow(()=>clickCat(page,{part:'head'}),{capture:true});
-  await page.setViewportSize({width:390,height:844});
-  await audibleMeow(()=>clickCat(page,{touch:true}));
-  await page.setViewportSize({width:1440,height:900});
-  await audibleMeow(async()=>{await page.locator('#witchCanvas').focus();await page.keyboard.press('c');},{decay:true});
-  expect(await page.evaluate(()=>window.witchCatMeowPeak)).toBeGreaterThan(.00001);
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catLevel??1)).toBeLessThan(.00001);
-  await settleStoppedClock();
+  expect((await state(page)).visitors.every(visitor=>!visitor.active)).toBe(true);
+  // Follow the actual Play clock through all three first visits; no seek.
+  await expect.poll(async()=>{
+    const current=await state(page),mouse=current.visitors.find(visitor=>visitor.id==='mouse');
+    return mouse.visible&&mouse.progress>.2&&mouse.progress<.8;
+  },{timeout:25000,intervals:[100,250]}).toBe(true);
+  await page.locator('#playButton').click();
   const stopped=await state(page);
+  expect(stopped.performanceTime).toBeGreaterThanOrEqual(18);
+  expect(stopped.visitors.find(visitor=>visitor.id==='mouse')).toMatchObject({source:'quadruped',behaviorId:'walk'});
+  await clickAnimal(page,'mouse',{touch:true});
+  const captured=await state(page);
+  expect(captured.visitors.find(visitor=>visitor.id==='mouse')).toMatchObject({captured:true,diving:true,captureProgress:0});
+  expect(captured.visitorTargets.mouse).toBeUndefined();
   await page.waitForTimeout(250);
-  const frozen=await state(page);
-  expect(frozen.performanceTime).toBeCloseTo(stopped.performanceTime,5);
-  expect(frozen.cat.position).toBeCloseTo(stopped.cat.position,5);
-  expect(frozen.cat.progress).toBeCloseTo(stopped.cat.progress,5);
-  const stoppedCount=await meowCount();
-  await clickCat(page,{part:'head'});
-  await page.locator('#witchCanvas').focus();await page.keyboard.press('c');
-  expect(await meowCount()).toBe(stoppedCount);
-  const stoppedReaction=await state(page);
-  expect(stoppedReaction.catMeow).toBe(0);expect(stoppedReaction.config).toEqual(stopped.config);
-  await page.locator('#audioButton').click();await togglePlay();
-  await clickCat(page);
-  await expect.poll(async()=>(await state(page)).catMeow).toBeGreaterThan(.01);
-  const silentReaction=await state(page);
-  expect(silentReaction.config).toEqual(stopped.config);
-  expect(silentReaction).toMatchObject({playing:true,audioOn:false});
-  expect(silentReaction.cat.position).toBeGreaterThan(stopped.cat.position);
-  const silence=await sampleAudioEnvelope(page,{durationMs:150});
-  expect(silence.summary.maxPeak).toBeLessThan(.00001);
-  await togglePlay();
-  await settleStoppedClock();
-  const muted=await state(page);
+  expect((await state(page)).performanceTime).toBe(stopped.performanceTime);
+  expect((await state(page)).visitors.find(visitor=>visitor.id==='mouse').captureProgress).toBe(0);
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
   await page.locator('#audioButton').click();
-  const rearmed=await state(page);
-  expect(rearmed.performanceTime).toBeCloseTo(muted.performanceTime,5);
-  expect(rearmed.cat.position).toBeCloseTo(muted.cat.position,5);
-  const lastTarget=stopped.catTargets.body;
-  await audibleMeow(async()=>{await page.locator('#witchCanvas').focus();await page.keyboard.press('c');},{stop:false});
-  await page.locator('#resetButton').click();
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catClock?.time)).toBe(0);
-  await page.waitForTimeout(200);
-  expect((await state(page))).toMatchObject({playing:false,performanceTime:0,handTime:0,cat:{active:false},catMeow:0});
-  await togglePlay();
-  expect((await state(page))).toMatchObject({playing:true,cat:{active:false}});
-  const absentCount=await meowCount(),oldPosition=await point(page,lastTarget.x,lastTarget.y);
-  await page.mouse.click(oldPosition.x,oldPosition.y);
+  expect((await state(page)).performanceTime).toBeCloseTo(stopped.performanceTime,5);
+  await page.locator('#playButton').click();
+  await expect.poll(async()=>(await state(page)).visitors.find(visitor=>visitor.id==='mouse').captureProgress).toBe(1);
+  expect((await state(page)).capturedAnimals.mouse).toEqual(captured.capturedAnimals.mouse);
+  await expect.poll(async()=>{
+    const cat=(await state(page)).cat;return cat.active&&cat.progress>.2&&cat.progress<.8;
+  },{timeout:18000,intervals:[100,250]}).toBe(true);
+  const cat=await state(page);
+  expect(cat.performanceTime).toBeGreaterThanOrEqual(30);expect(cat.performanceTime).toBeLessThan(36);
+  expect(cat.cat).toMatchObject({visit:1,source:'quadruped',animalId:'cat',behaviorId:'cat-prowl'});
+  await clickAnimal(page,'cat',{part:'head'});
+  await expectIngredientSolo(page,'cat');
+  await expect.poll(async()=>(await state(page)).catMeow).toBeGreaterThan(.01);
+  await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('drop-cat'))).toBe(true);
+  await expect.poll(async()=>(await state(page)).cat.captured).toBe(true);
+  expect((await state(page)).catTargets).toBeNull();
+  await page.screenshot({path:testInfo.outputPath('desktop-cat-dive.png'),fullPage:true});
+  await expect.poll(async()=>(await state(page)).cat.captureProgress).toBe(1);
+  const captures=await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='drop-cat').length);
   await page.locator('#witchCanvas').focus();await page.keyboard.press('c');
-  expect(await meowCount()).toBe(absentCount);expect((await state(page)).catMeow).toBe(0);
+  expect(await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='drop-cat').length)).toBe(captures);
+  const audible=await sampleAudioEnvelope(page,{durationMs:150});
+  expect(audible.summary.finite).toBe(true);expect(audible.summary.maxPeak).toBeGreaterThan(.001);
+  await page.locator('#audioButton').click();
+  await expect.poll(async()=>{
+    const lizard=(await state(page)).visitors.find(visitor=>visitor.id==='lizard');
+    return lizard.visible&&lizard.progress>.25&&lizard.progress<.75;
+  },{timeout:20000,intervals:[100,250]}).toBe(true);
+  expect((await state(page)).visitors.find(visitor=>visitor.id==='lizard')).toMatchObject({source:'quadruped',behaviorId:'lizard-scuttle'});
+  await clickAnimal(page,'lizard');
+  await expect.poll(async()=>(await state(page)).visitors.find(visitor=>visitor.id==='lizard').captureProgress).toBe(1);
+  expect(Object.keys((await state(page)).capturedAnimals).sort()).toEqual(['cat','lizard','mouse']);
+  expect((await state(page))).toMatchObject({playing:true,audioOn:false});
+  const silence=await sampleAudioEnvelope(page,{durationMs:150});expect(silence.summary.maxPeak).toBeLessThan(.00001);
+  await page.locator('#resetButton').click();
+  expect((await state(page))).toMatchObject({playing:false,performanceTime:0,cat:{active:false},capturedAnimals:{},catMeow:0});
+  expect((await state(page)).visitors.every(visitor=>!visitor.active)).toBe(true);
   expect(errors).toEqual([]);
 });
 
-test('real instrument icons fly into the potion on click, recall whole spells and play solos during flight',async({page})=>{
+test('all real shelf instruments solo over the ensemble and interpolate the whole spell during their dive',async({page})=>{
   test.setTimeout(120000);
   await observeWorklet(page);await open(page);await page.locator('#audioButton').click();
-  await selectScene(page,'flight');
   const bank=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS);
   let consumed=0;
-  for(const id of ingredientIds) await test.step(`click ${id}`,async()=>{
+  for(const id of shelfIds) await test.step(`click ${id}`,async()=>{
     const before=await state(page),object=before.objects.find(item=>item.id===id);
     expect(object.imageHref).toMatch(/^assets\/instruments\/.+\.webp$/);
-    const preset=bank.find(preset=>preset.id===object.presetId);
-    expect(preset).toBeTruthy();
-    await clickIngredient(page,id);
-    await expectIngredientSolo(page,id);
+    const preset=bank.find(preset=>preset.id===object.presetId);expect(preset).toBeTruthy();
+    await clickIngredient(page,id);await expectIngredientSolo(page,id);
+    const diving=await state(page);
+    expect(diving.spellTransition).toBeTruthy();
+    expect(diving.spellTransition.progress).toBeLessThan(1);
+    expect(diving.config).not.toEqual(preset.snapshot);
+    await expect.poll(async()=>(await state(page)).config).toEqual(preset.snapshot);
     const running=await state(page);
-    expect(running.config).toEqual({...preset.snapshot,scene:'flight'});
     expect(running.playing).toBe(true);expect(running.audioOn).toBe(true);
     expect(running.objects.filter(object=>object.dropped)).toHaveLength(++consumed);
-    for(const clock of ['performanceTime','handTime','flightPhase'])expect(running[clock]).toBeGreaterThan(before[clock]);
+    for(const clock of ['performanceTime','handTime'])expect(running[clock]).toBeGreaterThan(before[clock]);
+    await expect.poll(async()=>(await state(page)).objects.find(object=>object.id===id).alpha).toBe(0);
   });
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.delayLevel??0)).toBeGreaterThan(.0001);
   const envelope=await sampleAudioEnvelope(page,{durationMs:500});
   expect(envelope.summary.finite).toBe(true);expect(envelope.summary.maxPeak).toBeGreaterThan(.001);expect(envelope.summary.clippedSamples).toBe(0);
   await page.locator('#witchCanvas').focus();await page.keyboard.press('Escape');
   await waitForStableAudioState(page,false,{timeout:12000,stableMs:250});
 });
 
+test('tree instruments play perched phrases before diving and Stop freezes their spell transition',async({page})=>{
+  test.setTimeout(45000);
+  await observeWorklet(page);await open(page);await page.locator('#audioButton').click();
+  const bank=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS);
+  for(const id of treeIds) {
+    const before=await state(page),origin=before.objects.find(object=>object.id===id);
+    await clickIngredient(page,id);await expectIngredientSolo(page,id);
+    await page.waitForTimeout(700);
+    const perched=await state(page),object=perched.objects.find(object=>object.id===id);
+    // A tiny singing wiggle stays on the branch until the phrase finishes.
+    expect(Math.abs(object.x-origin.x)).toBeLessThanOrEqual(3);expect(Math.abs(object.y-origin.y)).toBeLessThanOrEqual(2);
+    expect(perched.spellTransition.progress).toBe(0);expect(perched.config).toEqual(before.config);
+    if(id==='blech') {
+      await page.locator('#playButton').click();await page.waitForTimeout(150);
+      const stopped=await state(page);await page.waitForTimeout(350);
+      expect((await state(page)).objects.find(object=>object.id===id).dropAge).toBeCloseTo(stopped.objects.find(object=>object.id===id).dropAge,5);
+      expect((await state(page)).spellTransition).toEqual(stopped.spellTransition);
+      await page.locator('#playButton').click();
+    }
+    await expect.poll(async()=>(await state(page)).spellTransition?.progress??1,{timeout:6000,intervals:[50,100]}).toBeGreaterThan(0);
+    const diving=await state(page);expect(diving.spellTransition?.progress).toBeLessThan(1);
+    expect(diving.objects.find(object=>object.id===id).x).not.toBe(origin.x);
+    const preset=bank.find(preset=>preset.id===origin.presetId);
+    await expect.poll(async()=>(await state(page)).config).toEqual(preset.snapshot);
+    expect((await state(page))).toMatchObject({playing:true,audioOn:true});
+  }
+});
+
 test('shelf icons stay consumed until a manual preset refill and keyboard clicks keep Audio off',async({page})=>{
   await open(page);
   await clickIngredient(page,'puggler');
-  await page.waitForTimeout(1000);
+  await expect.poll(async()=>(await state(page)).objects.find(item=>item.id==='puggler').alpha).toBe(0);
   const gone=(await state(page)).objects.find(item=>item.id==='puggler');
   expect(gone).toMatchObject({dropped:true,alpha:0,x:600,y:544});
   await expect(page.locator('[data-drop="puggler"]')).toBeDisabled();
@@ -872,6 +974,7 @@ test('shelf icons stay consumed until a manual preset refill and keyboard clicks
     await page.locator(selector).click();
     expect((await state(page)).objects.every(object=>!object.dropped)).toBe(true);
     await expect(page.locator('[data-drop="puggler"]')).toBeEnabled();
+    if((await state(page)).config.scene==='flight'){await selectScene(page,'brew');await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);}
     await clickIngredient(page,'puggler');
   }
   await page.locator('.header-preset-controls summary').click();
@@ -933,12 +1036,13 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       await page.screenshot({path:testInfo.outputPath(`${label}-hair-brew.png`),fullPage:true});
       await dragHair(page,-.65,{touch:label!=='desktop',cancel:true});
       const combed=await state(page);
-      expect(combed.config.hair).toBeLessThan(pulled.config.hair-.3);
+      expect(combed.config.hair,JSON.stringify(await page.evaluate(()=>window.witchHairDown))).toBeLessThan(pulled.config.hair-.3);
       expect(combed.config).toEqual({...pulled.config,hair:combed.config.hair});
       expect(combed).toMatchObject({playing:true,audioOn:false});
       expect((await readAudioStatus(page)).connectionCount).toBe(0);
       if(label==='desktop')await page.emulateMedia({reducedMotion:'no-preference'});
       await selectScene(page,'flight');await range(page,'lineBend',label==='desktop'?3:2);
+      if(label==='desktop')await page.locator('#visualMode').evaluate(el=>{el.value='7';el.dispatchEvent(new Event('change',{bubbles:true}));});
       await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
       await page.locator('#audioButton').click();
       await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.0001&&window.witchVisual?.handLevel>.0001)).toBe(true);
@@ -989,13 +1093,20 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       }
       for(const key of ['hat','nose','hair','flightX','altitude'])await range(page,key,neutral[key]);
       await range(page,'lineBend',neutral.trip);
+      const airborne=await state(page),hiddenObject=airborne.objects.find(object=>object.id==='oculoid');
+      const hiddenPoint=await point(page,hiddenObject.x,hiddenObject.y);await page.mouse.click(hiddenPoint.x,hiddenPoint.y);
+      expect((await state(page)).objects.every(object=>!object.dropped)).toBe(true);
+      expect((await state(page)).catTargets).toBeNull();expect((await state(page)).visitorTargets).toEqual({});
+      await clickWorld(page,'moon',{touch:label!=='desktop'});
+      await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);
       await clickIngredient(page,'oculoid',label!=='desktop');
-      expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).audioOn).toBe(false);
+      await expect.poll(async()=>(await state(page)).spellTransition).toBeNull();
+      expect((await state(page)).audioOn).toBe(false);
       await range(page,'ghostTempo',72);
       const beforeGhost=await state(page);
       await dragGhost(page,'monstroid',-40,{touch:label!=='desktop'});
-      expect((await state(page)).config.ghostTempo).toBeGreaterThan(beforeGhost.config.ghostTempo+20);
-      expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).world.handOpen).toBe(beforeGhost.world.handOpen);
+      expect((await state(page)).config.ghostTempo,JSON.stringify(await page.evaluate(()=>window.witchGhostDown))).toBeGreaterThan(beforeGhost.config.ghostTempo+20);
+      expect((await state(page)).config.scene).toBe(beforeGhost.config.scene);expect((await state(page)).world.handOpen).toBe(beforeGhost.world.handOpen);
       if(label!=='desktop') for(const selector of ['#audioButton','#playButton']) {
         const rect=await page.locator(selector).boundingBox();expect(rect.width).toBeGreaterThanOrEqual(48);expect(rect.height).toBeGreaterThanOrEqual(48);
       }
@@ -1003,10 +1114,11 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       const pugglerPreset=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS.find(preset=>preset.id==='shelf-puggler'));
       const beforePuggler=await state(page);
       await clickIngredient(page,'puggler',label!=='desktop');await expectIngredientSolo(page,'puggler');
+      await expect.poll(async()=>(await state(page)).config).toEqual(pugglerPreset.snapshot);
       const afterPuggler=await state(page);
-      expect(afterPuggler.config).toEqual({...pugglerPreset.snapshot,scene:'flight'});
+      expect(afterPuggler.config).toEqual(pugglerPreset.snapshot);
       expect(afterPuggler).toMatchObject({playing:true,audioOn:true});
-      for(const clock of ['performanceTime','handTime','flightPhase'])expect(afterPuggler[clock]).toBeGreaterThan(beforePuggler[clock]);
+      for(const clock of ['performanceTime','handTime'])expect(afterPuggler[clock]).toBeGreaterThan(beforePuggler[clock]);
       await expect.poll(async()=>(await state(page)).objects.find(object=>object.id==='puggler').alpha).toBe(0);
       expect((await state(page)).objects.find(object=>object.id==='puggler')).toMatchObject({dropped:true,x:600,y:544});
       await page.locator('#audioButton').click();

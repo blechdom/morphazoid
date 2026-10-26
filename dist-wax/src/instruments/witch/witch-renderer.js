@@ -1,5 +1,7 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
-import { WITCH_SHELF, WITCH_VOICES } from './witch-model.js';
+import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
+import { WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
+import { traceLSystem, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -9,25 +11,25 @@ const INK = '#14131c';
 const SKIN = '#b5db9d';
 const LIME = '#cefa8b';
 const PINK = '#f29bce';
+const INGREDIENTS=[...WITCH_SHELF,...WITCH_TREE_OBJECTS];
 
 export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   moon: Object.freeze({ x: 800, y: 164, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
-  mushrooms: Object.freeze([{ x: 162, y: 639, r: 48 }, { x: 846, y: 655, r: 42 }]),
+  mushrooms: Object.freeze([{x:874,y:655,r:46}]),
   ghosts: Object.freeze([
-    Object.freeze({id:'creaturazoid',x:286,y:305,r:45,size:115,color:'#a7ccc7'}),
-    Object.freeze({id:'monstroid',x:798,y:370,r:44,size:116,color:'#a5bcd3'}),
+    Object.freeze({id:'creaturazoid',x:300,y:115,r:45,size:115,color:'#a7ccc7'}),
+    Object.freeze({id:'monstroid',x:590,y:80,r:44,size:116,color:'#a5bcd3'}),
     Object.freeze({id:'hiccup',x:620,y:180,r:43,size:102,color:'#c0b2ce'}),
   ]),
-  bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 955, y: 260, r: 28 }]),
-  spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:795,y:425,r:28})]),
-  shelves:Object.freeze([{x:35,y:150,w:235,h:485,rows:[232,334,436,538,616]},{x:818,y:344,w:135,h:307,rows:[426,529,632]}]),
-  objects: Object.freeze(WITCH_SHELF.map((entry,index)=>Object.freeze({...entry,
-    x:entry.id==='puggler'?80:index<12?[80,154,228][index%3]:[850,916][(index-12)%2],
-    y:entry.id==='puggler'?580:index<12?[196,298,400,502][Math.floor(index/3)]:[390,493,596][Math.floor((index-12)/2)],
-    r:29,color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
+  bats:Object.freeze([]),spirits:Object.freeze([]),
+  shelves:Object.freeze([{x:34,y:148,w:239,h:488,rows:[218,299,380,461,542,623]}]),
+  objects:Object.freeze(INGREDIENTS.map((entry,index)=>Object.freeze({...entry,
+    x:index<18?[77,154,231][index%3]:[768,900,842][index-18],
+    y:index<18?191+Math.floor(index/3)*81:[300,370,465][index-18],
+    r:28,color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
   }))),
 });
 
@@ -104,57 +106,21 @@ function branch(c, x, y, scale, flip = 1, shade = '#1e1f2b') {
   path(c,'M30,244 L35,239 L35,249 Z M44,237 L51,231 L49,243 Z','#b8bb5e51');
   c.restore();
 }
-function background(c, state) {
-  const flight = false; // The forest and cauldron remain the same place throughout.
-  const gradient = c.createLinearGradient(0, 0, 0, 720);
-  gradient.addColorStop(0, '#100e22'); gradient.addColorStop(.38, '#39213d'); gradient.addColorStop(.72, '#12373d'); gradient.addColorStop(1, '#0b131d');
-  c.fillStyle = gradient; c.fillRect(0, 0, 1000, 720);
-  glow(c, 310, 210, 330, '#a43aa52b');
-  glow(c, 740, 320, 340, '#1db6ae24');
-  glow(c, 110, 510, 220, '#506fe628');
-  for (let i = 0; i < 42; i++) {
-    const x = (i * 173.71 + 37) % 990;
-    const y = (i * 89.37 + 21) % 475;
-    const twinkle = .28 + .24 * Math.sin((state.time || 0) * .55 + i * 2.1);
-    const starlight = ['#eed391','#9ce6de','#d5a7fa','#f3a9c5'][i%4];
-    c.save(); c.globalAlpha *= twinkle; ellipse(c, x, y, i % 3 === 0 ? 1.2 : .65, i % 3 === 0 ? 1.2 : .65, starlight); c.restore();
-  }
-  moon(c, state, flight);
-  // Wind-torn veils cross the moon instead of a cheerful star field.
-  for(let i=0;i<3;i++) {
-    const drift=Math.sin((state.time||0)*.08+i*2)*35,y=104+i*67;
-    path(c,`M${490+drift},${y} Q${665+drift},${y-17} 938,${y+8} Q814,${y+11} ${647+drift},${y+4} Z`,'#16132768');
-  }
-  if (flight) {
-    for (let layer = 0; layer < 3; layer++) {
-      const base = 606 + layer * 35;
-      c.beginPath(); c.moveTo(0, 720); c.lineTo(0, base);
-      for (let i = 0; i <= 30; i++) {
-        const x = i * 37 - ((state.motionTime ?? state.time ?? 0) * (4 + layer * 8)) % 37;
-        const y = base + Math.sin(i * .84 + layer) * 22;
-        c.lineTo(x, y); c.lineTo(x + 12, y - 36 - (i % 4) * 14); c.lineTo(x + 22, y);
-      }
-      c.lineTo(1000, 720); c.closePath(); c.fillStyle = ['#242b37', '#1b2330', '#121b24'][layer]; c.fill();
-    }
-  } else {
-    branch(c, 24, 70, 1.6, 1, '#211b34'); branch(c, 970, 56, 1.6, -1, '#122b35');
-    branch(c, 145, 330, .85, 1, '#302440'); branch(c, 900, 340, .9, -1, '#203b46');
-    path(c, 'M0,661 Q128,598 251,628 Q390,657 499,633 Q656,601 782,628 Q908,610 1000,664 L1000,720 L0,720 Z', '#141c22');
-    for(const [x,y,s] of [[64,622,.7],[934,604,.8],[780,606,.46]]) {
-      c.save();c.translate(x,y);c.rotate((x%7-3)*.035);c.scale(s,s);
-      path(c,'M-22,29 L-19,-20 Q-7,-39 10,-23 L20,26 Z','#27323a','#0b151d',2);
-      line(c,[[-8,-10],[8,-10]],'#897c945b',2);line(c,[[0,-21],[0,10]],'#897c945b',2);c.restore();
-    }
-    for (let i = 0; i < 19; i++) {
-      const x = 25 + i * 54;
-      line(c, [[x, 684 + (i % 3) * 8], [x - 5, 666 + (i % 4) * 7]], '#3b41414d', 1);
-    }
-  }
-  c.save(); c.globalAlpha = .13;
-  // Fixed grain-like flecks give the flat paths a drawn surface at any size.
-  for (let i = 0; i < 160; i++) {
-    const x = (i * 137.42) % 1000, y = (i * 313.73) % 720;
-    line(c, [[x, y], [x + 1.4, y + .3]], '#a4a0b6', .6);
+function background(c,state) {
+  const gradient=c.createLinearGradient(0,0,0,720);
+  gradient.addColorStop(0,'#090c18');gradient.addColorStop(.55,'#152136');gradient.addColorStop(1,'#17102a');
+  c.fillStyle=gradient;c.fillRect(0,0,1000,720);
+  glow(c,730,250,370,'#343c6a1a');moon(c,state,false);
+  const grounded=1-clamp(state.flightLift);
+  if(grounded<=0)return;
+  c.save();c.globalAlpha*=grounded;
+  glow(c,310,260,300,'#a43aa51f');glow(c,740,420,300,'#1db6ae1b');
+  branch(c,12,85,1.5,1,'#171b2b');branch(c,970,60,1.55,-1,'#13222f');
+  path(c,'M0,662 Q128,618 251,636 Q390,657 499,642 Q656,621 782,638 Q908,620 1000,664 L1000,720 L0,720 Z','#111822');
+  for(const [x,y,z]of [[304,606,.43],[930,610,.63]]) {
+    c.save();c.translate(x,y);c.scale(z,z);
+    path(c,'M-22,29 L-19,-20 Q-7,-39 10,-23 L20,26 Z','#25303b','#0b151d',2);
+    line(c,[[-8,-10],[8,-10]],'#897c945b',2);line(c,[[0,-21],[0,10]],'#897c945b',2);c.restore();
   }
   c.restore();
 }
@@ -199,23 +165,23 @@ function witchHairLocal(state = {}) {
   const phase=state.reducedMotion?0:(state.flightPhase??time*.72);
   const pull={x:-85,y:48},pullDistance=Math.hypot(pull.x,pull.y);
   const strands=[];
-  for(let i=0;i<15;i++) {
-    const root={x:-73+i*3.3,y:-24+Math.sin(i*.7)*4},points=[];
+  for(let i=0;i<23;i++) {
+    const root={x:-88+i*3.1,y:-24+Math.sin(i*.7)*4},points=[];
     for(let j=0;j<=20;j++) {
       const u=j/20,free=u*u,envelope=Math.sin(u*Math.PI);
       const snake=Math.sin(u*(6+amount*5+lift*7)-time*(1.5+lift*2.4)+i*.48);
       const fray=Math.sin(u*29-time*2.7+i*1.9)*amount*5;
-      const curl=envelope*(snake*(3+amount*10+lift*25)+fray);
+      const curl=envelope*(snake*(7+amount*18+lift*32)+fray);
       const sweep=lift*(110+Math.sin(phase*1.4)*23)*u**1.5;
       points.push({x:root.x-13*free+pull.x*amount*free-sweep+curl,
         y:root.y+(168+(i%3)*9)*u+pull.y*amount*free-lift*(50+Math.cos(phase*1.4)*21)*free+curl*.63});
     }
-    strands.push({points,width:i%3===0?2.6:3.8,index:i});
+    strands.push({points,width:i%3===0?3.1:4.4,index:i});
   }
-  const middle=strands[7],root=middle.points[0],tip=middle.points.at(-1);
+  const middle=strands[10],root=middle.points[0],tip=middle.points.at(-1);
   // These are actual visible locks, excluding the section hidden by her face.
   const targets=[];
-  for(const index of [1,4,7])for(const sample of [9,13,17,20])
+  for(const index of [2,6,10])for(const sample of [9,13,17,20])
     targets.push({...strands[index].points[sample],r:11});
   return {root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,strands,targets};
 }
@@ -262,7 +228,7 @@ function drawWitchHair(c,state) {
 function witchHead(c, state, x, y, scale = 1, tilt = 0) {
   const vocal = true;
   const mouth = vocal ? clamp(state.mouth) : 0;
-  const nose=(clamp(state.nose??.5)-.5)*40;
+  const nose=(clamp(state.nose??.5)-.5)*80;
   c.save(); c.translate(x, y); c.rotate(tilt); c.scale(scale, scale);
   drawWitchHair(c,state);
   path(c, 'M-28,88 L11,91 L31,153 L-9,166 L-42,126 Z', '#92aa80', INK, 2.5);
@@ -276,8 +242,10 @@ function witchHead(c, state, x, y, scale = 1, tilt = 0) {
   line(c, [[89+nose,55],[93+nose,51]], '#454b43', .8);
   // Eye and brow always remain visible under the brim.
   path(c, 'M-10,24 Q14,10 36,29 Q15,40 -10,24 Z', '#e4cfad', '#64725f', 1.5);
-  ellipse(c, 22, 26, 7, 8, '#b69065'); ellipse(c, 24, 26, 2.5, 6, '#242323');
-  ellipse(c, 26, 23, 1.7, 1.7, '#f8e9c7');
+  const shock=clamp(state.eyeShock),dart=shock*(state.reducedMotion?0:Math.sin(Math.floor((state.handTime??state.motionTime??0)*7)*2.4)*5);
+  ellipse(c,22+dart,26,7+shock*2,8,shock?'#ff852e':'#b69065');ellipse(c,24+dart,26,2.5,6,'#242323');
+  ellipse(c,26+dart,23,1.7,1.7,'#f8e9c7');
+  if(shock>.01) {curve(c,[-10,22,-19,13,-20,4,-28,-1],'#ee8b405e',1.2);curve(c,[33,32,47,45,57,43,66,50],'#ea784d70',1.2);}
   curve(c, [-13,20,4,11,22,17,38,25], '#2c3830', 3.2);
   curve(c, [-17,9,0,-1,18,4,37,11], '#5d6753', 5);
   for (let i = 0; i < 4; i++) line(c, [[-17 + i * 9,8 + i],[ -20 + i * 10,4 + i]], '#bec2a0', .9);
@@ -410,16 +378,6 @@ function cauldron(c, state) {
     ellipse(c, bx, by, br, br * .5, '#a9cf8b55', '#d7eab27a', .7);
   }
   c.restore();
-  // Runic engraving is authored linework, not a text or instruction overlay.
-  c.save(); c.globalAlpha = .55;
-  for (let i = 0; i < 5; i++) {
-    c.save(); c.translate(527 + i * 36, 605 + Math.sin(i * .8) * 6);
-    const rune = ['#a1e7d5','#e9bb89','#da9fe7','#a9c6ff','#cfec9c'][i];
-    ellipse(c, 0, 0, 9, 9, null, rune, .8);
-    line(c, [[-4,5],[0,-7],[4,5]], rune, 1);
-    line(c, [[-5,1],[5,1]], rune, 1); c.restore();
-  }
-  c.restore();
   // A small hanging talisman makes the vessel a personal object.
   line(c, [[760,567],[769,599],[760,617]], '#8a806b', 1.2);
   ellipse(c, 759, 621, 7, 9, '#948f73', '#292c2b', 1.3);
@@ -515,15 +473,10 @@ function brewScene(c, state) {
     const py = 499 - age * (65 + energy * 90);
     ellipse(c, px, py, 1.2 + (i % 2), 1.2 + (i % 2), `rgba(216,238,164,${(1 - age) * (.2 + energy * .5)})`);
   }
-  mushrooms(c, 162, 639, 1.1); mushrooms(c, 846, 655, .76);
-  // A little apothecary bottle sits beside the wooden instrument shelves.
-  path(c, 'M222,589 L234,589 L234,608 Q249,612 247,641 L211,641 Q209,611 222,608 Z', '#394c45', '#101b20', 2);
-  ellipse(c,229,620,15,5,'#8eaa7670'); line(c,[[224,596],[224,611]],'#b6c39b80',2);
-  path(c, 'M218,583 L238,583 L238,592 L218,592 Z', '#8c7661', '#28282b', 1.3);
-  ellipse(c,229,628,7,9,'#b0b59790'); line(c,[[227,624],[232,632]],'#485c4c',1);
-  if (clamp(state.glass) > .01) {
-    for (let i = 0; i < 4; i++) star(c, 550 + i * 32, 488 + Math.sin(time * 2 + i) * 9, 3 + clamp(state.glass) * 3, '#cdf6f1', .6);
+  if(clamp(state.flightLift)<1) {
+    c.save();c.globalAlpha*=1-clamp(state.flightLift);mushrooms(c,874,655,.86);c.restore();
   }
+
 }
 
 /** The broom follows a continuous, untuned rollercoaster path above the pot.
@@ -531,7 +484,7 @@ function brewScene(c, state) {
 export function broomTransform(state = {}) {
   const lift=clamp(state.flightLift),time=state.reducedMotion?0:(state.motionTime??state.time??0);
   const phase=state.reducedMotion?0:(state.flightPhase??time*.72),altitude=clamp(state.altitude??.5),steer=clamp(state.flightX??.5);
-  const targetX=590+(steer-.5)*120+Math.sin(phase*.7)*165;
+  const targetX=582+(steer-.5)*120+Math.sin(phase*.7)*165;
   const tallHat=clamp((state.hat??.5)-.5,0,.5)*2;
   // The complete flying rig grows 30%; its unchanged rollercoaster curve sits
   // lower so the tallest hat stays inside the frame at the uppermost crest.
@@ -546,26 +499,81 @@ function broomPoint(point,state) {
 }
 /** One continuous string trails the broom; the same points receive pulls. */
 export function getWitchTrail(state = {}) {
-  const time=state.motionTime??state.time??0,pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5);
-  const points=[];
-  for(let i=0;i<=64;i++) {
-    const tail=1-i/64,age=tail*6.4;
-    const past={...state,motionTime:time-age,flightPhase:state.flightPhase===undefined?undefined:state.flightPhase-age*(1+clamp(state.speed??.4)*5)/1.4};
-    const p=broomPoint({x:-265,y:126},past),wave=tail*(7+twist*23);
-    points.push({x:p.x+Math.sin(wave)*tail*(12+pull*31),y:p.y+Math.sin(wave*.83)*tail*(8+pull*57)});
+  const phase=state.reducedMotion?0:(state.flightPhase??state.motionTime??0);
+  const pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5),anchor=broomPoint({x:-265,y:126},state),points=[];
+  for(let i=0;i<=160;i++) {
+    const tail=1-i/160,mix=Math.sin(tail*Math.PI/2),coil=tail*TAU*(3+twist*4);
+    const x=500+Math.sin(tail*TAU*2.35+phase*.23)*390+Math.sin(coil+phase*.6)*pull*38;
+    const y=360+Math.sin(tail*TAU*3.6+phase*.19)*245+Math.cos(coil*1.3-phase*.4)*pull*35;
+    points.push({x:anchor.x*(1-mix)+clamp(x,45,955)*mix,y:anchor.y*(1-mix)+clamp(y,75,665)*mix});
   }
   return points;
+}
+
+const treeShapes=new Map();
+/** The upright tree is the actual L-system turtle trace, bounded and cached. */
+export function getWitchTree(state={}) {
+  const shape=Math.round(clamp(state.treeShape,0,5));
+  if(treeShapes.has(shape))return treeShapes.get(shape);
+  const source=L_SYSTEM_PRESETS[[0,1,2,0,1,2][shape]];
+  const trace=traceLSystem({...source,iterations:[5,3,3,6,3,3][shape],angle:[31,25,29,41,36,18][shape],turnAsymmetry:shape%2?.15:-.08,maxSymbols:6000});
+  const b=trace.bounds,wide=Math.max(.01,b.maxY-b.minY),tall=Math.max(.01,b.maxX-b.minX);
+  const project=p=>({x:738+(p.y-b.minY)/wide*236,y:624-(p.x-b.minX)/tall*365});
+  const root=project({x:0,y:0}),segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth)}));
+  const hints=[{x:761,y:303},{x:795,y:407},{x:922,y:517}],objects={};
+  WITCH_TREE_OBJECTS.forEach((item,index)=>{
+    const hint=hints[index],ends=segments.map(segment=>segment.b).filter(p=>p.y>275&&p.y<550&&Math.hypot(p.x-932,p.y-26-346)>85&&Object.values(objects).every(q=>Math.hypot(p.x-q.x,p.y-26-q.y)>78));
+    const point=ends.reduce((best,p)=>Math.hypot(p.x-hint.x,p.y-hint.y)<Math.hypot(best.x-hint.x,best.y-hint.y)?p:best,ends[0]||hint);
+    objects[item.id]={x:point.x,y:point.y-26};
+  });
+  const candidates=segments.map(({a,b})=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2})).filter(p=>p.x>825&&p.y>430&&p.y<578&&Object.values(objects).every(q=>Math.hypot(p.x-q.x,p.y-q.y)>48));
+  const target=candidates.reduce((best,p)=>Math.hypot(p.x-855,p.y-550)<Math.hypot(best.x-855,best.y-550)?p:best,candidates[0]||root);
+  const result={shape,root,target,segments,objects};treeShapes.set(shape,result);return result;
+}
+function livingTree(c,state) {
+  const tree=getWitchTree(state);
+  for(const segment of tree.segments) {
+    const points=[[segment.a.x,segment.a.y],[segment.b.x,segment.b.y]],width=1.1+(1-segment.depth)*4.5;
+    line(c,points,'#10141e',width+2);
+    line(c,points,`hsla(${145+tree.shape*29+segment.depth*42},74%,68%,${.64+segment.depth*.28})`,width);
+  }
+}
+export function getWitchWeb(state={}) {
+  const pulse=clamp(state.spiderPulse),time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
+  const corners=[{x:871,y:270},{x:995,y:235},{x:995,y:505}],center={x:932,y:346},strands=[];
+  for(const corner of corners)strands.push([center,corner]);
+  for(let ring=1;ring<=9;ring++) {
+    const u=ring/9,points=corners.map((p,index)=>({x:center.x+(p.x-center.x)*u+Math.sin(time*12+index+ring)*pulse*2,
+      y:center.y+(p.y-center.y)*u+Math.cos(time*10+index+ring)*pulse*2}));
+    strands.push([...points,points[0]]);
+  }
+  return {corners,center,strands};
+}
+function spiderWeb(c,state) {
+  const web=getWitchWeb(state);
+  for(const strand of web.strands)line(c,strand.map(p=>[p.x,p.y]),'#bbc7d373',.75);
+  for(let i=1;i<5;i++) {
+    const u=i/5,p={x:871+(995-871)*u,y:270+(235-270)*u};
+    line(c,[[web.center.x,web.center.y],[p.x,p.y]],'#bbc7d35f',.65);
+  }
+  c.save();c.translate(web.center.x,web.center.y);
+  const pulse=clamp(state.spiderPulse),wiggle=state.reducedMotion?0:Math.sin((state.handTime??state.motionTime??0)*13)*pulse*.035;
+  c.rotate(wiggle);
+  if(state.spiderSurface)c.drawImage(state.spiderSurface,-56,-56,112,112);
+  else {c.scale(1.6,1.6);drawInstrumentMiniature(c,'web-spider');}
+  c.restore();
 }
 
 export function getWitchTargets(state = {}) {
   const transform=headTransform(state);
   const point=(x,y,r)=>({...headPoint({x,y},transform),r:r*transform.scale});
   const shape=hatShape(state),hx=-10,hy=-111*shape.stretch;
-  return {nose:point(87+(clamp(state.nose??.5)-.5)*40,57,20),
+  return {nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
     hat:point(Math.cos(shape.tilt)*hx-Math.sin(shape.tilt)*hy,Math.sin(shape.tilt)*hx+Math.cos(shape.tilt)*hy,66*Math.max(1,shape.stretch)),
     tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32},
-    fabric:{x:830+clamp(state.fabricX??.5)*70,y:320-clamp(state.fabricY??.5)*60,r:32},
-    broom:{...parkedBroomPoint({x:60,y:108}),r:32},
+    fabric:{x:289+clamp(state.fabricX??.5)*40,y:320-clamp(state.fabricY??.5)*70,r:31},
+    tree:{...getWitchTree(state).target,r:35},web:{x:964,y:410,r:30},spider:{x:932,y:346,r:38},
+    broom:{...(clamp(state.flightLift)>.5?broomPoint({x:-200,y:126},state):parkedBroomPoint({x:0,y:123})),r:32},
     trail:{...getWitchTrail(state)[22],r:28}};
 }
 
@@ -582,8 +590,8 @@ export function handTransform(state = {}, index = 0) {
   const mirror = index === 0 ? 1 : -1;
   const ladle=getWitchLadle(state),flying=broomPoint({x:38,y:165},state);
   const anchor=index===1?palm:wrist;
-  const targetX=index===1?ladle.gx:((388+(435-388)*reach)*(1-lift)+flying.x*lift);
-  const targetY=index===1?ladle.gy:((450+(635-450)*reach)*(1-lift)+flying.y*lift);
+  const targetX=index===1?ladle.gx:((388+(492-388)*reach)*(1-lift)+flying.x*lift);
+  const targetY=index===1?ladle.gy:((450+(613-450)*reach)*(1-lift)+flying.y*lift);
   const a = Math.cos(rotation)*scale*mirror, b = Math.sin(rotation)*scale*mirror;
   const c = -Math.sin(rotation)*scale, d = Math.cos(rotation)*scale;
   const x=targetX-a*anchor.x-c*anchor.y,y=targetY-b*anchor.x-d*anchor.y;
@@ -610,59 +618,34 @@ function drawHandModel(c,state,index) {
   const mist=state.reducedMotion?1:.88+.12*Math.sin((state.time||0)*.63+index*2.2);
   c.save(); c.globalAlpha*=mist;c.transform(t.a,t.b,t.c,t.d,t.x,t.y); c.drawImage(surface,0,0,1000,720); c.restore();
 }
-function reachingHand(c, state) {
-  if (!state.handSurface) return;
-  const t = handTransform(state), {x:wx,y:wy} = t.wrist;
-  const lift=clamp(state.flightLift),growth=1+.3*lift,reach=clamp(state.handReach)*(1-lift),cuff=(12+clamp(state.handReach)*39)*(1-lift*.72)*growth;
-  const ux=Math.cos(t.rotation)*cuff,uy=Math.sin(t.rotation)*cuff;
-  const flying=broomPoint({x:-8,y:19},state);
-  const sx=365*(1-lift)+flying.x*lift,sy=410*(1-lift)+flying.y*lift;
-  c.save();
-  // The cuff rotates with the model so the stretched arm meets its actual wrist.
-  const sleeve=c.createLinearGradient(sx,sy,wx,wy);
-  sleeve.addColorStop(0,'#59305f');sleeve.addColorStop(.55,'#49375e');sleeve.addColorStop(1,'#275a65');
-  path(c, `M${sx},${sy} Q${sx-25*growth},${sy+59*(1-lift)+18*1.3*lift+reach*105} ${wx-ux},${wy-uy} Q${wx-10*growth},${wy+26*growth} ${wx+ux},${wy+uy} Q${sx+55*(1-lift)+16*1.3*lift},${sy-3*growth+reach*28} ${sx+38*(1-lift)+14*1.3*lift},${sy-growth} Z`, sleeve, INK, 3);
-  curve(c,[sx+14*growth,sy+12*growth,sx-9*growth,sy+73*growth+reach*95,wx-30*growth,wy+25*growth,wx-14*growth,wy+7*growth],'#bc78ae',1.5);
-  line(c,[[wx-ux,wy-uy],[wx+ux,wy+uy]],'#ddac87',2);
+export function getWitchSpellArm(state={}) {
+  const hand=handTransform(state),lift=clamp(state.flightLift),reach=clamp(state.handReach);
+  const flying=broomPoint({x:-8,y:19},state),shoulder={x:365*(1-lift)+flying.x*lift,y:410*(1-lift)+flying.y*lift};
+  const axis={x:Math.sin(hand.rotation),y:-Math.cos(hand.rotation)};
+  const length=(74+reach*52)*(1-lift)+broomTransform(state).scale*116*lift;
+  const elbow={x:hand.wrist.x-axis.x*length,y:hand.wrist.y-axis.y*length};
+  return {shoulder,elbow,wrist:hand.wrist,axis,cuff:(12+reach*39)*(1-lift*.72)*(1+.3*lift),width:19*(1-lift)+broomTransform(state).scale*22*lift};
+}
+function reachingHand(c,state) {
+  if(!state.handSurface)return;
+  const hand=handTransform(state),{shoulder:s,elbow:e,wrist:w,cuff,width}=getWitchSpellArm(state);
+  const nx=Math.cos(hand.rotation),ny=Math.sin(hand.rotation),ew=width*1.25;
+  c.save();const fill=c.createLinearGradient(s.x,s.y,w.x,w.y);
+  fill.addColorStop(0,'#542a5c');fill.addColorStop(.6,'#484064');fill.addColorStop(1,'#275a65');
+  path(c,`M${s.x-width},${s.y} Q${e.x-width*2},${e.y-20} ${e.x-ew*nx},${e.y-ew*ny} L${w.x-cuff*nx},${w.y-cuff*ny} Q${w.x},${w.y+14} ${w.x+cuff*nx},${w.y+cuff*ny} L${e.x+ew*nx},${e.y+ew*ny} Q${e.x+width*2},${e.y+12} ${s.x+width},${s.y-10} Z`,fill,INK,3);
+  curve(c,[s.x,s.y,e.x-12,e.y-20,e.x-10,e.y+12,e.x,e.y],'#b981b8',1.3);
+  line(c,[[e.x-ew*nx,e.y-ew*ny],[e.x+ew*nx,e.y+ew*ny]],'#9f7e9d',1.7);
+  line(c,[[w.x-cuff*nx,w.y-cuff*ny],[w.x+cuff*nx,w.y+cuff*ny]],'#ddac87',2);
   drawHandModel(c,state,0);
-  if (clamp(state.handReach) > .5) {
-    const cue=(1-lift*.7)*growth;
-    const colors=['#ffc17e','#e5ef82','#75f0cb','#86c9ff','#ee9ee9'];
-    for (const tip of getFingerTips(state)) {
-      const level=clamp(state.fingerLevels?.[tip.index]);
-      c.save(); c.globalAlpha *= .7+reach*.3;
-      ellipse(c,tip.x,tip.y,(17+level*13)*cue,(17+level*13)*cue,null,colors[tip.index],state.selectedFinger===tip.index?2:1);
-      if(level>.01) { glow(c,tip.x,tip.y,(38+level*18)*cue,`${colors[tip.index]}55`); star(c,tip.x+23*cue,tip.y-13*cue,level*6*cue,colors[tip.index]); }
-      c.restore();
-    }
-  } else {
-    c.save(); c.globalAlpha *= .45;
-    const p=transformHandPoint({x:590,y:415},state);
-    ellipse(c,p.x,p.y,29,37,null,LIME,1); c.restore();
+  if(clamp(state.handReach)>.5)for(const tip of getFingerTips(state)) {
+    const level=clamp(state.fingerLevels?.[tip.index]),cue=1-clamp(state.flightLift)*.61;
+    const color=['#ffc17e','#e5ef82','#75f0cb','#86c9ff','#ee9ee9'][tip.index];
+    ellipse(c,tip.x,tip.y,(13+level*9)*cue,(13+level*9)*cue,null,color,state.selectedFinger===tip.index?2:1);
+    if(level>.01)glow(c,tip.x,tip.y,(26+level*14)*cue,`${color}44`);
   }
   c.restore();
 }
 
-function bat(c, x, y, scale, time, index, active = false) {
-  const flap = Math.sin(time * 8 + index * 2) * 15;
-  c.save(); c.translate(x, y); c.scale(scale, scale); c.rotate(Math.sin(time * 1.1 + index) * .14);
-  if (active) {
-    glow(c, 0, 0, 55, '#c79ac943');
-    ellipse(c,0,4,47,20,null,'#ddbdd569',1.7);
-  }
-  for (const direction of [-1,1]) {
-    c.save(); c.scale(direction,1);
-    path(c, `M2,0 L18,${-28-flap} L31,${-43-flap} L52,${-16-flap} L41,${-17-flap*.6} L35,8 L28,1 L19,21 L13,7 L2,13 Z`, '#32223e', '#a67c99', 1.1);
-    curve(c,[4,3,19,-14-flap*.3,33,-16-flap*.5,47,-13-flap],'#94809e',.75);
-    line(c,[[5,4],[31,11]],'#99859e',.6);
-    c.restore();
-  }
-  path(c,'M-6,-2 L-9,12 L0,25 L7,12 L6,-2 Z','#181b27','#86718b',1);
-  path(c,'M-6,-2 L-10,-21 L-1,-10 L7,-19 L6,1 Z','#272130','#a190ac',1);
-  line(c,[[-5,-4],[-1,-2]],'#e49d79',1.3);line(c,[[1,-2],[5,-4]],'#e49d79',1.3);
-  path(c,'M-4,5 L-2,11 L0,6 L3,10 L4,4 Z','#d7ceac');
-  c.restore();
-}
 /** Background performers share audio-clock phase, positions and picking. */
 export function getWitchGhostPosition(ghost, state = {}) {
   const id=typeof ghost==='string'?ghost:ghost?.id;
@@ -757,56 +740,27 @@ function backgroundGhosts(c,state) {
 }
 
 function parkedBroomPoint(point) {
-  const angle=-.23,scale=.48;
-  return {x:190+(Math.cos(angle)*point.x-Math.sin(angle)*point.y)*scale,
-    y:540+(Math.sin(angle)*point.x+Math.cos(angle)*point.y)*scale};
+  const angle=-1.05,scale=.64;
+  return {x:206+(Math.cos(angle)*point.x-Math.sin(angle)*point.y)*scale,
+    y:434+(Math.sin(angle)*point.x+Math.cos(angle)*point.y)*scale};
 }
 function parkedBroom(c,state) {
-  const alpha=1-clamp(state.flightLift);
-  if(alpha<=0)return;
-  c.save();c.globalAlpha*=alpha;c.translate(190,540);c.rotate(-.23);c.scale(.48,.48);
-  broomShape(c,state);c.restore();
+  c.save();c.translate(206,434);c.rotate(-1.05);c.scale(.64,.64);broomShape(c,state);c.restore();
 }
 function broomShape(c,state) {
-  const time=state.motionTime??state.time??0,pulse=clamp(state.flightPulse);
-  const spark=state.event?.kind==='spark'?clamp(1-(state.event.age||0)/1.2):0;
-  // The broom is the rhythm source: its reeds light on each actual attack.
-  const shimmer = Math.max(pulse,spark);
-  if (shimmer > .01) {
-    c.save(); c.globalAlpha = shimmer;
-    glow(c,-248,123,99,'#d5dea54a');
-    for (let i = 0; i < 8; i++) {
-      const sx = -307-i*17, sy = 126 + Math.sin(time*4+i*1.7)*(9+i*2);
-      star(c,sx,sy,1.5+shimmer*2.5,'#e7dfad',1-i/9);
-    }
-    c.restore();
+  const time=state.reducedMotion?0:(state.motionTime??0),wind=clamp(state.flightLift);
+  path(c,'M-190,109 Q-250,85 -310,93 L-315,147 Q-251,153 -183,135 Z','#5f5140','#1e2022',2.3);
+  for(let i=0;i<44;i++) {
+    const spread=i/43,tipY=91+spread*59,tipX=-312+Math.sin(i*2.7)*10;
+    const bend=wind*Math.sin(time*3+i*.7)*8;
+    curve(c,[-184,116+spread*18,-230,100+spread*43,-273,tipY+bend,tipX,tipY+bend],['#b9a273','#887854','#d1b782','#584d37'][i%4],i%5===0?1.2:.65);
   }
-  // Long rushes stream behind the witch; loose ends flutter independently.
-  path(c, 'M-182,116 C-232,77 -282,87 -313,99 Q-284,105 -306,117 Q-275,123 -300,138 Q-261,131 -267,155 Q-226,140 -181,136 Z', '#7f725b', '#26272a', 2.5);
-  for (let i = 0; i < 18; i++) {
-    const by = 92 + i * 3.5;
-    curve(c,[-182,119+i*.9,-220,106+i*1.7,-255,by+Math.sin(time*4+i)*(4+pulse*5),-296+(i%4)*8,by],i%3===0 && pulse>.12 ? '#e5dda4' : '#baa27b',i%3===0?1.5+pulse:.7);
-  }
-  line(c,[[-201,109],[-194,140]],'#503c42',9); line(c,[[-201,109],[-194,140]],'#c9ad81',2.4);
-  curve(c,[-219,129,-110,111,54,135,162,96],'#201e25',12);
-  curve(c,[-219,129,-110,111,54,135,162,96],'#a68762',7);
-  curve(c,[-219,127,-110,109,54,133,161,94],'#d3b18a',1.3);
-  // A crooked double helix wraps the broom itself, wide enough to read while
-  // she is small in the sky. Bone, berry and verdigris twists pulse with flight.
-  const coil=[],shadowCoil=[];
-  for(let i=0;i<=72;i++) {
-    const u=i/72,a=u*TAU*3.5,round=Math.sin(Math.PI*u);
-    coil.push([-215+u*375+Math.sin(a)*19*round,126-u*25+Math.cos(a)*16*round]);
-    shadowCoil.push([-215+u*375-Math.sin(a)*19*round,126-u*25-Math.cos(a)*16*round]);
-  }
-  line(c,shadowCoil,'#211c2b',10);line(c,shadowCoil,'#5e9f9b',6.7);
-  line(c,coil,'#251c29',10);line(c,coil,'#c682a4',7);
-  line(c,coil,'#e0c8a3',1.3);line(c,shadowCoil,'#92e0c6',1);
-  if (pulse > .01) {
-    c.save(); c.globalAlpha = pulse;
-    curve(c,[-219,127,-110,109,54,133,161,94],'#e7ebbb',1.5+pulse*1.5);
-    c.restore();
-  }
+  for(let i=0;i<5;i++)line(c,[[-203+i*2,106+i*.5],[-197+i*2,141]],i%2?'#ad9061':'#4b3829',1.9);
+  curve(c,[-207,126,-104,110,44,132,166,94],'#201c1a',11);
+  curve(c,[-207,126,-104,110,44,132,166,94],'#85694a',7.3);
+  curve(c,[-207,124,-104,108,44,130,166,92],'#c4a276',1.1);
+  for(let i=0;i<8;i++)curve(c,[-190+i*43,125-i*.2,-177+i*43,121-i*.4,-163+i*43,127-i*.6,-154+i*43,121-i*.8],i%2?'#40372c':'#d7b486',.55);
+  ellipse(c,-25,119,6,2,null,'#4c3b29',1.1,-.2);
 }
 
 function broomWitch(c, state) {
@@ -820,9 +774,9 @@ function broomWitch(c, state) {
   path(c, 'M-67,-32 Q-103,-8 -102,45 Q-151,74 -181,85 L-156,111 Q-122,98 -117,119 Q-79,96 -66,111 Q-14,94 25,109 Q48,96 29,76 L-6,47 L-3,-5 Z', '#3b2b47', INK, 3);
   path(c, 'M-87,14 Q-107,77 -159,88 L-143,97 Q-120,80 -109,96 Q-68,75 -54,95 L-30,65 Z', '#58405b');
   curve(c,[-67,5,-40,50,-69,75,-81,90],'#80637b',1.3);
-  path(c, 'M-15,85 Q28,99 19,139 L45,178 Q34,191 15,181 L-9,143 Q-24,126 -40,105 Z', '#34303d', INK, 2.5);
-  path(c, 'M14,168 Q34,176 42,171 Q54,196 75,181 Q74,204 45,202 L20,187 Z', '#22232e', INK, 2.3);
-  line(c,[[28,179],[38,183],[31,190]],'#b89e7f',1.6);
+  path(c, 'M-21,79 Q-48,91 -49,120 L-94,151 Q-105,159 -119,147 L-81,111 Q-75,84 -51,76 Z', '#34303d', INK, 2.5);
+  path(c, 'M-104,141 Q-112,154 -124,149 Q-144,167 -160,154 Q-151,176 -131,173 L-107,159 Z', '#22232e', INK, 2.3);
+  line(c,[[-116,151],[-125,157],[-119,163]],'#b89e7f',1.6);
   witchHead(c,state,-53,-149,1,-.1);
   c.restore();
 }
@@ -852,44 +806,28 @@ function flightScene(c, state) {
     c.restore();
   }
   if (state.flightLift > .001) broomWitch(c,state);
-  for (let i = 0; i < WITCH_LAYOUT.bats.length; i++) {
-    const b = WITCH_LAYOUT.bats[i];
-    bat(c,b.x,b.y,.6 + i * .05,time,i,state.event?.kind === 'bat' && (state.event.age || 0) < 1);
-  }
-  // Distant silhouettes make the three playable bats read as part of a flock.
-  for (let i = 0; i < 4; i++) bat(c,615 + i * 42,94 + Math.sin(i * 2) * 24,.19 + i * .025,time + i,i);
-  for(const spirit of WITCH_LAYOUT.spirits) {
-    c.save();c.translate(spirit.x,spirit.y);c.globalAlpha=.58+.22*Math.sin(time*.5+spirit.x)**2;
-    if(spirit.kind==='spark') {
-      c.rotate(Math.sin(time*.21)*.15);glow(c,0,0,34,'#d59d982a');
-      path(c,'M0,-29 L5,-6 L22,-13 L10,2 L27,15 L5,10 L-4,31 L-8,8 L-28,12 L-13,-1 L-23,-17 L-5,-7 Z',null,'#d6b98f',1.2);
-      ellipse(c,0,0,5,5,'#a66c77','#e9c7ad',1);
-    } else {
-      path(c,'M0,-16 L-5,0 L-31,-12 L-19,8 L-31,15 L-6,13 L0,26 L5,13 L29,15 L17,7 L31,-12 L5,0 Z','#617c8e55','#8eabad',1);
-      for(let i=0;i<3;i++)curve(c,[-39,12+i*7,-14,32+i*5,14,-14+i*4,42,6+i*8],'#b6b4c879',1.1);
-      line(c,[[0,-16],[0,22]],'#d9c9aa',1.2);
-    }
-    c.restore();
-  }
 }
 
-/** Shelf and automatic drop positions are shared by drawing and picking. */
 export function getWitchObjectPosition(object, state = {}) {
   const id=typeof object==='string'?object:object?.id;
   const home=WITCH_LAYOUT.objects.find(entry=>entry.id===id)||WITCH_LAYOUT.objects[0];
   const live=typeof object==='object'?object:state.objects?.find(entry=>entry.id===id)||home;
-  const x=Number.isFinite(live.x)?live.x:home.x,y=Number.isFinite(live.y)?live.y:home.y;
+  const branch=home.location==='tree'?getWitchTree(state).objects[id]:null;
+  const x=live.dropped||live.dragging?(Number.isFinite(live.x)?live.x:home.x):(branch?.x??home.x);
+  const y=live.dropped||live.dragging?(Number.isFinite(live.y)?live.y:home.y):(branch?.y??home.y);
   if(live.dropped) {
-    const age=Math.max(0,live.dropAge||0),fall=clamp(age/.85),travel=fall*fall*(3-2*fall);
-    return {...home,...live,x:x+(600-x)*travel,y:y+(544-y)*travel-Math.sin(fall*Math.PI)*110,
-      alpha:1-clamp((fall-.7)/.3),rotation:fall*2.4,scale:1-fall*.55,r:home.r};
+    const age=Math.max(0,live.dropAge||0),hold=home.phraseDuration||0,fall=clamp((age-hold)/(home.flightDuration||1.5));
+    const travel=fall*fall*(3-2*fall),singing=age<hold;
+    return {...home,...live,x:x+(600-x)*travel+(singing?Math.sin(age*11)*3:0),
+      y:y+(544-y)*travel-Math.sin(fall*Math.PI)*118+(singing?Math.sin(age*7)*2:0),
+      alpha:1-clamp((fall-.76)/.24),rotation:singing?Math.sin(age*8)*.05:fall*2.4,scale:1-fall*.55,r:home.r};
   }
   return {...home,...live,x,y,alpha:1,rotation:0,scale:1,r:home.r};
 }
 
 // Reuse the instruments' existing portraits as tiny visual tastes;
 // no extra WebGL scene, model, or instrument controller is instantiated here.
-const miniatureSources=Object.freeze(Object.fromEntries(WITCH_SHELF.map(entry=>[
+const miniatureSources=Object.freeze(Object.fromEntries([...INGREDIENTS,{id:"web-spider",imageHref:"assets/instruments/spider-synth.webp"}].map(entry=>[
   entry.id,new URL('../../../'+entry.imageHref,import.meta.url).href,
 ])));
 const miniatureImages=new WeakMap();
@@ -908,10 +846,18 @@ function drawInstrumentMiniature(c,id) {
     const surface=doc.createElement('canvas');surface.width=surface.height=160;
     const ink=surface.getContext('2d');ink.drawImage(portrait.image,0,0,160,160);
     const pixels=ink.getImageData(0,0,160,160);removePortraitBackdrop(pixels);ink.putImageData(pixels,0,0);
+    let left=160,top=160,right=-1,bottom=-1;
+    for(let y=0;y<160;y++)for(let x=0;x<160;x++)if(pixels.data[(y*160+x)*4+3]>8) {
+      left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);
+    }
+    portrait.bounds=right<left?{x:0,y:0,w:160,h:160}:{x:left,y:top,w:right-left+1,h:bottom-top+1};
     portrait.surface=surface;
   }
-  const size=id==='spider'?64:60;
-  c.drawImage(portrait.surface,-size/2,-size/2,size,size);
+  const b=portrait.bounds,scale=Math.min(56/b.w,54/b.h),width=b.w*scale,height=b.h*scale;
+  // Rest the visible cutout, not its transparent image rectangle, on the board.
+  // The web portrait remains centered beneath the live spider surface.
+  const bottom=id==='web-spider'?height/2:27;
+  c.drawImage(portrait.surface,b.x,b.y,b.w,b.h,-width/2,bottom-height,width,height);
   return true;
 }
 
@@ -974,7 +920,7 @@ function ingredientObjects(c,state,foreground=false) {
     if(object.dropped) {
       const age=Math.max(0,object.dropAge||0),envelope=Math.max(0,1-age/3.6);
       if(envelope>0) {
-        c.save();c.globalAlpha=envelope;
+        c.save();c.globalAlpha*=envelope;
         glow(c,600,511,155,`${color}33`);
         ellipse(c,600,520,47+age*25,12+age*7,null,`${color}ad`,2);
         for(let i=0;i<4;i++) {
@@ -985,17 +931,17 @@ function ingredientObjects(c,state,foreground=false) {
       }
     }
     if(object.alpha<=0)continue;
-    c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.scale(object.scale,object.scale);c.globalAlpha=object.alpha;
+    c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.scale(object.scale,object.scale);c.globalAlpha*=object.alpha;
     drawInstrumentMiniature(c,home.id);
     c.restore();
   }
 }
 function hauntedMist(c,state) {
-  const time=state.reducedMotion?0:(state.time||0);
+  const time=state.reducedMotion?0:(state.time||0),groundAlpha=c.globalAlpha;
   c.save();
   for(let i=0;i<4;i++) {
     const shift=Math.sin(time*.11+i*1.8)*80,y=605+i*22;
-    c.globalAlpha=.035+.025*Math.sin(time*.23+i)**2;
+    c.globalAlpha=groundAlpha*(.035+.025*Math.sin(time*.23+i)**2);
     path(c,`M-80,${y+28} C${100+shift},${y-20} ${260+shift},${y+35} 410,${y-6} S760,${y-35} 1080,${y+8} L1080,${y+27} C800,${y-12} 624,${y+45} 370,${y+25} S93,${y+8} -80,${y+45} Z`,['#87bcbb','#b796bb','#87b4d7','#d2b68e'][i]);
   }
   c.restore();
@@ -1004,31 +950,41 @@ function hauntedMist(c,state) {
 // One bounded offscreen world lets mushroom ripples bend all of the artwork,
 // including the actual skinned hand. Input uses the exact inverse below.
 const worlds = new WeakMap();
-export function witchWarpX(y, state = {}) {
-  const trip = Math.round(clamp(state.trip,0,3));
-  if (!trip) return 0;
-  const time = state.warpTime ?? state.time ?? 0;
-  return (7 + trip*4) * Math.sin(y*.024+time*1.8) + trip*2.5*Math.sin(y*.063-time*2.3);
+function visualMode(state) {return Math.round(clamp(state.visualMode??state.trip,0,7));}
+export function witchWarpX(y,state={}) {
+  const mode=visualMode(state),shock=clamp(state.eyeShock);
+  const time=state.reducedMotion?0:(state.warpTime??state.handTime??state.motionTime??0);
+  let offset=0;
+  if(mode>0&&mode<4)offset=(7+mode*4)*Math.sin(y*.024+time*1.8)+mode*2.5*Math.sin(y*.063-time*2.3);
+  if(mode===4)offset=Math.sin(y*.017+time*5)*9+Math.sin(Math.floor(y/18)*2.3+time*8)*7;
+  if(mode===5)offset=Math.sin(Math.floor(y/5)*12.73+Math.floor(time*14)*3.31)*16;
+  if(mode===6)offset=Math.sin(Math.floor(y/24)*2.1+Math.floor(time*5)*.73)*18;
+  if(mode===7)offset=((Math.floor(y/16)+Math.floor(time*11))%3-1)*17+Math.sin(y*.041+time*8)*7;
+  return offset+shock*((Math.floor(y/12)+Math.floor(time*9))%3-1)*12;
 }
-export function warpWitchPoint(point, state = {}, inverse = false) {
-  if(!state.trip) return {...point};
-  const wave=witchWarpX(point.y,state);
+export function warpWitchPoint(point,state={},inverse=false) {
+  if(!visualMode(state)&&!state.eyeShock)return {...point};
+  // Match the center sample of the four-pixel strip actually painted below.
+  const wave=witchWarpX(Math.floor(point.y/4)*4+2,state);
   return {...point,x:inverse?(point.x-wave+25)/1.05:point.x*1.05-25+wave};
 }
-function drawWorld(c, state) {
-  c.clearRect(0,0,1000,720); c.lineCap='round'; c.lineJoin='round';
-  background(c,state);
-  backgroundGhosts(c,state);
-  instrumentShelves(c);ingredientObjects(c,state,false);
-  parkedBroom(c,state);
-  brewScene(c,state);
-  flightScene(c,state);
-  reachingHand(c,state);
-  toneFirefly(c,state);
-  ingredientObjects(c,state,true);
-  fabricCloth(c,state);
-  hauntedMist(c,state);
-  drawWitchCat(c,state);
+function drawWorld(c,state) {
+  c.clearRect(0,0,1000,720);c.lineCap='round';c.lineJoin='round';background(c,state);
+  const ground=1-clamp(state.flightLift);
+  if(ground>0) {
+    c.save();c.globalAlpha*=ground;
+    backgroundGhosts(c,state);instrumentShelves(c);livingTree(c,state);spiderWeb(c,state);
+    fabricCloth(c,state);ingredientObjects(c,state,false);parkedBroom(c,state);c.restore();
+  }
+  brewScene(c,state);flightScene(c,state);reachingHand(c,state);
+  if(ground>0) {
+    c.save();c.globalAlpha*=ground;toneFirefly(c,state);ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
+  }
+}
+/** Face, hat and hair only, with a transparent background for the catalogue. */
+export function renderWitchFaceIcon(ctx,size=512) {
+  ctx.clearRect(0,0,size,size);ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+  witchHead(ctx,{hair:.58,nose:.72,hat:.5,mouth:.48,radius:.66,reducedMotion:true},size*.55,size*.48,size/510,-.025);ctx.restore();
 }
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
 export function renderWitch(ctx, width, height, state = {}) {
@@ -1043,16 +999,27 @@ export function renderWitch(ctx, width, height, state = {}) {
   ctx.save(); ctx.clearRect(0,0,w,h);ctx.fillStyle='#14151f';ctx.fillRect(0,0,w,h);
   ctx.translate((w-1000*scale)/2,(h-720*scale)/2);ctx.scale(scale,scale);
   ctx.beginPath();ctx.rect(0,0,1000,720);ctx.clip();
-  const trip=Math.round(clamp(state.trip,0,3)),palette=Math.round(clamp(state.palette,0,7));
-  if(trip||palette) {
-    // Base preset color and mushroom color add without changing each other's
-    // state. Only mushrooms bend coordinates; a palette change is purely color.
-    const hue=([0,38,82,132,178,218,268,315][palette]+[0,100,215,290][trip])%360;
-    world.color.filter=`hue-rotate(${hue}deg) saturate(${trip?2.15:1.25})`;
-    world.color.drawImage(world.surface,0,0);
-    if(trip)for(let y=0;y<720;y+=4) ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
-    else ctx.drawImage(world.colored,0,0);
-  } else ctx.drawImage(world.surface,0,0);
+  const mode=visualMode(state),palette=Math.round(clamp(state.palette,0,7));
+  const hues=[0,38,82,132,178,218,268,315],from=hues[Math.round(clamp(state.paletteFrom??palette,0,7))],to=hues[Math.round(clamp(state.paletteTo??palette,0,7))];
+  const blend=clamp(state.paletteMix??1),delta=((to-from+540)%360)-180;
+  const hue=(from+delta*blend+[0,100,215,290,32,185,267,324][mode]+360)%360;
+  const deform=mode>0||clamp(state.eyeShock)>0;
+  world.color.filter=`hue-rotate(${hue}deg) saturate(${mode?1.6:1.25})`;world.color.drawImage(world.surface,0,0);
+  if(mode===6) {
+    if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=125;world.pixel.height=90;world.pixelInk=world.pixel.getContext('2d');}
+    world.pixelInk.drawImage(world.colored,0,0,125,90);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,1000,720);world.color.imageSmoothingEnabled=true;
+  }
+  if(deform)for(let y=0;y<720;y+=4)ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
+  else ctx.drawImage(palette||blend<1?world.colored:world.surface,0,0);
+  if(mode===4||mode===5) {
+    const time=state.reducedMotion?0:(state.warpTime??state.handTime??0),frame=Math.floor(time*(mode===5?14:6));
+    ctx.save();ctx.globalAlpha=mode===5?.08:.045;
+    for(let i=0;i<120;i++) {
+      const x=(i*173+frame*47)%1000,y=(i*89+frame*17)%720;
+      ctx.fillStyle=i%3?'#96b6c5':'#110c1a';ctx.fillRect(x,y,mode===5?3:38,mode===5?2:1);
+    }
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -1060,10 +1027,13 @@ export function renderWitch(ctx, width, height, state = {}) {
 export function hitTestWitch(x, y, state = {}) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
-  if(hitTestWitchCat(x,y,state))return {type:'cat'};
+  const grounded=clamp(state.flightLift)<.85;
+  const visitor=grounded?hitTestWitchVisitors(x,y,state):null;
+  if(visitor)return visitor;
+  if(grounded&&hitTestWitchCat(x,y,state))return {type:'cat'};
   const minRadius=Math.max(46,state.hitRadius||0);
   let nearestObject=null,objectDistance=Infinity,objectRadius=0;
-  for(const [index,home] of WITCH_LAYOUT.objects.entries()) {
+  for(const [index,home] of (grounded?WITCH_LAYOUT.objects:[]).entries()) {
     const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
     const distance=Math.hypot(x-object.x,y-object.y);
     if(!object.dropped&&distance<Math.max(home.r+8,minRadius)&&distance<objectDistance) {
@@ -1071,8 +1041,7 @@ export function hitTestWitch(x, y, state = {}) {
     }
   }
   const targets=getWitchTargets(state);
-  if(Math.hypot(x-targets.fabric.x,y-targets.fabric.y)<Math.max(targets.fabric.r,minRadius*.6))return {type:'fabric'};
-  if(Math.hypot(x-targets.tone.x,y-targets.tone.y)<Math.max(targets.tone.r,Math.min(50,minRadius*.7)))return {type:'tone'};
+  if(grounded&&Math.hypot(x-targets.tone.x,y-targets.tone.y)<Math.max(targets.tone.r,Math.min(50,minRadius*.7)))return {type:'tone'};
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {
@@ -1086,26 +1055,27 @@ export function hitTestWitch(x, y, state = {}) {
   }
   if(nearestObject&&objectDistance<objectRadius)return nearestObject;
   const ladle=getWitchLadle(state);
-  if(Math.hypot(x-(ladle.hx-8),y-(ladle.hy-24))<Math.max(27,minRadius*.75))return {type:'spoon'};
-  if(Math.hypot(x-targets.nose.x,y-targets.nose.y)<Math.max(targets.nose.r,minRadius*.65))return {type:'nose'};
+  const faceHits=['nose','mouth','eyes','spoon'].map(type=>({type,distance:type==='spoon'?Math.hypot(x-ladle.gx,y-ladle.gy):Math.hypot(x-targets[type].x,y-targets[type].y),radius:type==='spoon'?Math.max(27,minRadius*.75):Math.max(targets[type].r,Math.min(27,minRadius*.38))})).filter(hit=>hit.distance<hit.radius).sort((a,b)=>a.distance/a.radius-b.distance/b.radius);
+  if(faceHits.length)return {type:faceHits[0].type};
   if(Math.hypot(x-targets.hat.x,y-targets.hat.y)<Math.max(targets.hat.r,minRadius*.7))return {type:'hat'};
   const moon=WITCH_LAYOUT.moon;
   if(Math.hypot(x-moon.x,y-moon.y)<Math.max(moon.r+12,minRadius)) return {type:'moon'};
-  for(const m of WITCH_LAYOUT.mushrooms) if(Math.hypot(x-m.x,y-m.y)<Math.max(m.r,minRadius)) return {type:'mushrooms'};
+  for(const m of grounded?WITCH_LAYOUT.mushrooms:[]) if(Math.hypot(x-m.x,y-m.y)<Math.max(m.r,minRadius)) return {type:'mushrooms'};
   const handPoint=transformHandPoint({x:590,y:415},state);
   if(Math.hypot(x-handPoint.x,y-handPoint.y)<Math.max(38,minRadius)) return {type:'hand'};
-  if(clamp(state.flightLift)<.35) {
-    const a=parkedBroomPoint({x:-295,y:120}),b=parkedBroomPoint({x:162,y:96}),dx=b.x-a.x,dy=b.y-a.y;
-    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
-    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(18,minRadius*.45))return {type:'broom'};
-  }
-  // Visible locks sit in front of the background ghosts, bats and spirits.
+  // Visible locks sit in front of the background ghosts and scenery.
   // Hands, utensil, face, hat and shelf icons retain priority.
   const hair=getWitchHair(state),hairRadius=Math.min(28,Math.max(12*hair.scale,minRadius*.32));
-  for(const strand of hair.strands.slice(0,8))for(let i=7;i<strand.points.length;i++) {
+  for(const strand of hair.strands.slice(0,12))for(let i=7;i<strand.points.length;i++) {
     const a=strand.points[i-1],b=strand.points[i],dx=b.x-a.x,dy=b.y-a.y;
     const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
     if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<hairRadius)return {type:'hair'};
+  }
+  {
+    const flying=clamp(state.flightLift)>.5,project=p=>flying?broomPoint(p,state):parkedBroomPoint(p);
+    const a=project({x:-295,y:120}),b=project({x:162,y:96}),dx=b.x-a.x,dy=b.y-a.y;
+    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
+    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(18,minRadius*.45))return {type:'broom'};
   }
   // The string paints over the potion; its exact path remains pullable there.
   if(clamp(state.flightLift)>.05) {
@@ -1117,6 +1087,20 @@ export function hitTestWitch(x, y, state = {}) {
   }
   const pot=WITCH_LAYOUT.cauldron;
   if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
+  if(!grounded)return {type:'flight'};
+  if(Math.hypot(x-targets.fabric.x,y-targets.fabric.y)<Math.max(targets.fabric.r,minRadius*.55))return {type:'fabric'};
+  if(Math.hypot(x-targets.spider.x,y-targets.spider.y)<Math.max(targets.spider.r,minRadius*.55))return {type:'spider'};
+  if(x>875&&x<1000&&y>240&&y<505) {
+    const web=getWitchWeb(state);
+    for(const strand of web.strands)for(let i=1;i<strand.length;i++) {
+      const a=strand[i-1],b=strand[i],dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+      if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<12)return {type:'web',index:Math.min(6,Math.floor(clamp((y-235)/270)*7))};
+    }
+  }
+  for(const segment of getWitchTree(state).segments) {
+    const {a,b}=segment,dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+    if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<12)return {type:'tree'};
+  }
   let ghostHit=null,ghostDistance=Infinity;
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
     const ghost=getWitchGhostPosition(index,state),distance=Math.hypot(x-ghost.x,y-ghost.y);

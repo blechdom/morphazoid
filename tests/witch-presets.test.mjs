@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
-import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
+import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
+import { TOOL_GROUPS } from '../src/site/instrument-registry.js';
+import { existsSync } from 'node:fs';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 
 test('every complete Witch scene survives recall without bringing transport or output state',()=>{
@@ -26,6 +28,8 @@ test('randomization reaches every scene, character, direction and continuous mus
   assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);
   assert.equal(new Set(scenes.map(s=>s.palette)).size,8);
   assert.equal(new Set(scenes.map(s=>s.trip)).size,4);
+  assert.equal(new Set(scenes.map(s=>s.visualMode)).size,8);
+  assert.equal(new Set(scenes.map(s=>s.treeShape)).size,6);
   for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
@@ -47,18 +51,26 @@ test('every shelf miniature is an actual catalogue icon and selects its own comp
   assert.ok(WITCH_SHELF.some(item=>item.id==='puggler'&&item.instrumentId==='puggler'));
   assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,WITCH_SHELF.length);
   const sounds=new Set();
-  for(const item of WITCH_SHELF) {
-    const instrument=instrumentById(item.instrumentId);
+  assert.equal(WITCH_SHELF.length,18);assert.equal(WITCH_TREE_OBJECTS.length,3);
+  assert.deepEqual(WITCH_TREE_OBJECTS.map(item=>item.instrumentId),['blech-midi','syrinx','creaturazoid']);
+  assert.equal(WITCH_INGREDIENTS.filter(item=>item.instrumentId==='throatazoid').length,1);
+  assert.ok(WITCH_INGREDIENTS.every(item=>item.instrumentId!=='breath-atlas'));
+  const registered=TOOL_GROUPS.flatMap(group=>group.items||group.tools||[]);
+  for(const item of WITCH_INGREDIENTS) {
+    const tool=registered.find(tool=>tool.id===item.instrumentId);
+    const instrument=instrumentById(item.instrumentId) || (tool && {...tool,imageHref:tool.imageHref??`assets/instruments/${tool.id}.webp`});
     assert.ok(instrument,item.instrumentId);
     assert.equal(item.name,instrument.label);
     assert.equal(item.imageHref,instrument.imageHref);
+    assert.ok(existsSync(new URL(`../${item.imageHref}`,import.meta.url)));
+    assert.equal(item.phraseDuration,item.location==='tree'?3.2:0);
     const preset=WITCH_PRESETS.find(preset=>preset.id===item.presetId);
     assert.ok(preset,item.id);
     sounds.add(JSON.stringify(witchHandConfig(preset.snapshot)));
     assert.equal('volume' in preset.snapshot,false);
     assert.equal('performanceTime' in preset.snapshot,false);
   }
-  assert.equal(sounds.size,WITCH_SHELF.length,'each shelf spell changes the authored hand sound or articulation');
+  assert.equal(sounds.size,WITCH_INGREDIENTS.length,'each shelf spell changes the authored hand sound or articulation');
   assert.equal(new Set(WITCH_PRESETS.map(({snapshot:s})=>`${s.catGait}:${s.catSpeed}`)).size,WITCH_PRESETS.length);
   assert.ok(WITCH_PRESETS.some(({snapshot:s})=>s.handRate>=5&&s.handDepth>=.8));
   assert.ok(WITCH_PRESETS.some(({snapshot:s})=>s.handRate<.6));
@@ -115,4 +127,9 @@ test('older scenes retain their singing character and restore the original balan
   assert.equal(normalizeWitchPreset({spellBalance:4}).spellBalance,1);
   const held=(WITCH_VOICES.indexOf('wail')+.2)/WITCH_VOICES.length;
   assert.equal(normalizeWitchPreset({voice:'wail',spoonAuto:false,spoonHeight:held}).spoonHeight,held);
+});
+
+test('saved scenes from before mushroom vision preserve their line distortion',()=>{
+  for(const trip of [0,1,2,3])assert.equal(normalizeWitchPreset({trip}).visualMode,trip);
+  assert.equal(normalizeWitchPreset({trip:3,visualMode:6}).visualMode,6);
 });

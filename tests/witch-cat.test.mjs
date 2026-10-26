@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drawWitchCat, getWitchCatFrame, getWitchCatTargets, hitTestWitchCat } from '../src/instruments/witch/witch-cat.js';
+import { drawWitchCat, getWitchCatFrame, getWitchCatTargets, hitTestWitchCat, WITCH_CAT_SCALE } from '../src/instruments/witch/witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS, witchCatMeowEnvelope } from '../src/instruments/witch/witch-cat-model.js';
 import { hitTestWitch, warpWitchPoint } from '../src/instruments/witch/witch-renderer.js';
 
@@ -80,17 +80,18 @@ test('live speed and actual gait edits preserve integrated travel and paws, incl
 });
 
 test('each authored Quadruped gait draws the larger cat about its fixed ground line',()=>{
+  assert.equal(WITCH_CAT_SCALE/1.25,1.2,'twenty percent larger than the previous cat');
   for(const catGait of WITCH_CAT_GAITS) {
     const {context,calls,scales}=drawingProbe();
     const frame=drawWitchCat(context,{performanceTime:33.5,catGait});
     assert.equal(frame.behaviorId,catGait);assert.equal(frame.y,700);
-    assert.deepEqual(scales[0],[1.25,1.25]);
+    assert.deepEqual(scales[0],[1.5,1.5]);
     assert.ok(calls.length>100&&calls.length<1000);
     assert.ok(calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
   }
   const {context,scales}=drawingProbe();
   drawWitchCat(context,{performanceTime:63.5});
-  assert.deepEqual(scales[0],[-1.25,1.25]);
+  assert.deepEqual(scales[0],[-1.5,1.5]);
 });
 
 test('click targets follow both directions and every gait through mushroom distortion',()=>{
@@ -122,4 +123,36 @@ test('meow opens the actual head rig while preserving body travel and a bounded 
   for(const age of [-1,0,.85,3,Infinity,NaN])assert.equal(witchCatMeowEnvelope(age),0);
   assert.equal(witchCatMeowEnvelope(.1),1);
   assert.ok(witchCatMeowEnvelope(.7)<witchCatMeowEnvelope(.5));
+});
+
+test('a captured cat dives from its visible anchor, keeps meowing, and returns on its next visit',()=>{
+  const before=getWitchCatFrame({performanceTime:33.5});
+  const capture=Object.freeze({startedAt:33.5,from:Object.freeze({x:before.x,y:before.y})});
+  const state={performanceTime:33.5,capturedAnimals:Object.freeze({cat:capture})};
+  const start=getWitchCatFrame(state);
+  assert.equal(start.x,before.x);assert.equal(start.y,before.y);
+  assert.equal(start.captured,true);assert.equal(start.diving,true);assert.equal(start.visible,true);
+  assert.equal(getWitchCatTargets(state),null);assert.equal(hitTestWitchCat(before.x,before.y,state),false);
+  const mid=getWitchCatFrame({...state,performanceTime:33.95});
+  assert.ok(mid.x>start.x&&mid.x<600);assert.ok(mid.y<544);assert.ok(mid.scale<1);
+  assert.deepEqual(getWitchCatFrame({...state,performanceTime:33.95,time:9999}),mid,'wall time does not move a stopped dive');
+  const silent=drawingProbe(),meow=drawingProbe();
+  drawWitchCat(silent.context,{...state,performanceTime:33.95});
+  drawWitchCat(meow.context,{...state,performanceTime:33.95,catMeow:1});
+  assert.notDeepEqual(silent.calls,meow.calls,'the meowing head still articulates during its dive');
+  for(const performanceTime of [34.5,36,50,59.9]) {
+    const frame=getWitchCatFrame({...state,performanceTime});
+    assert.equal(frame.captured,true);assert.equal(frame.visible,false);assert.equal(frame.diving,false);
+  }
+  const next=getWitchCatFrame({...state,performanceTime:63.5});
+  assert.equal(next.captured,false);assert.equal(next.visible,true);assert.equal(next.direction,-1);
+});
+
+test('full flight hides the cat and its click targets without changing its visit clock',()=>{
+  const state={performanceTime:33.5},ground=getWitchCatFrame(state),flight=getWitchCatFrame({...state,flightLift:1});
+  assert.equal(ground.visible,true);assert.equal(flight.visible,false);
+  for(const key of ['visit','progress','position','x','y'])assert.equal(flight[key],ground[key]);
+  assert.equal(getWitchCatTargets({...state,flightLift:1}),null);
+  assert.equal(hitTestWitchCat(ground.x,ground.y,{...state,flightLift:1}),false);
+  const probe=drawingProbe();drawWitchCat(probe.context,{...state,flightLift:1});assert.equal(probe.calls.length,0);
 });

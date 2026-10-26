@@ -20,10 +20,11 @@ make a sample collage.
 **[Time Loom](time-loom.html)** weaves recorded phrases with three hanging cords. Slide knots to loop a moment, pull a tassel to stretch it, reverse the reading direction, and tie one passage to another. Microphone and file input, an original demo, twelve weaves, and Undo make the prototype immediately playable. [Controls and model boundaries](docs/time-loom.md).
 
 **[Witches Brew](witch.html)** leads Faves: a singing cauldron and
-witchy Gesticules hands play together. Drop floating miniature instruments into
-the pot for featured solos, then ride a rollercoaster broom that bends the whole
-ensemble through delay. Mushrooms warp the colors and lines. The scene starts
-moving with Audio off. [Gestures and sound](docs/witch.md).
+witchy Gesticules hands play together. Click real instrument icons on the
+cupboard or tree to mix short sound bites and fade into new spells. Pluck the
+spider web, catch passing animals, or fly the wooden broom through a playable
+delay trail. Mushrooms bend the colors and picture. The scene starts moving
+with Audio off. [Gestures and sound](docs/witch.md).
 
 **[ESI-32](esi-32.html)** is an E-mu ESI-32-inspired sampler with eight sample slots, original demo sounds, local audio import, waveform trimming, forward loops, reverse, a resonant lowpass and envelopes. Play the two-row keyboard or MIDI and save complete banks with their audio. Audio starts off. [Controls and emulation limits](docs/esi-32.md).
 

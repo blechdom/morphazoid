@@ -115,6 +115,8 @@ export class WitchAudio {
     if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
     this.post({ type: 'trigger', kind, at: this.context.currentTime }); return true;
   }
+  /** Release manual accents even when primary Play is already stopped. */
+  releaseAccents() { this.post({ type: 'release-accents' }); }
   detach() {
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }
     this.releaseOutput?.(); this.releaseOutput = null;

@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and five Gesticules instruments play together. Reach her long fingers, drop a miniature hand, marimba or choir mouth into the pot for a featured solo, and ride a rollercoaster broom that bends the whole mix through delay. Mushrooms warp the colors and lines.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers or drop a floating instrument into the pot; all remain playable during flight. The moon takes off, mushrooms change the picture, and Stop releases the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and Gesticules fingers play together. Click real instruments on the cupboard and tree to add short sound bites and fade into new spells. Pluck the spider web, catch passing animals, or fly a wooden broom through a playable delay trail.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers, pull her hair or the fabric, and click instruments into the pot. The moon or broom toggles flight; mushrooms change the picture. Release stops the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "replacements": [
         {
           "before": "# Morphazoid\n\n",
-          "after": "# Morphazoid\n\n**[Witches Brew](witch.html)** leads Faves: a singing cauldron and\nwitchy Gesticules hands play together. Drop floating miniature instruments into\nthe pot for featured solos, then ride a rollercoaster broom that bends the whole\nensemble through delay. Mushrooms warp the colors and lines. The scene starts\nmoving with Audio off. [Gestures and sound](docs/witch.md).\n\n"
+          "after": "# Morphazoid\n\n**[Witches Brew](witch.html)** leads Faves: a singing cauldron and\nwitchy Gesticules hands play together. Click real instrument icons on the\ncupboard or tree to mix short sound bites and fade into new spells. Pluck the\nspider web, catch passing animals, or fly the wooden broom through a playable\ndelay trail. Mushrooms bend the colors and picture. The scene starts moving\nwith Audio off. [Gestures and sound](docs/witch.md).\n\n"
         }
       ]
     },
@@ -75,7 +75,7 @@
       "replacements": [
         {
           "before": "copy+require\tdocs/esi-32.md\n",
-          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch-hand.js\ncopy+require\tsrc/instruments/witch/witch-cat.js\ncopy+require\tsrc/instruments/witch/witch-cat-model.js\ncopy+require\tsrc/instruments/witch/witch-cat-audio.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
+          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch-scene-model.js\ncopy+require\tsrc/instruments/witch/witch-scene-audio.js\ncopy+require\tsrc/instruments/witch/witch-bite-clips.js\ncopy+require\tsrc/instruments/witch/witch-spider.js\ncopy+require\tsrc/instruments/witch/witch-hand.js\ncopy+require\tsrc/instruments/witch/witch-visitors.js\ncopy+require\tsrc/instruments/witch/witch-visitors-model.js\ncopy+require\tsrc/instruments/witch/witch-cat.js\ncopy+require\tsrc/instruments/witch/witch-cat-model.js\ncopy+require\tsrc/instruments/witch/witch-cat-audio.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\ncopy+require\tdocs/witch-sound-bites.md\n"
         }
       ]
     },

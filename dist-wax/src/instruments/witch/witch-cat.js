@@ -1,13 +1,15 @@
 import { createQuadrupedState, deriveQuadrupedPose } from '../quadruped/quadruped.js';
 import { deriveQuadrupedVisualRig, drawQuadrupedConstellationRig } from '../quadruped/quadruped-visual-skins.js';
 import { createWitchCatClock, WITCH_CAT_GAITS, WITCH_CAT_PERIOD, WITCH_CAT_DURATION } from './witch-cat-model.js';
+import { applyWitchAnimalCapture } from './witch-visitors-model.js';
 
 // Reuse Quadruped's authored cat-prowl score, feline morphology, articulated
 // feet, spine and head. This is a small coat/presentation adapter, with no
 // instrument controller, audio graph, extra renderer, timer or asset lifecycle.
 const CAT_SCORES = new Map(WITCH_CAT_GAITS.map(gait => [gait, createQuadrupedState('cat', gait)]));
 const LOCAL_WIDTH = 500, LOCAL_HEIGHT = 260, LOCAL_GROUND = 240;
-const GROUND = 700, MARGIN = 130 * 1.25;
+export const WITCH_CAT_SCALE = 1.5;
+const GROUND = 700, MARGIN = 130 * WITCH_CAT_SCALE;
 const TAU = Math.PI * 2;
 const clamp = value => Math.max(0, Math.min(1, value));
 
@@ -23,14 +25,15 @@ export function getWitchCatFrame(state = {}) {
   const elapsed = time - visit * WITCH_CAT_PERIOD;
   const progress = active ? clock.progress : 0;
   const direction = visit % 2 === 1 ? 1 : -1;
-  return {
+  return applyWitchAnimalCapture({
     active, visit, progress, direction, elapsed: active ? elapsed : 0,
+    visitStartedAt:visit*WITCH_CAT_PERIOD,visitEndsAt:visit*WITCH_CAT_PERIOD+WITCH_CAT_DURATION/.5,clockTime:time,
     x: direction > 0 ? -MARGIN + progress * (1000 + MARGIN * 2) : 1000 + MARGIN - progress * (1000 + MARGIN * 2),
     y: GROUND,
-    position: active ? clock.position : 0,
+    position: clock.position,
     alpha: active ? clamp(elapsed / .25) * clamp((1 - progress) * WITCH_CAT_DURATION / speed / .25) : 0,
-    source: 'quadruped', animalId: 'cat', behaviorId: clock.gait,
-  };
+    source: 'quadruped', id:'cat', animalId: 'cat', behaviorId: clock.gait,
+  },state);
 }
 
 function path(context, points, close = false, smooth = false) {
@@ -65,10 +68,12 @@ function drawLeg(context, rig, leg) {
   context.restore();
 }
 
-function drawCoat(context, rig) {
+function drawCoat(context, rig, frame) {
   const { scale, center, morphology } = rig;
-  context.fillStyle = '#00000054'; context.beginPath();
-  context.ellipse(center.x - scale * .12, LOCAL_GROUND + 2, scale * .91, 5, 0, 0, TAU); context.fill();
+  if(!frame.diving) {
+    context.fillStyle = '#00000054'; context.beginPath();
+    context.ellipse(center.x - scale * .12, LOCAL_GROUND + 2, scale * .91, 5, 0, 0, TAU); context.fill();
+  }
   for (const leg of rig.legs) if (leg.far) drawLeg(context, rig, leg);
   path(context, rig.tail); context.strokeStyle = '#606175'; context.lineWidth = 4.5; context.stroke();
   context.strokeStyle = '#11121b'; context.lineWidth = 2.9; context.stroke();
@@ -129,18 +134,20 @@ function catRig(state, frame) {
 }
 
 function scenePoint(point, frame) {
-  return {x:frame.x+(point.x-LOCAL_WIDTH/2)*frame.direction*1.25,y:frame.y+(point.y-LOCAL_GROUND)*1.25};
+  const x=(point.x-LOCAL_WIDTH/2)*frame.direction*WITCH_CAT_SCALE*frame.scale,y=(point.y-LOCAL_GROUND)*WITCH_CAT_SCALE*frame.scale;
+  const cos=Math.cos(frame.rotation),sin=Math.sin(frame.rotation);
+  return {x:frame.x+x*cos-y*sin,y:frame.y+x*sin+y*cos};
 }
 
 function hitEllipse(points, frame) {
   const xs=points.map(point=>point.x),ys=points.map(point=>point.y);
   const lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
-  return {...scenePoint({x:(lowX+highX)/2,y:(lowY+highY)/2},frame),rx:(highX-lowX)*.625,ry:(highY-lowY)*.625};
+  return {...scenePoint({x:(lowX+highX)/2,y:(lowY+highY)/2},frame),rx:(highX-lowX)*WITCH_CAT_SCALE/2,ry:(highY-lowY)*WITCH_CAT_SCALE/2};
 }
 
 export function getWitchCatTargets(state = {}) {
   const frame=getWitchCatFrame(state);
-  if(!frame.active||frame.alpha<=.01)return null;
+  if(!frame.visible||frame.captured)return null;
   const rig=catRig(state,frame);
   return {body:hitEllipse(rig.body,frame),head:hitEllipse([...rig.skull,...rig.mouth.jaw,...rig.features.flatMap(feature=>feature.points)],frame)};
 }
@@ -148,7 +155,7 @@ export function getWitchCatTargets(state = {}) {
 /** The foreground cat gets input only on its moving anatomy. */
 export function hitTestWitchCat(x,y,state = {}) {
   const frame=getWitchCatFrame(state);
-  if(!frame.active||frame.alpha<=.01)return false;
+  if(!frame.visible||frame.captured)return false;
   const rig=catRig(state,frame),pad=Math.min(18,Math.max(8,(state.hitRadius||46)*.18));
   for(const points of [rig.body,[...rig.skull,...rig.mouth.jaw,...rig.features.flatMap(feature=>feature.points)]]) {
     const target=hitEllipse(points,frame);
@@ -165,13 +172,14 @@ export function hitTestWitchCat(x,y,state = {}) {
 /** Paint after the scene in its canonical 1000×720 coordinates. */
 export function drawWitchCat(context, state = {}) {
   const frame = getWitchCatFrame(state);
-  if (!frame.active || frame.alpha <= 0) return frame;
+  if (!frame.visible) return frame;
   const rig = catRig(state,frame);
   context.save(); context.globalAlpha *= frame.alpha;
-  context.translate(frame.x, frame.y); context.scale(frame.direction * 1.25, 1.25);
+  context.translate(frame.x, frame.y); context.rotate(frame.rotation);
+  context.scale(frame.direction * WITCH_CAT_SCALE * frame.scale, WITCH_CAT_SCALE * frame.scale);
   context.translate(-LOCAL_WIDTH / 2, -LOCAL_GROUND);
   context.lineJoin = 'round'; context.lineCap = 'round';
-  drawCoat(context, rig); drawLaserEye(context, rig, frame);
+  drawCoat(context, rig, frame); drawLaserEye(context, rig, frame);
   context.restore();
   return frame;
 }

@@ -25,28 +25,38 @@ export const WITCH_HAND_SOUNDS = Object.freeze([
 ].map(([id,label,sources,rootHz,roughness,space,attack,release])=>Object.freeze({id,label,sources:Object.freeze(sources),rootHz,roughness,space,attack,release})));
 // Stable trigger IDs keep saved controls usable. Every visible shelf object is
 // an actual catalogue instrument; former organic ingredients now hold voices.
+const miniature = (entry, location = 'shelf') => {
+  const [id,instrumentId,name,icon=instrumentId] = entry;
+  return Object.freeze({id,instrumentId,name,kind:`drop-${id}`,imageHref:`assets/instruments/${icon}.webp`,
+    presetId:`shelf-${instrumentId}`,location,phraseDuration:location==='tree'?3.2:0,flightDuration:1.5});
+};
 export const WITCH_SHELF = Object.freeze([
   ['glass','alien-larynx','Alien Larynx'], ['tail','tongued-beasts','Tongued Beasts'],
-  ['earwax','digestazoid','Digestazoid'], ['eyeball','creaturazoid','Creaturazoid'],
-  ['newt','monstroid','Monstroid','colony-syrinx'], ['hair','hybrinx','Hybrinx'],
-  ['roach','roach-synth','Roach Synth'], ['spider','spider-synth','Spider Synth'],
-  ['oculoid','fm-drums','FM Drums'], ['rubix','rubix','Rubix Cube Sequencer'],
-  ['hiccup','hiccup-head','Hiccup Head'], ['gesticules','gesticulating-hand','Gesticules'],
-  ['marimba','linear-drums','Rattlesnake'], ['choir','throatazoid','Throatazoid'],
-  ['blowhole','blowhole','Blowhole'], ['syrinx','syrinx','Syrinx'],
-  ['throat-singing','throat-singing','Throat Singer'], ['julie-saw','julie-saw','Julie Saw'],
-  ['puggler','puggler','Puggler the Punk Rock Jugger'],
-].map(([id,instrumentId,name,icon=instrumentId])=>Object.freeze({id,instrumentId,name,kind:`drop-${id}`,imageHref:`assets/instruments/${icon}.webp`,presetId:`shelf-${instrumentId}`})));
-export const WITCH_DROP_EFFECTS = Object.freeze([
-  'gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair',
-  'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler',
-].map(id => `drop-${id}`));
-export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, 'meow'])]);
+  ['earwax','digestazoid','Digestazoid'], ['hair','hybrinx','Hybrinx'],
+  ['roach','roach-synth','Roach Synth'], ['oculoid','fm-drums','FM Drums'],
+  ['rubix','rubix','Rubix Cube Sequencer'], ['hiccup','hiccup-head','Hiccup Head'],
+  ['gesticules','gesticulating-hand','Gesticules'], ['marimba','linear-drums','Rattlesnake'],
+  ['choir','throatazoid','Throatazoid'], ['julie-saw','julie-saw','Julie Saw'],
+  ['puggler','puggler','Puggler the Punk Rock Jugger'], ['fractal','fractal-signals','Fractal Synthesis'],
+  ['synthesaurus','synthesis','Synthesaurus'], ['jaw-harp','jaw-harp','Jaw Harp'],
+  ['harmonicazoid','harmonica','Harmonicazoid'], ['dentaphone','object-forge','Dentaphone','dentaphone'],
+].map(entry=>miniature(entry)));
+export const WITCH_TREE_OBJECTS = Object.freeze([
+  ['blech','blech-midi','BLECH MIDI'], ['syrinx','syrinx','Syrinx'], ['eyeball','creaturazoid','Creaturazoid'],
+].map(entry=>miniature(entry,'tree')));
+export const WITCH_INGREDIENTS = Object.freeze([...WITCH_SHELF,...WITCH_TREE_OBJECTS]);
+export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
+  ...WITCH_INGREDIENTS.map(item=>item.kind),
+  // Old sound IDs stay valid for existing saved/test integrations.
+  ...['newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
+])]);
+export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock',...Array.from({length:7},(_,i)=>`web-${i}`)]);
+export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
   ghostTempo: 72, ghostGate: false,
   handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5,
-  catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
+  catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
@@ -67,6 +77,7 @@ export function normalizeWitchControls(value = {}) {
   result.handMotion = WITCH_HAND_MOTIONS.includes(input.handMotion) ? input.handMotion : WITCH_DEFAULTS.handMotion;
   result.handRate = witchClamp(input.handRate, .25, 6, WITCH_DEFAULTS.handRate);
   result.handSound = WITCH_HAND_SOUNDS.some(sound=>sound.id===input.handSound) ? input.handSound : WITCH_DEFAULTS.handSound;
+  result.catCaptured = input.catCaptured === true;
   result.catGait = WITCH_CAT_GAITS.includes(input.catGait) ? input.catGait : WITCH_DEFAULTS.catGait;
   result.catSpeed = witchClamp(input.catSpeed, .5, 2, WITCH_DEFAULTS.catSpeed);
   result.spoonAuto = input.spoonAuto === true;

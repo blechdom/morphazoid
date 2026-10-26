@@ -103,7 +103,7 @@ test('ghosts remain behind every singing character and hand focus at low and nor
   }
 });
 
-test('featured potion solos duck the ghosts with the backing without disturbing their clock', () => {
+test('potion bites retain the shared backing balance and uninterrupted ghost clock', () => {
   const plain = playing(), solo = playing();
   for (const dsp of [plain, solo]) {
     dsp.syncPhase(0, .5, 0, .5, 0, 4);
@@ -113,10 +113,16 @@ test('featured potion solos duck the ghosts with the backing without disturbing 
   render(plain, .2); render(solo, .2);
   const normal = render(plain, .8), featured = render(solo, .8);
   assert.ok(featured.ghostRms > 0);
-  assert.ok(featured.ghostRms < normal.ghostRms * .205);
+  const ghostRetention = featured.ghostRms / normal.ghostRms;
+  const backingRetention = featured.bedRms / normal.bedRms;
+  // The softer bites retain 72% of the ensemble after their attack settles.
+  assert.ok(Math.abs(ghostRetention - .72) < .001);
+  assert.ok(Math.abs(ghostRetention - backingRetention) < 1e-5, 'ghosts follow the same ducking as the singer and fingers');
+  assert.ok(featured.ghostRms < featured.bedRms * .2, 'the rhythmic visitors stay behind the main ensemble');
   assert.equal(solo.visual.ghostPhase, plain.visual.ghostPhase);
   assert.equal(solo.visual.ghostPresence[0], plain.visual.ghostPresence[0]);
   assert.equal(solo.visual.handTime, plain.visual.handTime);
+  assert.equal(solo.chantPhase, plain.chantPhase);
 });
 
 test('background rhythm is block-independent and enters the same flight delay as the complete ensemble', () => {

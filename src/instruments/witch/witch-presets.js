@@ -1,6 +1,7 @@
-import { WITCH_VOICES, witchVoiceAtHeight, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, WITCH_SHELF } from './witch-model.js';
+import { WITCH_VOICES, witchVoiceAtHeight, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, WITCH_INGREDIENTS } from './witch-model.js';
 export const WITCH_PALETTES = Object.freeze(['Foxfire', 'Ember and ash', 'Poison gold', 'Spectral green', 'Drowned blue', 'Bruised violet', 'Blood moon', 'Nightshade']);
-export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', speed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5, nose: .5, hat: .5, spoonHeight: .5, spoonAuto: true, ghostTempo: 72, palette: 0, trip: 0, handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5 });
+export const WITCH_VISUAL_MODES = Object.freeze(['Night air','Rippling spell','Crooked glass','Wonkywonk','VHS haunting','Static storm','Pixel rot','Angular hex']);
+export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', speed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5, nose: .5, hat: .5, spoonHeight: .5, spoonAuto: true, ghostTempo: 72, palette: 0, trip: 0, visualMode: 0, treeShape: 0, handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5 });
 const voices = WITCH_VOICES;
 let presetOrdinal=0;
 const scene = (id, label, values) => {
@@ -12,8 +13,9 @@ const scene = (id, label, values) => {
     handRate: index ? [.55,1.3,2.4,4.8,.8,3.7,5.6,1.7][index%8] : 1,
     handDepth: index ? .55+(index%5)*.1 : .66,
     spellBalance: values.scene==='fingers' ? [.46,.6,.52,.4][index%4] : [.5,.2,.72,.84,.16,.88,.32,.66][index%8],
-    catSpeed: index ? Number((.52+index*.0295).toFixed(4)) : 1,
+    catSpeed: index ? Number((.52+index*.0279).toFixed(4)) : 1,
     catGait: WITCH_CAT_GAITS[index%WITCH_CAT_GAITS.length],
+    visualMode:index%WITCH_VISUAL_MODES.length, treeShape:index%6,
     ...values,
     spoonAuto: values.spoonAuto ?? !values.voice,
     spoonHeight: values.spoonHeight ?? (values.voice ? (voices.indexOf(values.voice)+.5)/voices.length : WITCH_DEFAULTS.spoonHeight),
@@ -52,13 +54,13 @@ export const WITCH_PRESETS = [
   scene('falling-stars', 'Catch the falling stars', { scene:'flight', voice:'sing', palette:5, ghostTempo:90, speed:.56, altitude:.76, flightX:.43, glass:.82, radius:.86, tone:.76, fingers:[.91,.67,.24,.42,.78], hat:.46 }),
   scene('night-knots', 'Tie the night in knots', { scene:'fingers', voice:'chatter', spellBalance:.3, palette:7, trip:3, direction:-1, ghostTempo:120, speed:.68, radius:.44, hair:.66, tone:.56, fingers:[.16,.92,.75,.39,.84], nose:.62, hat:.83 }),
   scene('last-spell', 'One last spell before dawn', { voice:'sing', palette:0, ghostTempo:36, speed:.14, radius:1, glass:.18, tone:.32, nose:.46, hat:.28, fingers:[.58,.37,.16,.28,.69] }),
-  ...WITCH_SHELF.map((item,index)=>scene(item.presetId,`${item.name} in the brew`,{
+  ...WITCH_INGREDIENTS.map((item,index)=>scene(item.presetId,`${item.name} in the brew`,{
     scene:index%3===0?'fingers':'brew', voice:voices[index%voices.length],
     palette:(index*3+1)%8, trip:index%4,
     speed:[.27,.64,.88,.4,.16,.73][index%6], radius:[.91,.26,.6,.44,.78][index%5],
     handMotion:WITCH_HAND_MOTIONS[(index*3+5)%WITCH_HAND_MOTIONS.length],
     handSound:WITCH_HAND_SOUNDS[(index*3+2)%WITCH_HAND_SOUNDS.length].id,
-    handRate:[3.1,1.7,4.6,2.3,.64,6,5.6,4.2,3.8,2.7,1.4,5.2,.8,1.1,2.1,3.4,.52,4.9,5.8][index],
+    handRate:[3.1,1.7,4.6,2.3,.64,6,5.6,4.2,3.8,2.7,1.4,5.2,.8,1.1,2.1,3.4,.52,4.9,5.8][index%19],
     handDepth:.65+(index%4)*.1, spellBalance:index%3===0?(voices[index%voices.length]==='chatter'?.3:.52):[.86,.24,.72,.92,.4,.16,.8][index%7], ghostTempo:48+(index%9)*14,
     fingers:Array.from({length:5},(_,finger)=>.12+((index*7+finger*11)%17)/20),
     nose:.15+((index*7)%11)*.07, hat:.18+((index*3)%9)*.08,
@@ -94,6 +96,8 @@ export function normalizeWitchPreset(input = {}) {
     direction: input.direction === -1 ? -1 : 1,
     ghostTempo: Number.isFinite(Number(input.ghostTempo)) ? Math.max(36,Math.min(180,Number(input.ghostTempo))) : d.ghostTempo,
     palette: Number.isFinite(Number(input.palette)) ? Math.round(Math.max(0,Math.min(7,Number(input.palette)))) : d.palette,
+    visualMode: Number.isFinite(Number(input.visualMode)) ? Math.round(Math.max(0,Math.min(7,Number(input.visualMode)))) : Number.isFinite(Number(input.trip)) ? Math.round(Math.max(0,Math.min(3,Number(input.trip)))) : d.visualMode,
+    treeShape: Number.isFinite(Number(input.treeShape)) ? Math.round(Math.max(0,Math.min(5,Number(input.treeShape)))) : d.treeShape,
     trip: Number.isFinite(Number(input.trip)) ? Math.round(Math.max(0,Math.min(3,Number(input.trip)))) : d.trip,
     fingers: d.fingers.map((value,i) => unit(input.fingers?.[i],value)),
     glass: unit(input.glass,d.glass), hair: unit(input.hair,d.hair), altitude: unit(input.altitude,d.altitude),
@@ -103,7 +107,7 @@ export function normalizeWitchPreset(input = {}) {
 }
 export function randomizeWitchPreset(_previous, random = Math.random) {
   const r = () => unit(random(), .5);
-  const snapshot = { handMotion:WITCH_HAND_MOTIONS[Math.min(WITCH_HAND_MOTIONS.length-1,Math.floor(r()*WITCH_HAND_MOTIONS.length))],handSound:WITCH_HAND_SOUNDS[Math.min(WITCH_HAND_SOUNDS.length-1,Math.floor(r()*WITCH_HAND_SOUNDS.length))].id,handRate:.25+r()*5.75,handDepth:r(),spellBalance:r(),catGait:WITCH_CAT_GAITS[Math.min(3,Math.floor(r()*4))],catSpeed:.5+r()*1.5,fabricX:r(),fabricY:r(),trailPull:r(),trailTwist:r(),scene:['brew','fingers','flight'][Math.min(2,Math.floor(r()*3))], voice:voices[Math.min(voices.length-1,Math.floor(r()*voices.length))], ghostTempo:36+r()*144, palette:Math.min(7,Math.floor(r()*8)), trip:Math.min(3,Math.floor(r()*4)), speed:.08+r()*.9, radius:.1+r()*.9, direction:r()<.5?-1:1, fingers:Array.from({length:5},r), glass:r(), hair:r(), altitude:r(), flightX:.12+r()*.76, tone:r(), nose:r(), hat:r(), spoonHeight:r(), spoonAuto:r()<.5 };
+  const snapshot = { handMotion:WITCH_HAND_MOTIONS[Math.min(WITCH_HAND_MOTIONS.length-1,Math.floor(r()*WITCH_HAND_MOTIONS.length))],handSound:WITCH_HAND_SOUNDS[Math.min(WITCH_HAND_SOUNDS.length-1,Math.floor(r()*WITCH_HAND_SOUNDS.length))].id,handRate:.25+r()*5.75,handDepth:r(),spellBalance:r(),catGait:WITCH_CAT_GAITS[Math.min(3,Math.floor(r()*4))],catSpeed:.5+r()*1.5,fabricX:r(),fabricY:r(),trailPull:r(),trailTwist:r(),scene:['brew','fingers','flight'][Math.min(2,Math.floor(r()*3))], voice:voices[Math.min(voices.length-1,Math.floor(r()*voices.length))], ghostTempo:36+r()*144, palette:Math.min(7,Math.floor(r()*8)), visualMode:Math.min(7,Math.floor(r()*8)), treeShape:Math.min(5,Math.floor(r()*6)), trip:Math.min(3,Math.floor(r()*4)), speed:.08+r()*.9, radius:.1+r()*.9, direction:r()<.5?-1:1, fingers:Array.from({length:5},r), glass:r(), hair:r(), altitude:r(), flightX:.12+r()*.76, tone:r(), nose:r(), hat:r(), spoonHeight:r(), spoonAuto:r()<.5 };
   if(!snapshot.spoonAuto) snapshot.voice=witchVoiceAtHeight(snapshot.spoonHeight);
   return normalizeWitchPreset(snapshot);
 }
