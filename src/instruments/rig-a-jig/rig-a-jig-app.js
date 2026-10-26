@@ -143,6 +143,7 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
     select.value = currentClip;
     viewer.playClip(currentClip);
     if (isMocapRig(rig) && playing) viewer.setMocapPlaying?.(true);
+    if (isMocapRig(rig)) applyGhostParams();
     $('jointSelect').max = String(viewer.getState().joints - 1);
     updateReadout();
   },
@@ -496,17 +497,34 @@ const motionPicker = buildPicker({
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
 $('nextRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), 1); if (v) setRig(v); });
 $('diceRig').addEventListener('click', () => { const v = randomOption($('rigSelect')); if (v) setRig(v); });
-let bodyMode = 'off';
+let bodyMode = 'off', ghostOpacity = 0.16, ghostWireframe = false;
+function applyGhostParams() {
+  viewer.setGhostOpacity?.(ghostOpacity);
+  viewer.setGhostWireframe?.(ghostWireframe);
+}
+
 $('bodySelect').addEventListener('change', (event) => {
   bodyMode = event.target.value;
+  $('ghostControls').hidden = bodyMode !== 'ghost';
   if (isMocapRig(rig)) {
     // Mocap rigs swap between the bones-only and skinned source GLBs.
     buildRig();
     if (playing) { viewer.playClip?.(currentClip); viewer.setMocapPlaying?.(true); }
+    applyGhostParams();
   } else {
     // Procedural rigs use the synthesized ghost proxy.
     viewer.setBodyMode(bodyMode === 'ghost' ? 'cloud' : 'off');
   }
+});
+
+$('ghostOpacity').addEventListener('input', (event) => {
+  ghostOpacity = Number(event.target.value);
+  $('ghostOpacityOut').textContent = `${Math.round(ghostOpacity * 100)}%`;
+  viewer.setGhostOpacity?.(ghostOpacity);
+});
+$('ghostWireframe').addEventListener('change', (event) => {
+  ghostWireframe = event.target.checked;
+  viewer.setGhostWireframe?.(ghostWireframe);
 });
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;

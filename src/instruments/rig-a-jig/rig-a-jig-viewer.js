@@ -486,6 +486,8 @@ class MocapFigure extends RigFigure {
     };
     super(rig, rigId, rootGroup, { mocapLike: true });
     this.ghostMeshes = ghostMeshes;
+    this.ghostOpacity = 0.16;
+    this.ghostWireframe = false;
     MocapFigure.count = (MocapFigure.count ?? 0) + 1;
     this.figureId = MocapFigure.count;
     globalThis.__mocapFigures = globalThis.__mocapFigures ?? [];
@@ -601,6 +603,16 @@ class MocapFigure extends RigFigure {
     });
 
     this._updateBody();
+  }
+
+  setGhostOpacity(value) {
+    this.ghostOpacity = Math.max(0.02, Math.min(0.9, Number(value) || 0.16));
+    for (const mesh of this.ghostMeshes ?? []) mesh.material.opacity = this.ghostOpacity;
+  }
+
+  setGhostWireframe(flag) {
+    this.ghostWireframe = Boolean(flag);
+    for (const mesh of this.ghostMeshes ?? []) mesh.material.wireframe = this.ghostWireframe;
   }
 
   dispose(rootGroup) {
@@ -891,10 +903,12 @@ export function createRigAJigViewer(canvas, {
   function isMocap() { return figure instanceof MocapFigure; }
   function setBodyMode(mode) { bodyMode = mode; figure?.setBodyMode?.(mode); }
   function getBodyMode() { return bodyMode; }
+  function setGhostOpacity(value) { figure?.setGhostOpacity?.(value); }
+  function setGhostWireframe(flag) { figure?.setGhostWireframe?.(flag); }
   return {
     draw, setRig, setSelected, setAction, impulse, setView, zoomBy, fitToScreen, screenPoint, sceneStats, dispose,
     rootJointY, jointSpriteScale, playClip, clipNames, debugFigure: () => figure,
-    setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap, setBodyMode, getBodyMode,
+    setMocapPlaying, setMocapSpeed, setMocapScrub, isMocap, setBodyMode, getBodyMode, setGhostOpacity, setGhostWireframe,
     getState: () => ({ rig: rigId, frames, yaw, pitch, zoom, dragging: Boolean(drag),
       joints: figure ? figure.rig.joints.length : 0,
       contacts: figure ? figure.rig.contacts.length : 0 }),

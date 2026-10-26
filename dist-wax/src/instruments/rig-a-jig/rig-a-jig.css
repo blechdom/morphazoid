@@ -373,3 +373,30 @@
   background: #163240;
   color: #8fe0ff;
 }
+
+/* Ghost body controls: opacity slider + wireframe toggle. */
+.rig-a-jig-ghost-controls {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.rig-a-jig-ghost-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: #7fa4b0;
+}
+.rig-a-jig-ghost-controls label > span {
+  display: flex;
+  justify-content: space-between;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.rig-a-jig-ghost-controls input[type="range"] { width: 100%; }
+.rig-a-jig-ghost-controls .rig-a-jig-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+}
+.rig-a-jig-ghost-controls .rig-a-jig-check input { accent-color: #58b7d6; }
