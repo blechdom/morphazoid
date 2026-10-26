@@ -112,7 +112,7 @@ async function clickWorld(page,key,{touch=false,index=0}={}) {
     const {WITCH_LAYOUT,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const target=key==='moon'?WITCH_LAYOUT.moon:key==='mushrooms'?WITCH_LAYOUT.mushrooms[0]
-      :key==='web'?{x:993,y:235+(index+.5)*270/7}:current.targets[key];
+      :key==='web'?current.web.targets[index]:current.targets[key];
     return {target:warpWitchPoint(target,{...current.config,eyeShock:current.eyeShock,
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:performance.now()/1000}),
       rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};

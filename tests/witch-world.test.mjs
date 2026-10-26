@@ -503,11 +503,12 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
       assert.ok(image,object.id);
       const [sx,sy,sw,sh,dx,dy,dw,dh]=image.args;
       assert.deepEqual([sx,sy,sw,sh],[40,40,80,80],'transparent margins are cropped using the cached alpha bounds');
-      assert.equal(dy+dh,27,'the visible bottom, not the source rectangle, sits on the support');
-      assert.ok(dw<=56&&dh<=54&&dx===-dw/2);
+      const size=object.id==='blech'?1.5:1;
+      assert.equal(dy+dh,27*size,'the visible bottom, not the source rectangle, sits on the support');
+      assert.ok(dw<=56*size+1e-10&&dh<=54*size+1e-10&&dx===-dw/2);
       const position=getWitchObjectPosition(object,{});
       if(index<18)assert.equal(position.y+dy+dh,WITCH_LAYOUT.shelves[0].rows[Math.floor(index/3)]);
-      else assert.ok(getWitchTree({}).segments.some(segment=>Math.hypot(position.x-segment.b.x,position.y+26-segment.b.y)<1e-10),'tree icons sit at actual turtle branch ends');
+      else assert.ok(getWitchTree({}).segments.some(({a,b})=>distanceToPolyline({x:position.x,y:position.y+27*size},[a,b])<1e-10),'tree icons sit on actual turtle branches');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
@@ -518,10 +519,10 @@ test('six upright L-system trees have deterministic bounded branches and reachab
     const state={treeShape},tree=getWitchTree(state);
     assert.equal(tree,getWitchTree({...state,handTime:500}), 'tree geometry is cached independently of animation time');
     assert.ok(tree.segments.length>=63&&tree.segments.length<=512);
-    assert.equal(tree.root.y,624);
-    assert.ok(tree.segments.every(segment=>[segment.a,segment.b].every(p=>p.x>=738&&p.x<=974&&p.y>=259&&p.y<=624)));
+    assert.equal(tree.root.y,692);
+    assert.ok(tree.segments.every(segment=>[segment.a,segment.b].every(p=>p.x>=710&&p.x<=980&&p.y>=20&&p.y<=692)));
     assert.deepEqual(Object.keys(tree.objects),WITCH_TREE_OBJECTS.map(object=>object.id));
-    assert.equal(hitTestWitch(tree.target.x,tree.target.y,state)?.type,'tree');
+    for(const hitRadius of [46,80])assert.equal(hitTestWitch(tree.target.x,tree.target.y,{...state,hitRadius})?.type,'tree');
     shapes.add(JSON.stringify(tree.segments));
   }
   assert.equal(shapes.size,6);
@@ -550,10 +551,10 @@ test('face controls, web plucks and spider remain connected through every visual
     const short=getWitchTargets({...state,nose:0}).nose,long=getWitchTargets({...state,nose:1}).nose;
     assert.ok(Math.abs(Math.hypot(long.x-short.x,long.y-short.y)-80)<1e-10,'nose pulling has the doubled eighty-pixel range');
   }
-  for(const [index,y] of [250,285,325,365,405,445,485].entries())assert.deepEqual(hitTestWitch(993,y,{}),{type:'web',index});
   const web=getWitchWeb({});
-  assert.deepEqual(web.corners,[{x:871,y:270},{x:995,y:235},{x:995,y:505}]);
-  assert.deepEqual(web.center,{x:932,y:346});
+  for(const [index,p] of web.targets.entries())assert.deepEqual(hitTestWitch(p.x,p.y,{}),{type:'web',index});
+  assert.deepEqual(web.corners,[{x:700,y:12},{x:994,y:12},{x:994,y:386}]);
+  assert.deepEqual(web.center,{x:910,y:140});
 });
 
 test('distorted hit coordinates follow the actual painted strip, including static discontinuities',()=>{

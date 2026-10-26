@@ -30,7 +30,10 @@ Alien Larynx, Tongued Beasts, Digestazoid, Hybrinx, Roach Synth, FM Drums,
 Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
 and Dentaphone. BLECH MIDI, Syrinx and Creaturazoid occupy separate branches.
-The spider lives in its triangular web rather than occupying a shelf slot.
+The full-height tree uses the L-system Delay instrument's seven generation colors,
+with the moon behind its branches and a larger BLECH MIDI visitor perched below.
+The spider lives in a broad top-right corner web, with radial spokes and bowed
+silk threads in front of the tree.
 
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
 and authored sources. They include fast Rubix rhythms, cascading Rattlesnake
