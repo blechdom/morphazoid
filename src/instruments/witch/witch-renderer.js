@@ -330,21 +330,57 @@ function smoke(c, state) {
   c.restore();
 }
 
+function cauldronFire(c,state,front=false) {
+  const time=state.reducedMotion?0:(state.time||0),heat=clamp(state.energy);
+  if(!front) {
+    c.save();c.translate(600,682);c.scale(1,.24);
+    glow(c,0,0,190,'#ed5b214e');c.restore();
+    // Charred split wood and a broken bed of coals, low enough to stay visible.
+    path(c,'M454,682 L482,677 L735,694 L727,702 L470,692 Z','#302027','#121218',2);
+    path(c,'M480,697 L491,689 L728,676 L743,685 L720,692 Z','#3b2826','#17151a',2);
+    for(let i=0;i<19;i++) {
+      const x=470+i*14,y=687+Math.sin(i*2.7)*6;
+      path(c,`M${x-6},${y} l5,-4 8,2 2,5 -9,2 Z`,i%3?'#a53b24':'#f28031');
+      line(c,[[x-3,y+1],[x+6,y-1]],i%2?'#f7ae4d':'#572721',1);
+    }
+  }
+  const outer=c.createLinearGradient(0,605,0,693);
+  outer.addColorStop(0,'#ff531b');outer.addColorStop(.55,'#fa6d1e');outer.addColorStop(1,'#b93016');
+  const core=c.createLinearGradient(0,635,0,693);
+  core.addColorStop(0,'#fff4c1');core.addColorStop(.6,'#ffdd6d');core.addColorStop(1,'#ff9b31');
+  const tongue=(x,y,w,h,bend,fill)=>{
+    c.beginPath();c.moveTo(x-w,y);
+    c.bezierCurveTo(x-w*1.2,y-h*.27,x+bend-w*.6,y-h*.64,x+bend,y-h);
+    c.bezierCurveTo(x+bend+w*.35,y-h*.68,x+w*.45,y-h*.52,x+w*.25,y-h*.23);
+    c.bezierCurveTo(x+w*.8,y-h*.38,x+w*1.25,y-h*.16,x+w,y);
+    c.bezierCurveTo(x+w*.4,y+3,x-w*.6,y+4,x-w,y);c.fillStyle=fill;c.fill();
+  };
+  for(let i=0;i<(front?9:11);i++) {
+    const pulse=.5+.3*Math.sin(time*(7+i*.19)+i*2.3)+.2*Math.sin(time*13.7-i*1.8);
+    const x=(front?490:477)+i*(front?27:24),base=686+Math.sin(i*2.1)*4;
+    const height=(front?23:49)+pulse*(front?25:32)+heat*7;
+    const width=(front?9:12)+pulse*3,bend=Math.sin(time*5.2+i*2.6)*(5+pulse*7);
+    tongue(x,base,width,height,bend,outer);
+    tongue(x+width*.08,base,width*.48,height*.64,bend*.65,core);
+  }
+  if(front)for(let i=0;i<9;i++) {
+    const age=(time*(.35+i*.021)+i*.137)%1;
+    const x=469+i*32+Math.sin(time*2.4+i)*age*8,y=684-age*(37+i%3*13);
+    c.save();c.globalAlpha*=Math.sin(age*Math.PI)*.8;
+    ellipse(c,x,y,1.1,2.1,'#ffcb74');c.restore();
+  }
+}
+
 function cauldron(c, state) {
   const { x, y, rx, ry } = WITCH_LAYOUT.cauldron;
   const time = state.time || 0, phase = state.phase || 0, energy = clamp(state.energy), radius = clamp(state.radius);
   glow(c, x, y + 44, 230, `rgba(151,204,114,${.12 + energy * .08})`);
   ellipse(c, x, 667, 192, 21, '#090f1680');
+  cauldronFire(c,state);
   // Three little iron feet, each picking up the firelight.
   for (const fx of [480, 600, 720]) {
     path(c, `M${fx - 12},631 L${fx - 20},673 Q${fx - 8},680 ${fx + 4},671 L${fx + 11},636 Z`, '#22292d', '#0e141d', 2.4);
     line(c, [[fx - 10,650],[fx - 14,667]], '#7c7150', 2);
-  }
-  // Warm embers below the cold potion.
-  for (let i = 0; i < 9; i++) {
-    const ex = 497 + i * 26, flick = Math.sin(time * 7 + i * 3) * 4;
-    ellipse(c, ex, 666 + (i % 3) * 4, 12, 4, i % 2 ? '#9c7752' : '#b58b56');
-    path(c, `M${ex - 5},665 Q${ex - 11},655 ${ex + flick},646 Q${ex - 2},657 ${ex + 7},659 Z`, '#bf94505e');
   }
   // The handles sit behind the vessel.
   ellipse(c, x - rx - 3, y + 35, 27, 29, null, '#080e17', 11);
@@ -357,6 +393,8 @@ function cauldron(c, state) {
   path(c, 'M430,550 Q435,619 500,636 Q465,604 468,560 Z', '#66756320');
   curve(c, [450,575,455,609,475,623,501,630], '#a3ab823a', 1.5);
   curve(c, [718,627,746,612,757,580,760,554], '#47535b', 2);
+  curve(c,[465,640,510,671,688,674,735,640],'#f6a24c85',2.4);
+  cauldronFire(c,state,true);
   ellipse(c, x, y, rx + 4, ry + 5, '#152f36', '#8aa9b5', 3);
   const potion = c.createRadialGradient(x - 20, y - 8, 8, x, y, rx);
   potion.addColorStop(0, '#eff5a3'); potion.addColorStop(.27, '#a5d66d'); potion.addColorStop(.58, '#39b69e'); potion.addColorStop(.84, '#45878e'); potion.addColorStop(1, '#5e3e86');
@@ -611,7 +649,6 @@ export function getWitchTargets(state = {}) {
   const trail=getWitchTrail(state).reduce((best,p)=>Math.hypot(p.x-145,p.y-270)<Math.hypot(best.x-145,best.y-270)?p:best);
   return {nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
     hat:getWitchHat(state).target,
-    tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32},
     fabric:{...witchFabricPoint(19/24,.05,state),r:18},
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
     broom:{...(clamp(state.flightLift)>.5?broomPoint({x:-200,y:126},state):parkedBroomPoint({x:0,y:123})),r:32},
@@ -903,26 +940,7 @@ function drawInstrumentMiniature(c,id) {
   return true;
 }
 
-function toneFirefly(c,state) {
-  const tone=clamp(state.tone??.5),target=getWitchTargets(state).tone;
-  const time=state.reducedMotion?0:(state.time||0),flutter=Math.sin(time*18)*3;
-  // A fading ember trail exposes the direction of its brightness gesture.
-  for(let i=0;i<7;i++) {
-    const y=235-i*130/6;
-    ellipse(c,695+Math.sin(i*1.9)*6,y,1.1,1.1,i/6<tone?'#dceeb277':'#a8a1c72c');
-  }
-  c.save();c.translate(target.x,target.y);
-  glow(c,0,0,43+tone*24,tone>.5?'#cffbc044':'#eab06a30');
-  for(const side of [-1,1]) {
-    path(c,`M${side*3},-3 Q${side*37},${-30-flutter} ${side*26},-5 Q${side*20},9 ${side*3},5 Z`,'#9ea7ce58','#c6b5e8a3',1);
-    curve(c,[side*4,-2,side*14,-10,side*18,-13,side*27,-13-flutter],'#cdd5b59c',.8);
-    line(c,[[side*3,-8],[side*9,-18],[side*14,-19]],'#ccbd95',1);
-  }
-  ellipse(c,0,5,5+tone*2,10+tone*3,tone>.5?'#e5f5a5':'#ce924a','#f0e2b0',1.2);
-  ellipse(c,0,-7,5,5,'#5d6b67','#ccbd95',1);
-  line(c,[[-4,5],[4,5]],'#536b62',1);line(c,[[-4,10],[4,10]],'#536b62',1);
-  c.restore();
-}
+
 
 function instrumentShelves(c) {
   for(const shelf of WITCH_LAYOUT.shelves) {
@@ -1041,7 +1059,7 @@ function drawWorld(c,state) {
   if(state.flightLift>.001)broomWitch(c,state);
   reachingHand(c,state);
   if(ground>0) {
-    c.save();c.globalAlpha*=ground;toneFirefly(c,state);ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
+    c.save();c.globalAlpha*=ground;ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
 }
 /** Face, hat and hair only, with a transparent background for the catalogue. */
@@ -1104,7 +1122,6 @@ export function hitTestWitch(x, y, state = {}) {
     }
   }
   const targets=getWitchTargets(state);
-  if(grounded&&Math.hypot(x-targets.tone.x,y-targets.tone.y)<Math.max(targets.tone.r,Math.min(50,minRadius*.7)))return {type:'tone'};
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {

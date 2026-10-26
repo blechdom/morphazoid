@@ -169,18 +169,6 @@ test('ingredient touch halos preserve scenery targets and choose the nearest obj
   assert.equal(hitTestWitch(193,100,state)?.id,'glass');
 });
 
-test('the tone firefly follows brightness and stays reachable through all eight modes',()=>{
-  assert.deepEqual(WITCH_LAYOUT.bats,[]);assert.deepEqual(WITCH_LAYOUT.spirits,[]);
-  for(const tone of [0,.25,.5,.75,1])for(const hitRadius of [46,67,80])for(let visualMode=0;visualMode<8;visualMode++) {
-    const state={tone,visualMode,warpTime:1.4,hitRadius},target=getWitchTargets(state).tone;
-    assert.equal(target.y,235-tone*130);
-    const point=warpWitchPoint(target,state);
-    assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'tone'});
-    assert.notEqual(hitTestWitch(point.x,point.y,{...state,flightLift:1})?.type,'tone');
-  }
-});
-
-
 test('three named ghost performers drift on the shared beat and stay quiet at every focus',()=>{
   assert.deepEqual(WITCH_LAYOUT.ghosts.map(ghost=>ghost.id),['creaturazoid','monstroid','hiccup']);
   const quiet={ghostPhase:12,ghostPresence:[0,0,0],ghostPulses:[0,0,0]};

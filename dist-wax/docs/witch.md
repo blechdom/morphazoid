@@ -5,6 +5,8 @@ Gesticules fingers keep playing together, with different foreground balances in
 the presets. The scene starts moving with **Audio off**; enable Audio to listen.
 **Release** stops the performance and releases the sound. Presets and playback
 stay visible; secondary controls live inside the closed **Parameters** section.
+The cauldron sits over flickering flames, charred logs and rising embers.
+Brightness remains in Parameters and on the **+ / −** keys.
 
 | Gesture | Picture and sound |
 | --- | --- |

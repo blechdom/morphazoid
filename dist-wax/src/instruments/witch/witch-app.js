@@ -312,7 +312,7 @@ listen(canvas,'pointerdown',e => {
   const hair=hit.type==='hair'?getWitchHair(initial):null;
   const hat=hit.type==='hat'?getWitchHat(initial):null;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat)?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat)?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
   if(hit.type==='fabric')windFabric();
@@ -332,7 +332,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Reshape the branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Touch the mesh for wind; pull to filter it',trail:'Pull her flying hair to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair for a noisier spell',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the whole spell'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Reshape the branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Touch the mesh for wind; pull to filter it',trail:'Pull her flying hair to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair for a noisier spell',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the whole spell'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -344,7 +344,6 @@ listen(canvas,'pointermove',e => {
   else if(pointer.type==='trail') {config.trailPull=clamp(pointer.trailPull+(p.x-pointer.start.x)/100);config.trailTwist=clamp(pointer.trailTwist+(pointer.start.y-p.y)/90);}
   else if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
   else if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
-  else if(pointer.type==='tone') { config.tone=clamp(pointer.tone+(pointer.start.y-p.y)/130); }
   else if(pointer.type==='hair') {
     // The captured direction and warp keep moving broom/mushroom animation
     // from tugging the control underneath a stationary pointer.

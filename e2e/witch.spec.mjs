@@ -170,7 +170,7 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
     const blockers=[...current.fingerTips.map(point=>({...point,r:minRadius})),
       ...current.hands.slice(0,1).flatMap(hand=>hand.palm?[{...hand.palm,r:minRadius},{...hand.wrist,r:minRadius*.55}]:[]),
       ...current.hairGeometry.strands.flatMap(strand=>strand.points.map(point=>({...point,r:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32))}))),
-      ...['nose','hat','tone','fabric'].map(key=>({...warpWitchPoint(current.targets[key],visual),r:Math.max(current.targets[key].r,minRadius*.7)})),
+      ...['nose','hat','fabric'].map(key=>({...warpWitchPoint(current.targets[key],visual),r:Math.max(current.targets[key].r,minRadius*.7)})),
       ...current.objects.filter(object=>!object.dropped).map(object=>({...warpWitchPoint(object,visual),r:object.r+8})),
       {...warpWitchPoint({x:current.ladle.hx-8,y:current.ladle.hy-24},visual),r:Math.max(27,minRadius*.75)}];
     const offsets=offset?[offset]:[[0,0],[-.35,0],[0,-.35],[0,.35],[.35,0],[-.25,-.25],[.25,-.25],[-.25,.25],[.25,.25],[-.65,0],[0,-.65],[0,.65],[.65,0],[-.46,-.46],[.46,-.46],[-.46,.46],[.46,.46]];
@@ -265,8 +265,8 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
     const rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
     const unwarp=point=>warpWitchPoint(point,visual,true);
-    const blockers=[...['nose','mouth','eyes','hat','tone','fabric'].map(key=>{
-      const target=current.targets[key],radius={nose:minRadius*.65,mouth:Math.min(27,minRadius*.38),eyes:Math.min(27,minRadius*.38),hat:minRadius*.7,tone:Math.min(50,minRadius*.7),fabric:minRadius*.6}[key];
+    const blockers=[...['nose','mouth','eyes','hat','fabric'].map(key=>{
+      const target=current.targets[key],radius={nose:minRadius*.65,mouth:Math.min(27,minRadius*.38),eyes:Math.min(27,minRadius*.38),hat:minRadius*.7,fabric:minRadius*.6}[key];
       return {...target,r:Math.max(target.r,radius)};
     }),{x:current.ladle.hx-8,y:current.ladle.hy-24,r:Math.max(27,minRadius*.75)},
       ...current.fingerTips.map(target=>({...unwarp(target),r:minRadius})),
@@ -516,20 +516,17 @@ test('spoon height selects all seven singing characters and automatic motion rem
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 });
 
-test('nose, hat, ember and flight reshape the ensemble without leaving the shared scene',async({page})=>{
+test('nose, hat, brightness and flight reshape the ensemble without leaving the shared scene',async({page})=>{
   await open(page);await page.locator('#playButton').click();
-  for(const [kind,dx,dy] of [['nose',45,0],['hat',0,-45],['tone',0,-45]]) {
+  for(const [kind,dx,dy] of [['nose',45,0],['hat',0,-45]]) {
     const before=await state(page),target=before.targets[kind],from=await point(page,target.x,target.y);
     await page.mouse.move(from.x,from.y);await page.mouse.down();await page.mouse.move(from.x+dx,from.y+dy,{steps:5});await page.mouse.up();
     expect((await state(page)).config[kind]).toBeGreaterThan(before.config[kind]);
   }
-  const brighter=await state(page),ember=await point(page,brighter.targets.tone.x,brighter.targets.tone.y);
-  await page.mouse.move(ember.x,ember.y);await page.mouse.down();await page.mouse.move(ember.x,ember.y+90,{steps:5});await page.mouse.up();
-  expect((await state(page)).config.tone).toBeLessThan(brighter.config.tone);
-  const dimmer=(await state(page)).config.tone;
+  const brightness=(await state(page)).config.tone;
   await page.locator('#witchCanvas').focus();await page.keyboard.press('+');
-  expect((await state(page)).config.tone).toBeGreaterThan(dimmer);
-  await page.keyboard.press('-');expect((await state(page)).config.tone).toBeCloseTo(dimmer,5);
+  expect((await state(page)).config.tone).toBeGreaterThan(brightness);
+  await page.keyboard.press('-');expect((await state(page)).config.tone).toBeCloseTo(brightness,5);
   expect(await page.locator('#witchParameters').evaluate(el=>el.open)).toBe(false);
   expect((await state(page)).audioOn).toBe(false);
   await selectScene(page,'flight');
