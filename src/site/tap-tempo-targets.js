@@ -117,6 +117,8 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "mouthophones.html", "selector": "#gestureRateBpm", "mapping": {"unit": "bpm"}},
   {"route": "neural-pulse.html", "selector": "#neuralRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "nqueens.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
+  {"route": "oculoid.html", "selector": "#tempo", "mapping": {"unit": "bpm"}, "title": "Tap one eye-motion beat"},
+  {"route": "oculoid.html", "selector": "#cryTempo", "mapping": {"unit": "bpm"}, "title": "Tap one Cry beat (four beats per drop)"},
   {"route": "onset-atlas.html", "selector": "#speed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "orbital-ferris.html", "selector": "#orbitalRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "ouroboros-borealis.html", "selector": "#centerRate", "mapping": {"unit": "hz", "signed": false}},

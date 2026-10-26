@@ -5,15 +5,18 @@ import { createHash } from 'node:crypto';
 import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import test from 'node:test';
 import { restoreMobileMenubar } from './helpers/mobile-menubar-reference.mjs';
+import { restoreOculoidSite } from './helpers/oculoid-site-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { rezoidinatorModesSiteChanges, restoreRezoidinatorModesSite } from './helpers/rezoidinator-modes-site-reference.mjs';
 import { restoreRezoidinatorSite } from './helpers/rezoidinator-site-reference.mjs';
 import { restoreRustResonatorSite } from './helpers/simd-resonator-rust-site-reference.mjs';
 
 const file = 'scripts/site/runtime-files.tsv';
-// Remove the independently tested Time Loom, Witch and mobile presentation additions.
-// The shared reference reader has already peeled the newer Tapezoid rows.
-const source = restoreMobileMenubar(restoreWitchSite(restoreTimeLoomSite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file, { allowRestored: true }), file), file);
+// The reader has peeled Tapezoid; remove Oculoid, Time Loom, Witch and mobile additions.
+const source = restoreMobileMenubar(restoreWitchSite(restoreTimeLoomSite(
+  restoreOculoidSite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file),
+  file, { allowRestored: true },
+), file), file);
 const digest = value => createHash('sha256').update(value).digest('hex');
 
 test('Rezoidinator ships its complete signal path exactly once and preserves prior manifest bytes', () => {

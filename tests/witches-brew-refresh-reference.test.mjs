@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 import { restoreWitchesBrewRefresh, witchesBrewRefreshAmendments } from "./helpers/witches-brew-refresh-reference.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -25,7 +26,9 @@ test("Witches Brew refresh restores the complete preceding source while retainin
   for (const change of witchesBrewRefreshAmendments.changes) {
     const source = readFileSync(new URL(change.file, root), "utf8");
     const restored = restoreWitchesBrewRefresh(source, change.file);
-    assert.equal(digest(capturedInventory(restored, change.file)), change.sha256, change.file);
+    assert.equal(digest(capturedInventory(restoreOculoidSite(
+      restored, change.file, { allowRestored: true },
+    ), change.file)), change.sha256, change.file);
     assert.match(restored, /witch\.html|witch: define|src\/instruments\/witch\/witch-app\.js/);
     assert.equal(restoreWitchesBrewRefresh(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreWitchesBrewRefresh(restored, change.file), /exact Witches Brew refresh amendment/);
@@ -35,7 +38,10 @@ test("Witches Brew refresh restores the complete preceding source while retainin
     }
     const drift = "\n// unrelated source drift\n";
     assert.equal(restoreWitchesBrewRefresh(source + drift, change.file), restored + drift);
-    assert.notEqual(digest(capturedInventory(restoreWitchesBrewRefresh(source + drift, change.file), change.file)), change.sha256);
+    assert.notEqual(digest(capturedInventory(restoreOculoidSite(
+      restoreWitchesBrewRefresh(source + drift, change.file),
+      change.file, { allowRestored: true },
+    ), change.file)), change.sha256);
   }
   const binary = Buffer.from("raw bytes");
   assert.equal(restoreWitchesBrewRefresh(binary, "README.md"), binary);

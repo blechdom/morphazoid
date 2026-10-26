@@ -1,5 +1,6 @@
 import { restoreWobbliniDjaySite } from "./wobblini-djay-site-reference.mjs";
 import { restoreTapezoidSite } from "./tapezoid-site-reference.mjs";
+import { restoreOculoidSite } from "./oculoid-site-reference.mjs";
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readGlobuleDamacySiteReference as readFile } from './globule-damacy-site-reference.mjs';
@@ -14,6 +15,7 @@ export const graphonicCalculatorDrumsSiteChanges = JSON.parse(readFileSync(
 export function restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
   source = restoreTapezoidSite(source, file, { allowRestored: true });
+  source = restoreOculoidSite(source, file, { allowRestored: true });
   source = restoreWobbliniDjaySite(source, file, { allowRestored: true });
   for (const change of graphonicCalculatorDrumsSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "date": "2026-09-22",
-  "branch": "codex/presets-continue-20260922",
-  "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
+  "date": "2026-10-26",
+  "branch": "codex/oculoid-publish-main-20261026",
+  "source": "Oculoid integrated on fetched origin/main bfcee45 alongside the current Witches Brew and Rig-a-Jig changes. Earlier rollout entries and verification fields retain their historical evidence; human acceptance remains pending.",
   "counts": {
-    "implemented": 56,
-    "fullPresets": 2293,
+    "implemented": 57,
+    "fullPresets": 2329,
     "favesImplemented": 20,
     "activeRemaining": 58,
     "regularRemaining": 130
@@ -1001,6 +1001,16 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "oculoid",
+      "label": "Oculoid",
+      "href": "oculoid.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 36,
+      "status": "implemented-verification-pending",
+      "evidence": "Thirty-six full-state eye scenes, including pupil-only motion, tiny pupils and forward lid-only flutter, plus a bounded fourteen-field randomizer; tests/oculoid.test.mjs and e2e/oculoid.spec.mjs cover state, the corner tear, independent lids, MIDI, browser audio and layout. Human listening, visual art-direction, physical touch and real MIDI-device passes remain pending."
+    },
+    {
       "id": "wobblini",
       "label": "Wobblini",
       "href": "wobblini.html",
@@ -1953,6 +1963,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "oculoid",
       "wobblini",
       "striped-staircase-rust",
       "rig-lab",

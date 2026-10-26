@@ -58,6 +58,14 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       await page.keyboard.press("Escape");
       await expect(page.locator(".header-preset-picker")).not.toHaveAttribute("open", "");
       await expect(page.locator(".header-preset-picker > summary")).toBeFocused();
+      if (entry.id === "oculoid") {
+        // Its licensed GLB loads asynchronously after DOM readiness. Confirm
+        // it has really arrived before Playwright closes the page and aborts
+        // a healthy model request.
+        await expect(page.locator(".oc-stage")).toHaveAttribute(
+          "data-model-state", "ready", { timeout: 20_000 },
+        );
+      }
       expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
     });
   });

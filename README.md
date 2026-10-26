@@ -154,6 +154,30 @@ excitation. Shape Metal, Density, and pitch spread, or play individual tines.
 
 **[Gesticules](gesticules.html)** plays a textured, rigged 3D hand or foot with ten sound engines across five voices, including Choir and Marimba. Compact rows combine M/S, level knobs and sound with overlaid joint curves: use each row’s Joint menu to draw over the current animation. A sound panel, open by default, exposes independent tuning, tone, grain, pan and envelopes for each voice, plus the shared sound controls. Its 41 supplied animations, drawn curves and four articulated rhythm patterns share one **2–4,400 BPM Tempo** slider. Foot arch, twist, stretch, elastic motion and independently timed tremors shape the sound. Sixty-eight mixed presets (47 hand, 21 foot) begin with **Finger loom**, including eight higher-register rhythmic scenes, and recall motion, sound, camera, **Color**, **Light**, and **Trails**. Trails links visual afterimages with stereo echoes. Output is raised about 14 dB at maximum with stereo peak protection. Audio starts off. [Controls, models and attribution](docs/gesticulating-hand.md).
 
+**[Oculoid](oculoid.html)** plays a free CC BY 4.0 textured eye inside a spherical
+chrome-or-brown shell. Independently moving eyelids, swept lashes, vessels,
+a dilating pupil and a corner-anchored tear turn glances into short squishes
+and lid gestures into plops. Tear releases one growing drop; Cry repeats at its
+own tempo even with Motion stopped. Poke with adjustable diameter and depth,
+stretch the eyeball, or shine a variable-width flashlight
+to constrict its pupil. Retract the lids or hide the whole shell; switch
+between a textured or black 3D globe, or pack 1–12 globes into the
+same sheath. Two to four retain touching formations; larger groups stack
+at several depths. Banter, Harmony and Rock out give each eye its own
+moving, short stereo voice while the shared eyelids play an independently
+paced rhythm. Wardrobe props shape the next eye or lid hit without starting
+a sustained sound. Dress the eyelids with a cigar, mustache, lipstick, teeth,
+tongue, a woven scarf, open coat or workout headband; add 3D aviators,
+cat or human ears, a furry tail, customizable bow tie, mullet, mom bob,
+top/cowboy hat, frosting, cherry or a sitting cat. Pick a reflective eyelid
+color, polka dots on lids, iris or
+eyeball, and stripes or concentric bands on the globe. An X/Y gaze pad,
+movable lights and a chrome reflection knob,
+independent repeating eyeball and eyelid animations with their own dice,
+and 36 full musical presets provide varied looks
+and movements. Audio starts off; a resting eye is quiet. Find it in Work in Progress.
+[Controls, asset provenance and limits](docs/oculoid.md).
+
 **[Rubixoids](rubixoids.html)** brings Sliding Puzzle, Rubix Cube and Hyper Rubix into an independent 2D / 3D / 4D app with its own instrument engines, opening in 3D. Shared controls and eleven sound engines, including SIMD Chiptune and SIMD 303, carry across dimensions while each puzzle keeps its arrangement. [Controls and engine notes](docs/rubixoids.md).
 
 **[Loopini](loopini.html)** is a simple six-circle recording looper: make a

@@ -1,0 +1,17 @@
+{
+  "additions": [
+    {
+      "id": "oculoid",
+      "label": "Oculoid",
+      "href": "oculoid.html",
+      "imageHref": "assets/instruments/oculoid.webp",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        { "id": "graphic-ui", "label": "Graphic-UI" },
+        { "id": "3d", "label": "3D" },
+        { "id": "synthesizer", "label": "Synthesizer" }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ import { restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument
 import { restoreQuadrupedFaves } from "./helpers/quadruped-faves-reference.mjs";
 import { restoreTimeLoomSite } from "./helpers/time-loom-site-reference.mjs";
 import { restoreWitchesBrewFaves, witchesBrewFavesAmendment } from "./helpers/witches-brew-faves-reference.mjs";
+import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const digest = source => createHash("sha256").update(source).digest("hex");
@@ -49,8 +50,11 @@ test("Witches Brew picture controls leave no retired slider Tap targets in the s
 test("Witch additions preserve the preceding shared source and expose unknown drift", async () => {
   assert.match(witchSiteChanges.baseCommit, /^[0-9a-f]{40}$/);
   for (const change of witchSiteChanges.changes) {
-    // Later recovery, Faves, Time Loom, Rezoidinator and mobile additions have independent proofs.
-    const promoted = restoreWitchesBrewFaves(await readFile(new URL(change.file, root), "utf8"), change.file, { allowRestored: true });
+    // Oculoid and the later Faves promotion have independent, exact proofs.
+    const promoted = restoreWitchesBrewFaves(restoreOculoidSite(
+      await readFile(new URL(change.file, root), "utf8"),
+      change.file, { allowRestored: true },
+    ), change.file, { allowRestored: true });
     const current = restoreSelectedInstrumentRecovery(promoted, change.file, { allowRestored: true });
     let source = restoreRezoidinatorModesSite(restoreTimeLoomSite(restoreQuadrupedFaves(current, change.file, { allowRestored: true }), change.file, { allowRestored: true }), change.file, { allowRestored: true });
     if (retiredWitchTapFiles.has(change.file)) {
@@ -90,7 +94,7 @@ test("Witches Brew promotion preserves the prior registry and rejects incomplete
   const change = witchesBrewFavesAmendment;
   const source = readFileSync(new URL(change.file, root), "utf8");
   const restored = restoreWitchesBrewFaves(source, change.file);
-  assert.equal(digest(restored), change.sha256);
+  assert.equal(digest(restoreOculoidSite(restored, change.file)), change.sha256);
   assert.equal(restoreWitchesBrewFaves(restored, change.file, { allowRestored: true }), restored);
   assert.throws(() => restoreWitchesBrewFaves(restored, change.file), /exact Witches Brew Faves amendment/);
   for (const { after } of change.replacements) {
@@ -99,5 +103,7 @@ test("Witches Brew promotion preserves the prior registry and rejects incomplete
   }
   const drift = "\n// unrelated registry drift\n";
   assert.equal(restoreWitchesBrewFaves(source + drift, change.file), restored + drift);
-  assert.notEqual(digest(restoreWitchesBrewFaves(source + drift, change.file)), change.sha256);
+  assert.notEqual(digest(restoreOculoidSite(
+    restoreWitchesBrewFaves(source + drift, change.file), change.file,
+  )), change.sha256);
 });

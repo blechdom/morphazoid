@@ -64,6 +64,7 @@ export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-main-d96793a.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-loopini.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-gesticulating-hand.json', import.meta.url), 'utf8')).additions,
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-oculoid.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-simd-chiptune.json', import.meta.url), 'utf8')).additions,
 ];
 // Browseable demonstrations retain their own catalogue and MIDI declarations.

@@ -180,6 +180,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
   ]),
   freezeGroup("wip", "Work in Progress", [
+    { id: "oculoid", label: "Oculoid", href: "oculoid.html" },
     { id: "wobblini", label: "Wobblini", href: "wobblini.html", imageHref: "assets/instruments/wobblini.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "rig-lab", label: "Rig Lab", href: "rig-lab.html", imageHref: "assets/instruments/lab-placeholder.webp", catalogue: false, browse: true, entryType: "lab" },

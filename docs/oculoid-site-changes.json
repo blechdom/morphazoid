@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "baseline": "These twelve Oculoid amendments were captured against origin/main aba96c1. The Oculoid work started on main 528ddd4; later Witches Brew and Rig-a-Jig changes are peeled separately before comparing the original pre-Oculoid hashes.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "d2ad77a6c5f9fd4dc587ace51f3569ea5539810c4af7c1df9be0f2fa0375b8b5",
+      "replacements": [
+        {
+          "before": "    { id: \"wobblini\", label: \"Wobblini\", href: \"wobblini.html\", imageHref: \"assets/instruments/wobblini.webp\" },\n",
+          "after": "    { id: \"oculoid\", label: \"Oculoid\", href: \"oculoid.html\" },\n    { id: \"wobblini\", label: \"Wobblini\", href: \"wobblini.html\", imageHref: \"assets/instruments/wobblini.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "44aa8488e3f3509493564fec36ee2b48ee89af2b0844a0c8756170f725a73382",
+      "replacements": [
+        {
+          "before": "  \"shapes\": define(\n",
+          "after": "  \"oculoid\": define(\n    \"Playable 3D eye\",\n    \"A licensed textured iris and globe with spherical animated eyelids, lashes, vessels and a pupil. Glances and blinks make short synthesized sounds; the resting eye stays quiet.\",\n    \"Turn on Audio, then drag the iris or either lid, or pair repeating eyeball and eyelid animations with their own dice.\",\n    [\"Built-in synth\", \"3D model\", \"Pointer\", \"Eyelids\", \"MIDI input\", \"Presets\"],\n  ),\n  \"shapes\": define(\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "9b6f2eafa54b16b1487dd1e4bc45a2fccba211e304c720ff0c16a94626684aec",
+      "replacements": [
+        {
+          "before": "  \"vector-flight\": [],\n",
+          "after": "  \"oculoid\": [\n    \"graphic-ui\",\n    \"3d\",\n    \"synthesizer\"\n  ],\n  \"vector-flight\": [],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "83ca8bac810e56041b62b3a6eb75cb37f37c6399166fa3b138646322669a77e7",
+      "replacements": [
+        {
+          "before": "    \"gesticulating-hand\",\n",
+          "after": "    \"gesticulating-hand\",\n    \"oculoid\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "aa59a1565f4333fccef8dbc58f107be8f9c3d75eae449820d5ea18ae8fbedeac",
+      "replacements": [
+        {
+          "before": "  {\"route\": \"nqueens.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+          "after": "  {\"route\": \"nqueens.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n  {\"route\": \"oculoid.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap one eye-motion beat\"},\n  {\"route\": \"oculoid.html\", \"selector\": \"#cryTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap one Cry beat (four beats per drop)\"},\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "e79d36db7df60fe1c87b2a5f1d963658746bca0abf180c834a62f8b92404cb62",
+      "replacements": [
+        {
+          "before": "  \"nqueens.html\",\n",
+          "after": "  \"nqueens.html\",\n  \"oculoid.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "7760f0377ff8a0ef6e3269c125ed8e773f53e1866b2c5a5c9f5a84a31860ac86",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/output-recorder.js\n",
+          "after": "copy+require\tsrc/instruments/oculoid/oculoid-app.js\ncopy+require\tsrc/instruments/oculoid/oculoid.css\ncopy+require\tsrc/instruments/oculoid/oculoid-model.js\ncopy+require\tsrc/instruments/oculoid/oculoid-midi.js\ncopy+require\tsrc/instruments/oculoid/oculoid-presets.js\ncopy+require\tsrc/instruments/oculoid/oculoid-viewer.js\ncopy+require\tsrc/instruments/oculoid/oculoid-wardrobe.js\ncopy+require\tsrc/instruments/oculoid/oculoid-audio.js\ncopy+require\tsrc/instruments/oculoid/oculoid-processor.js\ncopy+require\tsrc/instruments/oculoid/oculoid-dsp.js\ncopy+require\tassets/oculoid/eye.glb\ncopy+require\tassets/oculoid/drop.glb\ncopy+require\tassets/oculoid/aviator-sunglasses.glb\ncopy+require\tassets/oculoid/SOURCE.LICENSE.txt\ncopy+require\tassets/instruments/oculoid.webp\ncopy+require\tdocs/oculoid.md\ncopy+require\tsrc/output-recorder.js\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "34af239808552bf884f275864ff2ae0920610a068f483fba5cbf3f58713b492c",
+      "replacements": [
+        {
+          "before": "**[Rubixoids](rubixoids.html)**",
+          "after": "**[Oculoid](oculoid.html)** plays a free CC BY 4.0 textured eye inside a spherical\nchrome-or-brown shell. Independently moving eyelids, swept lashes, vessels,\na dilating pupil and a corner-anchored tear turn glances into short squishes\nand lid gestures into plops. Tear releases one growing drop; Cry repeats at its\nown tempo even with Motion stopped. Poke with adjustable diameter and depth,\nstretch the eyeball, or shine a variable-width flashlight\nto constrict its pupil. Retract the lids or hide the whole shell; switch\nbetween a textured or black 3D globe, or pack 1–12 globes into the\nsame sheath. Two to four retain touching formations; larger groups stack\nat several depths. Banter, Harmony and Rock out give each eye its own\nmoving, short stereo voice while the shared eyelids play an independently\npaced rhythm. Wardrobe props shape the next eye or lid hit without starting\na sustained sound. Dress the eyelids with a cigar, mustache, lipstick, teeth,\ntongue, a woven scarf, open coat or workout headband; add 3D aviators,\ncat or human ears, a furry tail, customizable bow tie, mullet, mom bob,\ntop/cowboy hat, frosting, cherry or a sitting cat. Pick a reflective eyelid\ncolor, polka dots on lids, iris or\neyeball, and stripes or concentric bands on the globe. An X/Y gaze pad,\nmovable lights and a chrome reflection knob,\nindependent repeating eyeball and eyelid animations with their own dice,\nand 36 full musical presets provide varied looks\nand movements. Audio starts off; a resting eye is quiet. Find it in Work in Progress.\n[Controls, asset provenance and limits](docs/oculoid.md).\n\n**[Rubixoids](rubixoids.html)**"
+        }
+      ]
+    },
+    {
+      "file": "docs/THIRD_PARTY_NOTICES.md",
+      "sha256": "5475094f9ef3ca671bb510e089a722a1f81b5def5bf22aad83fa54f28bca4b96",
+      "replacements": [
+        {
+          "before": "## Midiophilia visual lab\n",
+          "after": "## Oculoid eye model\n\nOculoid includes the textured globe and separate iris meshes from\n**Realistic Human Eye** by **DEGUIDER**, licensed under\n[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).\n[Original Sketchfab model](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362).\nThe unchanged GLB was retrieved via Objaverse. Morphazoid rotates and scales\nit at runtime and adds authored, deforming eyelid/skin geometry, eyelashes,\nvessels, a pupil, glints, lighting and playable sound. The catalogue icon is\na render of this adapted model. These additions are artistic approximations,\nnot medical anatomy or an endorsement by the original artist. Download link,\nlicense, changes and SHA-256 are in `assets/oculoid/SOURCE.LICENSE.txt`.\n\nThe falling teardrop adapts geometry from **CC0 - Drops** by **plaggy**:\n[original Sketchfab model](https://sketchfab.com/3d-models/cc0-drops-f8f24228aebf41f297c878ad82ea7db0).\nDespite the title, the GLB's embedded license is **CC BY 4.0**, not CC0.\nThe bundled GLB retains the teardrop positions, normals and triangles while\nremoving source textures and materials. At runtime a copy is tilted away\nfrom the lid, with a new water material, growth from the lower lid corner\nand a vertical fall.\nOriginal and derivative hashes, source credit and extraction instructions are in\n`assets/oculoid/SOURCE.LICENSE.txt`. Neither creator endorses Morphazoid.\n\nOculoid's aviator sunglasses use **Aviator sunglasses** by **Kimppo**,\n[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):\n[original Sketchfab model](https://sketchfab.com/3d-models/aviator-sunglasses-00d1cb5aa82745228a3b764c97f867de).\nThe unchanged GLB includes its upright FBX conversion. At runtime its width\nand temple depth are fitted to the lid, a visible brow bridge is added, its\nlenses are darkened, and the pair follows the upper lid.\nSee `assets/oculoid/SOURCE.LICENSE.txt` for the mirror, hash and exact changes.\nKimppo does not endorse Morphazoid.\n\n## Midiophilia visual lab\n"
+        }
+      ]
+    },
+    {
+      "file": "docs/tap-tempo-controls.json",
+      "sha256": "7d1de6a17a6ab25ed61e1fc2b263aeeb7af56ee9a88f53c239fd28a95772108b",
+      "replacements": [
+        {
+          "before": "    {\n      \"route\": \"quadruped\",\n",
+          "after": "    {\n      \"route\": \"oculoid\",\n      \"selector\": \"#tempo\",\n      \"mapping\": {\n        \"unit\": \"bpm\"\n      },\n      \"note\": \"One tap per eye-motion beat changes the native Tempo input; repeating LFO styles and Audio remain independent.\",\n      \"source\": \"src/pages/oculoid.html\"\n    },\n    {\n      \"route\": \"oculoid\",\n      \"selector\": \"#cryTempo\",\n      \"mapping\": {\n        \"unit\": \"bpm\"\n      },\n      \"note\": \"One tap per tear beat; four beats grow and release each drop. Cry and Tear remain independent of Motion tempo.\",\n      \"source\": \"src/pages/oculoid.html\"\n    },\n    {\n      \"route\": \"quadruped\",\n"
+        }
+      ]
+    },
+    {
+      "file": "docs/tap-tempo-controls.md",
+      "sha256": "b12c49c3532971d1bb6926ecb877955bba37dad64e71967e94906b1d5e2f19c5",
+      "replacements": [
+        {
+          "before": "| [Onset Atlas · Morphazoid](../onset-atlas.html) | `#speed` |\n",
+          "after": "| [Oculoid](../oculoid.html) | `#tempo` (eye motion), `#cryTempo` (four beats per drop; independent of Motion) |\n| [Onset Atlas · Morphazoid](../onset-atlas.html) | `#speed` |\n"
+        }
+      ]
+    },
+    {
+      "file": "assets/instruments/CATALOGUE_LOGOS.md",
+      "sha256": "2bd0a885b3b560d32eda18f809570756a6440858cc4e44e1b6d8c1cfa4cec9ba",
+      "replacements": [
+        {
+          "before": "# Catalogue logo generation\n\n",
+          "after": "# Catalogue logo generation\n\n## Oculoid\n\n`oculoid.webp` is a 512 × 512 WebP render of Oculoid's own WebGL eye:\nthe rounded eyelid edges and unsquashed spherical shell use the default\nneutral mirror-chrome finish (warm brown is selectable on the page).\nThe black socket sits behind\nthe globe, not on the lid rim. There is no flat background oval, tear duct\nor extra lower-lid crease.\nThe browser loaded DEGUIDER's [CC BY 4.0 eye](../oculoid/SOURCE.LICENSE.txt)\nwith Morphazoid's authored lids, lashes, vessels and pupil. At a 1440 × 900\ndesktop viewport, take a 1× DPR canvas screenshot (1050 × 767 pixels), crop\n`(141, 0, 908, 767)` to exclude the heading and keep the full orb, then\nresample to 512 pixels with Lanczos and save as WebP at quality 90. No added\noval, vignette, generated replacement anatomy or unrelated photograph was used.\n\n"
+        }
+      ]
+    }
+  ]
+}

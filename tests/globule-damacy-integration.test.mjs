@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   globuleDamacySiteChanges, restoreGlobuleDamacySite,
 } from "./helpers/globule-damacy-site-reference.mjs";
+import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { INSTRUMENTS, LABS, instrumentById } from "../src/site/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
@@ -24,7 +25,10 @@ test("Globule Damacy's exact metadata amendments reverse to the untouched main f
     "src/site/catalogue-taxonomy.js", "src/site/instrument-midi-capabilities.js",
   ]);
   for (const change of globuleDamacySiteChanges.changes) {
-    const current = restoreWitchesBrewRefresh(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const current = restoreWitchesBrewRefresh(restoreOculoidSite(
+      await readFile(new URL(change.file, root), "utf8"),
+      change.file, { allowRestored: true },
+    ), change.file);
     const restored = restoreGlobuleDamacySite(current, change.file);
     assert.equal(sha(restored), change.sha256, `${change.file}: previous metadata preserved byte-for-byte`);
     assert.doesNotMatch(restored, /globule-damacy/);
@@ -46,7 +50,10 @@ test("Globule's public route, runtime inventory, overview and icon attribution l
     "README.md", "assets/instruments/CATALOGUE_LOGOS.md",
   ]);
   for (const change of globuleDamacySiteChanges.sharedChanges) {
-    const current = restoreWitchesBrewRefresh(await readFile(new URL(change.file, root), "utf8"), change.file);
+    const current = restoreWitchesBrewRefresh(restoreOculoidSite(
+      await readFile(new URL(change.file, root), "utf8"),
+      change.file, { allowRestored: true },
+    ), change.file);
     const restored = restoreGlobuleDamacySite(current, change.file);
     assert.equal(sha(restored), change.sha256, `${change.file}: preceding main bytes preserved`);
     assert.doesNotMatch(restored, /globule-damacy/i);

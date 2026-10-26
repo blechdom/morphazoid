@@ -97,6 +97,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Mouthophones · Morphazoid](../mouthophones.html) | `#breathRateBpm`, `#gestureRateBpm` |
 | [Neural Pulse](../neural-pulse.html) | `#neuralRate` |
 | [N-Queens Backtracker](../nqueens.html) | `#tempo` |
+| [Oculoid](../oculoid.html) | `#tempo` (eye motion), `#cryTempo` (four beats per drop; independent of Motion) |
 | [Onset Atlas · Morphazoid](../onset-atlas.html) | `#speed` |
 | [Feral Fairy Ferris Ferry](../orbital-ferris.html) | `#orbitalRate` |
 | [Ouroboros](../ouroboros.html) | `#glissRate`, `#hitRate` |

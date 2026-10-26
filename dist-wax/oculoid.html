@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en" class="oculoid-document">
+<head>
+  <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Oculoid — Morphazoid" />
+    <meta property="og:description" content="Oculoid — a playable 3D eye. Steer its gaze, flutter its lids, draw tears and sound each movement." />
+    <meta property="og:url" content="https://morphazoid.com/oculoid.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Oculoid — Morphazoid" />
+    <meta name="twitter:description" content="Oculoid — a playable 3D eye. Steer its gaze, flutter its lids, draw tears and sound each movement." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Oculoid — a playable 3D eye. Steer its gaze, flutter its lids, draw tears and sound each movement." />
+  <title>Oculoid — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/oculoid/oculoid.css" />
+</head>
+<body class="oculoid-page" data-tool-id="oculoid" data-instrument-info="off">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">Gesticules</a><a class="tab active" href="oculoid.html" aria-current="page">Oculoid</a><a class="tab" href="roach-synth.html">Roach Synth</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">Gesticules</option><option value="oculoid.html" selected>Oculoid</option><option value="roach-synth.html">Roach Synth</option></select></label>
+    <div class="audio-strip" role="group" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false" aria-describedby="liveStatus" data-audio-state="off"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">40%</output></span><input id="outputLevel" type="range" min="0" max="0.8" step="0.01" value="0.4" /></label>
+    </div>
+  </header>
+  <main class="oc-shell">
+    <section class="oc-performance" aria-labelledby="ocTitle">
+      <div class="oc-stage" data-model-state="loading" aria-busy="true">
+        <h1 id="ocTitle">Oculoid</h1>
+        <canvas id="eyeCanvas" tabindex="0" aria-label="Playable 3D eye" aria-describedby="eyeHelp">A playable eye. Use the labelled controls or keyboard if the canvas is unavailable.</canvas>
+        <span id="flashlightMarker" class="oc-flashlight-marker" aria-hidden="true" hidden></span>
+        <span id="surfaceMarker" class="oc-surface-marker" aria-hidden="true" hidden></span>
+        <button id="flashlightMode" class="oc-reset oc-stage-flashlight" type="button" aria-label="Flashlight mode" aria-pressed="false" aria-controls="eyeCanvas" title="Aim a flashlight at the eye" disabled>Flash</button>
+        <button id="pokeMode" class="oc-reset oc-stage-poke" type="button" aria-pressed="false" aria-controls="eyeCanvas" title="Poke the exposed eyeball" disabled>Poke</button>
+        <button id="stageReset" class="oc-reset oc-stage-reset" type="button" aria-label="Reset eye pose, viewpoint, colors and lights">Reset</button>
+        <p id="eyeHelp" class="sr-only">Drag any iris to steer shared gaze, a lid to move it, or the background to turn the whole eye. Dress-up packs one to twelve eyeballs into the sheath; beyond four they stack at different depths. Banter, Harmony and Rock out give each eye its own animated and sounding part when Motion plays. Lid speed sets an independent rhythm relative to Eye tempo. Flash aims a beam; Poke presses the touched globe with adjustable diameter and depth; Stretch pulls a patch on the touched globe. These three tools are mutually exclusive. Retract lids holds both fully open; Hide lids shows the eyeballs alone. Tear drops once, Cry repeats every four beats at its own Cry tempo. On the focused canvas, arrows steer gaze or aim a selected tool. In Poke hold P; in Stretch, Enter grips or releases and arrows move the grip. Escape releases it. Hold L to blink when lids are present and not retracted. Audio must be explicitly enabled to hear gestures.</p>
+      </div>
+      <p id="modelStatus" class="oc-model-status" role="status">Loading the licensed 3D eye…</p>
+      <p id="liveStatus" class="oc-live-status" role="status" aria-live="polite"></p>
+    </section>
+    <aside class="oc-panel" aria-label="Eye instrument controls">
+      <section class="oc-block oc-presets" aria-label="Complete presets" data-instrument-preset-host></section>
+      <section class="oc-block oc-play" aria-labelledby="motionTitle">
+        <h2 id="motionTitle">Motion</h2>
+        <div class="oc-play-row">
+          <button class="play-button" id="motionButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play eye movement" title="Eye movement · Space"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+          <label class="oc-control oc-dial-control oc-tempo" for="tempo"><span>Eye tempo <output id="tempoOut" for="tempo">84 BPM</output></span><span class="oc-dial"><input id="tempo" type="range" min="35" max="200" step="1" value="84" aria-description="Sets the shared eye beat. Lid speed multiplies this beat without jumping its own loop." /></span></label>
+          <button id="resetAll" class="oc-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
+        </div>
+        <div class="oc-animation-row">
+          <label class="oc-control" for="eyeballStyle"><span>Eyeball animation</span><select id="eyeballStyle"><option value="still">Still</option><option value="drift" selected>Drift</option><option value="flutter">Tremble</option><option value="wild">Wild eyes</option><option value="drowse">Drowse</option><option value="pupil">Pupil pulse</option></select></label>
+          <button class="instrument-picker-next oc-animation-dice" id="eyeballDice" type="button" aria-label="Random eyeball animation" title="Random eyeball animation"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
+        </div>
+        <div class="oc-animation-row">
+          <label class="oc-control" for="eyelidStyle"><span>Eyelid animation</span><select id="eyelidStyle"><option value="still">Still</option><option value="blink" selected>Blink</option><option value="flutter">Flutter</option><option value="wild">Wild blink</option><option value="drowse">Drowse</option><option value="lid-flutter">Lid flutter</option></select></label>
+          <button class="instrument-picker-next oc-animation-dice" id="eyelidDice" type="button" aria-label="Random eyelid animation" title="Random eyelid animation"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><g fill="currentColor"><circle cx="7.5" cy="7.5" r="1.4"/><circle cx="16.5" cy="7.5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="7.5" cy="16.5" r="1.4"/><circle cx="12" cy="16.5" r="1.4"/><circle cx="16.5" cy="16.5" r="1.4"/></g></svg></button>
+        </div>
+        <div class="oc-pair">
+          <label class="oc-control oc-dial-control" for="motion"><span>Movement <output id="motionOut" for="motion">50%</output></span><span class="oc-dial"><input id="motion" type="range" min="0" max="1" step="0.01" value="0.5" /></span></label>
+          <label class="oc-control oc-dial-control" for="lidRate"><span>Lid speed <output id="lidRateOut" for="lidRate">1×</output></span><span class="oc-dial"><input id="lidRate" type="range" min="0.5" max="2" step="0.05" value="1" aria-description="Runs the eyelid rhythm at half to double the eye beat. Phase stays continuous while adjusting it; 1× preserves existing scenes." /></span></label>
+        </div>
+      </section>
+      <section class="oc-block oc-surface" aria-labelledby="surfaceTitle">
+        <h2 id="surfaceTitle">Surface</h2>
+        <div class="oc-surface-buttons" role="group" aria-label="Eyeball surface tools">
+          <button id="stretchMode" type="button" aria-pressed="false" aria-controls="eyeCanvas" disabled>Stretch</button>
+        </div>
+        <div class="oc-lid-actions" role="group" aria-label="Eyelid options">
+          <button id="lidRetractor" class="oc-reset oc-retractor" type="button" aria-pressed="false" aria-label="Hold both eyelids fully open" aria-controls="eyeCanvas" title="Hold both eyelids open without changing their saved positions">Retract lids</button>
+          <button id="hideLids" class="oc-reset oc-retractor" type="button" aria-pressed="false" aria-label="Hide the eyelid shell" aria-controls="eyeCanvas" title="Show the eyeball by itself; lid positions are saved" disabled>Hide lids</button>
+        </div>
+        <div class="oc-pair oc-poke-settings">
+          <label class="oc-control oc-dial-control" for="pokeDiameter"><span>Poke diameter <output id="pokeDiameterOut" for="pokeDiameter">42% eye</output></span><span class="oc-dial"><input id="pokeDiameter" type="range" min="0.12" max="0.92" step="0.01" value="0.42" aria-description="Changes the width of the physical dent and its short squelch; live and outside presets." /></span></label>
+          <label class="oc-control oc-dial-control" for="pokeDepth"><span>Poke depth <output id="pokeDepthOut" for="pokeDepth">100% depth</output></span><span class="oc-dial"><input id="pokeDepth" type="range" min="0" max="1.5" step="0.01" value="1" aria-description="Scales the indentation and squelch strength of a mouse, touch, pen or keyboard poke, even during a held press; zero disables the dent." /></span></label>
+        </div>
+      </section>
+      <section class="oc-block" aria-labelledby="anatomyTitle">
+        <h2 id="anatomyTitle">Anatomy</h2>
+        <div class="oc-gaze-pad" id="gazePad" role="group" aria-label="Gaze X/Y direction">
+          <span class="oc-pad-up" aria-hidden="true">Up</span><span class="oc-pad-down" aria-hidden="true">Down</span>
+          <span class="oc-pad-left" aria-hidden="true">Left</span><span class="oc-pad-right" aria-hidden="true">Right</span>
+          <button id="gazeHandle" class="oc-gaze-handle" type="button" aria-label="Steer gaze" aria-description="Drag in two dimensions or use the arrow keys; hold Shift for fine adjustments. The labelled Look across and Look up/down knobs are keyboard alternatives."></button>
+        </div>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="gazeX"><span>Look across <output id="gazeXOut" for="gazeX">0%</output></span><span class="oc-dial"><input id="gazeX" type="range" min="-1" max="1" step="0.01" value="0" /></span></label><label class="oc-control oc-dial-control" for="gazeY"><span>Look up/down <output id="gazeYOut" for="gazeY">0%</output></span><span class="oc-dial"><input id="gazeY" type="range" min="-1" max="1" step="0.01" value="0" /></span></label></div>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="turnX"><span>Whole eye left/right <output id="turnXOut" for="turnX">0°</output></span><span class="oc-dial"><input id="turnX" type="range" min="-90" max="90" step="1" value="0" aria-description="Turns the entire globe and both lids; separate from gaze and sound." /></span></label><label class="oc-control oc-dial-control" for="turnY"><span>Whole eye up/down <output id="turnYOut" for="turnY">0°</output></span><span class="oc-dial"><input id="turnY" type="range" min="-90" max="90" step="1" value="0" aria-description="Turns the entire eye vertically; separate from gaze and sound." /></span></label></div>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="blink"><span>Upper lid <output id="blinkOut" for="blink">+4%</output></span><span class="oc-dial"><input id="blink" type="range" min="-1" max="1" step="0.01" value="0.04" aria-description="Move left past the resting position to open upward; move right to close." /></span></label><label class="oc-control oc-dial-control" for="lowerLid"><span>Lower lid <output id="lowerLidOut" for="lowerLid">0%</output></span><span class="oc-dial"><input id="lowerLid" type="range" min="-1" max="1" step="0.01" value="0" aria-description="Move right to open downward, left to lift the lower lid." /></span></label></div>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="pupil"><span>Pupil <output id="pupilOut" for="pupil">42%</output></span><span class="oc-dial"><input id="pupil" type="range" min="0" max="1" step="0.01" value="0.42" /></span></label><label class="oc-control oc-dial-control" for="wetness"><span>Tear size <output id="wetnessOut" for="wetness">50%</output></span><span class="oc-dial"><input id="wetness" type="range" min="0" max="1" step="0.01" value="0.5" aria-description="Sets the size of each drop and the wet character of movement sounds; Tear or Cry starts the drops." /></span></label></div>
+        <div class="oc-tear-actions" role="group" aria-label="Tears">
+          <button id="tearOnce" type="button" title="Grow and drop one tear from the lid corner" disabled>Tear</button>
+          <button id="cryMode" type="button" aria-pressed="false" aria-description="Repeat one tear every four beats at Cry tempo, even while Motion is stopped." title="Repeat tears every four beats at Cry tempo" disabled>Cry · 4 beats</button>
+        </div>
+        <label class="oc-control oc-dial-control oc-cry-tempo" for="cryTempo"><span>Cry tempo <output id="cryTempoOut" for="cryTempo">84 BPM</output></span><span class="oc-dial"><input id="cryTempo" type="range" min="35" max="800" step="1" value="84" aria-description="Sets Tear and Cry from 35 to 800 BPM independently of Motion; four beats grow and release each drop." /></span></label>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="veins"><span>Vein drive <output id="veinsOut" for="veins">38%</output></span><span class="oc-dial"><input id="veins" type="range" min="0" max="1" step="0.01" value="0.38" /></span></label><label class="oc-control oc-dial-control" for="irisTint"><span>Iris cast <output id="irisTintOut" for="irisTint">46%</output></span><span class="oc-dial"><input id="irisTint" type="range" min="0" max="1" step="0.01" value="0.46" /></span></label></div>
+      </section>
+      <section class="oc-block oc-wardrobe" aria-labelledby="wardrobeTitle">
+        <h2 id="wardrobeTitle">Dress-up</h2>
+        <label class="oc-control oc-dial-control" for="eyeCount"><span>Eyeballs in sheath <output id="eyeCountOut" for="eyeCount">1 eye</output></span><span class="oc-dial"><input id="eyeCount" type="range" min="1" max="12" step="1" value="1" aria-description="Pack one to twelve globes into the 3D eyelid sheath; beyond four they stack at different depths. The gaze pad offsets all eyes; surface tools touch only the selected globe." /></span></label>
+        <label class="oc-control" for="ensembleStyle"><span>Eyeball ensemble</span><select id="ensembleStyle" aria-description="With two to twelve eyeballs, choose shared gaze and voice, call-and-response Banter, non-tempered Harmony, or alternating Rock out. Motion starts the repeating parts; changing styles never starts Audio."><option value="together">Together</option><option value="banter" selected>Banter</option><option value="harmony">Harmony</option><option value="rock">Rock out</option></select></label>
+        <label class="oc-control" for="hatStyle"><span>Hat</span><select id="hatStyle" aria-description="Headwear follows whole-eye rotation, not gaze, and remains when lids are hidden."><option value="none" selected>None</option><option value="top">Top hat</option><option value="cowboy">Cowboy hat</option><option value="frosting">Cupcake frosting</option><option value="cherry">Cherry</option><option value="cat">Cat sitting on head</option></select></label>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="hatSize"><span>Hat size <output id="hatSizeOut" for="hatSize">100%</output></span><span class="oc-dial"><input id="hatSize" type="range" min="0.75" max="1.5" step="0.01" value="1" aria-description="Visual size of the selected hat; does not change the sound." /></span></label><label class="oc-control" for="hairStyle"><span>Bad haircut</span><select id="hairStyle"><option value="none" selected>None</option><option value="mullet">Mullet</option><option value="mom-bob">Mom bob</option></select></label></div>
+        <div class="oc-wardrobe-toggles">
+          <label><input id="catEars" type="checkbox" /> Cat ears</label>
+          <label><input id="humanEars" type="checkbox" /> Human ears</label>
+          <label><input id="tail" type="checkbox" /> Cat tail</label>
+          <label><input id="bowTie" type="checkbox" /> Bow tie</label>
+          <label class="oc-bow-color" for="bowTieColor">Bow color <input id="bowTieColor" type="color" value="#9c3457" aria-label="Bow tie color" /></label>
+          <label><input id="sunglasses" type="checkbox" aria-description="Frames sit high on the upper lid while it blinks, or rest over the eyeball when the lids are hidden. Groucho temporarily replaces them." /> Sunglasses</label>
+          <label><input id="groucho" type="checkbox" aria-description="Black round glasses, bulbous nose and bushy mustache in one costume. Temporarily replaces separate glasses and mustache without changing those switches; survives Hide lids." /> Groucho Marx disguise</label>
+          <label><input id="cigar" type="checkbox" /> Cigar</label>
+          <label><input id="mustache" type="checkbox" /> Mustache</label>
+          <label><input id="headband" type="checkbox" /> Sweatband</label>
+          <label><input id="coat" type="checkbox" /> Trench coat</label>
+          <label><input id="scarf" type="checkbox" /> Scarf</label>
+          <label><input id="lipstick" type="checkbox" /> Lipstick inside &amp; out</label>
+          <label><input id="teeth" type="checkbox" /> Teeth</label>
+          <label><input id="tongue" type="checkbox" /> Tongue</label>
+          <label class="oc-lipstick-color" for="lipstickColor">Lip color <input id="lipstickColor" type="color" value="#bb476c" aria-label="Lipstick color" /></label>
+        </div>
+      </section>
+      <section class="oc-block oc-lighting" aria-labelledby="lightingTitle">
+        <h2 id="lightingTitle">Appearance &amp; lighting</h2>
+        <label class="oc-control" for="eyeLook"><span>Eyeball look</span><select id="eyeLook" aria-description="The black loading-eye drawing becomes a deformable 3D globe. Both looks follow gaze and whole-eye rotation; eye colors are held while the black look is selected."><option value="textured" selected>Textured eye</option><option value="ink">Black loading eye</option></select></label>
+        <div class="oc-control"><label for="irisColor">Iris color</label><div class="oc-color-row"><span id="irisSwatch" class="oc-iris-swatch" aria-hidden="true"></span><select id="irisColor" aria-description="Recolors the textured iris only; this does not change the sound."><option value="original">Original sea glass</option><option value="brown">Dark brown</option><option value="hazel">Hazel</option><option value="amber">Amber</option><option value="green">Leaf green</option><option value="blue">Deep blue</option><option value="gray">Slate gray</option><option value="violet" selected>Violet</option><option value="pink">Neon pink</option><option value="cyan">Electric cyan</option><option value="lime">Acid lime</option><option value="red">Ember red</option><option value="black">Blackout</option><option value="custom">Custom color</option></select><input id="irisPicker" class="oc-color-picker" type="color" value="#9876b8" aria-label="Pick a custom iris color" title="Pick a custom iris color" /></div></div>
+        <label class="oc-control" for="irisPattern"><span>Iris pattern</span><select id="irisPattern" aria-description="Decorates the textured iris; visual only."><option value="natural" selected>Natural fibers</option><option value="stripes">Radial stripes</option><option value="rings">Concentric bands</option><option value="dots">Polka dots</option></select></label>
+        <div class="oc-control"><label for="scleraColor">Eyeball color</label><div class="oc-color-row"><select id="scleraColor" aria-description="Tints the textured eyeball without changing the iris or sound."><option value="natural">Natural</option><option value="ivory">Ivory</option><option value="rose">Blush</option><option value="pearl" selected>Pearl</option><option value="ink">Ink black</option><option value="orchid">Orchid</option><option value="mint">Radioactive mint</option><option value="cobalt">Cobalt</option><option value="coral">Coral</option><option value="custom">Custom color</option></select><input id="scleraPicker" class="oc-color-picker" type="color" value="#e2e6eb" aria-label="Pick a custom eyeball color" title="Pick a custom eyeball color" /></div></div>
+        <div class="oc-control"><label for="scleraPattern">Eyeball pattern</label><div class="oc-color-row"><select id="scleraPattern" aria-description="Antialiased polka dots, stripes or checkerboard follow the textured eyeball through gaze and Poke without tinting the iris."><option value="solid" selected>Solid</option><option value="dots">Polka dots</option><option value="stripes">Stripes</option><option value="checker">Checkerboard</option></select><input id="scleraPatternPicker" class="oc-color-picker" type="color" value="#35274e" aria-label="Eyeball pattern color" title="Eyeball pattern color" /></div></div>
+        <div class="oc-control"><label for="skinFinish">Eyelid finish</label><div class="oc-color-row"><select id="skinFinish" aria-description="The eyelid color picker works with every finish."><option value="chrome" selected>Mirror chrome</option><option value="matte">Matte</option><option value="wet">Wet glaze</option><option value="gooey">Gooey</option><option value="clumpy">Clumpy</option></select><input id="skinPicker" class="oc-color-picker" type="color" value="#f2f1ef" aria-label="Eyelid color for any finish" title="Eyelid color for any finish" /></div></div>
+        <label class="oc-control" for="skinPattern"><span>Eyelid pattern</span><select id="skinPattern" aria-description="Smooth stripes, plaid, smaller polka dots or checkerboard wrap the sphere, including both lids and the back."><option value="solid" selected>Solid</option><option value="stripes">Stripes</option><option value="plaid">Plaid</option><option value="dots">Small polka dots</option><option value="checker">Checkerboard</option></select></label>
+        <label class="oc-control" for="lightPattern"><span>Light pattern</span><select id="lightPattern" aria-description="Project checkerboard, fine dots, diagonal stripes or ripples with the movable key light onto the eye. Key brightness controls it; this does not repaint the eyelid or iris."><option value="none" selected>Plain studio light</option><option value="checker">Checkerboard</option><option value="dots">Small polka dots</option><option value="stripes">Diagonal stripes</option><option value="ripples">Ripples</option></select></label>
+        <label class="oc-control oc-dial-control" for="reflection"><span>Finish reflection <output id="reflectionOut" for="reflection">100%</output></span><span class="oc-dial"><input id="reflection" type="range" min="0" max="2" step="0.01" value="1" aria-description="Adjusts studio reflections on chrome and wet or gooey eyelids without changing the selected color or the light on the eyeball." /></span></label>
+        <div class="oc-light-pad" id="lightPad" role="group" aria-label="Light direction pad">
+          <button type="button" id="keyLightHandle" class="oc-light-handle oc-light-key" aria-label="Move key light" aria-description="Drag or use arrow keys to orbit the warm key light around the eye; hold Shift for finer steps.">K</button>
+          <button type="button" id="fillLightHandle" class="oc-light-handle oc-light-fill" aria-label="Move fill light" aria-description="Drag or use arrow keys to orbit the cool fill light around the eye; hold Shift for finer steps.">F</button>
+        </div>
+        <div class="oc-pair">
+          <label class="oc-control oc-dial-control oc-flashlight-power" for="flashlightPower"><span>Flashlight power <output id="flashlightPowerOut" for="flashlightPower">80%</output></span><span class="oc-dial"><input id="flashlightPower" type="range" min="0" max="1" step="0.01" value="0.8" aria-description="Sets beam brightness and the exposed iris's pupil response; separate from the studio lights and musical presets." /></span></label>
+          <label class="oc-control oc-dial-control oc-flash-diameter" for="flashDiameter"><span>Beam diameter <output id="flashDiameterOut" for="flashDiameter">43% eye</output></span><span class="oc-dial"><input id="flashDiameter" type="range" min="0.12" max="1.2" step="0.01" value="0.43" aria-description="Sets the actual spotlight cone from a small circle to wider than the eyeball; wide beams can reach a visible off-center iris." /></span></label>
+        </div>
+        <label class="oc-control oc-dial-control oc-key-brightness" for="keyBrightness"><span>Key brightness <output id="keyBrightnessOut" for="keyBrightness">100%</output></span><span class="oc-dial"><input id="keyBrightness" type="range" min="0" max="2" step="0.01" value="1" aria-description="Dims the key light and chrome reflections, independently of the fill light." /></span></label>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="keyAzimuth"><span>Key left/right <output id="keyAzimuthOut" for="keyAzimuth">-27°</output></span><span class="oc-dial"><input id="keyAzimuth" type="range" min="-140" max="140" step="1" value="-27" /></span></label><label class="oc-control oc-dial-control" for="keyElevation"><span>Key up/down <output id="keyElevationOut" for="keyElevation">30°</output></span><span class="oc-dial"><input id="keyElevation" type="range" min="-75" max="75" step="1" value="30" /></span></label></div>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="fillAzimuth"><span>Fill left/right <output id="fillAzimuthOut" for="fillAzimuth">53°</output></span><span class="oc-dial"><input id="fillAzimuth" type="range" min="-140" max="140" step="1" value="53" /></span></label><label class="oc-control oc-dial-control" for="fillElevation"><span>Fill up/down <output id="fillElevationOut" for="fillElevation">-22°</output></span><span class="oc-dial"><input id="fillElevation" type="range" min="-75" max="75" step="1" value="-22" /></span></label></div>
+      </section>
+      <section class="oc-block" aria-labelledby="voiceTitle">
+        <h2 id="voiceTitle">Voice</h2>
+        <label class="oc-control oc-dial-control" for="rootHz"><span>Register <output id="rootHzOut" for="rootHz">112 Hz</output></span><span class="oc-dial"><input id="rootHz" type="range" min="55" max="330" step="1" value="112" /></span></label>
+        <div class="oc-pair"><label class="oc-control oc-dial-control" for="tone"><span>Focus <output id="toneOut" for="tone">42%</output></span><span class="oc-dial"><input id="tone" type="range" min="0" max="1" step="0.01" value="0.42" /></span></label><label class="oc-control oc-dial-control" for="air"><span>Breath <output id="airOut" for="air">24%</output></span><span class="oc-dial"><input id="air" type="range" min="0" max="1" step="0.01" value="0.24" /></span></label></div>
+      </section>
+      <details class="oc-credits">
+        <summary>Eye model &amp; instructions</summary>
+        <p>Original textured globe and iris: <a href="https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362">DEGUIDER’s Realistic Human Eye</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Aviator sunglasses: <a href="https://sketchfab.com/3d-models/aviator-sunglasses-00d1cb5aa82745228a3b764c97f867de">Kimppo</a>, CC BY 4.0. Morphazoid adds a spherical shell, movable lids, lashes, tears, vessels, pupil and sound; these are artistic approximations, not medical anatomy.</p>
+        <p>Drag the iris, gaze X/Y pad or lids to play; drag outside the eye to turn the entire rig. The black loading-eye look is a selectable 3D appearance that rotates and deforms with the globe. Retract lids holds them open; Hide lids leaves the eyeball alone. Tear releases one drop from the lid corner, while Cry repeats every four beats at its own tempo even without Motion. Stretch tugs locally without rotating the eyeball. Poke has independent diameter and depth knobs; a closed lid still blocks all surface tools. Audio starts off; movements and drops make short sounds, not drones. <a href="docs/oculoid.md">Model, license &amp; controls</a>.</p>
+      </details>
+    </aside>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/oculoid/oculoid-app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

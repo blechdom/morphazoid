@@ -548,6 +548,11 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "3d",
     "synthesizer"
   ],
+  "oculoid": [
+    "graphic-ui",
+    "3d",
+    "synthesizer"
+  ],
   "vector-flight": [],
   "gesturama": [],
   "image-to-instrument-3": [],

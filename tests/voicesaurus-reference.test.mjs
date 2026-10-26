@@ -1,4 +1,5 @@
 import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
+import { restoreOculoidSite } from './helpers/oculoid-site-reference.mjs';
 import { restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
 import { restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
 import { restoreAudioInput } from "./helpers/audio-input-reference.mjs";
@@ -17,7 +18,9 @@ import { restoreRoachPerformance } from './helpers/roach-synth-performance-refer
 const read = file => restoreMorphazoidicalRemoval(restoreAudioInput(
   restoreSynthesaurusFavesOrder(restoreNativeDelaySite(
     restoreBifurcatorSite(restoreFractalDelaySite(
-      restoreVectorFractalsSite(restoreProcessorSamplesSite(restoreRustResonatorSite(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file, { allowRestored: true }), file, { allowRestored: true }), file), file), file), file), file), file), file);
+  restoreVectorFractalsSite(restoreProcessorSamplesSite(restoreRustResonatorSite(
+    restoreOculoidSite(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file),
+    file, { allowRestored: true }), file, { allowRestored: true }), file), file), file), file), file), file), file);
 
 test('Voicesaurus reversal stays scoped and preserves the independent pre-feature reference', () => {
   assert.equal(voicesaurusAmendments.schemaVersion, 1);

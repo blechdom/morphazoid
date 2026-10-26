@@ -24,6 +24,8 @@ test("every implemented full-preset owner declares exactly one explicit preset h
       : entry.id === "voicesaurus" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div class="native-voice-modes"[^>]*>[\s\S]*?<\/div>\s*<div data-instrument-preset-host/ // Owner-requested Speak/Sing selector above the presets it scopes.
       : entry.id === "spelling-synthesizer" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div data-instrument-preset-host/ // Shared speech family's first-row mount; sticky placement is browser-tested.
       : entry.id === "synthesis" ? /<div id="performancePresetHost" data-instrument-preset-host/ // Complete instrument presets precede the independent axes.
+      : entry.id === "witch" ? /<div class="witch-presets" data-instrument-preset-host/ // Promoted Witches Brew keeps its sole preset host in the scene header.
+      : entry.id === "oculoid" ? /<aside class="oc-panel"[^>]*>\s*<section class="oc-block oc-presets"[^>]*data-instrument-preset-host/ // Eye presets occupy the first rail row above Motion.
       : /<aside[^>]+data-instrument-preset-host/, entry.id);
   }
 });

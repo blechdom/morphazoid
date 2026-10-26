@@ -135,6 +135,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn Audio on and press Play to animate. Drag a body part at any time, scroll to zoom, choose independent animation and sound presets, or type words for the roach to say.",
     ["Built-in synth", "3D model", "Pointer", "Voice", "Body-part mixer", "Recordings"],
   ),
+  "oculoid": define(
+    "Playable 3D eye",
+    "A licensed textured iris and globe with spherical animated eyelids, lashes, vessels and a pupil. Glances and blinks make short synthesized sounds; the resting eye stays quiet.",
+    "Turn on Audio, then drag the iris or either lid, or pair repeating eyeball and eyelid animations with their own dice.",
+    ["Built-in synth", "3D model", "Pointer", "Eyelids", "MIDI input", "Presets"],
+  ),
   "shapes": define(
     "2D / 3D / 4D instrument",
     "A self-contained Polygon, Polyhedra, and Hyperpolyhedra instrument with one canvas, one shared transport, and dimension-aware form and rotation controls.",

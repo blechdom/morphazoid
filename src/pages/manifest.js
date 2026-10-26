@@ -126,6 +126,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "neural-pulse.html",
   "nightingale-manifold.html",
   "nqueens.html",
+  "oculoid.html",
   "onset-atlas.html",
   "orbital-ferris.html",
   "order-tones.html",

@@ -5,10 +5,14 @@ import test from "node:test";
 import { selectedInstrumentRecoveryChanges, restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument-recovery-reference.mjs";
 import { restoreGlobuleDamacySite } from "./helpers/globule-damacy-site-reference.mjs";
 import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
+import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 
 test("selected instrument recovery preserves exact pre-recovery sources and frozen historical fixtures", () => {
   for (const change of selectedInstrumentRecoveryChanges) {
-    const current = restoreWitchesBrewRefresh(readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
+    const current = restoreWitchesBrewRefresh(restoreOculoidSite(
+      readFileSync(new URL(`../${change.file}`, import.meta.url), "utf8"),
+      change.file, { allowRestored: true },
+    ), change.file);
     let source = restoreGlobuleDamacySite(current, change.file, { allowRestored: true });
     if (change.file === "scripts/site/runtime-files.tsv") {
       // Witch's later hand adapter is independently checked by its exact site

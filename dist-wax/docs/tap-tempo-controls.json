@@ -1199,6 +1199,24 @@
       "source": "src/pages/gesticules.html"
     },
     {
+      "route": "oculoid",
+      "selector": "#tempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "One tap per eye-motion beat changes the native Tempo input; repeating LFO styles and Audio remain independent.",
+      "source": "src/pages/oculoid.html"
+    },
+    {
+      "route": "oculoid",
+      "selector": "#cryTempo",
+      "mapping": {
+        "unit": "bpm"
+      },
+      "note": "One tap per tear beat; four beats grow and release each drop. Cry and Tear remain independent of Motion tempo.",
+      "source": "src/pages/oculoid.html"
+    },
+    {
       "route": "quadruped",
       "selector": "#tempo",
       "mapping": {

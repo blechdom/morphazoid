@@ -1,0 +1,92 @@
+Oculoid — imported eye model, attribution and changes
+
+Work: Realistic Human Eye
+Creator: DEGUIDER (https://sketchfab.com/DEGUIDER)
+Source: https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362
+Mirror: https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-093/b68ae822b45443edb812950993ece362.glb
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Retrieved: 2026-10-16
+Bundled eye.glb SHA-256: c1b1747153264f34207e521cf9528576955892c5905644ce5638b5ab03bd137c
+
+The Sketchfab creator and CC BY 4.0 license are embedded in eye.glb's
+asset.extras. The public listing was marked downloadable and CC Attribution.
+The bundled 2,728,632-byte Objaverse GLB retains its two separate, textured
+globe and iris meshes; it contains no skin, eyelids, animation or eyelashes.
+The published Sketchfab export and this mirrored GLB have different byte
+counts; do not describe them as byte-for-byte identical distributions.
+
+Morphazoid modifications happen at runtime, not in eye.glb: the globe is
+normalized and turned to face the camera; original textures remain
+available. New authored geometry supplies two deformable eyelid patches
+joined to a posterior skin hemisphere with selectable chrome and matte-brown
+finishes, optional patterns, black inward surfaces, and asymmetric, separately
+movable, rounded margins. Globe and shell are spherical in all three axes.
+Iris palettes and a custom color preserve the texture's fibers; independent
+eyeball colors tint its separate globe mesh without changing the downloaded asset.
+A single teardrop grows
+from the inner lid corner and falls vertically without a skin streak;
+there is no separate tear duct or caruncle;
+outward-swept eyelashes, fine scleral vessels, a pupil overlay and
+lighting complete the eye. The globe can rotate past normal human gaze
+limits behind the lids, or the entire assembly can turn together up to
+90 degrees from front on either axis. These
+additions, their shapes and their sound mapping are artistic
+approximations, not an anatomy teaching model or a validated ocular simulation.
+Attribute DEGUIDER, link the source, keep this CC BY notice and describe
+changes when reusing the model. The creator does not endorse Morphazoid.
+
+Oculoid — imported teardrop geometry, attribution and changes
+
+Work: CC0 - Drops (title only; the actual embedded license is CC BY 4.0,
+      NOT CC0 / public domain)
+Creator: plaggy (https://sketchfab.com/plaggy)
+Source: https://sketchfab.com/3d-models/cc0-drops-f8f24228aebf41f297c878ad82ea7db0
+License in downloaded GLB asset.extras: CC-BY-4.0
+https://creativecommons.org/licenses/by/4.0/
+Downloaded: 2026-10-18
+Original cc0_-_drops.glb SHA-256: db1a15a107dcd74404110a802ad58910c72080cb81466e223d81d9edcd255076
+Bundled drop.glb SHA-256: 94a1e1ce9d70cde8fdeb7805ad23d3279142e5e82cc01b6bbaa6ad8d3c999f05
+
+The downloaded Sketchfab export names the work "CC0 - Drops", but explicitly
+declares CC BY 4.0 in its embedded glTF asset metadata. Its ZIP has no license
+file. Treat it as CC BY 4.0, credit plaggy and link the source and license.
+Neither the title nor this notice grants a CC0 dedication.
+
+The 19,760-byte bundled derivative retains the one static teardrop's 526
+vertex positions, normals and 960 triangles. It removes textures, material,
+UVs, tangents and source scene unit-conversion transforms (the original GLB
+is 2,602,432 bytes). It has no rig or animation. To reproduce the extraction
+with the downloaded, hash-matching original:
+  python3 scripts/prepare-oculoid-drop.py \
+    /path/to/cc0_-_drops.glb assets/oculoid/drop.glb
+At runtime Morphazoid applies its own translucent water material to a copy,
+turns the tip up and leans the bulb away from the eyelid shell while keeping
+the pointed tip at the joined lid corner. It grows there, then drops straight
+down without a skin streak. This is an artistic animation,
+not a fluid simulation or an endorsement by plaggy. Preserve the CC BY 4.0
+attribution and the modification notice when sharing this geometry.
+
+Oculoid — imported aviator sunglasses, attribution and changes
+
+Work: Aviator sunglasses
+Creator: Kimppo (https://sketchfab.com/Kimppo)
+Source: https://sketchfab.com/3d-models/aviator-sunglasses-00d1cb5aa82745228a3b764c97f867de
+Mirror: https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-000/00d1cb5aa82745228a3b764c97f867de.glb
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Retrieved: 2026-10-23
+Bundled aviator-sunglasses.glb SHA-256: 0b451ae77d125dfff18b4b25734d7bdaca5d2bfbcc15b63c3617f54d1e4c483f
+
+The public Sketchfab listing marked the model downloadable and CC Attribution;
+the GLB embeds the author, CC-BY-4.0 license, source and title in asset.extras.
+The 1,681,860-byte Objaverse GLB is bundled unchanged, with five material
+groups and full 3D frames, lenses, bridge and temples. Its embedded FBX
+conversion already presents the glasses upright. Morphazoid scales it at
+runtime to fit the spherical eyelid, adds a small visible brow bridge and
+shortens its depth so the temples do not pierce the skin, and darkens the
+lenses for readability.
+It moves as one connected pair with the upper lid (or perches on the exposed
+globe when lids are hidden). Procedural glasses are a fallback if this optional
+file fails to load. Credit Kimppo, link the original work and license, and
+describe these runtime changes when sharing it. Kimppo does not endorse Oculoid.

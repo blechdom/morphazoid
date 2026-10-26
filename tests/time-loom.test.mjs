@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readGlobuleDamacySiteReference as readFile } from './helpers/globule-damacy-site-reference.mjs';
 import { TIME_LOOM_PRESETS, validateTimeLoomPreset, randomizeTimeLoomPreset } from '../src/instruments/time-loom/time-loom-presets.js';
 import { timeLoomSiteChanges, restoreTimeLoomSite } from './helpers/time-loom-site-reference.mjs';
+import { restoreOculoidSite } from './helpers/oculoid-site-reference.mjs';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';
 
@@ -33,7 +34,11 @@ test('random weaves vary every musical dimension and keep knots and routes valid
 
 test('new registration is additive and each historical source is exactly recoverable', async () => {
   for (const { file, replacements } of timeLoomSiteChanges.changes) {
-    const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    // Oculoid added its own block between Time Loom and their shared manifest
+    // anchor. Check Time Loom against that exact older source, not a weakened
+    // substring match in the combined file.
+    const current = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    const source = restoreOculoidSite(current, file, { allowRestored: true });
     const restored = restoreTimeLoomSite(source, file);
     let replayed = restored;
     for (const { before, after } of replacements) { assert.equal(replayed.split(before).length - 1, 1); replayed = replayed.replace(before, () => after); }

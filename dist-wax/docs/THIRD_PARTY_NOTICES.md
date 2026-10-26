@@ -1,5 +1,37 @@
 # Third-party notices
 
+## Oculoid eye model
+
+Oculoid includes the textured globe and separate iris meshes from
+**Realistic Human Eye** by **DEGUIDER**, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+[Original Sketchfab model](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362).
+The unchanged GLB was retrieved via Objaverse. Morphazoid rotates and scales
+it at runtime and adds authored, deforming eyelid/skin geometry, eyelashes,
+vessels, a pupil, glints, lighting and playable sound. The catalogue icon is
+a render of this adapted model. These additions are artistic approximations,
+not medical anatomy or an endorsement by the original artist. Download link,
+license, changes and SHA-256 are in `assets/oculoid/SOURCE.LICENSE.txt`.
+
+The falling teardrop adapts geometry from **CC0 - Drops** by **plaggy**:
+[original Sketchfab model](https://sketchfab.com/3d-models/cc0-drops-f8f24228aebf41f297c878ad82ea7db0).
+Despite the title, the GLB's embedded license is **CC BY 4.0**, not CC0.
+The bundled GLB retains the teardrop positions, normals and triangles while
+removing source textures and materials. At runtime a copy is tilted away
+from the lid, with a new water material, growth from the lower lid corner
+and a vertical fall.
+Original and derivative hashes, source credit and extraction instructions are in
+`assets/oculoid/SOURCE.LICENSE.txt`. Neither creator endorses Morphazoid.
+
+Oculoid's aviator sunglasses use **Aviator sunglasses** by **Kimppo**,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):
+[original Sketchfab model](https://sketchfab.com/3d-models/aviator-sunglasses-00d1cb5aa82745228a3b764c97f867de).
+The unchanged GLB includes its upright FBX conversion. At runtime its width
+and temple depth are fitted to the lid, a visible brow bridge is added, its
+lenses are darkened, and the pair follows the upper lid.
+See `assets/oculoid/SOURCE.LICENSE.txt` for the mirror, hash and exact changes.
+Kimppo does not endorse Morphazoid.
+
 ## Midiophilia visual lab
 
 The Midiophilia page is inspired by the MIDI-controlled color and brightness

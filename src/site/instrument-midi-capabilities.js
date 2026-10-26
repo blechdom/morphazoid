@@ -75,6 +75,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "roach-synth",
     "spider-synth",
     "gesticulating-hand",
+    "oculoid",
     "shapes",
     "shape-synth",
     "playhead-paint",

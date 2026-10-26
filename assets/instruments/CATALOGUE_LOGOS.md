@@ -1,5 +1,20 @@
 # Catalogue logo generation
 
+## Oculoid
+
+`oculoid.webp` is a 512 × 512 WebP render of Oculoid's own WebGL eye:
+the rounded eyelid edges and unsquashed spherical shell use the default
+neutral mirror-chrome finish (warm brown is selectable on the page).
+The black socket sits behind
+the globe, not on the lid rim. There is no flat background oval, tear duct
+or extra lower-lid crease.
+The browser loaded DEGUIDER's [CC BY 4.0 eye](../oculoid/SOURCE.LICENSE.txt)
+with Morphazoid's authored lids, lashes, vessels and pupil. At a 1440 × 900
+desktop viewport, take a 1× DPR canvas screenshot (1050 × 767 pixels), crop
+`(141, 0, 908, 767)` to exclude the heading and keep the full orb, then
+resample to 512 pixels with Lanczos and save as WebP at quality 90. No added
+oval, vignette, generated replacement anatomy or unrelated photograph was used.
+
 The 29 catalogue logos listed below were generated on 2026-09-13 with the
 built-in OpenAI image-generation tool. The existing `shape.webp`,
 `graph-delay.webp`, and `morphazoidical.webp` marks were supplied as style
