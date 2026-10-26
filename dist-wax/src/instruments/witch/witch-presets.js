@@ -80,6 +80,7 @@ export const WITCH_PRESETS = [
     fabricX:.22+(index%5)*.14, fabricY:.3+(index%4)*.13,
     trailPull:.2+(index%6)*.13, trailTwist:.17+(index%5)*.16,
     ...(item.id==='puggler'?{handMotion:'frantic-orbit',handSound:'iron-claws',palette:6,ghostTempo:156}:{}),
+    ...(item.id==='hyper-rubix'?{handMotion:'polyrhythmic-tangle',handSound:'bone-glass',handRate:4.4,palette:5,ghostTempo:118}:{}),
   })),
 ];
 const unit = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;

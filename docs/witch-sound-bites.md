@@ -16,6 +16,7 @@ drop or audio render boundary.
 | `drop-harmonicazoid` | Harmonicazoid (`harmonica`), actual physical processor with alternating breath pulses and holes |
 | `drop-dentaphone` | Dentaphone (`object-forge`), actual modal processor, Steel plates material and authored tooth brush route; frequencies follow a geometric progression |
 | `drop-marimba` | Rattlesnake (`linear-drums`), its frequency-dependent modal ratios, gains, damping and strike-noise parameters in a fixed scalar excerpt of 36 cascading strikes |
+| `drop-hyper-rubix` | Hyper Rubix (4D), its native eight-cell Hyper Kit parameter mapper and a bounded scalar rendition of its kick, sub, clap, snare, hats, W-axis stab and rim envelopes in a fast cell traversal |
 | `drop-blech` | BLECH MIDI, its Accelerator equation generator, SpessaSynth renderer and bundled TimGM6mb Music Box program; 96 events over a five-second excerpt |
 | `drop-puggler` | Puggler's existing drum recordings, Oi recording, punk-character vocal DSP and a quiet native fuzz-guitar accent |
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
@@ -27,7 +28,8 @@ Normal bites last 2.4 seconds. BLECH MIDI, Syrinx and Creaturazoid last five
 seconds so their 3.2-second tree phrase continues during the dive. Existing
 Syrinx/Creaturazoid miniatures retain their actual source models and gesture
 frames. FM Drums uses eight reusable native-parameter hits in a faster rhythm;
-Rubix traverses its Color Kit 32 times. Older drop IDs remain accepted even when
+Rubix traverses its Color Kit 32 times; Hyper Rubix adds a separate eight-voice
+Hyper Kit excerpt. Older drop IDs remain accepted even when
 their icons are no longer on the shelf.
 
 The internal `roach-wings` clip follows the roach bite's clock, fades and release;

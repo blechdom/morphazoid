@@ -32,7 +32,7 @@ Brightness remains on the **+ / −** keys.
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
-Alien Larynx, Tongued Beasts, Digestazoid, Hybrinx, Roach Synth, FM Drums,
+Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
 Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
 and Dentaphone. BLECH MIDI, Syrinx and Creaturazoid occupy separate branches.

@@ -7,6 +7,8 @@ import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { hiccupHeadGestureFrame, physicalVoiceParameters } from '../hiccup-head/hiccup-head.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../fm-drums/fm-drums.js';
+import { HYPER_RUBIX_CELL_ORDER, hyperRubixBoundaryCell, hyperRubixTechnoVoiceParameters, hyperRubixStepDurationSeconds } from '../hyper-rubix/hyper-rubix.js';
+import { HYPER_RUBIX_PRESET_DEFAULTS } from '../hyper-rubix/preset-state.js';
 import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../../families/tract/throatazoid.js';
 import { moireFilterTarget, stableSvfCoefficients } from '../moire-drone/moire-drone.js';
 import { barberDelayCurve, barberDelayWindow, sandySyrupTargetRate } from '../../families/barber-delay/barber-delay.js';
@@ -568,6 +570,82 @@ class FmTasteDSP {
   }
 }
 
+// A short traversal of Hyper Rubix's eight real cell voices. Its native
+// geometry mapper supplies pitch/filter/pan; the components below follow
+// HyperRubixAudio.strikeSticker's Hyper Kit ratios and exponential envelopes.
+// Only this score and twelve reusable scalar voices replace the native graph.
+const HYPER_RUBIX_TASTE_SCORE = (() => {
+  let at = 0;
+  return Object.freeze(Array.from({ length: 24 }, (_, index) => {
+    const cell = HYPER_RUBIX_CELL_ORDER[[0,5,1,7,2,4,3,6][index % 8]];
+    const boundary = hyperRubixBoundaryCell(cell), plane = boundary.tangentPlanes[Math.floor(index / 8)];
+    const parameters = hyperRubixTechnoVoiceParameters({ cell, plane, quarterTurns: index % 3 ? 1 : -1 }, {
+      angle: index / 24, depth: .5, disorder: .15, shapeInfluence: HYPER_RUBIX_PRESET_DEFAULTS.shapeInfluence,
+      position: { [boundary.axis]: boundary.sign },
+    });
+    const pitch = parameters.pitchHz, duration = witchClamp(parameters.decaySeconds * .78, .018, .38);
+    const cutoff = parameters.filterHz * (.7 + HYPER_RUBIX_PRESET_DEFAULTS.tone * .6);
+    const q = parameters.filterQ * .72, accent = index % 4 === 0 ? 1.15 : .85, drive = .72 + parameters.drive * .46;
+    const components = [], add = (shape, startHz, endHz, level, length = duration, offset = 0, filter = 'lowpass', filterHz = cutoff) =>
+      components.push(Object.freeze({ shape, startHz, endHz, level: level * accent, duration: length, offset, filter, filterHz, q, pan: parameters.pan }));
+    const family = parameters.voice.family;
+    if (family === 'kick') { add('sine', pitch * 2.35, pitch * .78, .31 * drive, duration, 0, 'lowpass', Math.min(cutoff, 2500)); add('noise', 0, 0, .045, .012, 0, 'highpass', 4800); }
+    else if (family === 'sub') add('triangle', pitch * 1.48, pitch * .72, .25 * drive, duration, 0, 'lowpass', Math.min(cutoff, 1900));
+    else if (family === 'snare') { add('triangle', pitch * 1.16, pitch * .68, .085, Math.min(duration, .16)); add('noise', 0, 0, .2 * drive, duration, 0, 'bandpass'); }
+    else if (family === 'clap') for (const [i, offset] of [0, .018, .034].entries()) add('noise', 0, 0, (i === 2 ? .14 : .1) * drive, i === 2 ? duration : Math.min(.034, duration), offset, 'bandpass');
+    else if (family.includes('hat')) add('noise', 0, 0, family === 'closed-hat' ? .105 : .12, family === 'closed-hat' ? Math.min(duration, .075) : duration, 0, 'highpass', Math.max(4200, cutoff));
+    else if (family === 'rim') for (const [i, ratio] of [1, 1.64].entries()) add('sine', pitch * ratio, pitch * ratio * .96, .12 / (1 + i * .34), Math.min(duration, .09 - i * .012), i * .0015);
+    else for (const [i, ratio] of [1, 1.37, 2.03].entries()) add(i === 1 ? 'square' : 'triangle', pitch * ratio * (1 + parameters.drive * .08), pitch * ratio * .91, .095 * drive / (1 + i * .32), duration * (1 - i * .08), i * .002);
+    const event = Object.freeze({ at, parameters, components: Object.freeze(components) });
+    at += hyperRubixStepDurationSeconds(168, 4, .08, index);
+    return event;
+  }));
+})();
+class HyperRubixTasteDSP {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate; this.index = 0; this.score = HYPER_RUBIX_TASTE_SCORE;
+    this.left = this.right = 0;
+    this.voices = Array.from({ length: 12 }, () => ({ component: null, age: 10, phase: 0, hz: 0, step: 1, random: 0x6b82f1,
+      x1: 0, x2: 0, y1: 0, y2: 0, b0: 0, b1: 0, b2: 0, a1: 0, a2: 0, panL: 0, panR: 0 }));
+  }
+  reset() { this.index = 0; for (const hit of this.voices) hit.component = null; }
+  strike(event) {
+    if (event.parameters.voice.family === 'closed-hat') for (const hit of this.voices)
+      if (hit.component?.filter === 'highpass') hit.age = Math.max(hit.age, hit.component.duration - .006);
+    for (const component of event.components) {
+      const hit = this.voices[this.index++ % this.voices.length];
+      hit.component = component; hit.age = -component.offset; hit.phase = hit.x1 = hit.x2 = hit.y1 = hit.y2 = 0;
+      hit.hz = Math.max(20, component.startHz); hit.step = (Math.max(20, component.endHz) / hit.hz) ** (this.dt / component.duration);
+      hit.panL = Math.cos((component.pan + 1) * Math.PI / 4); hit.panR = Math.sin((component.pan + 1) * Math.PI / 4);
+      const omega = TAU * witchClamp(component.filterHz, 60, this.rate * .43) * this.dt, cosine = Math.cos(omega);
+      const alpha = Math.sin(omega) / (2 * Math.max(.45, component.q)), inverse = 1 / (1 + alpha);
+      const highpass = component.filter === 'highpass', bandpass = component.filter === 'bandpass';
+      hit.b0 = bandpass ? alpha * inverse : (1 + (highpass ? cosine : -cosine)) * .5 * inverse;
+      hit.b1 = bandpass ? 0 : (highpass ? -1 - cosine : 1 - cosine) * inverse; hit.b2 = bandpass ? -hit.b0 : hit.b0;
+      hit.a1 = -2 * cosine * inverse; hit.a2 = (1 - alpha) * inverse;
+    }
+  }
+  next() {
+    this.left = this.right = 0;
+    for (const hit of this.voices) {
+      const c = hit.component, t = hit.age;
+      if (!c || t >= c.duration) continue;
+      hit.age += this.dt; if (t < 0) continue;
+      const attack = Math.min(c.shape === 'noise' ? .004 : .008, c.duration * .18);
+      const envelope = t < attack ? .0001 * (c.level / .0001) ** (t / attack) : c.level * (.0001 / c.level) ** ((t - attack) / (c.duration - attack));
+      const step = Math.min(.43, hit.hz * this.dt); hit.phase = (hit.phase + step) % 1; hit.hz *= hit.step;
+      let source;
+      if (c.shape === 'noise') { let x = hit.random; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; hit.random = x | 0; source = (x >>> 0) / 2147483648 - 1; }
+      else if (c.shape === 'square') source = (hit.phase < .5 ? 1 : -1) + polyBlep(hit.phase, step) - polyBlep((hit.phase + .5) % 1, step);
+      else if (c.shape === 'triangle') { source = 0; for (let n = 1; n <= 7 && n * step < .45; n += 2) source += Math.sin(hit.phase * TAU * n) * (n % 4 === 1 ? 1 : -1) / (n * n); source *= 8 / (Math.PI * Math.PI); }
+      else source = Math.sin(hit.phase * TAU);
+      const filtered = hit.b0 * source + hit.b1 * hit.x1 + hit.b2 * hit.x2 - hit.a1 * hit.y1 - hit.a2 * hit.y2;
+      hit.x2 = hit.x1; hit.x1 = source; hit.y2 = hit.y1; hit.y1 = filtered;
+      this.left += filtered * envelope * hit.panL; this.right += filtered * envelope * hit.panR;
+    }
+  }
+}
+
 /** Three fixed background voices, never drop/solo voices. Creaturazoid borrows
  * its frog source family for a distant gunk/chuff; Monstrozoid borrows its
  * collision-roar two-mass source and low mouth resonances. Hiccup Head uses its
@@ -723,7 +801,7 @@ class PotionTasteDSP {
     this.roach = new RoachPercussion(rate, true); this.zing = new RoachZing(rate);
     this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
     this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
-    this.fmDrums = new FmTasteDSP(rate);
+    this.fmDrums = new FmTasteDSP(rate); this.hyperRubix = new HyperRubixTasteDSP(rate);
     this.clips = witchBiteClips();
     this.roachWings = this.clips['roach-wings'];
     this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
@@ -750,6 +828,7 @@ class PotionTasteDSP {
     slot.tailL = slot.lastL; slot.tailR = slot.lastR;
     slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.eventAge = 0; slot.control = 0;
     if (slot.kind === 'drop-oculoid') this.fmDrums.reset();
+    if (slot.kind === 'drop-hyper-rubix') this.hyperRubix.reset();
   }
   releaseAll() { this.roach.releaseAll(); this.spider.release(); }
   finish(slot, left, right) {
@@ -822,6 +901,12 @@ class PotionTasteDSP {
       }
       this.spider.sample(this.spiderLevels, .73, SPIDER_TASTE_SOUND);
       this.finish(slot, this.spider.left * slot.gain * 3.7, this.spider.right * slot.gain * 3.7);
+      return;
+    } else if (slot.kind === 'drop-hyper-rubix') {
+      const score = this.hyperRubix.score;
+      if (active && slot.event < score.length && t >= score[slot.event].at) this.hyperRubix.strike(score[slot.event++]);
+      this.hyperRubix.next();
+      this.finish(slot, this.hyperRubix.left * slot.gain * fade, this.hyperRubix.right * slot.gain * fade);
       return;
     } else if (slot.kind === 'drop-rubix') {
       if (active && t >= slot.nextEvent && slot.event < 32) {

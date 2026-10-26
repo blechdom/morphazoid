@@ -12,7 +12,7 @@ async function open(page) {
   await page.waitForFunction(()=>Boolean(window.witchInstrument?.state));
 }
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
-const shelfIds=['glass','tail','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
+const shelfIds=['glass','hyper-rubix','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
 const treeIds=['blech','syrinx','eyeball'];
 const ingredientIds=[...shelfIds,...treeIds];
 const ghostIds=['creaturazoid','monstroid','hiccup'];

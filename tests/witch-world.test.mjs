@@ -166,9 +166,9 @@ test('ingredient touch halos preserve scenery targets and choose the nearest obj
   objects[0]={...objects[0],x:140,y:100,dragging:true,dropped:false};
   objects[1]={...objects[1],x:200,y:100,dragging:true,dropped:false};
   const state={objects,hitRadius:80};
-  assert.equal(hitTestWitch(193,100,state)?.id,'tail');
+  assert.equal(hitTestWitch(193,100,state)?.id,'hyper-rubix');
   assert.equal(hitTestWitch(148,100,state)?.id,'glass');
-  assert.equal(hitTestWitch(200,156,state)?.id,'tail');
+  assert.equal(hitTestWitch(200,156,state)?.id,'hyper-rubix');
   objects[1].dropped=true;
   assert.equal(hitTestWitch(193,100,state)?.id,'glass');
 });

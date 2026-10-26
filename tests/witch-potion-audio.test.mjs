@@ -6,6 +6,7 @@ import { RoachPercussion } from '../src/instruments/roach-synth/roach-synth-perc
 import { RoachZing } from '../src/instruments/roach-synth/roach-synth-textures.js';
 import { SpiderStrings } from '../src/instruments/spider-synth/spider-synth-string.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../src/instruments/fm-drums/fm-drums.js';
+import { HYPER_RUBIX_TECHNO_VOICES } from '../src/instruments/hyper-rubix/hyper-rubix.js';
 import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../src/families/tract/throatazoid.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { witchBiteClips } from '../src/instruments/witch/witch-scene-audio.js';
@@ -19,7 +20,7 @@ function render(dsp, seconds, block = 128) {
 
 test('every potion ingredient speaks alone without transport and finishes at low and normal sample rates', () => {
   assert.deepEqual(WITCH_DROP_EFFECTS.map(kind => kind.slice(5)).sort(),
-    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard'].sort());
+    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'hyper-rubix', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard'].sort());
   for (const rate of [8000, 48000]) for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = new WitchDSP(rate); dsp.setEnabled(true);
     assert.equal(dsp.controls.gate, false); assert.equal(dsp.trigger(kind), true);
@@ -136,4 +137,24 @@ test('Puggler plays its finite punk drums and Oi excerpt from a shared source ba
   assert.equal(dsp.drops.slots.find(item => item.kind === 'drop-puggler'), slot);
   dsp.setEnabled(false); render(dsp, 2); assert.ok(rms(render(dsp, .1)) < 1e-7);
   dsp.setEnabled(true); assert.ok(rms(render(dsp, .1)) < 1e-7, 'muted excerpts never restart on rearming');
+});
+
+test('Hyper Rubix drops a finite native eight-cell Hyper Kit phrase distinct from Rubix', () => {
+  for (const rate of [8000, 48000]) {
+    const hyper = new WitchDSP(rate), rubix = new WitchDSP(rate);
+    assert.equal(hyper.trigger('drop-hyper-rubix'), false, 'the bite never arms Audio');
+    for (const dsp of [hyper, rubix]) dsp.setEnabled(true);
+    assert.equal(hyper.trigger('drop-hyper-rubix'), true); assert.equal(rubix.trigger('drop-rubix'), true);
+    const taste = hyper.drops.tastes.hyperRubix, voices = taste.voices.slice();
+    assert.equal(taste.score.length, 24); assert.equal(voices.length, 12);
+    assert.deepEqual(new Set(taste.score.map(event => event.parameters.voice)), new Set(Object.values(HYPER_RUBIX_TECHNO_VOICES)));
+    const sound = render(hyper, 2.4), ordinary = render(rubix, 2.4);
+    assert.ok(rms(sound) > .006, `Hyper Kit speaks at ${rate}`);
+    assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+    assert.ok(rms(sound.map((value, i) => value - ordinary[i])) > .01);
+    assert.equal(hyper.drops.slots.find(slot => slot.kind === 'drop-hyper-rubix').event, 24);
+    hyper.trigger('drop-hyper-rubix'); render(hyper, .1); hyper.releaseAccents(); render(hyper, 2);
+    assert.ok(rms(render(hyper, .1)) < 1e-6, 'the full bite and its tails release');
+    assert.ok(taste.voices.every((voice, i) => voice === voices[i]), 'retrigger keeps the fixed voice pool');
+  }
 });

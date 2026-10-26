@@ -66,6 +66,8 @@ test('randomization preserves the chosen mode and reaches every character, direc
 
 test('every shelf miniature is an actual catalogue icon and selects its own complete playable spell',()=>{
   assert.ok(WITCH_SHELF.some(item=>item.id==='puggler'&&item.instrumentId==='puggler'));
+  assert.ok(WITCH_SHELF.some(item=>item.instrumentId==='hyper-rubix'));
+  assert.equal(WITCH_SHELF.filter(item=>['hybrinx','tongued-beasts'].includes(item.instrumentId)).length,1);
   assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,WITCH_SHELF.length);
   const sounds=new Set();
   assert.equal(WITCH_SHELF.length,18);assert.equal(WITCH_TREE_OBJECTS.length,3);

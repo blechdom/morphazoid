@@ -31,7 +31,7 @@ const miniature = (entry, location = 'shelf') => {
     presetId:`shelf-${instrumentId}`,location,phraseDuration:location==='tree'?3.2:0,flightDuration:1.5});
 };
 export const WITCH_SHELF = Object.freeze([
-  ['glass','alien-larynx','Alien Larynx'], ['tail','tongued-beasts','Tongued Beasts'],
+  ['glass','alien-larynx','Alien Larynx'], ['hyper-rubix','hyper-rubix','Hyper Rubix'],
   ['earwax','digestazoid','Digestazoid'], ['hair','hybrinx','Hybrinx'],
   ['roach','roach-synth','Roach Synth'], ['oculoid','fm-drums','FM Drums'],
   ['rubix','rubix','Rubix Cube Sequencer'], ['hiccup','hiccup-head','Hiccup Head'],
@@ -48,7 +48,7 @@ export const WITCH_INGREDIENTS = Object.freeze([...WITCH_SHELF,...WITCH_TREE_OBJ
 export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
   ...WITCH_INGREDIENTS.map(item=>item.kind),
   // Old sound IDs stay valid for existing saved/test integrations.
-  ...['newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
+  ...['tail','newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
 ])]);
 export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
