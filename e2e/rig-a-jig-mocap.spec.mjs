@@ -26,8 +26,9 @@ test('Rig-a-Jig mocap humanoid loads bones, lists clips, and plays real mocap', 
   expect(stats.textures).toBe(0);
   expect(stats.sprites).toBeGreaterThan(0);
 
-  // Procedural motion menu is hidden for mocap (it has its own transport).
-  await expect(page.locator('#motionRow')).toBeHidden();
+  // There is no procedural motion menu; mocap rigs use their real clips via the Clip picker.
+  await expect(page.locator('#motionRow')).toHaveCount(0);
+  await expect(page.locator('#clipPicker')).toBeVisible();
 
   // Transport: starts paused; Play starts the dance loop.
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');

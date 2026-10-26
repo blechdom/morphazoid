@@ -126,31 +126,28 @@
           </div>
         </div>
 
-        <div class="rig-a-jig-scene" id="motionRow">
-          <label id="motionLabel">Motion</label>
-          <div class="header-preset-controls instrument-preset-controls rig-a-jig-picker-row" role="group" aria-labelledby="motionLabel">
-            <details class="instrument-picker header-preset-picker rig-a-jig-picker" id="motionPicker">
-              <summary class="instrument-picker-trigger" aria-label="Choose a motion">
-                <strong class="instrument-picker-current" id="motionPickerCurrent">Walk</strong>
+        <div class="rig-a-jig-scene" id="clipRow">
+          <label id="clipLabel">Clip</label>
+          <div class="header-preset-controls instrument-preset-controls rig-a-jig-picker-row" role="group" aria-labelledby="clipLabel">
+            <details class="instrument-picker header-preset-picker rig-a-jig-picker" id="clipPicker">
+              <summary class="instrument-picker-trigger" aria-label="Choose a clip">
+                <strong class="instrument-picker-current" id="clipPickerCurrent">Dance Loop</strong>
                 <span class="instrument-picker-chevron" aria-hidden="true"></span>
               </summary>
               <div class="instrument-picker-panel rig-a-jig-picker-panel">
-                <div class="instrument-picker-list" id="motionPickerList" aria-label="Motions"></div>
+                <div class="instrument-picker-list" id="clipPickerList" aria-label="Mocap clips"></div>
               </div>
             </details>
-            <button id="nextMotion" type="button" class="instrument-picker-next header-preset-next" aria-label="Next motion" title="Next motion"><span aria-hidden="true">▶</span></button>
-            <button id="diceMotion" type="button" class="instrument-picker-next header-preset-random" aria-label="Random motion" title="Random motion">
+            <button id="nextClip" type="button" class="instrument-picker-next header-preset-next" aria-label="Next clip" title="Next clip"><span aria-hidden="true">▶</span></button>
+            <button id="diceClip" type="button" class="instrument-picker-next header-preset-random" aria-label="Random clip" title="Random clip">
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="7.5" cy="16.5" r="1.4" fill="currentColor"/><circle cx="16.5" cy="16.5" r="1.4" fill="currentColor"/></svg>
             </button>
-            <select id="motionSelect" class="sr-only" aria-label="Choose a motion" tabindex="-1">
-              <option value="walk">Walk</option>
-              <option value="dance">Dance</option>
-              <option value="jump">Jump</option>
-              <option value="karate">Karate</option>
-              <option value="stomp">Stomp</option>
-            </select>
+            <select id="clipSelect" class="sr-only" aria-label="Choose a mocap clip" tabindex="-1"></select>
           </div>
-          <p id="sceneDescription">Steady gait</p>
+          <label><span>Clip speed <output id="clipSpeedOut">0.60</output></span>
+            <input id="clipSpeed" type="range" min="0.05" max="2" step="0.01" value="0.6" /></label>
+          <label><span>Scrub <output id="clipScrubOut">0%</output></span>
+            <input id="clipScrub" type="range" min="0" max="1" step="0.01" value="0" /></label>
         </div>
 
         <div class="rig-a-jig-transport">
@@ -163,18 +160,6 @@
           <label class="rig-a-jig-tempo" for="rateInput"><span><b>Tempo</b><output id="rateOut">0.35×</output></span>
             <input id="rateInput" type="range" min="0.05" max="2" step="0.01" value="0.35" /></label>
           <button id="resetButton" data-reset-all data-reset-in-place type="button" class="rig-a-jig-reset">Reset</button>
-        </div>
-
-        <div class="rig-a-jig-scene" id="clipRow" hidden>
-          <label for="clipSelect">Mocap clip</label>
-          <div class="rig-a-jig-scene-row">
-            <select id="clipSelect" aria-label="Choose a mocap clip"></select>
-          </div>
-          <p id="clipInfo">43 clips · dance, jump, punch, walk, run</p>
-          <label><span>Clip speed <output id="clipSpeedOut">0.60</output></span>
-            <input id="clipSpeed" type="range" min="0.05" max="2" step="0.01" value="0.6" /></label>
-          <label><span>Scrub <output id="clipScrubOut">0%</output></span>
-            <input id="clipScrub" type="range" min="0" max="1" step="0.01" value="0" /></label>
         </div>
 
         <fieldset class="rig-a-jig-controls">

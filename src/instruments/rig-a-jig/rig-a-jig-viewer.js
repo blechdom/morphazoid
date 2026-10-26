@@ -1,6 +1,5 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
-import { RIG_FACTORIES, createRandom } from './rig-a-jig-rigs.js';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -705,31 +704,24 @@ export function createRigAJigViewer(canvas, {
   };
   const DEFAULT_VIEW = { yaw: 0.45, pitch: 0.28, zoom: 3.4, lookY: 0.35 };
   function setRig(next, options = {}) {
-    const isMocapRig = Boolean(options.url) || next === 'mocap';
-    if (disposed || (!isMocapRig && next !== 'random' && !RIG_FACTORIES[next])) return;
+    // Mocap-only: every rig is a downloaded GLB with bones + clips.
+    if (disposed || !options.url) return;
     if (figure) { figure.dispose(figureRoot); figure = null; }
     rigId = next;
     // Frame this rig: humanoid and other large rigs get a closer, centered camera.
     const view = options.view ?? RIG_VIEWS[next] ?? DEFAULT_VIEW;
     ({ yaw, pitch, zoom, lookY } = view);
     updateCamera();
-    if (isMocapRig) {
-      const url = options.url ?? DEFAULT_MOCAP_URL;
-      const token = ++mocapToken;
-      loadMocap(url).then((gltf) => {
-        // Ignore stale loads (a newer setRig already created a figure).
-        if (disposed || rigId !== next || token !== mocapToken) return;
-        figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip, ghost: Boolean(options.ghost) });
-        if (!options.ghost) figure.setBodyMode(bodyMode);
-        figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
-        onRigReady?.({ clipNames: figure.clipNames() });
-      }).catch((error) => onRigError?.(error));
-      return;
-    }
-    const rig = next === 'random' ? createRandom(options) : RIG_FACTORIES[next](options);
-    figure = new RigFigure(rig, next, figureRoot);
-    figure.setBodyMode(bodyMode);
-    figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
+    const url = options.url;
+    const token = ++mocapToken;
+    loadMocap(url).then((gltf) => {
+      // Ignore stale loads (a newer setRig already created a figure).
+      if (disposed || rigId !== next || token !== mocapToken) return;
+      figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip, ghost: Boolean(options.ghost) });
+      if (!options.ghost) figure.setBodyMode(bodyMode);
+      figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
+      onRigReady?.({ clipNames: figure.clipNames() });
+    }).catch((error) => onRigError?.(error));
   }
 
   function pointerNdc(event) {

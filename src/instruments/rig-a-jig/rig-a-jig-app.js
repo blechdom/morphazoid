@@ -1,25 +1,14 @@
 import { createStereoMeter } from '../../ui/patterns/level-meter.js';
 import { createRigAJigViewer } from './rig-a-jig-viewer.js';
-import { RIG_DESCRIPTIONS, RIG_GROUPS } from './rig-a-jig-rigs.js';
 import { createRigAJigAudio } from './rig-a-jig-audio.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const now = () => performance.now() / 1000;
 
-const rigIds = Object.keys(RIG_DESCRIPTIONS);
-const MOTIONS = [
-  { id: 'walk', label: 'Walk', overlay: null },
-  { id: 'dance', label: 'Dance', overlay: 'dance', duration: 3.2 },
-  { id: 'jump', label: 'Jump', overlay: 'jump', duration: 0.9 },
-  { id: 'karate', label: 'Karate', overlay: 'karate', duration: 1.4 },
-  { id: 'stomp', label: 'Stomp', overlay: 'stomp', duration: 0.7 },
-];
-const RANDOM_LABEL = 'Random body plan';
-
-/* Downloaded, mesh-free mocap rigs (bones + AnimationClips from CC0 packs,
- * converted to bones-only GLB). Each is selectable and plays its clips through
- * the shared MocapFigure path. */
+/* Downloaded mocap rigs: bones + AnimationClips from CC0 packs (converted to
+ * bones-only and skinned-mesh GLBs). Each plays its real clips through the
+ * shared MocapFigure path; ghost body swaps in the skinned mesh. */
 const MOCAP_RIGS = {
   mocap: { label: 'Mocap humanoid (Quaternius UAL · CC0)', url: 'assets/rig-a-jig/ual-humanoid-bones.glb', clip: 'Dance_Loop', view: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 } },
   kaykit: { label: 'Skeleton (KayKit · CC0)', url: 'assets/rig-a-jig/KayKit_Skeleton_bones.glb', clip: 'Idle_A' },
@@ -36,24 +25,18 @@ const MOCAP_RIGS = {
   spiderMocap: { label: 'Spider (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Spider_bones.glb', skinUrl: 'assets/rig-a-jig/Spider_skinned.glb', clip: 'Spider_Walk' },
   wasp: { label: 'Wasp (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Wasp_bones.glb', skinUrl: 'assets/rig-a-jig/Wasp_skinned.glb', clip: 'Wasp_Flying' },
 };
-const isMocapRig = (id) => id in MOCAP_RIGS;
-const MOCAP_GROUP = [
-  ['mocap', 'kaykit'],
-  ['cow', 'horseMocap', 'llama', 'pig', 'pug', 'sheep', 'zebra'],
-  ['frogMocap', 'rat', 'snakeMocap', 'spiderMocap', 'wasp'],
+const MOCAP_GROUPS = [
+  ['Humanoid & skeleton', ['mocap', 'kaykit']],
+  ['Farm animals', ['cow', 'horseMocap', 'llama', 'pig', 'pug', 'sheep', 'zebra']],
+  ['Creepy crawlies', ['frogMocap', 'rat', 'snakeMocap', 'spiderMocap', 'wasp']],
 ];
 
 const defaultSettings = () => ({ rate: 0.35, amp: 0.5, sway: 0.3, fold: 0.5 });
-let rig = 'mocap', randomSeed = null;
-const settings = Object.fromEntries(rigIds.map((id) => [id, defaultSettings()]));
-settings.random = defaultSettings();
-for (const id of Object.keys(MOCAP_RIGS)) settings[id] = defaultSettings();
-const motions = Object.fromEntries(rigIds.map((id) => [id, 'walk']));
-motions.random = 'walk';
-const clocks = { walk: { playing: false, anchor: 0, cycles: 0 } };
+const settings = Object.fromEntries(Object.keys(MOCAP_RIGS).map((id) => [id, defaultSettings()]));
+let rig = 'mocap';
 let armed = false, starting = false, disposed = false, playing = false;
-let overlay = null; // { name, start, duration }
 let frameId = 0, lastPaint = 0, timer = null, suspendTimer = null, scheduledUntil = 0;
+let walkAnchor = 0, walkCycles = 0;
 const audio = { context: null, master: null, splitter: null, merger: null,
   analysers: null, buffers: null, engine: null, levels: { left: 0, right: 0 } };
 
@@ -77,46 +60,18 @@ function setAudioVisual(on) {
 }
 const status = (message) => { $('liveStatus').textContent = message; };
 
-/* Build the rig dropdown with grouped options. */
+/* Build the rig dropdown with grouped mocap options. */
 const rigSelect = $('rigSelect');
-for (const [group, ids] of Object.entries(RIG_GROUPS)) {
+for (const [label, ids] of MOCAP_GROUPS) {
   const optgroup = document.createElement('optgroup');
-  optgroup.label = group;
+  optgroup.label = label;
   for (const id of ids) {
     const option = document.createElement('option');
     option.value = id;
-    option.textContent = id.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+    option.textContent = MOCAP_RIGS[id].label;
     optgroup.append(option);
   }
   rigSelect.append(optgroup);
-}
-{
-  const optgroup = document.createElement('optgroup');
-  optgroup.label = 'Generative';
-  const option = document.createElement('option');
-  option.value = 'random';
-  option.textContent = RANDOM_LABEL;
-  optgroup.append(option);
-  rigSelect.append(optgroup);
-}
-{
-  // Mocap creatures (downloaded bones+clips, CC0), in labeled groups.
-  const groups = [
-    ['Humanoid & skeleton', MOCAP_GROUP[0]],
-    ['Farm animals', MOCAP_GROUP[1]],
-    ['Creepy crawlies', MOCAP_GROUP[2]],
-  ];
-  for (const [label, ids] of groups) {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = label;
-    for (const id of ids) {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = MOCAP_RIGS[id].label;
-      optgroup.append(option);
-    }
-    rigSelect.append(optgroup);
-  }
 }
 
 let currentClip = MOCAP_RIGS.mocap.clip;
@@ -125,11 +80,11 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
   onJointGrab({ joint }) {
     $('jointSelect').value = String(joint);
     viewer.setSelected(joint);
-    if (armed) audio.engine?.contact(currentRigId(), settings[currentRigId()], { index: joint, strength: 0.7, pan: 0 });
+    if (armed) audio.engine?.contact(rig, settings[rig], { index: joint, strength: 0.7, pan: 0 });
   },
   onFinish({ joint, moved, cancelled }) {
     if (joint >= 0 && !moved && !cancelled && armed) {
-      audio.engine?.contact(currentRigId(), settings[currentRigId()], { index: joint, strength: 0.9, pan: 0 });
+      audio.engine?.contact(rig, settings[rig], { index: joint, strength: 0.9, pan: 0 });
     }
   },
   onRigReady({ clipNames }) {
@@ -141,9 +96,10 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
       return option;
     }));
     select.value = currentClip;
+    clipPicker.rebuild();
     viewer.playClip(currentClip);
-    if (isMocapRig(rig) && playing) viewer.setMocapPlaying?.(true);
-    if (isMocapRig(rig)) applyGhostParams();
+    if (playing) viewer.setMocapPlaying?.(true);
+    applyGhostParams();
     $('jointSelect').max = String(viewer.getState().joints - 1);
     updateReadout();
   },
@@ -152,56 +108,23 @@ const viewer = createRigAJigViewer($('zooCanvas'), {
   },
 });
 
-function currentRigId() { return rig; }
-function poseAt() { return { ...settings[currentRigId()] }; }
-
-function motionCycles(clock, rate, time) {
-  if (clock.playing) clock.cycles = clock.base + (time - clock.anchor) * rate;
-  return clock.cycles;
-}
-function startWalkClock() {
-  const clock = clocks.walk;
-  clock.base = clock.cycles;
-  clock.anchor = now();
-  clock.playing = true;
-}
-function stopWalkClock() {
-  const clock = clocks.walk;
-  motionCycles(clock, settings[currentRigId()].rate, now());
-  clock.playing = false;
-}
-
 function buildRig() {
-  if (rig === 'random') {
-    randomSeed = randomSeed ?? Math.floor(Math.random() * 0xffffffff);
-    viewer.setRig('random', { seed: randomSeed });
-  } else if (isMocapRig(rig)) {
-    const def = MOCAP_RIGS[rig];
-    const ghost = bodyMode === 'ghost' && def.skinUrl;
-    viewer.setRig(rig, { url: ghost ? def.skinUrl : def.url, clip: currentClip, view: def.view, ghost });
-  } else {
-    viewer.setRig(rig);
-  }
+  const def = MOCAP_RIGS[rig];
+  const ghost = bodyMode === 'ghost' && def.skinUrl;
+  viewer.setRig(rig, { url: ghost ? def.skinUrl : def.url, clip: currentClip, view: def.view, ghost });
   $('jointSelect').max = String(viewer.getState().joints - 1);
   $('jointSelect').value = '0';
   viewer.setSelected(0);
 }
 
 function setRig(next) {
-  if (!RIG_DESCRIPTIONS[next] && next !== 'random' && !isMocapRig(next)) return;
-  if (playing) stopWalkClock();
-
+  if (!MOCAP_RIGS[next]) return;
   rig = next;
-  if (next !== 'random') randomSeed = null;
-  if (isMocapRig(next)) currentClip = rigClips[next] ?? MOCAP_RIGS[next].clip;
-  $('clipRow').hidden = !isMocapRig(next);
-  $('motionRow').hidden = isMocapRig(next);
+  currentClip = rigClips[next] ?? MOCAP_RIGS[next].clip;
   buildRig();
   $('rigSelect').value = next;
   $('rigSelect').dispatchEvent(new Event('picker:sync'));
-  const label = next === 'random' ? `${RANDOM_LABEL} #${(randomSeed % 9000 + 1000)}`
-    : isMocapRig(next) ? MOCAP_RIGS[next].label
-    : next.replace(/([A-Z])/g, ' $1');
+  const label = MOCAP_RIGS[next].label;
   $('rigName').textContent = label;
   document.title = `Rig-a-Jig · ${label} — Morphazoid`;
   syncControls();
@@ -209,7 +132,7 @@ function setRig(next) {
 }
 
 function syncControls() {
-  const s = settings[currentRigId()];
+  const s = settings[rig];
   $('rateInput').value = String(s.rate);
   $('ampInput').value = String(s.amp);
   $('swayInput').value = String(s.sway);
@@ -224,45 +147,21 @@ function updateReadout() {
   const readout = $('modelReadout');
   if (!readout) return; // readout element removed from the stage overlay
   const state = viewer.getState();
-  const motion = isMocapRig(rig) ? currentClip.replace(/_/g, ' ') : motions[currentRigId()];
   readout.textContent =
-    `${(currentRigId()).toUpperCase()} · ${state.joints} joints · ${motion} · `
-    + `${playing ? 'playing' : 'paused'} · no mesh`;
+    `${rig.toUpperCase()} · ${state.joints} joints · ${currentClip.replace(/_/g, ' ')} · `
+    + `${playing ? 'playing' : 'paused'}`;
 }
 
 function setPlaying(value) {
   if (value === playing) return;
   playing = value;
-  frozenAt = null;
-  if (isMocapRig(rig)) {
-    if (value) viewer.playClip?.(currentClip);
-    viewer.setMocapPlaying?.(value);
-  } else if (value) startWalkClock(); else stopWalkClock();
+  if (value) {
+    viewer.playClip?.(currentClip);
+    walkAnchor = now();
+  }
+  viewer.setMocapPlaying?.(value);
   $('playButton').setAttribute('aria-pressed', String(value));
   $('playButton').setAttribute('aria-label', value ? 'Pause motion' : 'Play motion');
-  updateReadout();
-}
-
-function selectMotion(id, { autoplay = false } = {}) {
-  frozenAt = null;
-  motions[currentRigId()] = id;
-  $('motionSelect').value = id;
-  $('motionSelect').dispatchEvent(new Event('picker:sync'));
-  const motion = MOTIONS.find((entry) => entry.id === id);
-  if (motion.overlay) {
-    overlay = { name: motion.overlay, start: now(), duration: motion.duration };
-    viewer.setAction(motion.overlay, now());
-    if (armed) {
-      audio.engine?.contact(currentRigId(), settings[currentRigId()], {
-        index: 0, strength: id === 'jump' || id === 'stomp' ? 1 : 0.55, pan: 0,
-      });
-    }
-    status(`${currentRigId()}: ${motion.label}`);
-  } else {
-    overlay = null;
-    viewer.setAction(null, now());
-    if (autoplay) setPlaying(true);
-  }
   updateReadout();
 }
 
@@ -317,34 +216,29 @@ function audioTick() {
   const context = audio.context;
   if (disposed || !armed || context?.state !== 'running') return;
   const time = context.currentTime, target = time + 0.105;
-  const from = Math.max(time - 0.006, scheduledUntil);
-  const clock = clocks.walk, rate = settings[currentRigId()].rate;
-  if (playing) {
-    const contacts = Math.max(1, viewer.getState().contacts);
-    const stepsPerCycle = Math.max(1, Math.min(8, contacts));
-    const fromCycle = motionCycles(clock, rate, from);
-    const toCycle = motionCycles(clock, rate, target);
-    const first = Math.ceil(fromCycle * stepsPerCycle - 1e-8);
-    const last = Math.floor(toCycle * stepsPerCycle + 1e-8);
-    for (let index = first; index <= Math.min(first + 16, last); index += 1) {
-      const cycle = index / stepsPerCycle;
-      const at = clock.anchor + (cycle - clock.cycles) / rate;
-      if (at >= time + 0.002 && at <= target + 0.003) {
-        audio.engine.contact(currentRigId(), settings[currentRigId()], {
-          index: index % contacts, strength: 0.35 + settings[currentRigId()].amp * 0.5,
-          pan: ((index % contacts) / Math.max(1, contacts - 1)) * 1.4 - 0.7, at,
-        });
-      }
-    }
-  }
   scheduledUntil = target;
+  if (!playing) return;
+  // Drive contact accents from the clip's footfalls: sample the contact speeds.
+  const state = viewer.getState();
+  const contacts = Math.max(1, state.contacts);
+  const rate = settings[rig].rate;
+  walkCycles = (time - walkAnchor) * rate;
+  const stepsPerCycle = Math.max(1, Math.min(8, contacts));
+  const index = Math.floor(walkCycles * stepsPerCycle);
+  if (index !== audioTick._last) {
+    audioTick._last = index;
+    audio.engine.contact(rig, settings[rig], {
+      index: index % contacts, strength: 0.3 + settings[rig].amp * 0.5,
+      pan: ((index % contacts) / Math.max(1, contacts - 1)) * 1.4 - 0.7, at: time + 0.01,
+    });
+  }
 }
 
 async function ensureAudio() {
   if (audio.context) return true;
   try { createAudioGraph(); } catch (error) { status(error.message); return false; }
   scheduledUntil = audio.context.currentTime;
-  timer = window.setInterval(audioTick, 24);
+  timer = window.setInterval(audioTick, 40);
   return true;
 }
 
@@ -360,7 +254,7 @@ async function toggleAudio() {
       armed = true;
       audio.master.gain.setTargetAtTime(Number(outputInput.value), audio.context.currentTime, 0.03);
       setAudioVisual(true);
-      status(`Rig-a-Jig audio on · ${currentRigId()} joint contacts drive the sound`);
+      status(`Rig-a-Jig audio on · ${rig} joint contacts drive the sound`);
       suspendTimer = window.setInterval(() => {
         if (audio.context?.state === 'suspended' && armed) void audio.context.resume();
       }, 1200);
@@ -379,24 +273,14 @@ async function toggleAudio() {
 function paint() {
   if (disposed || document.hidden) return;
   const time = now();
-  const displayHz = playing || overlay ? 30 : 10;
+  const displayHz = playing ? 30 : 10;
   if (time - lastPaint < 1 / displayHz) { frameId = requestAnimationFrame(paint); return; }
   lastPaint = time;
-  // Drive the viewer: base gait only while "walk" is playing; overlays run on top.
-  // Gait runs while "walk" is playing; overlays (dance/jump/karate/stomp) run
-  // on top via the viewer's action clock. Frozen only when fully paused.
-  const pose = poseAt();
-  const displayTime = playing || overlay ? time : frozenTime(time);
-  if (!playing && !overlay) pose.rate = 0;
-  viewer.draw(pose, displayTime);
+  const pose = { ...settings[rig] };
+  viewer.draw(pose, time);
   updateReadout();
   updateMeters();
   frameId = requestAnimationFrame(paint);
-}
-let frozenAt = null;
-function frozenTime(time) {
-  if (frozenAt == null) frozenAt = time;
-  return frozenAt;
 }
 
 /* Cycle a <select> through its enabled option values (optgroup-aware) and
@@ -472,31 +356,35 @@ function buildPicker({ pickerId, listId, currentId, select, onChoose }) {
     row.append(button);
     list.append(row);
   }
-  // Close when clicking elsewhere or pressing Escape.
   document.addEventListener('click', (event) => {
     if (picker.open && !picker.contains(event.target)) picker.open = false;
   });
   picker.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') picker.open = false;
   });
-  // Repaint when the value changes programmatically (next/dice, setRig, etc.).
   select.addEventListener('picker:sync', paint);
   build();
   return { paint, rebuild: build };
 }
 
-const rigPicker = buildPicker({
+buildPicker({
   pickerId: 'rigPicker', listId: 'rigPickerList', currentId: 'rigPickerCurrent',
-  select: $('rigSelect'), onChoose: (value) => setRig(value),
+  select: rigSelect, onChoose: (value) => setRig(value),
 });
-const motionPicker = buildPicker({
-  pickerId: 'motionPicker', listId: 'motionPickerList', currentId: 'motionPickerCurrent',
-  select: $('motionSelect'), onChoose: (value) => selectMotion(value, { autoplay: true }),
+const clipPicker = buildPicker({
+  pickerId: 'clipPicker', listId: 'clipPickerList', currentId: 'clipPickerCurrent',
+  select: $('clipSelect'), onChoose: (value) => {
+    currentClip = value;
+    rigClips[rig] = currentClip;
+    viewer.playClip(currentClip);
+    status(`${MOCAP_RIGS[rig].label}: ${currentClip.replace(/_/g, ' ')}`);
+  },
 });
 
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
-$('nextRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), 1); if (v) setRig(v); });
-$('diceRig').addEventListener('click', () => { const v = randomOption($('rigSelect')); if (v) setRig(v); });
+$('nextRig').addEventListener('click', () => { const v = stepSelect(rigSelect, 1); if (v) setRig(v); });
+$('diceRig').addEventListener('click', () => { const v = randomOption(rigSelect); if (v) setRig(v); });
+
 let bodyMode = 'off', ghostOpacity = 0.16, ghostWireframe = false;
 function applyGhostParams() {
   viewer.setGhostOpacity?.(ghostOpacity);
@@ -506,15 +394,9 @@ function applyGhostParams() {
 $('bodySelect').addEventListener('change', (event) => {
   bodyMode = event.target.value;
   $('ghostControls').hidden = bodyMode !== 'ghost';
-  if (isMocapRig(rig)) {
-    // Mocap rigs swap between the bones-only and skinned source GLBs.
-    buildRig();
-    if (playing) { viewer.playClip?.(currentClip); viewer.setMocapPlaying?.(true); }
-    applyGhostParams();
-  } else {
-    // Procedural rigs use the synthesized ghost proxy.
-    viewer.setBodyMode(bodyMode === 'ghost' ? 'cloud' : 'off');
-  }
+  buildRig();
+  if (playing) { viewer.playClip?.(currentClip); viewer.setMocapPlaying?.(true); }
+  applyGhostParams();
 });
 
 $('ghostOpacity').addEventListener('input', (event) => {
@@ -526,40 +408,43 @@ $('ghostWireframe').addEventListener('change', (event) => {
   ghostWireframe = event.target.checked;
   viewer.setGhostWireframe?.(ghostWireframe);
 });
+
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
-  if (isMocapRig(rig)) rigClips[rig] = currentClip;
+  rigClips[rig] = currentClip;
   viewer.playClip(currentClip);
-  status(`Mocap: ${currentClip.replace(/_/g, ' ')}`);
+  status(`${MOCAP_RIGS[rig].label}: ${currentClip.replace(/_/g, ' ')}`);
+});
+$('nextClip').addEventListener('click', () => {
+  const v = stepSelect($('clipSelect'), 1);
+  if (v) { currentClip = v; rigClips[rig] = v; viewer.playClip(v); $('clipSelect').dispatchEvent(new Event('picker:sync')); }
+});
+$('diceClip').addEventListener('click', () => {
+  const v = randomOption($('clipSelect'));
+  if (v) { currentClip = v; rigClips[rig] = v; viewer.playClip(v); $('clipSelect').dispatchEvent(new Event('picker:sync')); }
 });
 $('clipSpeed')?.addEventListener('input', (event) => {
-  settings[currentRigId()].rate = clamp(Number(event.target.value), 0.05, 2);
-  $('clipSpeedOut').textContent = settings[currentRigId()].rate.toFixed(2);
+  settings[rig].rate = clamp(Number(event.target.value), 0.05, 2);
+  $('clipSpeedOut').textContent = settings[rig].rate.toFixed(2);
 });
 $('clipScrub')?.addEventListener('input', (event) => {
   const fraction = Number(event.target.value);
   $('clipScrubOut').textContent = `${Math.round(fraction * 100)}%`;
   viewer.setMocapScrub?.(fraction);
 });
-$('motionSelect').addEventListener('change', (event) => selectMotion(event.target.value, { autoplay: true }));
-$('nextMotion').addEventListener('click', () => { const v = stepSelect($('motionSelect'), 1); if (v) selectMotion(v, { autoplay: true }); });
-$('diceMotion').addEventListener('click', () => { const v = randomOption($('motionSelect')); if (v) selectMotion(v, { autoplay: true }); });
 $('playButton').addEventListener('click', () => setPlaying(!playing));
-$('resetButton').addEventListener('click', () => {
-  randomSeed = null;
-  setRig(rig === 'random' ? 'spider' : rig);
-});
+$('resetButton').addEventListener('click', () => setRig(rig));
 for (const key of ['rate', 'amp', 'sway', 'fold']) {
   $(`${key}Input`).addEventListener('input', (event) => {
-    settings[currentRigId()][key] = clamp(Number(event.target.value), 0, key === 'rate' ? 2 : 1);
-    $(`${key}Out`).textContent = settings[currentRigId()][key].toFixed(2) + (key === 'rate' ? '×' : '');
-    if (key === 'rate' && isMocapRig(rig)) viewer.setMocapSpeed?.(settings[currentRigId()].rate);
+    settings[rig][key] = clamp(Number(event.target.value), 0, key === 'rate' ? 2 : 1);
+    $(`${key}Out`).textContent = settings[rig][key].toFixed(2) + (key === 'rate' ? '×' : '');
+    if (key === 'rate') viewer.setMocapSpeed?.(settings[rig].rate);
   });
 }
 $('jointSelect').addEventListener('input', (event) => viewer.setSelected(Number(event.target.value)));
 $('strikeButton').addEventListener('click', () => {
   const state = viewer.getState();
-  if (armed) audio.engine?.contact(currentRigId(), settings[currentRigId()], { index: state.contacts - 1, strength: 1, pan: 0 });
+  if (armed) audio.engine?.contact(rig, settings[rig], { index: state.contacts - 1, strength: 1, pan: 0 });
 });
 $('viewFront').addEventListener('click', () => viewer.setView('front'));
 $('viewSide').addEventListener('click', () => viewer.setView('side'));
@@ -600,4 +485,4 @@ window.__zooDebug = {
   rootY: () => viewer.rootJointY(), jointScale: () => viewer.jointSpriteScale(),
 };
 frameId = requestAnimationFrame(paint);
-status('Choose a rig and a motion. Enable Audio to hear joint contacts; press Play to walk.');
+status('Choose a rig and a clip. Enable Audio to hear joint contacts; press Play.');

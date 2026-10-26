@@ -2324,7 +2324,6 @@ copy+require	docs/globule-damacy.md
 copy+require	rig-a-jig.html
 copy+require	src/instruments/rig-a-jig/rig-a-jig-app.js
 copy+require	src/instruments/rig-a-jig/rig-a-jig-viewer.js
-copy+require	src/instruments/rig-a-jig/rig-a-jig-rigs.js
 copy+require	src/instruments/rig-a-jig/rig-a-jig-audio.js
 copy+require	src/instruments/rig-a-jig/rig-a-jig.css
 copy+require	assets/rig-a-jig/ual-humanoid-bones.glb

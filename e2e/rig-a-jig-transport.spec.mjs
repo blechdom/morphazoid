@@ -1,22 +1,18 @@
 import { test, expect } from '@playwright/test';
 
-test('Rig-a-Jig has rig + motion pulldowns, Play/Pause, tempo, and random body plans', async ({ page }) => {
+test('Rig-a-Jig has rig + clip pickers, Play/Pause, and tempo', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:3459/rig-a-jig.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => window.__zooDebug?.viewer?.debugFigure?.()?.rig?.joints?.length > 0, { timeout: 15000 });
 
-  // Rig pulldown with grouped options.
+  // Rig pulldown with grouped mocap options.
   const rigOptions = await page.locator('#rigSelect option').count();
-  expect(rigOptions).toBeGreaterThanOrEqual(26);
-  await expect(page.locator('#rigSelect optgroup')).toHaveCount(await page.locator('#rigSelect optgroup').count());
+  expect(rigOptions).toBeGreaterThanOrEqual(14);
 
-  // Motion pulldown has the five transport motions.
-  await expect(page.locator('#motionSelect')).toContainText('Walk');
-  await expect(page.locator('#motionSelect')).toContainText('Dance');
-  await expect(page.locator('#motionSelect')).toContainText('Jump');
-  await expect(page.locator('#motionSelect')).toContainText('Karate');
-  await expect(page.locator('#motionSelect')).toContainText('Stomp');
+  // Clip picker is populated from the rig's real clips.
+  const clips = await page.locator('#clipSelect option').count();
+  expect(clips).toBeGreaterThan(0);
 
   // Circle Play/Pause toggles via aria-pressed.
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
@@ -30,19 +26,15 @@ test('Rig-a-Jig has rig + motion pulldowns, Play/Pause, tempo, and random body p
   await expect(page.locator('#rateOut')).toHaveText('1.20×');
 
   // Pick a different rig from the pulldown.
-  await page.locator('#rigSelect').selectOption('octopus');
-  await expect(page.locator('#rigName')).toContainText('octopus');
+  await page.locator('#rigSelect').selectOption('cow');
+  await page.waitForFunction(() => window.__zooDebug?.viewer?.debugFigure?.()?.rig?.joints?.length > 0, { timeout: 15000 });
+  await expect(page.locator('#rigName')).toContainText('Cow');
 
-  // Random body plan (chosen from the rig pulldown) produces a valid rig with joints.
-  await page.locator('#rigSelect').selectOption('random');
-  await expect(page.locator('#rigName')).toContainText('Random body plan');
+  // The dice stepper lands on a valid rig (never throws).
+  await page.locator('#diceRig').click();
+  await page.waitForFunction(() => window.__zooDebug?.viewer?.debugFigure?.()?.rig?.joints?.length > 0, { timeout: 15000 });
   const joints = await page.evaluate(() => window.__zooDebug.getState().joints);
   expect(joints).toBeGreaterThan(2);
-
-  // The dice stepper lands on a valid rig too (never throws).
-  await page.locator('#diceRig').click();
-  const joints2 = await page.evaluate(() => window.__zooDebug.getState().joints);
-  expect(joints2).toBeGreaterThan(2);
 
   expect(errors).toEqual([]);
 });
