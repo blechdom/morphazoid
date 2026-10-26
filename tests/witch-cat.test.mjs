@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { drawWitchCat, getWitchCatFrame, getWitchCatTargets, hitTestWitchCat, WITCH_CAT_SCALE } from '../src/instruments/witch/witch-cat.js';
-import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS, witchCatMeowEnvelope } from '../src/instruments/witch/witch-cat-model.js';
+import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS, witchCatMeowEnvelope, witchCatUnicornFrame, WITCH_CAT_UNICORN_DURATION } from '../src/instruments/witch/witch-cat-model.js';
 import { hitTestWitch, warpWitchPoint, WITCH_LAYOUT } from '../src/instruments/witch/witch-renderer.js';
+import { createQuadrupedState, deriveQuadrupedPose } from '../src/instruments/quadruped/quadruped.js';
+import { deriveQuadrupedVisualRig } from '../src/instruments/quadruped/quadruped-visual-skins.js';
 
 test('the Quadruped cat visits for seven seconds every thirty seconds of the owner clock',()=>{
   for(const time of [0,29.999,37,59.999,67,89.999]) assert.equal(getWitchCatFrame({performanceTime:time}).active,false,`${time}`);
@@ -20,13 +22,24 @@ test('the Quadruped cat visits for seven seconds every thirty seconds of the own
 function drawingProbe() {
   const calls=[];
   const scales=[];
+  const paints=[],filledPaths=[];
+  let points=[];
   const context=new Proxy({globalAlpha:1},{get(target,key){
     if(key in target)return target[key];
     if(key==='scale')return (...values)=>{scales.push(values);calls.push(values);};
     if(key==='createLinearGradient')return (...values)=>{calls.push(values);return {addColorStop(){}};};
-    return (...values)=>{calls.push(values);};
+    return (...values)=>{
+      calls.push(values);
+      if(key==='beginPath')points=[];
+      if(key==='moveTo'||key==='lineTo')points.push({x:values[0],y:values[1]});
+      if(key==='fill')filledPaths.push({points:points.slice(),fill:target.fillStyle});
+    };
+  },set(target,key,value){
+    target[key]=value;
+    if(key==='fillStyle'||key==='strokeStyle')paints.push(value);
+    return true;
   }});
-  return {context,calls,scales};
+  return {context,calls,scales,paints,filledPaths};
 }
 
 test('cat rendering remains finite and bounded, and inactive visits do no drawing work',()=>{
@@ -158,4 +171,65 @@ test('full flight hides the cat and its click targets without changing its visit
   assert.equal(getWitchCatTargets({...state,flightLift:1}),null);
   assert.equal(hitTestWitchCat(ground.x,ground.y,{...state,flightLift:1}),false);
   const probe=drawingProbe();drawWitchCat(probe.context,{...state,flightLift:1});assert.equal(probe.calls.length,0);
+});
+
+test('a flagged capture keeps its cat dive, then escapes as an unclickable native unicorn in either direction',()=>{
+  for(const startedAt of [33.5,63.5]) {
+    const from=getWitchCatFrame({performanceTime:startedAt});
+    const normal={capturedAnimals:{cat:{startedAt,from}}};
+    const state={capturedAnimals:{cat:{startedAt,from,unicorn:true}}};
+    for(const age of [0,.45,.94]) {
+      assert.deepEqual(getWitchCatFrame({...state,performanceTime:startedAt+age}),getWitchCatFrame({...normal,performanceTime:startedAt+age}));
+    }
+    for(const age of [1.26,1.8,2.6,4.1]) {
+      const performanceTime=startedAt+age;
+      const frame=getWitchCatFrame({...state,performanceTime});
+      const timeline=witchCatUnicornFrame(performanceTime-startedAt,from.direction);
+      assert.equal(frame.captured,true);assert.equal(frame.escaping,true);assert.equal(frame.diving,false);
+      assert.equal(frame.visible,true);assert.equal(frame.animalId,'unicorn');assert.equal(frame.behaviorId,'gallop');
+      for(const key of ['x','y','scale','rotation','position','alpha','direction'])assert.equal(frame[key],timeline[key],key);
+      assert.equal(getWitchCatTargets({...state,performanceTime}),null);
+      assert.equal(hitTestWitchCat(frame.x,frame.y,{...state,performanceTime}),false);
+    }
+    const next=getWitchCatFrame({...state,performanceTime:startedAt+30});
+    assert.equal(next.animalId,'cat');assert.equal(next.captured,false);assert.equal(next.visible,true);
+    for(const age of [WITCH_CAT_UNICORN_DURATION+.01,10]) {
+      const probe=drawingProbe();
+      assert.equal(drawWitchCat(probe.context,{...state,performanceTime:startedAt+age}).visible,false);
+      assert.equal(probe.calls.length,0,'finished escape does no rendering');
+    }
+  }
+});
+
+test('unicorn coat paints the authored Quadruped horn, palette and gallop rig with bounded sparkles',()=>{
+  const startedAt=33.5,from=getWitchCatFrame({performanceTime:startedAt});
+  const state={capturedAnimals:{cat:{startedAt,from,unicorn:true}}};
+  const score=createQuadrupedState('unicorn','gallop');
+  for(const age of [1.02,1.26,1.8,2.53,4.1]) {
+    const probe=drawingProbe();
+    const frame=drawWitchCat(probe.context,{...state,performanceTime:startedAt+age});
+    const rig=deriveQuadrupedVisualRig(deriveQuadrupedPose(score,frame.position),500,260,240,score);
+    assert.equal(rig.animal.id,'unicorn');assert.equal(rig.morphology.family,'equid');
+    assert.ok(probe.filledPaths.some(path=>path.fill===rig.animal.palette[4]&&JSON.stringify(path.points)===JSON.stringify(rig.features.find(feature=>feature.kind==='horn').points)), 'the horn comes from the native rig');
+    for(const color of rig.animal.palette)assert.ok(probe.paints.includes(color),`native unicorn color ${color}`);
+    assert.ok(probe.calls.length>100&&probe.calls.length<1000,`bounded escape drawing: ${probe.calls.length}`);
+    assert.ok(probe.calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
+    assert.deepEqual(probe.scales[0],[1.5*frame.scale,1.5*frame.scale]);
+  }
+});
+
+test('unicorn travel and sparkles freeze with its audio clock and remain hidden in flight',()=>{
+  const startedAt=33.5,from=getWitchCatFrame({performanceTime:startedAt});
+  const state={capturedAnimals:{cat:{startedAt,from,unicorn:true}},catFrame:createWitchCatClock(startedAt+1.26)};
+  const a=drawingProbe(),b=drawingProbe(),later=drawingProbe();
+  const frame=drawWitchCat(a.context,{...state,performanceTime:99,time:0});
+  assert.deepEqual(drawWitchCat(b.context,{...state,performanceTime:999,time:1e6,catMeow:1}),frame);
+  assert.deepEqual(a.calls,b.calls,'wall time and the old cat meow cannot animate a frozen unicorn');
+  drawWitchCat(later.context,{...state,catFrame:createWitchCatClock(startedAt+1.36)});
+  assert.notDeepEqual(a.calls,later.calls,'advancing the owner clock animates its escape and sparkles');
+  for(const flight of [{flightLift:1},{scene:'flight'}]) {
+    const probe=drawingProbe();
+    assert.equal(drawWitchCat(probe.context,{...state,...flight}).visible,false);
+    assert.equal(probe.calls.length,0);assert.equal(getWitchCatTargets({...state,...flight}),null);
+  }
 });

@@ -25,8 +25,9 @@ import { throatSingingState, ventricularFoldSupercycle, dualFocusTargets } from 
 import { JULIE_SAW_DEFAULTS, applyJulieSawPreset, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
+import { WitchUnicornDSP } from './witch-unicorn-audio.js';
 import { WitchVisitorDSP } from './witch-visitors-audio.js';
-import { witchCatMeowEnvelope } from './witch-cat-model.js';
+import { witchCatMeowEnvelope, WITCH_CAT_UNICORN_DURATION } from './witch-cat-model.js';
 import { witchBiteClips, witchBiteVariants, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
@@ -1368,7 +1369,8 @@ export class WitchDSP {
     this.sourceGains = new Float64Array([1, 1, 1]); this.sourceGainStep = 1 / (.025 * this.rate);
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
-    this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
+    this.cat = new WitchCatDSP(this.rate); this.unicorn = new WitchUnicornDSP(this.rate);
+    this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
     this.visitors = new WitchVisitorDSP(this.rate);
     this.fabricWind = new WitchFabricWind(this.rate);
     this.blechFlyby = new WitchBlechFlyby(this.rate);
@@ -1378,6 +1380,7 @@ export class WitchDSP {
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
+      unicornActive: false, unicornAge: WITCH_CAT_UNICORN_DURATION, unicornLevel: 0,
       ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       ghostScreamActive: false, ghostScreamAge: WITCH_GHOST_SCARE_DURATION, ghostScreamEnvelope: 0,
       flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
@@ -1391,6 +1394,7 @@ export class WitchDSP {
     this.brew.syncPhase(phase, speed);
     if (Number.isFinite(flybyTime)) { this.blechFlyby.syncTime(flybyTime); this.visual.flybyTime = this.blechFlyby.time; this.visual.flybyLevel = 0; }
     if (catClock && typeof catClock === 'object') {
+      this.unicorn.cancel();
       this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time;
       this.visitors.syncTime(this.cat.time, visitorCaptures);
       this.visual.catMeow = 0; this.visual.catMeowLevel = 0;
@@ -1428,9 +1432,9 @@ export class WitchDSP {
     if (c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
       this.scene.tree.setControls(c.treeSpread, c.treeCurl);
     }
-    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); }
+    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); this.unicorn.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
-    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); }
+    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); this.unicorn.cancel(); }
     if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && c.handEnabled && this.enabled) {
@@ -1449,21 +1453,27 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
-    if (!this.enabled) { this.cat.release(); this.visitors.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); this.ghostScream.cancel(); }
+    if (!this.enabled) { this.cat.release(); this.visitors.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); this.ghostScream.cancel(); this.unicorn.cancel(); }
   }
   /** Cancel manual gestures without seeking or changing either transport. */
   releaseAccents() {
     this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release();
     this.cat.release(); this.visitors.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
-    this.ghostScream.cancel();
+    this.ghostScream.cancel(); this.unicorn.cancel();
   }
-  trigger(kind, variant) {
+  trigger(kind, variant, detail) {
     if (!this.enabled) return false;
     let accepted;
     if (kind === 'fabric-wind') {
       if (this.controls.mode !== 'flight') return false;
       // Wind has its own channel; it must not reopen stopped witch echoes.
       this.fabricWind.trigger(); return true;
+    } else if (kind === 'unicorn-escape') {
+      accepted = this.unicorn.trigger(this.cat.time, { startedAt: detail?.startedAt,
+        direction: detail?.direction ?? (this.cat.clock.visit % 2 ? 1 : -1) });
+      if (accepted) {
+        this.visual.unicornActive = true; this.visual.unicornAge = this.unicorn.age; this.visual.unicornLevel = 0;
+      }
     } else if (kind === 'ghost-scream') {
       accepted = this.ghostScream.trigger();
       if (accepted) {
@@ -1489,7 +1499,7 @@ export class WitchDSP {
     const voiceWeight = c.spellBalance <= .5
       ? focusedVoice + (1 - focusedVoice) * .75 * (1 - c.spellBalance * 2)
       : .06 + (focusedVoice - .06) * (2 - c.spellBalance * 2) ** 1.6;
-    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0, flybyEnergy = 0, treeEnergy = 0;
+    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0, flybyEnergy = 0, treeEnergy = 0, unicornEnergy = 0;
     for (let offset = 0; offset < left.length; offset += 128) {
       const count = Math.min(128, left.length - offset);
       const b = count === 128 ? this.buffers : this.buffers.map(buffer => buffer.subarray(0, count));
@@ -1518,6 +1528,7 @@ export class WitchDSP {
         const backingEnabled = this.enabled && c.backingEnabled, backingGain = this.sourceGains[2];
         this.ghosts.next(c, backingEnabled);
         this.cat.next(c, backingEnabled && c.ghostGate && !c.catCaptured, c.ghostGate);
+        this.unicorn.next(this.cat.time, this.enabled, c.ghostGate);
         this.visitors.next(this.cat.time, backingEnabled && c.ghostGate && c.mode !== 'flight');
         this.scene.next(this.enabled);
         this.ghostScream.next(this.enabled);
@@ -1533,8 +1544,8 @@ export class WitchDSP {
         const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing * backingGain;
         const visitorL = this.visitors.left * backing * backingGain, visitorR = this.visitors.right * backing * backingGain;
         const flybyL = this.blechFlyby.left * backingGain, flybyR = this.blechFlyby.right * backingGain;
-        const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + catL + visitorL + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + this.ghostScream.right + catR + visitorR + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + catL + visitorL + this.unicorn.left + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + this.ghostScream.right + catR + visitorR + this.unicorn.right + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.fabricWind.left, this.fabricWind.right);
         this.fabricMix += ((this.enabled && c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
@@ -1554,6 +1565,7 @@ export class WitchDSP {
         ghostEnergy += (ghostL * ghostL + ghostR * ghostR) * .5;
         flybyEnergy += (flybyL ** 2 + flybyR ** 2) * .5;
         treeEnergy += (this.scene.tree.left ** 2 + this.scene.tree.right ** 2) * .5;
+        unicornEnergy += (this.unicorn.left ** 2 + this.unicorn.right ** 2) * .5;
       }
       this.time += count * this.dt;
     }
@@ -1567,6 +1579,8 @@ export class WitchDSP {
       this.catDropSlot?.gain > .01 && this.catDropSlot.until > this.drops.clock
         ? witchCatMeowEnvelope(this.catDropSlot.age / this.rate) * this.catDropSlot.gain : 0);
     this.visual.catMeowLevel = this.cat.meowLevel * this.sourceGains[2];
+    this.visual.unicornActive = this.unicorn.active; this.visual.unicornAge = this.unicorn.age;
+    this.visual.unicornLevel = Math.sqrt(unicornEnergy / Math.max(1, left.length));
     this.visual.dropVariant = this.drops.variant ?? 0; this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.visual.shockEnvelope = this.shock.envelope;
     this.visual.ghostScreamActive = this.ghostScream.active;
@@ -1623,7 +1637,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
             this.nextTelemetry = 0;
           }
         }
-        if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind, data.variant);
+        if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind, data.variant, data.detail);
         if (data.type === 'dispose') { this.alive = false; this.dsp.setEnabled(false); }
       };
     }

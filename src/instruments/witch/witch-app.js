@@ -36,6 +36,7 @@ let spellTransition=null,lastCatCaptured=false,hairHush=null;
 let ghostScare=null,ghostScareHiddenUntil=0;
 const HAIR_HUSH_SECONDS=3.2;
 const capturedAnimals={};
+let catCaptureCount=0;
 const fabricGesture=createWitchFabricGesture();
 let fabricTick=0;
 const trailGesture=createWitchTrailGesture();
@@ -99,12 +100,14 @@ function beginHairHush() {
   $('gestureReadout').value='The brew slowly settles. Stir for her voice; bend a finger for its spell.';
 }
 function cue(kind) {
+  if(kind==='unicorn-escape'&&!capturedAnimals.cat?.unicorn)return;
   if(starting&&!audio.running) {
     pendingAccents.push(kind);
     if(pendingAccents.length>4&&pendingAccents.shift()==='ghost-scream')clearGhostScare();
     return;
   }
-  const accepted=audio.trigger(kind);
+  const capture=kind==='unicorn-escape'?capturedAnimals.cat:null;
+  const accepted=audio.trigger(kind,capture?{startedAt:capture.startedAt,direction:capture.from.direction}:undefined);
   if(kind==='ghost-scream'&&ghostScare) {
     if(!accepted) {clearGhostScare();return;}
     // A rebuilt worklet has a new clock; stale telemetry belongs to its old node.
@@ -281,9 +284,11 @@ function captureAnimal(id) {
   advancePerformanceTime();
   const state=visualState(),animal=id==='cat'?getWitchCatFrame(state):getWitchVisitors(state).find(frame=>frame.id===id||frame.animalId===id);
   if(!animal||!animal.active||animal.captured||state.flightLift>.1)return;
-  capturedAnimals[id]={startedAt:performanceTime,from:{x:animal.x,y:animal.y,rotation:animal.rotation,direction:animal.direction}};
+  const unicorn=id==='cat'&&++catCaptureCount===3;
+  capturedAnimals[id]={startedAt:performanceTime,from:{x:animal.x,y:animal.y,rotation:animal.rotation,direction:animal.direction},...(unicorn?{unicorn:true}:{})};
   if(id==='cat')catMeowAt=performance.now();
-  send();cue(`drop-${id}`);$('gestureReadout').value=`${id==='cat'?'Meow! ':''}The ${id} dives into the potion.`;
+  send();cue(`drop-${id}`);if(unicorn)cue('unicorn-escape');
+  $('gestureReadout').value=unicorn?'The third cat becomes a sparkling unicorn and escapes!':`${id==='cat'?'Meow! ':''}The ${id} dives into the potion.`;
 }
 function windFabric() {
   if(config.scene!=='flight')return;
@@ -353,6 +358,7 @@ function resetPerformance() {
   ghostScareHiddenUntil=0;
   restoreHat();world.hairPullX=world.hairPullY=0;spellTransition=null;
   for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id];
+  catCaptureCount=0;
   config=normalizeWitchPreset({...WITCH_DEFAULTS,scene});Object.assign(catClock,createWitchCatClock(0,config));
   silentPhase=silentSpeed=ladleOffset=motionTime=silentHandTime=silentFlightPhase=silentGhostPhase=silentFlybyTime=0;
   audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock),0);
@@ -715,7 +721,7 @@ Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.f
   return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime),flybyLevel:audio.visual.flybyLevel??0,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,hushing:Boolean(hairHush),parts:{brew:playing&&awake.brew,hand:playing&&awake.hand},backingAwake:playing&&awake.backing,quiet:!playing,presence:audio.presence,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
-    ghostScare:getWitchGhostScare(state),ghostScareHidden:state.ghostScareHidden,
+    ghostScare:getWitchGhostScare(state),ghostScareHidden:state.ghostScareHidden,catCaptureCount,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),
     selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),hatStage:getWitchHat(state).stage,hatDrop:getWitchHatDrop(state),ladle:getWitchLadle(state),
     hairGeometry:{...hair,root:warpWitchPoint(hair.root,state),tip:warpWitchPoint(hair.tip,state),targets:hair.targets.map(p=>({...p,...warpWitchPoint(p,state)})),strands:hair.strands.map(strand=>({...strand,points:strand.points.map(p=>warpWitchPoint(p,state))}))},

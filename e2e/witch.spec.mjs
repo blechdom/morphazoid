@@ -979,6 +979,48 @@ test('a tree phrase stays perched before its dive, and hush freezes the pending 
   expect((await state(page)).objects.find(object=>object.id==='blech')).toMatchObject({dropped:true,alpha:0,x:600,y:544});
 });
 
+test('the third cat capture becomes a sparkling Quadruped unicorn and escapes',async({page},testInfo)=>{
+  test.setTimeout(45000);await observeWorklet(page);
+  await page.clock.install({time:new Date('2026-10-26T12:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-26T12:00:01Z'));
+  await page.addInitScript(()=>{
+    const addModule=AudioWorklet.prototype.addModule;
+    const ready=new Promise(resolve=>{window.releaseWitchModule=resolve;});
+    AudioWorklet.prototype.addModule=function(url,...args){
+      return String(url).includes('/witch-worklet.js')?ready.then(()=>addModule.call(this,url,...args)):addModule.call(this,url,...args);
+    };
+  });
+  try {
+    await open(page);const p=await point(page,24,704);await page.mouse.click(p.x,p.y);
+    const advanceBy=async milliseconds=>{await page.clock.fastForward(milliseconds);await page.clock.runFor(80);};
+    const advanceTo=async seconds=>advanceBy(Math.max(1,(seconds-(await state(page)).performanceTime)*1000));
+    for(const count of [1,2,3]) {
+      await advanceTo(count*30+2);
+      await clickAnimal(page,'cat',{touch:count===3,part:'head'});
+      expect((await state(page)).catCaptureCount).toBe(count);
+      expect((await state(page)).cat).toMatchObject({animalId:'cat',captured:true,diving:true});
+      await key(page,'c');expect((await state(page)).catCaptureCount).toBe(count);
+      if(count<3) {
+        await advanceBy(1100);expect((await state(page)).cat.visible).toBe(false);
+        if(count===1) {await key(page,'w');expect((await state(page)).catCaptureCount).toBe(1);}
+      }
+    }
+    expect((await state(page)).capturedAnimals.cat.unicorn).toBe(true);
+    await advanceBy(1180);
+    expect((await state(page)).cat).toMatchObject({source:'quadruped',animalId:'unicorn',behaviorId:'gallop',escaping:true,visible:true,captured:true});
+    expect((await state(page)).catTargets).toBeNull();
+    await page.screenshot({path:testInfo.outputPath('unicorn-emergence.png')});
+    await page.evaluate(()=>window.releaseWitchModule());await page.clock.resume();
+    await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
+    await expect.poll(()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='unicorn-escape').length)).toBe(1);
+    await expect.poll(()=>page.evaluate(()=>window.witchVisual?.unicornLevel??0)).toBeGreaterThan(.0001);
+    await expect.poll(async()=>(await state(page)).cat.visible,{timeout:6000}).toBe(false);
+    await expect.poll(()=>page.evaluate(()=>window.witchVisual?.unicornActive??true)).toBe(false);
+    expect((await state(page)).catCaptureCount).toBe(3);
+    await key(page,'Backspace');expect((await state(page)).catCaptureCount).toBe(0);
+  } finally {await page.evaluate(()=>window.releaseWitchModule?.());}
+});
+
 test('real visitor routes and native captures work while a slow Audio startup catches up',async({page})=>{
   await observeWorklet(page);await page.clock.install({time:new Date('2026-10-26T12:00:00Z')});
   await page.clock.pauseAt(new Date('2026-10-26T12:00:01Z'));

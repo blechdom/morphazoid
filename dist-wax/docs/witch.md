@@ -38,7 +38,7 @@ Brightness remains on the **+ / −** keys.
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
 | Click the twenty-sided die | A ringing charm accompanies full-state randomization of every musical and visual setting. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
-| Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
+| Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. On the third successful cat capture, it emerges as a sparkling Quadruped unicorn and gallops away. |
 
 The left cupboard has six shelves with three real instrument icons on each:
 Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
@@ -131,6 +131,10 @@ The lizard crawls upside down across the top edge. The mouse follows the left
 edge and bottom, reversing direction on alternate visits to climb up or down.
 Capturing a visitor hides it for the rest of that visit. It can return on a later
 visit. Stop freezes the visitor clock; changing presets does not restart it.
+The third cat capture uses Quadruped's unicorn anatomy, gallop and Sparkle call:
+it reaches the potion, leaps out with a glittering coat, and runs off the edge.
+Only successful captures count; repeated clicks during a dive do not. Presets
+keep the tally, while Backspace or a page reload starts it over.
 Ghost portraits keep a background beat while grounded, with a more present
 Creaturazoid voice that remains behind the singer and fingers. They can still be
 raised or lowered to adjust the beat’s tempo.
