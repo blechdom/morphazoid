@@ -41,10 +41,11 @@ The internal `roach-wings` clip follows the roach bite's clock, fades and releas
 it does not add another ingredient or a separately running instrument.
 
 Clicking the tree plays `tree-l-system` through one dedicated scene reader while
-the tree changes shape. Rapid clicks fade and restart that reader; they never
+its shape stays fixed. An audio-clocked pulse follows the native branching
+frontier; mushrooms, the die and presets choose new tree settings. Rapid clicks fade and restart that reader; they never
 consume an ingredient, duck the singer, or change the preset. It joins the
-shared flight delay/Fabric path. Release, Reset and Audio off cancel it; no
-muted click is queued. `treeEnvelope` and `treeLevel` follow its audio clock.
+shared flight delay/Fabric path. Hush, Reset and Audio off cancel it; no
+muted click is queued. `treeEnvelope`, `treeLevel` and `treeProgress` follow its audio clock.
 
 The final bite gain is lower and the ongoing voice/fingers retain 72% of their
 backing gain during a drop. The output makeup and 0.84 sample ceiling are

@@ -2,7 +2,7 @@ import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby } from './witch-scene-model.js';
-import { traceLSystem, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
+import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -623,7 +623,7 @@ export function getWitchTrails(state={}) {
 }
 export function getWitchTrail(state={}) {return getWitchTrails(state)[0].points;}
 
-const treeShapes=new Map(),neutralTrees=new Map();
+const treeShapes=new Map(),neutralTrees=new Map(),treeTraces=new WeakMap();
 const TREE_CACHE_LIMIT=48;
 /** The upright tree is the actual L-system turtle trace, bounded and cached. */
 export function getWitchTree(state={}) {
@@ -672,9 +672,20 @@ export function getWitchTree(state={}) {
     Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>28*miniatureSize(id)+20));
   const target=candidates.reduce((best,p)=>Math.hypot(p.x-855,p.y-550)<Math.hypot(best.x-855,best.y-550)?p:best,candidates[0]||root);
   const result={shape,root,target,segments,objects,anchors,controls:{spread,curl,angle,turnAsymmetry},projection:{scaleX,scaleY}};
+  treeTraces.set(result,trace);
   if(isNeutral)neutralTrees.set(shape,result);
   else {if(treeShapes.size>=TREE_CACHE_LIMIT)treeShapes.delete(treeShapes.keys().next().value);treeShapes.set(key,result);}
   return result;
+}
+/** Follow the excerpt's audio playhead along the native branching frontier. */
+export function getWitchTreePulse(state={}) {
+  if(!(state.treeEnvelope>0)||state.treeProgress>=1)return [];
+  const tree=getWitchTree(state),trace=treeTraces.get(tree);
+  return branchingSnapshotAtPhase(trace,clamp(state.treeProgress)).heads.map(head=>{
+    const {a,b}=tree.segments[head.index],t=head.progress,tail=Math.max(0,t-.65);
+    return {index:head.index,generation:head.generation,x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,
+      from:{x:a.x+(b.x-a.x)*tail,y:a.y+(b.y-a.y)*tail}};
+  });
 }
 function livingTree(c,state) {
   const tree=getWitchTree(state);
@@ -683,6 +694,12 @@ function livingTree(c,state) {
     line(c,points,'#10141e',width+2);
     line(c,points,TREE_COLORS[segment.generation%TREE_COLORS.length]+'d9',width);
   }
+  c.save();c.globalAlpha*=clamp(state.treeEnvelope);
+  for(const head of getWitchTreePulse(state)) {
+    line(c,[[head.from.x,head.from.y],[head.x,head.y]],TREE_COLORS[head.generation%TREE_COLORS.length],5);
+    c.fillStyle='#f4ffe7';c.beginPath();c.arc(head.x,head.y,3.2,0,TAU);c.fill();
+  }
+  c.restore();
 }
 let cornerWeb;
 export function getWitchWeb() {

@@ -112,6 +112,7 @@ test('tree click plays the native L-System phrase through the scene mix with bou
   for (const dsp of [a, b]) assert.equal(dsp.trigger('tree-l-system'), true);
   const sound = render(a, .8); assert.deepEqual(sound, render(b, .8, 6400));
   assert.ok(rms(sound) > .02); assert.ok(a.visual.treeEnvelope > .9); assert.ok(a.visual.treeLevel > .005);
+  assert.ok(a.visual.treeProgress>0&&a.visual.treeProgress<1, 'branch light follows an active audio playhead');
   assert.equal(a.drops.solo, 0); assert.equal(a.visual.dropKind, ''); assert.equal(a.visual.dropLevel, 0);
   render(a, 2); assert.equal(a.visual.treeEnvelope, 0); assert.ok(rms(render(a, .1)) < 1e-7);
   const tree = a.scene.tree, controls = JSON.stringify(a.controls);

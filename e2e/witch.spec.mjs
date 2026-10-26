@@ -632,7 +632,7 @@ test('mouth, tree, spider, web, eyes and ghost gestures play over the running en
   const seen=new Set();
   for(let i=0;i<voices.length;i++) {const before=(await state(page)).activeVoice;await clickWorld(page,'mouth');await expect.poll(async()=>(await state(page)).activeVoice).toBe(voices[(voices.indexOf(before)+1)%voices.length]);seen.add((await state(page)).activeVoice);}
   expect([...seen].sort()).toEqual([...voices].sort());expect((await state(page)).config.spoonAuto).toBe(false);
-  const treeBefore=(await state(page)).config.treeShape;await clickWorld(page,'tree');expect((await state(page)).config.treeShape).toBe((treeBefore+1)%6);
+  const treeBefore=(await state(page)).config.treeShape;await clickWorld(page,'tree');expect((await state(page)).config.treeShape).toBe(treeBefore);
   await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('tree-l-system'))).toBe(true);
   await expect.poll(async()=>(await state(page)).treeLevel).toBeGreaterThan(.0001);
   await clickWorld(page,'spider');
@@ -813,10 +813,12 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
         await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowUp');await page.keyboard.up('t');
         const after=await state(page);expect(after.config.treeShape).toBe(before.config.treeShape);
         expect(after.config.treeSpread).toBeCloseTo(before.config.treeSpread-.05,5);expect(after.config.treeCurl).toBeCloseTo(before.config.treeCurl+.05,5);
-        await key(page,'t');expect((await state(page)).config.treeShape).toBe((after.config.treeShape+1)%6);
+        await key(page,'t');expect((await state(page)).config.treeShape).toBe(after.config.treeShape);
       }
       const beforeClick=await state(page);await clickWorld(page,'tree',{touch});
-      expect((await state(page)).config).toMatchObject({treeShape:(beforeClick.config.treeShape+1)%6,treeSpread:beforeClick.config.treeSpread,treeCurl:beforeClick.config.treeCurl});
+      expect((await state(page)).config).toMatchObject({treeShape:beforeClick.config.treeShape,treeSpread:beforeClick.config.treeSpread,treeCurl:beforeClick.config.treeCurl});
+      const clicked=await state(page);expect(clicked.tree.segments).toEqual(beforeClick.tree.segments);
+      await clickWorld(page,'mushrooms',{touch});expect((await state(page)).tree.segments).not.toEqual(clicked.tree.segments);
       await preset(page,'small-spell');const authored=(await bank(page)).find(item=>item.id==='small-spell').snapshot;
       expect((await state(page)).config).toMatchObject({treeShape:authored.treeShape,treeSpread:authored.treeSpread,treeCurl:authored.treeCurl});
     });

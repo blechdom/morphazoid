@@ -1405,6 +1405,7 @@ export class WitchDSP {
     this.visual.flybyTime = this.blechFlyby.time;
     this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));
     this.visual.treeEnvelope = this.scene.tree.envelope;
+    this.visual.treeProgress = witchClamp(this.scene.tree.cursor * this.scene.tree.clip.rate / this.scene.tree.clip.frames);
     this.visual.treeLevel = Math.sqrt(treeEnergy / Math.max(1, left.length));
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));
