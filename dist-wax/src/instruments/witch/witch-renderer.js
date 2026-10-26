@@ -960,7 +960,10 @@ function drawInstrumentMiniature(c,id,size=miniatureSize(id)) {
   if(!portrait.image.complete||!portrait.image.naturalWidth)return false;
   if(!portrait.surface) {
     const surface=doc.createElement('canvas');surface.width=surface.height=160;
-    const ink=surface.getContext('2d');ink.drawImage(portrait.image,0,0,160,160);
+    const ink=surface.getContext('2d');
+    // Turn BLECH's copper artwork red while retaining the MIDI socket detail.
+    ink.filter=id==='blech'?'hue-rotate(-18deg) saturate(1.7)':'none';
+    ink.drawImage(portrait.image,0,0,160,160);ink.filter='none';
     const pixels=ink.getImageData(0,0,160,160);removePortraitBackdrop(pixels);ink.putImageData(pixels,0,0);
     let left=160,top=160,right=-1,bottom=-1;
     for(let y=0;y<160;y++)for(let x=0;x<160;x++)if(pixels.data[(y*160+x)*4+3]>8) {
