@@ -106,10 +106,10 @@ async function expectIngredientSolo(page,id) {
       solo:visual?.dropLevel>.0001,voice:visual?.brewLevel>.0001,fingers:visual?.handLevel>.0001};
   },`drop-${id}`)).toEqual({triggered:true,kind:`drop-${id}`,solo:true,voice:true,fingers:true});
 }
-async function clickWorld(page,key,{touch=false,index=0}={}) {
+async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
   const session=await page.context().newCDPSession(page);
-  const snapshot=await inputSnapshot(session,async({key,index})=>{
+  const snapshot=await inputSnapshot(session,async({key,index,drag})=>{
     const {WITCH_LAYOUT,hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const mushroom=WITCH_LAYOUT.mushrooms[0];
@@ -126,26 +126,58 @@ async function clickWorld(page,key,{touch=false,index=0}={}) {
     let targets=[target];
     if(key==='tree') {
       const canvas=document.querySelector('#witchCanvas'),scale=Math.min(rect.width/1000,rect.height/720),seen=new Set();
-      const hitState={...visual,...current.world,time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects,spiderCaptured:current.spiderCaptured};
+      const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects,spiderCaptured:current.spiderCaptured};
       targets=[target,...current.tree.segments.flatMap(({a,b})=>[.25,.5,.75].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})))].filter(p=>{
         const cell=`${Math.round(p.x/8)},${Math.round(p.y/8)}`;if(seen.has(cell))return false;seen.add(cell);
         const q=warpWitchPoint(p,visual),x=rect.x+(rect.width-1000*scale)/2+q.x*scale,y=rect.y+(rect.height-720*scale)/2+q.y*scale;
         return document.elementFromPoint(x,y)===canvas&&hitTestWitch(q.x,q.y,hitState)?.type==='tree';
-      }).slice(0,80);
+      // Upper branches stay clear of the animated hand that crosses the trunk.
+      }).sort((a,b)=>(a.y<380?0:1)-(b.y<380?0:1)).slice(0,80);
     }
-    return {targets:targets.map(point=>warpWitchPoint(point,visual)),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
-  },{key,index});
+    return {targets:targets.map(point=>({...warpWitchPoint(point,visual),...(drag?{
+      to:warpWitchPoint({x:point.x+drag.spread*(point.x<current.tree.root.x-4?-1:1),y:point.y+drag.dy},visual),
+    }:{})})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{key,index,drag});
   expect(snapshot.targets.length,`${key} has an exposed native target`).toBeGreaterThan(0);
-  let from=stagePoint(snapshot.rect,snapshot.targets[0].x,snapshot.targets[0].y);
+  let selected=snapshot.targets[0],from=stagePoint(snapshot.rect,selected.x,selected.y);
+  const readDragState=()=>inputSnapshot(session,()=>window.witchInstrument.state);
+  const beforeDrag=drag?await inputSnapshot(session,()=>{
+    const canvas=document.querySelector('#witchCanvas');window.witchTreePointerId=null;
+    canvas.addEventListener('pointerdown',event=>{window.witchTreePointerId=event.pointerId;},{once:true,capture:true});
+    return window.witchInstrument.state;
+  }):null;
   if(key==='tree') {
     let exposed=false;
     for(const target of snapshot.targets) {
       from=stagePoint(snapshot.rect,target.x,target.y);
       await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
       const title=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').title);
-      if(title.startsWith('Play the L-system tree')){exposed=true;break;}
+      if(title.startsWith('Play the L-system tree')){selected=target;exposed=true;break;}
     }
     expect(exposed,'an exposed L-system branch remains playable').toBe(true);
+  }
+  if(drag) {
+    const canvas=page.locator('#witchCanvas'),to=stagePoint(snapshot.rect,selected.to.x,selected.to.y);
+    const before=beforeDrag,settings=current=>[current.config.treeShape,current.config.treeSpread,current.config.treeCurl];
+    const move=position=>session.send(touch?'Input.dispatchTouchEvent':'Input.dispatchMouseEvent',touch
+      ?{type:'touchMove',touchPoints:[position]}:{type:'mouseMoved',...position,button:'left',buttons:1});
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+    else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+    expect(await inputSnapshot(session,()=>document.querySelector('#witchCanvas').hasPointerCapture(window.witchTreePointerId))).toBe(true);
+    expect(settings(await readDragState()),'a branch pickup does not change the tree').toEqual(settings(before));
+    await move(from);expect(settings(await readDragState()),'zero movement keeps the captured settings').toEqual(settings(before));
+    for(let step=1;step<=5;step++)await move({x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5});
+    const held=await readDragState();
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:drag.cancel?'touchCancel':'touchEnd',touchPoints:[]});
+    else {
+      if(drag.cancel)await canvas.dispatchEvent('pointercancel',{pointerId:await page.evaluate(()=>window.witchTreePointerId)});
+      await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
+    }
+    expect(await inputSnapshot(session,()=>document.querySelector('#witchCanvas').hasPointerCapture(window.witchTreePointerId))).toBe(false);
+    const released=await readDragState();
+    await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:to.x+12,y:to.y+12,buttons:0});
+    expect(settings(await readDragState()),'released input cannot keep bending a branch').toEqual(settings(released));
+    await session.detach();return {before,held,released};
   }
   if(touch) {
     await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
@@ -521,7 +553,7 @@ test('the floor D20, header dice and D randomize complete settings without chang
       else if(action==='header')await page.locator('.header-preset-random').click();
       else await key(page,'d');
       const current=await state(page);
-      for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
+      for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','treeSpread','treeCurl','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
       expect(current.config.fingers).not.toEqual(before.config.fingers);
       expect(spells.some(spell=>JSON.stringify(settings(spell.snapshot))===JSON.stringify(settings(current.config)))).toBe(false);
       expect(current).toMatchObject({playing:true,audioOn:true,config:{scene}});
@@ -755,6 +787,39 @@ test('Space, reset and page lifecycle release gestures without losing the chosen
 for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['landscape',844,390]]) {
   test.describe(label,()=>{
     test.use({viewport:{width,height},hasTouch:label!=='desktop',isMobile:label!=='desktop'});
+    if(label!=='landscape')test(`${label}: branch drags retain their shape and release native capture`,async({page})=>{
+      await observeWorklet(page);await open(page);await wake(page,{touch:label==='portrait'});
+      await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+      const touch=label==='portrait',treeSettings=current=>({treeShape:current.config.treeShape,treeSpread:current.config.treeSpread,treeCurl:current.config.treeCurl});
+      const cues=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='tree-l-system').length);
+      let count=await cues();
+      for(const drag of [{spread:36,dy:-28},{spread:-24,dy:20,cancel:true},{spread:0,dy:0,cancel:true}]) {
+        const {before,held,released}=await clickWorld(page,'tree',{touch,drag});
+        await expect.poll(cues).toBeGreaterThan(count);count=await cues();
+        expect(held.config.treeShape).toBe(before.config.treeShape);
+        expect(held.config.treeSpread).toBeCloseTo(Math.max(0,Math.min(1,before.config.treeSpread+drag.spread/180)),4);
+        expect(held.config.treeCurl).toBeCloseTo(Math.max(0,Math.min(1,before.config.treeCurl-drag.dy/180)),4);
+        expect(treeSettings(released)).toEqual(treeSettings(held));
+        expect(released).toMatchObject({playing:true,config:{scene:'brew'}});
+        const points=released.tree.segments.flatMap(({a,b})=>[a,b]);
+        expect(points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))).toBe(true);
+        expect(points.some(p=>p.x>0&&p.x<1000&&p.y>0&&p.y<720)).toBe(true);
+        if(drag.spread||drag.dy)expect(released.tree.segments).not.toEqual(before.tree.segments);
+        else expect(released.tree.segments).toEqual(before.tree.segments);
+      }
+      if(!touch) {
+        const before=await state(page);await page.locator('#witchCanvas').focus();await page.keyboard.down('t');
+        expect(treeSettings(await state(page))).toEqual(treeSettings(before));
+        await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowUp');await page.keyboard.up('t');
+        const after=await state(page);expect(after.config.treeShape).toBe(before.config.treeShape);
+        expect(after.config.treeSpread).toBeCloseTo(before.config.treeSpread-.05,5);expect(after.config.treeCurl).toBeCloseTo(before.config.treeCurl+.05,5);
+        await key(page,'t');expect((await state(page)).config.treeShape).toBe((after.config.treeShape+1)%6);
+      }
+      const beforeClick=await state(page);await clickWorld(page,'tree',{touch});
+      expect((await state(page)).config).toMatchObject({treeShape:(beforeClick.config.treeShape+1)%6,treeSpread:beforeClick.config.treeSpread,treeCurl:beforeClick.config.treeCurl});
+      await preset(page,'small-spell');const authored=(await bank(page)).find(item=>item.id==='small-spell').snapshot;
+      expect((await state(page)).config).toMatchObject({treeShape:authored.treeShape,treeSpread:authored.treeSpread,treeCurl:authored.treeCurl});
+    });
     test(`${label}: full-width graphic controls and backward hair hush/wake in both modes`,async({page},testInfo)=>{
       test.setTimeout(60000);await observeWorklet(page);await open(page);
       const touch=label!=='desktop';await wake(page,{touch});

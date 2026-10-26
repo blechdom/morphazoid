@@ -93,35 +93,50 @@ const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .58, decay: 2.2,
   pluckAttack: .055, pluckHold: .14, pluckRelease: 1.45 });
 
 /** One native L-System phrase reader. Repeated clicks coalesce behind a short
- * fade before restarting; they never stack voices or abruptly seek live PCM. */
+ * fade before restarting; they never stack voices or abruptly seek live PCM.
+ * Branch edits bend the existing cursor rate and pan through a 40 ms slew. */
 export class WitchTreePhrase {
   constructor(rate) {
     this.dt = 1 / rate; this.clip = witchBiteClips()['tree-l-system'];
     this.age = -1; this.gain = 0; this.envelope = 0; this.left = this.right = 0;
+    this.cursor = 0; this.playbackRate = this.targetRate = 1;
+    this.pan = this.targetPan = 0; this.slew = 1 - Math.exp(-this.dt / .04);
     this.releasing = false; this.restart = false;
+  }
+  setControls(treeSpread = .5, treeCurl = .5) {
+    const spread = Math.max(0, Math.min(1, Number.isFinite(Number(treeSpread)) ? Number(treeSpread) : .5));
+    const curl = Math.max(0, Math.min(1, Number.isFinite(Number(treeCurl)) ? Number(treeCurl) : .5));
+    this.targetRate = spread <= .5 ? .7 + spread * .6 : .6 + spread * .8;
+    this.targetPan = (curl - .5) * .44;
   }
   trigger() {
     if (this.age >= 0) { this.restart = true; this.releasing = true; }
-    else { this.age = 0; this.gain = 0; this.releasing = false; }
+    else { this.age = 0; this.cursor = 0; this.gain = 0; this.releasing = false; }
   }
   release() { this.restart = false; this.releasing = true; }
   next(enabled) {
     this.left = this.right = this.envelope = 0;
+    this.playbackRate += (this.targetRate - this.playbackRate) * this.slew;
+    this.pan += (this.targetPan - this.pan) * this.slew;
     if (!enabled) this.release();
     if (this.age < 0) return;
     if (this.releasing) {
       this.gain = Math.max(0, this.gain - this.dt / (this.restart ? .008 : .035));
       if (this.gain === 0) {
-        if (this.restart && enabled) { this.age = 0; this.restart = false; this.releasing = false; }
+        if (this.restart && enabled) { this.age = 0; this.cursor = 0; this.restart = false; this.releasing = false; }
         else { this.age = -1; return; }
       }
     } else this.gain = Math.min(1, this.gain + this.dt / .012);
-    const position = this.age * this.clip.rate, index = Math.floor(position), blend = position - index;
+    const position = this.cursor * this.clip.rate, index = Math.floor(position), blend = position - index;
     if (index + 1 >= this.clip.frames) { this.age = -1; this.gain = 0; return; }
     const sample = (this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend) * this.gain * .5;
-    this.left = sample * .58; this.right = sample * .82;
-    this.envelope = this.gain * Math.min(1, (this.clip.frames / this.clip.rate - this.age) / .12);
+    // Rotate the existing stereo balance without changing its total power.
+    const cosine = Math.cos(this.pan), sine = Math.sin(this.pan);
+    this.left = sample * (.58 * cosine - .82 * sine);
+    this.right = sample * (.82 * cosine + .58 * sine);
+    this.envelope = this.gain * Math.min(1, (this.clip.frames / this.clip.rate - this.cursor) / (this.playbackRate * .12));
     this.age += this.dt;
+    this.cursor += this.dt * this.playbackRate;
   }
 }
 

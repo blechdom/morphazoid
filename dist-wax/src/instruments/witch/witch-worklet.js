@@ -1279,6 +1279,9 @@ export class WitchDSP {
       || c.fabricPull !== previous.fabricPull || c.fabricVelocity !== previous.fabricVelocity) {
       this.fabric.setControls(c.fabricX, c.fabricY, c.fabricPull, c.fabricVelocity);
     }
+    if (c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
+      this.scene.tree.setControls(c.treeSpread, c.treeCurl);
+    }
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); this.scene.tree.release(); }

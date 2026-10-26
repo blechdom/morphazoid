@@ -623,32 +623,58 @@ export function getWitchTrails(state={}) {
 }
 export function getWitchTrail(state={}) {return getWitchTrails(state)[0].points;}
 
-const treeShapes=new Map();
+const treeShapes=new Map(),neutralTrees=new Map();
+const TREE_CACHE_LIMIT=48;
 /** The upright tree is the actual L-system turtle trace, bounded and cached. */
 export function getWitchTree(state={}) {
   const shape=Math.round(clamp(state.treeShape,0,5));
-  if(treeShapes.has(shape))return treeShapes.get(shape);
+  const spread=clamp(state.treeSpread??.5),curl=clamp(state.treeCurl??.5),isNeutral=spread===.5&&curl===.5;
+  if(isNeutral&&neutralTrees.has(shape))return neutralTrees.get(shape);
+  const key=`${shape}:${spread}:${curl}`;
+  if(treeShapes.has(key)) {
+    const cached=treeShapes.get(key);treeShapes.delete(key);treeShapes.set(key,cached);return cached;
+  }
+  const neutral=isNeutral?null:getWitchTree({treeShape:shape});
   const source=L_SYSTEM_PRESETS[[0,1,2,0,1,2][shape]];
-  const trace=traceLSystem({...source,iterations:[5,3,3,6,3,3][shape],angle:[31,25,29,41,36,18][shape],turnAsymmetry:shape%2?.15:-.08,maxSymbols:6000});
+  const baseAngle=[31,25,29,41,36,18][shape],baseAsymmetry=shape%2?.15:-.08;
+  const angle=isNeutral?baseAngle:baseAngle*(.76+.48*spread),turnAsymmetry=baseAsymmetry+(curl-.5)*.36;
+  const trace=traceLSystem({...source,iterations:[5,3,3,6,3,3][shape],angle,turnAsymmetry,maxSymbols:6000});
   const b=trace.bounds,wide=Math.max(.01,b.maxY-b.minY),tall=Math.max(.01,b.maxX-b.minX);
-  const project=p=>({x:710+(p.y-b.minY)/wide*270,y:692-(p.x-b.minX)/tall*672});
-  const root=project({x:0,y:0}),segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation}));
-  const supports=segments.flatMap(({a,b})=>[.25,.5,.75,1].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})));
+  // Keep the original neutral projection byte-for-byte. Deformation uses its
+  // scale and rooted trunk instead of renormalizing every crown to 270 pixels.
+  const root=neutral?neutral.root:{x:710+(0-b.minY)/wide*270,y:692-(0-b.minX)/tall*672};
+  const scaleX=neutral?neutral.projection.scaleX*(.84+.32*spread):270/wide;
+  // A naturally off-center trunk can have almost no room on one side. Fit
+  // that side independently so one curling twig cannot collapse the crown.
+  const leftScale=b.minY<0?Math.min(scaleX,(root.x-710)/-b.minY):scaleX;
+  const rightScale=b.maxY>0?Math.min(scaleX,(980-root.x)/b.maxY):scaleX;
+  const scaleY=neutral?672/Math.max(.01,b.maxX):672/tall;
+  const project=neutral?p=>({x:clamp(root.x+p.y*(p.y<0?leftScale:rightScale),710,980),y:clamp(692-p.x*scaleY,20,692)}):
+    p=>({x:710+(p.y-b.minY)/wide*270,y:692-(p.x-b.minX)/tall*672});
+  const segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation}));
+  const supports=segments.flatMap(({a,b},segmentIndex)=>[.25,.5,.75,1].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,segmentIndex,t})));
   const hints={blech:{x:790,y:365},syrinx:{x:930,y:475},eyeball:{x:815,y:255}},objects={};
+  const anchors={};
   // Reserve a high branch for Creaturazoid before placing its larger neighbors.
   [...WITCH_TREE_OBJECTS].sort((a,b)=>(b.id==='eyeball')-(a.id==='eyeball')).forEach(item=>{
     const hint=hints[item.id],size=miniatureSize(item.id),offset=27*size,r=28*size;
-    const candidates=supports.map(p=>({x:p.x,y:p.y-offset})).filter(p=>p.x>735&&p.x+r<980&&p.y>(item.id==='eyeball'?195:280)&&p.y<(item.id==='eyeball'?420:625)&&
+    const available=p=>p.x>735&&p.x+r<980&&p.y>(item.id==='eyeball'?195:280)&&p.y<(item.id==='eyeball'?420:625)&&
       (p.y+r<500||p.x-r>810)&&
-      Math.hypot(p.x-910,p.y-140)>r+65&&Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>r+28*miniatureSize(id)+20));
-    const point=candidates.reduce((best,p)=>Math.hypot(p.x-hint.x,p.y-hint.y)<Math.hypot(best.x-hint.x,best.y-hint.y)?p:best,candidates[0]||{x:root.x,y:root.y-offset});
-    objects[item.id]=point;
+      Math.hypot(p.x-910,p.y-140)>r+65&&Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>r+28*miniatureSize(id)+20);
+    const anchor=neutral?.anchors[item.id],branch=anchor&&segments[anchor.segmentIndex];
+    const perched=branch?{x:branch.a.x+(branch.b.x-branch.a.x)*anchor.t,y:branch.a.y+(branch.b.y-branch.a.y)*anchor.t-offset,...anchor}:null;
+    const candidates=supports.map(p=>({...p,y:p.y-offset})).filter(available),target=perched||hint;
+    const point=perched&&available(perched)?perched:candidates.reduce((best,p)=>Math.hypot(p.x-target.x,p.y-target.y)<Math.hypot(best.x-target.x,best.y-target.y)?p:best,candidates[0]||{x:root.x,y:root.y-offset,segmentIndex:0,t:0});
+    objects[item.id]={x:point.x,y:point.y};anchors[item.id]={segmentIndex:point.segmentIndex,t:point.t};
   });
   const candidates=segments.flatMap(({a,b})=>Array.from({length:16},(_,i)=>({x:a.x+(b.x-a.x)*i/16,y:a.y+(b.y-a.y)*i/16}))).filter(p=>p.x>820&&p.y>410&&p.y<610&&
     WITCH_LAYOUT.mushrooms.every(m=>Math.hypot(p.x-m.x,p.y-m.y)>m.r+10)&&
     Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>28*miniatureSize(id)+20));
   const target=candidates.reduce((best,p)=>Math.hypot(p.x-855,p.y-550)<Math.hypot(best.x-855,best.y-550)?p:best,candidates[0]||root);
-  const result={shape,root,target,segments,objects};treeShapes.set(shape,result);return result;
+  const result={shape,root,target,segments,objects,anchors,controls:{spread,curl,angle,turnAsymmetry},projection:{scaleX,scaleY}};
+  if(isNeutral)neutralTrees.set(shape,result);
+  else {if(treeShapes.size>=TREE_CACHE_LIMIT)treeShapes.delete(treeShapes.keys().next().value);treeShapes.set(key,result);}
+  return result;
 }
 function livingTree(c,state) {
   const tree=getWitchTree(state);

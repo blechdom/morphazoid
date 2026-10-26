@@ -37,6 +37,7 @@ let trailTick=0;
 const spider=createWitchSpider(document);
 let spiderReady=false;spider.ready.then(ready=>{if(disposed)return;spiderReady=ready;canvas.dataset.spiderReady=String(ready);});
 let selectedFinger = 1, frame = 0, lastPaint=0, last = performance.now(), silentPhase = 0, silentSpeed = 0;
+let treeKeyboard = null;
 let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionTime = 0, silentHandTime = 0, silentFlightPhase = 0, silentGhostPhase = 0, silentFlybyTime = 0;
 const ghostFrames=Array.from({length:3},()=>({}));
 const fingerPointers = new Map(), fingerKeys = new Set(), arrowKeys = new Set();
@@ -117,15 +118,16 @@ function stopGesture() {
   const held=pointer;
   if(held?.type==='fabric')releaseWitchFabricGesture(fabricGesture);
   if(held?.type==='trail')releaseWitchTrailGesture(trailGesture);
+  if(held?.type==='tree')canvas.style.cursor='grab';
   if(held?.type==='stir') ladleOffset=held.ladleAngle-(audioMotionReady&&audio.node?audio.visual.phase:silentPhase);
-  pointer=null; keyboardGate=false;
+  pointer=null; treeKeyboard=null; keyboardGate=false;
   const captured=[...fingerPointers.keys()]; fingerPointers.clear(); fingerKeys.clear(); arrowKeys.clear();
   for(const id of captured) if(canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   if (held && canvas.hasPointerCapture(held.id)) canvas.releasePointerCapture(held.id);
   send();
 }
 function setScene(scene) { advancePerformanceTime();spellTransition=null;stopGesture(); config.scene=scene; if(scene!=='flight') {world.handOpen=scene==='fingers';releaseWitchTrailGesture(trailGesture,{cancel:true});} sync(); send(); }
-function worldAction(action) {
+function worldAction(action,{sound=true}={}) {
   if(action==='moon'||action==='mushrooms')refillShelf();
   if(action==='hand') {
     if(config.scene==='flight') { stopGesture();world.handOpen=!world.handOpen;sync();send(); }
@@ -156,7 +158,7 @@ function worldAction(action) {
   } else if(action==='mouth') {
     spellTransition=null;const current=config.spoonAuto?visualState().activeVoice:config.voice;config.voice=WITCH_VOICES[(WITCH_VOICES.indexOf(current)+1)%WITCH_VOICES.length];config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/WITCH_VOICES.length;send();sync();
   } else if(action==='eyes') {advancePerformanceTime();eyeShockAt=performanceTime;cue('eye-shock');}
-  else if(action==='tree') {spellTransition=null;config.treeShape=(config.treeShape+1)%6;sync();cue('tree-l-system');}
+  else if(action==='tree') {spellTransition=null;config.treeShape=(config.treeShape+1)%6;send();sync();if(sound)cue('tree-l-system');}
   else if(action==='spider') dropObject('spider');
   else if(action==='brew') setScene('brew');
 }
@@ -307,7 +309,16 @@ listen(canvas,'pointerdown',e => {
   if(!hit) return;
   canvas.focus({preventScroll:true});
   if(hit.type!=='object')spellTransition=null;
-  if(['hand','sleeve','moon','broom','mushrooms','dice','mouth','eyes','tree','spider'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
+  if(['hand','sleeve','moon','broom','mushrooms','dice','mouth','eyes','spider'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
+  if(hit.type==='tree') {
+    // Keep the pickup coordinates fixed while branches and scene effects move.
+    pointer={id:e.pointerId,type:'tree',start:p,moved:false,treeSpread:config.treeSpread,treeCurl:config.treeCurl,
+      // A small trunk dead zone prevents touch rounding from reversing a pull.
+      side:p.x<getWitchTree(initial).root.x-4?-1:1,lastCue:performance.now(),
+      hairWarp:{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
+    canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';
+    send();cue('tree-l-system');e.preventDefault();return;
+  }
   if(hit.type==='cat'||hit.type==='animal'){captureAnimal(hit.type==='cat'?'cat':hit.id);e.preventDefault();return;}
   if(hit.type==='web'){pluckWeb(hit.index??0);pointer={id:e.pointerId,type:'web',lastWeb:hit.index??0};canvas.setPointerCapture(e.pointerId);e.preventDefault();return;}
   if(['bat','spark','gust'].includes(hit.type)) { trigger(hit.type); return; }
@@ -356,12 +367,21 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree and reshape its branches',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
-  const p=canonical(e,true,['hair','hat','fabric','trail'].includes(pointer.type)?pointer.hairWarp:undefined), now=performance.now();
-  if(pointer.type==='fabric') {
+  const p=canonical(e,true,['hair','hat','fabric','trail','tree'].includes(pointer.type)?pointer.hairWarp:undefined), now=performance.now();
+  if(pointer.type==='tree') {
+    const dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
+    if(!pointer.moved&&Math.hypot(dx,dy)<5){e.preventDefault();return;}
+    pointer.moved=true;
+    config.treeSpread=clamp(pointer.treeSpread+dx*pointer.side/180);
+    config.treeCurl=clamp(pointer.treeCurl-dy/180);
+    // Refresh the short native phrase during a long moving gesture, never per event.
+    if(now-pointer.lastCue>1800){cue('tree-l-system');pointer.lastCue=now;}
+  }
+  else if(pointer.type==='fabric') {
     moveWitchFabricGesture(fabricGesture,p,now);
     config.fabricX=clamp(p.x/1000);config.fabricY=clamp(1-p.y/720);
     if(now-fabricWindAt>100)windFabric();
@@ -407,6 +427,12 @@ listen(canvas,'pointermove',e => {
   send(); sync(); e.preventDefault();
 });
 function releasePointer(e) {
+  if(pointer?.id===e.pointerId && pointer.type==='tree') {
+    const clicked=e.type==='pointerup'&&!pointer.moved;
+    stopGesture();canvas.style.cursor='grab';
+    if(clicked)worldAction('tree',{sound:false});else sync();
+    return;
+  }
   if(pointer?.id===e.pointerId && pointer.type==='fabric' && e.type!=='pointerup')releaseWitchFabricGesture(fabricGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='trail' && e.type!=='pointerup')releaseWitchTrailGesture(trailGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='ghost') {
@@ -433,7 +459,18 @@ listen(canvas,'keydown',e => {
   if(['-','_','+','='].includes(e.key)) { config.tone=clamp(config.tone+(['+','='].includes(e.key)?.05:-.05));send();sync();e.preventDefault();return; }
   const objectId={q:'gesticules',e:'marimba',r:'choir'}[e.key.toLowerCase()];
   if(objectId){if(!e.repeat)dropObject(objectId);e.preventDefault();return;}
-  const action={a:'sleeve',h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',t:'tree',s:'spider'}[e.key.toLowerCase()];
+  if(e.key.toLowerCase()==='t') {
+    if(!e.repeat){spellTransition=null;treeKeyboard={moved:false,lastCue:performance.now()};cue('tree-l-system');}
+    e.preventDefault();return;
+  }
+  if(treeKeyboard&&e.key.startsWith('Arrow')) {
+    treeKeyboard.moved=true;spellTransition=null;
+    if(performance.now()-treeKeyboard.lastCue>1800){cue('tree-l-system');treeKeyboard.lastCue=performance.now();}
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight')config.treeSpread=clamp(config.treeSpread+(e.key==='ArrowRight'?.05:-.05));
+    else config.treeCurl=clamp(config.treeCurl+(e.key==='ArrowUp'?.05:-.05));
+    send();sync();e.preventDefault();return;
+  }
+  const action={a:'sleeve',h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',s:'spider'}[e.key.toLowerCase()];
   if(action) {if(!e.repeat) worldAction(action);e.preventDefault();return;}
   if(e.key.toLowerCase()==='g') { config.ghostTempo=clamp(config.ghostTempo+(e.shiftKey?-6:6),36,180);send();sync();e.preventDefault();return; }
   if(e.key.toLowerCase()==='p'){if(!e.repeat)pluckWeb((webIndex+1)%7);e.preventDefault();return;}
@@ -448,6 +485,11 @@ listen(canvas,'keydown',e => {
   arrowKeys.add(e.key); keyboardGate=true; send(); sync(); e.preventDefault();
 });
 listen(canvas,'keyup',e => {
+  if(e.key.toLowerCase()==='t'&&treeKeyboard) {
+    const clicked=!treeKeyboard.moved;treeKeyboard=null;
+    if(clicked)worldAction('tree',{sound:false});
+    e.preventDefault();return;
+  }
   if(/^[1-5]$/.test(e.key)) { fingerKeys.delete(Number(e.key)-1); send(); }
   if(e.key.startsWith('Arrow')) { arrowKeys.delete(e.key); keyboardGate=arrowKeys.size>0; send(); }
 });

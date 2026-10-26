@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '../src/instruments/witch/witch-model.js';
+import {traceLSystem,L_SYSTEM_PRESETS} from '../src/instruments/l-system/l-system.js';
 import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
@@ -617,6 +618,54 @@ test('six upright L-system trees have deterministic bounded branches and reachab
     shapes.add(JSON.stringify(tree.segments));
   }
   assert.equal(shapes.size,6);
+});
+
+test('branch spread and curl preserve neutral trees while continuously changing native geometry',()=>{
+  const width=tree=>{const xs=tree.segments.flatMap(segment=>[segment.a.x,segment.b.x]);return Math.max(...xs)-Math.min(...xs);};
+  for(let treeShape=0;treeShape<6;treeShape++) {
+    const neutral=getWitchTree({treeShape}),source=L_SYSTEM_PRESETS[[0,1,2,0,1,2][treeShape]];
+    const trace=traceLSystem({...source,iterations:[5,3,3,6,3,3][treeShape],angle:[31,25,29,41,36,18][treeShape],turnAsymmetry:treeShape%2?.15:-.08,maxSymbols:6000});
+    const b=trace.bounds,project=p=>({x:710+(p.y-b.minY)/Math.max(.01,b.maxY-b.minY)*270,y:692-(p.x-b.minX)/Math.max(.01,b.maxX-b.minX)*672});
+    assert.deepEqual(neutral.segments,trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation})),'neutral branches retain their original native trace and projection');
+    assert.equal(neutral,getWitchTree({treeShape,treeSpread:.5,treeCurl:.5}));
+    const narrow=getWitchTree({treeShape,treeSpread:0}),wide=getWitchTree({treeShape,treeSpread:1});
+    assert.ok(narrow.controls.angle<neutral.controls.angle&&wide.controls.angle>neutral.controls.angle);
+    assert.ok(width(wide)>width(narrow)+20,'frame fitting does not normalize away the change in crown width');
+    const left=getWitchTree({treeShape,treeCurl:0}),right=getWitchTree({treeShape,treeCurl:1});
+    assert.ok(left.controls.turnAsymmetry<neutral.controls.turnAsymmetry&&right.controls.turnAsymmetry>neutral.controls.turnAsymmetry);
+    assert.notDeepEqual(left.segments,right.segments,'vertical branch pulls change the native left/right turn asymmetry');
+    const tiny=getWitchTree({treeShape,treeSpread:.5001,treeCurl:.5001});
+    assert.notDeepEqual(tiny.segments,neutral.segments,'small continuous gestures are not rounded to a preset shape');
+    assert.deepEqual(tiny.anchors,neutral.anchors,'small pulls keep the same instrument perches');
+  }
+});
+
+test('deformed trees keep a fixed floor root, bounded branches and playable seated instruments',()=>{
+  for(let treeShape=0;treeShape<6;treeShape++)for(const [treeSpread,treeCurl] of [[0,0],[0,1],[1,0],[1,1],[.3,.8]]) {
+    const state={treeShape,treeSpread,treeCurl,handReach:1},tree=getWitchTree(state),neutral=getWitchTree({treeShape});
+    assert.deepEqual(tree.root,neutral.root);assert.equal(tree.root.y,692);
+    assert.ok(tree.segments.every(segment=>[segment.a,segment.b].every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=710&&p.x<=980&&p.y>=20&&p.y<=692)));
+    assert.equal(tree,getWitchTree({...state,handTime:999}),'unchanged controls reuse the cached native trace');
+    for(const item of WITCH_TREE_OBJECTS) {
+      const object=getWitchObjectPosition(item.id,state),anchor=tree.anchors[item.id],segment=tree.segments[anchor.segmentIndex];
+      const support={x:segment.a.x+(segment.b.x-segment.a.x)*anchor.t,y:segment.a.y+(segment.b.y-segment.a.y)*anchor.t};
+      assert.ok(Math.abs(object.x-support.x)<1e-9&&Math.abs(object.y+27*object.r/28-support.y)<1e-9,'the visible miniature bottom stays on its actual branch');
+      for(const visualMode of [0,7])for(const hitRadius of [46,80]) {
+        const current={...state,visualMode,hitRadius,warpTime:2.8},point=warpWitchPoint(object,current);
+        assert.equal(hitTestWitch(point.x,point.y,current)?.id,item.id,'every deformed perch remains independently clickable');
+      }
+    }
+  }
+});
+
+test('continuous tree tracing uses a bounded deterministic cache',()=>{
+  const state={treeShape:2,treeSpread:.314,treeCurl:.618},first=getWitchTree(state);
+  assert.equal(first,getWitchTree({...state}));
+  for(let i=0;i<64;i++)getWitchTree({treeShape:i%6,treeSpread:i/63,treeCurl:1-i/63});
+  const restored=getWitchTree(state);
+  assert.notEqual(restored,first,'old continuous gesture entries are evicted instead of accumulating');
+  assert.deepEqual(restored,first,'an evicted trace is reconstructed deterministically');
+  assert.equal(restored,getWitchTree(state));
 });
 
 test('the bent spell arm meets the wrist along the actual hand axis during takeoff',()=>{

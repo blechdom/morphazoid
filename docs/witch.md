@@ -23,7 +23,7 @@ Brightness remains on the **+ / −** keys.
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to send an elastic ripple through the cloth and the ensemble. The witch, moon, pot, mushrooms and hair noodles keep priority. Grounded sound bypasses the fabric. |
-| Touch a branch | Plays a short phrase from the native L-system synth while reshaping its branches. |
+| Click or drag a branch | Click for a new tree and its native L-system sound bite. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
 | Touch the spider or web | The actual Spider Synth groans and dives into the potion, returning with the other ingredients. Seven quieter web strings creak in a menacing scale. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
@@ -59,7 +59,7 @@ over from the transition without resetting the audio clocks or output level.
 The witch's two hands use Gesticules' weighted 3D hand model, sixteen authored
 animations and ten instrumental source banks. Voice and fingers retain separate
 clocks. Presets choose their balance, motion, speed, sound, vocal anatomy,
-ghost beat, flight-path settings, color, distortion and tree shape. Presets,
+ghost beat, flight-path settings, color, distortion, tree shape, branch spread and curl. Presets,
 ingredient transitions and either die preserve the live flight/stirring mode;
 only the performer launches or lands her. Each preset has its own flight speed,
 independent of stirring: **Bells beneath the full moon** and **Skimming the low fog**
@@ -117,7 +117,7 @@ Regenerate the portrait with `scripts/render-witch-hiccup-ghost.mjs`, pointing
 
 With the picture focused: **A** cycles hand animations, **H** features fingers, **M** toggles flight, **B** lands,
 **W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
-**T** plays and reshapes the tree, **S** wakes the spider and **P** plucks the next web string.
+**T** plays and reshapes the tree; hold **T** with arrow keys to spread or curl branches. **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.
 **[ / ]** select an ingredient and **Enter** sends it into the pot.

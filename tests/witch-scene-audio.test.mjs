@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
-import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby } from '../src/instruments/witch/witch-scene-audio.js';
+import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
+import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
 import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE } from '../src/instruments/witch/witch-scene-model.js';
 import { parseBlackMidiScore } from '../src/instruments/blech-midi/blech-midi-black-score.js';
@@ -126,6 +127,68 @@ test('tree click plays the native L-System phrase through the scene mix with bou
   plain.trigger('tree-l-system'); filtered.trigger('tree-l-system');
   assert.ok(difference(render(plain, .7), render(filtered, .7)) > .01);
   assert.equal(plain.chantPhase, filtered.chantPhase); assert.equal(plain.visual.handTime, filtered.visual.handTime);
+});
+
+test('tree branch audio controls default neutral and normalize malformed or out-of-range gestures', () => {
+  for (const key of ['treeSpread', 'treeCurl']) {
+    assert.equal(normalizeWitchControls()[key], .5);
+    for (const value of [undefined, NaN, Infinity, 'bad']) assert.equal(normalizeWitchControls({ [key]: value })[key], .5);
+    assert.equal(normalizeWitchControls({ [key]: -2 })[key], 0);
+    assert.equal(normalizeWitchControls({ [key]: 9 })[key], 1);
+    assert.equal(normalizeWitchControls({ [key]: '.3' })[key], .3);
+  }
+});
+
+test('live branch edits bend a continuing sample cursor without seeking, restarting or losing a finite release', () => {
+  const held = new WitchTreePhrase(8000), bent = new WitchTreePhrase(8000);
+  held.trigger(); bent.trigger();
+  for (let i = 0; i < 1200; i++) { held.next(true); bent.next(true); assert.equal(held.left, bent.left); }
+  const cursor = bent.cursor, age = bent.age, clip = bent.clip;
+  bent.setControls(1, 1);
+  assert.equal(bent.cursor, cursor); assert.equal(bent.age, age); assert.equal(bent.restart, false);
+  let differenceEnergy = 0, largestRateStep = 0;
+  for (let i = 0; i < 4000; i++) {
+    const before = bent.cursor, previousRate = bent.playbackRate;
+    held.next(true); bent.next(true);
+    differenceEnergy += (held.left - bent.left) ** 2 + (held.right - bent.right) ** 2;
+    assert.ok(bent.cursor > before && bent.cursor - before <= bent.dt * 1.4 + 1e-12, 'the source position only advances by its bounded rate');
+    largestRateStep = Math.max(largestRateStep, Math.abs(bent.playbackRate - previousRate));
+  }
+  assert.ok(differenceEnergy > .01, 'branch motion changes the rendered phrase');
+  assert.ok(largestRateStep < .002 && bent.playbackRate > 1.399, 'the pitch reaches its target through a short slew');
+  assert.equal(bent.age, held.age, 'the elapsed gesture clock does not seek with pitch');
+  assert.equal(bent.clip, clip); assert.equal(bent.restart, false);
+  bent.release(); for (let i = 0; i < 400; i++) bent.next(true);
+  assert.equal(bent.left, 0); assert.equal(bent.right, 0); assert.equal(bent.age, -1);
+  bent.setControls(0, 0); bent.trigger();
+  for (let i = 0; i < 32000; i++) {
+    bent.next(true);
+    assert.ok(Number.isFinite(bent.left) && Number.isFinite(bent.right));
+    assert.ok(bent.playbackRate >= .7 && bent.playbackRate <= 1.4);
+  }
+  assert.equal(bent.age, -1, 'even the slowest phrase ends without another trigger');
+  assert.equal(bent.left, 0); assert.equal(bent.right, 0);
+});
+
+test('branch spread and curl reach the scene sound as audible pitch and modest stereo motion', () => {
+  const phrase = controls => {
+    const dsp = playing({ gate: false, ...controls }, 8000);
+    dsp.trigger('tree-l-system');
+    const left = new Float32Array(6400), right = new Float32Array(6400);
+    dsp.process(left, right);
+    return { dsp, left, right };
+  };
+  const neutral = phrase({}), narrow = phrase({ treeSpread: 0 }), wide = phrase({ treeSpread: 1 });
+  const leftCurl = phrase({ treeCurl: 0 }), rightCurl = phrase({ treeCurl: 1 });
+  for (const variant of [narrow, wide, leftCurl, rightCurl]) {
+    assert.ok(difference(neutral.left, variant.left) + difference(neutral.right, variant.right) > .01);
+    assert.equal(variant.dsp.drops.solo, 0, 'branch motion uses the existing scene reader');
+    assert.ok(variant.left.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+    variant.dsp.setEnabled(false); render(variant.dsp, .2);
+    assert.equal(variant.dsp.visual.treeEnvelope, 0); assert.ok(rms(render(variant.dsp, .1)) < 1e-7);
+  }
+  assert.ok(rms(leftCurl.left) / rms(leftCurl.right) > rms(neutral.left) / rms(neutral.right));
+  assert.ok(rms(rightCurl.left) / rms(rightCurl.right) < rms(neutral.left) / rms(neutral.right));
 });
 
 test('Rubix plays its native fast 3D Acid bank, FM Drums retains its pool and Rattlesnake cascades', () => {

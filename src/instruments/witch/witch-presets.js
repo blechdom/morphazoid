@@ -1,7 +1,7 @@
 import { WITCH_VOICES, witchVoiceAtHeight, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, WITCH_INGREDIENTS } from './witch-model.js';
 export const WITCH_PALETTES = Object.freeze(['Foxfire', 'Ember and ash', 'Poison gold', 'Spectral green', 'Drowned blue', 'Bruised violet', 'Blood moon', 'Nightshade']);
 export const WITCH_VISUAL_MODES = Object.freeze(['Night air','Rippling spell','Crooked glass','Wonkywonk','VHS haunting','Static storm','Pixel rot','Angular hex']);
-export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', stirAuto: true, handAuto: true, speed: .4, flightSpeed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5, nose: .5, hat: .5, spoonHeight: .5, spoonAuto: true, ghostTempo: 72, palette: 0, trip: 0, visualMode: 0, treeShape: 0, handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5, trailFeedback: .55, trailSpace: .5 });
+export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', stirAuto: true, handAuto: true, speed: .4, flightSpeed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5, nose: .5, hat: .5, spoonHeight: .5, spoonAuto: true, ghostTempo: 72, palette: 0, trip: 0, visualMode: 0, treeShape: 0, treeSpread: .5, treeCurl: .5, handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5, trailFeedback: .55, trailSpace: .5 });
 const voices = WITCH_VOICES;
 // Most spells keep the picture steady; glitches belong to a few authored scenes.
 const ingredientVisualModes = Object.freeze({ hair:2, roach:1, rubix:6, hiccup:1, marimba:1, puggler:7, fractal:3, blech:5 });
@@ -27,6 +27,7 @@ const scene = (id, label, values) => {
     catSpeed: index ? Math.min(2,Number((.52+index*.0279).toFixed(4))) : 1,
     catGait: WITCH_CAT_GAITS[index%WITCH_CAT_GAITS.length],
     treeShape:index%6,
+    treeSpread:index?[.5,.38,.62,.46,.7,.55][index%6]:.5, treeCurl:index?[.5,.4,.62,.56,.32,.46][index%6]:.5,
     trailFeedback:index?.38+(index%7)*.08:.55, trailSpace:index?.22+(index%6)*.14:.5,
     flightSpeed:values.speed??WITCH_DEFAULTS.flightSpeed,
     ...values,
@@ -119,6 +120,7 @@ export function normalizeWitchPreset(input = {}) {
     palette: Number.isFinite(Number(input.palette)) ? Math.round(Math.max(0,Math.min(7,Number(input.palette)))) : d.palette,
     visualMode: Number.isFinite(Number(input.visualMode)) ? Math.round(Math.max(0,Math.min(7,Number(input.visualMode)))) : Number.isFinite(Number(input.trip)) ? Math.round(Math.max(0,Math.min(3,Number(input.trip)))) : d.visualMode,
     treeShape: Number.isFinite(Number(input.treeShape)) ? Math.round(Math.max(0,Math.min(5,Number(input.treeShape)))) : d.treeShape,
+    treeSpread: unit(input.treeSpread,d.treeSpread), treeCurl: unit(input.treeCurl,d.treeCurl),
     trip: Number.isFinite(Number(input.trip)) ? Math.round(Math.max(0,Math.min(3,Number(input.trip)))) : d.trip,
     fingers: d.fingers.map((value,i) => unit(input.fingers?.[i],value)),
     glass: unit(input.glass,d.glass), hair: unit(input.hair,d.hair), altitude: unit(input.altitude,d.altitude),
@@ -139,6 +141,7 @@ export const WITCH_SETTING_PRESETS = WITCH_PRESETS.map(preset => ({
 export function randomizeWitchPreset(previous, random = Math.random) {
   const r = () => unit(random(), .5);
   const snapshot = { handMotion:WITCH_HAND_MOTIONS[Math.min(WITCH_HAND_MOTIONS.length-1,Math.floor(r()*WITCH_HAND_MOTIONS.length))],handSound:WITCH_HAND_SOUNDS[Math.min(WITCH_HAND_SOUNDS.length-1,Math.floor(r()*WITCH_HAND_SOUNDS.length))].id,handRate:.25+r()*5.75,handDepth:r(),spellBalance:r(),catGait:WITCH_CAT_GAITS[Math.min(3,Math.floor(r()*4))],catSpeed:.5+r()*1.5,fabricX:r(),fabricY:r(),trailPull:r(),trailTwist:r(),scene:normalizeWitchPreset(previous).scene, voice:voices[Math.min(voices.length-1,Math.floor(r()*voices.length))], ghostTempo:36+r()*144, palette:Math.min(7,Math.floor(r()*8)), visualMode:randomVisualMode(r()), treeShape:Math.min(5,Math.floor(r()*6)), trip:Math.min(3,Math.floor(r()*4)), speed:.08+r()*.9, radius:.1+r()*.9, direction:r()<.5?-1:1, fingers:Array.from({length:5},r), glass:r(), hair:r(), altitude:r(), flightX:.12+r()*.76, tone:r(), nose:r(), hat:r(), spoonHeight:r(), spoonAuto:r()<.5 };
+  snapshot.treeSpread=r(); snapshot.treeCurl=r();
   snapshot.stirAuto=r()>=.1; snapshot.handAuto=r()>=.1; snapshot.flightSpeed=r(); snapshot.trailFeedback=r(); snapshot.trailSpace=r();
   if(!snapshot.stirAuto) snapshot.spoonAuto=false;
   if(!snapshot.spoonAuto) snapshot.voice=witchVoiceAtHeight(snapshot.spoonHeight);

@@ -65,7 +65,7 @@ test('randomization preserves the chosen mode and reaches every character, direc
   assert.ok(scenes.filter(s=>s.visualMode===0).length>scenes.length*.5,'dice favor a steady picture');
   assert.ok(scenes.filter(s=>s.visualMode>=4).length<scenes.length*.25,'glitch scenes remain occasional');
   assert.equal(new Set(scenes.map(s=>s.treeShape)).size,6);
-  for(const key of ['speed','flightSpeed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','spellBalance']) {
+  for(const key of ['speed','flightSpeed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','treeSpread','treeCurl','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }
@@ -180,4 +180,15 @@ test('older scenes retain their singing character and restore the original balan
 test('saved scenes from before mushroom vision preserve their line distortion',()=>{
   for(const trip of [0,1,2,3])assert.equal(normalizeWitchPreset({trip}).visualMode,trip);
   assert.equal(normalizeWitchPreset({trip:3,visualMode:6}).visualMode,6);
+});
+
+test('branch deformation is recalled, bounded and neutral in legacy scenes',()=>{
+  for(const key of ['treeSpread','treeCurl']) {
+    assert.equal(normalizeWitchPreset({})[key],.5);
+    assert.equal(normalizeWitchPreset({[key]:NaN})[key],.5);
+    assert.equal(normalizeWitchPreset({[key]:-3})[key],0);
+    assert.equal(normalizeWitchPreset({[key]:3})[key],1);
+    assert.equal(witchPresetSettings({[key]:.27})[key],.27);
+    assert.ok(new Set(WITCH_PRESETS.map(p=>p.snapshot[key])).size>3);
+  }
 });
