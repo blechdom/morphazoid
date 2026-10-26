@@ -408,6 +408,27 @@ async function wake(page,{touch=false}={}) {
   await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
   expect((await state(page))).toMatchObject({quiet:false,playing:true,presence:1});
 }
+async function bendFinger(page,{touch=false,index=2}={}) {
+  const session=await page.context().newCDPSession(page);
+  try {
+    const from=await inputSnapshot(session,({index})=>{
+      const tip=window.witchInstrument.state.hands[0].tips[index],rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+      const scale=Math.min(rect.width/1000,rect.height/720);
+      return {x:rect.x+(rect.width-1000*scale)/2+tip.x*scale,y:rect.y+(rect.height-720*scale)/2+tip.y*scale};
+    },{index});
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+    else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+    expect(await inputSnapshot(session,({index})=>window.witchInstrument.state.manualFingerMask&(1<<index),{index})).toBe(1<<index);
+    const to={x:from.x+35,y:from.y+35};
+    if(touch) {
+      await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[to]});
+      await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    } else {
+      await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+      await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
+    }
+  } finally {await session.detach();}
+}
 async function preset(page,id) {
   // Use the picture's native next-spell shortcut; there is no preset menu.
   const spells=await bank(page),current=await state(page);
@@ -627,6 +648,47 @@ test('manual presets wait for stirring or finger bends while the ensemble keeps 
   await key(page,'a');expect((await state(page)).config.handAuto).toBe(true);
   await expect.poll(async()=>(await state(page)).hands[0].tips).not.toEqual(bent.hands[0].tips);
   await audible(page);
+});
+
+test('stirring and fingers wake only their own part, including during a hair fade',async({page})=>{
+  test.setTimeout(45000);await observeWorklet(page);await open(page);
+  await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  // A finger can be the first Audio opt-in without starting the singer.
+  await bendFinger(page);
+  await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
+  expect((await state(page)).parts).toEqual({brew:false,hand:true});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??0)).toBeGreaterThan(.0001);
+  expect(await page.evaluate(()=>window.witchVisual.brewLevel)).toBeLessThan(.000001);
+  const handTime=(await state(page)).handTime;
+  const stir=async()=>{
+    const start=await point(page,440,520);await page.mouse.move(start.x,start.y);await page.mouse.down();
+    for(let i=1;i<=6;i++){const angle=Math.PI+i/6*Math.PI,p=await point(page,600+155*Math.cos(angle),520+48*Math.sin(angle));await page.mouse.move(p.x,p.y);}
+    await page.mouse.up();
+  };
+  await stir();
+  expect((await state(page)).parts).toEqual({brew:true,hand:true});
+  expect((await state(page)).handTime).toBeGreaterThan(handTime);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.0001);
+  await dragHair(page,.85);
+  await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
+  await stir();
+  expect((await state(page)).parts).toEqual({brew:true,hand:false});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??1)).toBeLessThan(.000001);
+  const held=(await state(page)).handTime;await page.waitForTimeout(150);
+  expect((await state(page)).handTime).toBe(held);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.0001);
+  // Cancel the next long fade with a finger, keeping the singer asleep.
+  await dragHair(page,.85);expect((await state(page)).hushing).toBe(true);
+  await bendFinger(page);
+  expect(await state(page)).toMatchObject({hushing:false,parts:{brew:false,hand:true}});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??1)).toBeLessThan(.000001);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??0)).toBeGreaterThan(.0001);
+  await page.waitForTimeout(3300);
+  expect(await state(page)).toMatchObject({playing:true,parts:{brew:false,hand:true}});
+  // Keyboard stirring joins in; a new preset restores its full arrangement.
+  await key(page,'b');expect((await state(page)).parts).toEqual({brew:true,hand:true});
+  await key(page,'Space');await key(page,'3');expect((await state(page)).parts).toEqual({brew:false,hand:true});
+  await key(page,'w');expect((await state(page)).parts).toEqual({brew:true,hand:true});
 });
 
 test('the ladle, fingers, nose and stretchable hat are native controls with clean cancellation',async({page})=>{
@@ -930,10 +992,14 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
           expect(later.presenceLevel).toBeLessThan(fading.presenceLevel);
           await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
           const frozen=await assertFrozen(page);await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
-          // A real ladle turn resumes the complete mix after the long hush.
+          // A real ladle turn resumes only the singer after the long hush.
           const from=await point(page,440,520);await page.mouse.move(from.x,from.y);await page.mouse.down();
           for(let i=1;i<=6;i++){const angle=Math.PI+i/6*Math.PI,p=await point(page,600+155*Math.cos(angle),520+48*Math.sin(angle));await page.mouse.move(p.x,p.y);}
           await page.mouse.up();await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(frozen.performanceTime);
+          expect((await state(page)).parts).toEqual({brew:true,hand:false});
+          await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??1)).toBeLessThan(.000001);
+          await bendFinger(page,{touch});
+          expect((await state(page)).parts).toEqual({brew:true,hand:true});
         } else {
           const beforePull=await state(page);
           await dragHair(page,touch?1.3:2.2,{touch});

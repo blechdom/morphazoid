@@ -1290,6 +1290,10 @@ export class WitchDSP {
     this.hand.setWitchControls(this.controls); this.hand.reset();
     this.weights = new Float64Array([.72, .28, 0]); this.fadeFrom = new Float64Array(this.weights);
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
+    // Runtime source switches are separate from the shared scene transport.
+    // Mute after each engine's resonators so waking the other source cannot
+    // bring back the sleeping source's release; ordinary Stop keeps its tail.
+    this.sourceGains = new Float64Array([1, 1]); this.sourceGainStep = 1 / (.025 * this.rate);
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
     this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
@@ -1340,7 +1344,7 @@ export class WitchDSP {
     }
     // Preserve the brewed anatomy underneath hand gestures: bending an
     // instrumental finger must not simultaneously reshape the background voice.
-    this.brew.setControls({ ...c, mode: 'brew', fingers: this.brew.controls.fingers });
+    this.brew.setControls({ ...c, gate: c.gate && c.brewEnabled, mode: 'brew', fingers: this.brew.controls.fingers });
     this.flight.setControls({ ...c, gate: false }); // flight is the shared delay; accents remain explicit.
     this.delay.controls = c;
     if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY
@@ -1355,16 +1359,16 @@ export class WitchDSP {
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); }
     if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
-      if (c.gate && this.enabled) {
+      if (c.gate && c.handEnabled && this.enabled) {
         const mask = c.fingerMask || 31;
         for (let i = 0; i < 5; i++) if ((mask & (1 << i)) && Math.abs(c.fingers[i] - previous.fingers[i]) > .002) {
           this.hand.auditionFinger(i, .06, this.time);
         }
       }
     }
-    this.hand.setTransport({ playing: c.gate }, this.time);
+    this.hand.setTransport({ playing: c.gate && c.handEnabled }, this.time);
     this.hand.setSoundPlaying(false);
-    this.hand.setHeldFingers(c.gate ? c.fingerMask || 31 : 0);
+    this.hand.setHeldFingers(c.gate && c.handEnabled ? c.fingerMask || 31 : 0);
     this.hand.setEnabled(this.enabled); this.brew.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
   }
   setEnabled(enabled) {
@@ -1414,14 +1418,17 @@ export class WitchDSP {
         const fade = Math.min(1, ++this.fadePosition / this.fadeSamples);
         this.weights[0] = this.fadeFrom[0] * (1 - fade) + voiceWeight * fade;
         this.weights[1] = 1 - this.weights[0];
+        this.sourceGains[0] = c.brewEnabled ? Math.min(1, this.sourceGains[0] + this.sourceGainStep) : Math.max(0, this.sourceGains[0] - this.sourceGainStep);
+        this.sourceGains[1] = c.handEnabled ? Math.min(1, this.sourceGains[1] + this.sourceGainStep) : Math.max(0, this.sourceGains[1] - this.sourceGainStep);
         // Limit each engine before crossfading: changing scenes never changes
         // the transfer curve underneath a ringing sound.
-        const handL = Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1];
-        const handR = Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1];
+        const brewL = b[0][i] * this.weights[0] * this.sourceGains[0], brewR = b[1][i] * this.weights[0] * this.sourceGains[0];
+        const handL = Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1] * this.sourceGains[1];
+        const handR = Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1] * this.sourceGains[1];
         const soloMix = this.drops.levels[i] * .58, backing = 1 - this.drops.levels[i] * .28;
         const dropL = Math.tanh(b[6][i] * 1.7 / .54) * .54 * soloMix;
         const dropR = Math.tanh(b[7][i] * 1.7 / .54) * .54 * soloMix;
-        const bedL = b[0][i] * this.weights[0] + handL, bedR = b[1][i] * this.weights[0] + handR;
+        const bedL = brewL + handL, bedR = brewR + handR;
         this.backingEnergy += ((bedL * bedL + bedR * bedR) * .5 - this.backingEnergy) * this.backingFollow;
         this.ghosts.next(c, this.enabled);
         this.cat.next(c, this.enabled && c.ghostGate && !c.catCaptured, c.ghostGate);
@@ -1452,7 +1459,7 @@ export class WitchDSP {
         left[offset + i] = right === left ? (outL + outR) * .5 : outL;
         if (right !== left) right[offset + i] = outR;
         energy += (outL * outL + outR * outR) * .5;
-        brewEnergy += (b[0][i] ** 2 + b[1][i] ** 2) * .5 * this.weights[0] ** 2 * backing ** 2;
+        brewEnergy += (brewL * brewL + brewR * brewR) * .5 * backing ** 2;
         handEnergy += (handL * handL + handR * handR) * .5 * backing ** 2;
         dropEnergy += (dropL * dropL + dropR * dropR) * .5;
         delayEnergy += (this.delay.wetLeft ** 2 + this.delay.wetRight ** 2) * .5;
@@ -1489,12 +1496,12 @@ export class WitchDSP {
     this.visual.delayWet = this.delay.wet; this.visual.delayTime = this.delay.delayL / this.rate;
     this.visual.flightPhase = this.delay.ridePhase / 1.4;
     this.visual.handTime = this.hand.getMotionTime(this.time);
-    for (let i = 0; i < 5; i++) this.visual.fingerLevels[i] = this.hand.voiceLevels[i];
+    for (let i = 0; i < 5; i++) this.visual.fingerLevels[i] = this.hand.voiceLevels[i] * this.sourceGains[1];
     this.visual.flightPulse = c.mode === 'flight' ? witchClamp(this.visual.delayLevel * 8) : 0;
     this.visual.flightStep = this.flight.visual.flightStep;
     this.visual.launchActive = this.flight.visual.launchActive;
     this.visual.launchEnvelope = this.flight.visual.launchEnvelope;
-    this.visual.mouth = Math.max(this.visual.mouth * (1 - c.handFocus * .45), this.flight.visual.mouth);
+    this.visual.mouth = Math.max(this.visual.mouth * (1 - c.handFocus * .45) * this.sourceGains[0], this.flight.visual.mouth);
     if (this.flight.visual.effectEnvelope > this.visual.effectEnvelope) {
       this.visual.effect = this.flight.visual.effect;
       this.visual.effectEnvelope = this.flight.visual.effectEnvelope;

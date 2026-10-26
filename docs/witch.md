@@ -4,9 +4,11 @@ Witches Brew is one continuous animated instrument. Her cauldron voice and
 Gesticules fingers keep playing together, with different foreground balances in
 the presets. The scene starts still and silent. A real click in the picture
 arms Audio and fades in the performance. On the ground, pulling her hair firmly backward fades the
-ensemble over 3.2 seconds, then holds the scene still. Stir the pot to wake it
-again. In flight, hair pulls reshape the shared delay while the ensemble keeps
-playing. The full-width picture contains the controls: mushrooms cycle presets,
+ensemble over 3.2 seconds, then holds the scene still. Stirring wakes only her
+voice; bending her fingers wakes only the hand sounds. Each stays active, so
+you can bring the two parts back separately. The same gestures work from the
+initial quiet scene, and selecting a new preset restores the complete ensemble.
+In flight, hair pulls reshape the shared delay while the ensemble keeps playing. The full-width picture contains the controls: mushrooms cycle presets,
 the floor die randomizes settings, and grounded hair pulling hushes the scene. There is no preset
 menu, playback/reset overlay, help button or parameter sidebar.
 The cauldron sits over flickering flames, charred logs and rising embers.
@@ -19,7 +21,7 @@ Brightness remains on the **+ / −** keys.
 | Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or dice roll; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
 | Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and dice. |
-| Pull her hair | Longer two-dimensional tugs stretch and curl the tangles. On the ground, a firm backward pull fades the complete mix over 3.2 seconds before resting; manual stirring fades it back in. In flight, pulling and circling change delay time, pitch travel, echo history and feedback, with no hush. |
+| Pull her hair | Longer two-dimensional tugs stretch and curl the tangles. On the ground, a firm backward pull fades the complete mix over 3.2 seconds before resting; manual stirring fades in only her voice, while bending a finger wakes only the hand sounds. Bringing in one leaves the other asleep until its own gesture. In flight, pulling and circling change delay time, pitch travel, echo history and feedback, with no hush. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |

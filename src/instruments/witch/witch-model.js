@@ -61,7 +61,7 @@ export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
 export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system','dice-charm','mushroom-gloop',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
-  speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
+  speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, brewEnabled: true, handEnabled: true, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
   ghostTempo: 72, ghostGate: false,
   handMotion: 'finger-roll', handRate: 1, handDepth: .66, handAuto: true, handSound: 'glass-and-wire', spellBalance: .5,
   catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, fabricPull: 0, fabricVelocity: 0,
@@ -83,7 +83,7 @@ export function normalizeWitchControls(value = {}) {
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
   result.stirring = input.stirring === true;
-  for (const name of ['stirAuto', 'handAuto']) result[name] = typeof input[name] === 'boolean' ? input[name] : WITCH_DEFAULTS[name];
+  for (const name of ['stirAuto', 'handAuto', 'brewEnabled', 'handEnabled']) result[name] = typeof input[name] === 'boolean' ? input[name] : WITCH_DEFAULTS[name];
   result.ghostGate = input.ghostGate === true;
   result.ghostTempo = witchClamp(input.ghostTempo, 36, 180, WITCH_DEFAULTS.ghostTempo);
   result.handMotion = WITCH_HAND_MOTIONS.includes(input.handMotion) ? input.handMotion : WITCH_DEFAULTS.handMotion;

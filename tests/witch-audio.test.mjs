@@ -43,6 +43,54 @@ test('release coasts, produces a causal breath, and decays without further contr
   assert.ok(dsp.visual.speed < .006);
 });
 
+test('after a hush, voice and hand wake separately without leaking the other source or restarting the first', () => {
+  for (const source of ['brew', 'hand']) {
+    const sleeping = source === 'brew' ? 'hand' : 'brew';
+    const dsp = playing(), reference = playing();
+    assert.deepEqual(render(dsp, .5), render(reference, .5));
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001);
+    for (const engine of [dsp, reference]) {
+      engine.setControls({ gate: false, brewEnabled: false, handEnabled: false });
+      render(engine, .04);
+      assert.equal(engine.visual.brewLevel, 0); assert.equal(engine.visual.handLevel, 0);
+      engine.setControls({ gate: true, [`${source}Enabled`]: true });
+    }
+    // The dormant engine still has a release in its resonators. Changing its
+    // sound must leave the actually rendered output completely untouched.
+    reference.setControls(source === 'brew' ? { handSound: 'buried-wires', fingers: [1, 0, 1, 0, 1] } : { voice: 'cackle' });
+    const restingHandTime = dsp.visual.handTime;
+    assert.deepEqual(render(dsp, .2), render(reference, .2));
+    assert.ok(dsp.visual[`${source}Level`] > .001, `${source} wakes`);
+    assert.equal(dsp.visual[`${sleeping}Level`], 0, `${sleeping} remains inaudible`);
+    if (source === 'brew') assert.equal(dsp.visual.handTime, restingHandTime, 'sleeping hand keeps its pose');
+    else assert.ok(dsp.visual.handTime > restingHandTime, 'the woken hand resumes its clock');
+
+    const phrase = dsp.chantPhase, handTime = dsp.visual.handTime;
+    dsp.setControls({ [`${sleeping}Enabled`]: true });
+    assert.equal(dsp.chantPhase, phrase); assert.equal(dsp.visual.handTime, handTime);
+    render(dsp, .2); render(reference, .2);
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001, 'the second source joins the first');
+    const activeBuffer = source === 'brew' ? 0 : 2;
+    assert.ok(difference(dsp.buffers[activeBuffer], reference.buffers[activeBuffer]) < 1e-8, 'joining the second source preserves the first waveform');
+    dsp.setControls({ gate: false }); render(dsp, 6);
+    // Normal Stop keeps the existing breath tail and its six-second ceiling.
+    assert.ok(rms(render(dsp, .2)) < .00001, 'Stop releases both sources');
+  }
+});
+
+test('independent source fades remain bounded and identical across render block sizes', () => {
+  const a = playing(), b = playing();
+  assert.deepEqual(render(a, .4), render(b, .4, RATE));
+  for (const controls of [
+    { brewEnabled: false }, { handEnabled: false }, { brewEnabled: true }, { handEnabled: true },
+  ]) {
+    a.setControls(controls); b.setControls(controls);
+    const sound = render(a, .06);
+    assert.deepEqual(sound, render(b, .06, RATE));
+    assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  }
+});
+
 test('stalled UI and different render block sizes preserve exact audio-clock synthesis', () => {
   const a = playing({ mode: 'flight', speed: .85 }), b = playing({ mode: 'flight', speed: .85 });
   const uninterrupted = render(a, 5, 128);
