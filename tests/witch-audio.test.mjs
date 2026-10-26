@@ -162,21 +162,30 @@ test('phase alignment joins silent motion without restarting a vocal phrase or a
   assert.equal(calls.contexts, 0); assert.equal(audio.audible, false);
 });
 
-test('flight and delay keep continuous phase through speed changes, first arm and Stop', () => {
+test('flight and delay keep continuous phase through preset speed changes, stirring, first arm and Stop', () => {
   const dsp = playing({ mode: 'flight', speed: .4 });
   const { runtime } = fakeRuntime(), audio = new WitchAudio(runtime);
   dsp.syncPhase(0, .4, 20, undefined, 42);
   audio.syncPhase(0, .4, 20, undefined, 42);
   assert.equal(dsp.visual.flightPhase, 42); assert.equal(audio.visual.flightPhase, 42);
   assert.equal(audio.pendingPhase.flightPhase, 42);
-  dsp.setControls({ speed: .9 });
+  dsp.setControls({ flightSpeed: .9 });
   render(dsp, 1 / RATE);
   assert.ok(Math.abs(dsp.visual.flightPhase - 42 - 5.5 / RATE / 1.4) < 1e-10, 'speed changes the slope without relocating the broom');
   assert.equal(dsp.visual.flightPhase, dsp.delay.ridePhase / 1.4, 'the ride follows the same oscillator as the delay');
+  const beforeStir = dsp.visual.flightPhase;
+  dsp.setControls({ speed: 0, stirAuto: false }); render(dsp, .1);
+  assert.ok(Math.abs(dsp.visual.flightPhase - beforeStir - 5.5 * .1 / 1.4) < 1e-9, 'resting the ladle leaves the flight pace intact');
   dsp.setControls({ gate: false }); const stopped = dsp.visual.flightPhase;
   render(dsp, .2); assert.equal(dsp.visual.flightPhase, stopped);
   dsp.setControls({ gate: true }); render(dsp, .2);
   assert.ok(Math.abs(dsp.visual.flightPhase - stopped - 5.5 * .2 / 1.4) < 1e-9);
+  const fast = dsp.visual.flightPhase;
+  dsp.setControls({ flightSpeed: .02 }); render(dsp, .2);
+  assert.ok(Math.abs(dsp.visual.flightPhase - fast - 1.1 * .2 / 1.4) < 1e-9, 'the slow preset continues from the same place at one fifth the pace');
+  audio.update({ flightSpeed: .02 }); audio.syncPhase(0, 0, 20);
+  dsp.syncPhase(0, 0, 20);
+  assert.equal(audio.visual.flightPhase, dsp.visual.flightPhase);
 });
 
 test('fingers shape materials; nose, hat and ingredients independently alter the ongoing singer', () => {

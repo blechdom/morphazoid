@@ -118,7 +118,7 @@ export class WitchAudio {
       message.spoonHeight = witchClamp(spoonHeight, 0, 1,
         this.controls.spoonAuto ? witchSpoonHeight(message.handTime) : this.controls.spoonHeight);
       this.visual.spoonHeight = message.spoonHeight;
-      message.flightPhase = witchClamp(flightPhase, 0, 1e12, message.handTime * (1 + this.controls.speed * 5) / 1.4);
+      message.flightPhase = witchClamp(flightPhase, 0, 1e12, message.handTime * (1 + this.controls.flightSpeed * 5) / 1.4);
       this.visual.flightPhase = message.flightPhase;
     }
     if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }

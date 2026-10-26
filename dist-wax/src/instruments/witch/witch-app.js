@@ -445,7 +445,7 @@ function draw(now) {
     silentFlightPhase=audio.visual.flightPhase??silentFlightPhase;
     silentGhostPhase=audio.visual.ghostPhase??silentGhostPhase;
   } else if(gate()) {
-    silentHandTime+=dt;silentFlightPhase+=dt*(1+config.speed*5)/1.4;
+    silentHandTime+=dt;silentFlightPhase+=dt*(1+config.flightSpeed*5)/1.4;
   }
   if(!(audioMotionReady&&audio.node) && playing) silentGhostPhase+=dt*config.ghostTempo/60;
   if(event) { event.age+=dt; if(event.age>3.5) event=null; }

@@ -64,7 +64,7 @@ test('randomization preserves the chosen mode and reaches every character, direc
   assert.ok(scenes.filter(s=>s.visualMode===0).length>scenes.length*.5,'dice favor a steady picture');
   assert.ok(scenes.filter(s=>s.visualMode>=4).length<scenes.length*.25,'glitch scenes remain occasional');
   assert.equal(new Set(scenes.map(s=>s.treeShape)).size,6);
-  for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
+  for(const key of ['speed','flightSpeed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }
@@ -134,6 +134,10 @@ test('the scene bank offers distinct complete spells across colors, distortion a
   }
   for(const scene of ['brew','fingers','flight']) assert.ok(WITCH_PRESETS.filter(({snapshot})=>snapshot.scene===scene).length>=6);
   assert.equal(normalizeWitchPreset({}).palette,0);
+  assert.ok(WITCH_PRESETS.some(({snapshot})=>snapshot.flightSpeed<.1));
+  assert.ok(WITCH_PRESETS.some(({snapshot})=>snapshot.flightSpeed>.9));
+  assert.equal(normalizeWitchPreset({speed:.7}).flightSpeed,.7);
+  assert.equal(normalizeWitchPreset({speed:.7,flightSpeed:.1}).flightSpeed,.1);
   assert.equal(normalizeWitchPreset({trip:100,palette:-10}).trip,3);
   assert.equal(normalizeWitchPreset({trip:100,palette:-10}).palette,0);
   assert.equal(normalizeWitchPreset({trip:-1,palette:100}).palette,7);

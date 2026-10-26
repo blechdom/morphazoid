@@ -57,7 +57,11 @@ animations and ten instrumental source banks. Voice and fingers retain separate
 clocks. Presets choose their balance, motion, speed, sound, vocal anatomy,
 ghost beat, flight-path settings, color, distortion and tree shape. Presets,
 ingredient transitions and either die preserve the live flight/stirring mode;
-only the performer launches or lands her. The singer/finger balance varies
+only the performer launches or lands her. Each preset has its own flight speed,
+independent of stirring: **Bells beneath the full moon** and **Skimming the low fog**
+drift slowly, while **Down the candy coil** and **A broom through the blood moon**
+swoop quickly. Changing the pace continues from her current position.
+The singer/finger balance varies
 through presets and full randomization. Older saved presets retain their chosen voice
 and original balance; new fields receive safe defaults.
 

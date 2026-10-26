@@ -1158,7 +1158,7 @@ export class FlightMixDelay {
       for (const buffer of this.buffers) buffer.fill(0);
       this.lowL = this.lowR = 0; this.cleared = true;
     }
-    if(c.gate) this.ridePhase += (1 + c.speed * 5) * this.dt;
+    if(c.gate) this.ridePhase += (1 + c.flightSpeed * 5) * this.dt;
   }
 }
 
@@ -1244,7 +1244,7 @@ export class WitchDSP {
       this.hand.setTransport({ time: witchClamp(handTime, 0, 1e9) }, this.time);
       this.visual.handTime = this.hand.getMotionTime(this.time);
       this.brew.spoonTime = this.visual.handTime;
-      this.delay.ridePhase = Number.isFinite(flightPhase) ? witchClamp(flightPhase, 0, 1e12) * 1.4 : this.visual.handTime * (1 + this.controls.speed * 5);
+      this.delay.ridePhase = Number.isFinite(flightPhase) ? witchClamp(flightPhase, 0, 1e12) * 1.4 : this.visual.handTime * (1 + this.controls.flightSpeed * 5);
       this.visual.flightPhase = this.delay.ridePhase / 1.4;
       this.brew.spoonHeight = witchClamp(spoonHeight, 0, 1,
         this.controls.spoonAuto ? witchSpoonHeight(this.visual.handTime) : this.controls.spoonHeight);

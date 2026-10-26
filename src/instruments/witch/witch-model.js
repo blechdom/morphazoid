@@ -53,7 +53,7 @@ export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
 export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
-  speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
+  speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
   ghostTempo: 72, ghostGate: false,
   handMotion: 'finger-roll', handRate: 1, handDepth: .66, handAuto: true, handSound: 'glass-and-wire', spellBalance: .5,
   catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
@@ -67,7 +67,7 @@ export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
 export function normalizeWitchControls(value = {}) {
   const input = value && typeof value === 'object' ? value : {};
   const result = {};
-  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
+  for (const name of ['speed', 'flightSpeed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;

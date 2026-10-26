@@ -12,7 +12,7 @@ test('ingredient flights interpolate whole spells while leaving clocks and outpu
   for(let i=1;i<=100;i++) {
     const current=blendWitchSpell(from,to,i/100);
     assert.equal(current.scene,from.scene);
-    for(const key of ['speed','nose','hat','hair','handRate','spellBalance','fabricX','trailPull']) {
+    for(const key of ['speed','flightSpeed','nose','hat','hair','handRate','spellBalance','fabricX','trailPull']) {
       assert.ok(Number.isFinite(current[key]));
       assert.ok(current[key]>=Math.min(from[key],to[key])&&current[key]<=Math.max(from[key],to[key]));
       assert.ok(Math.abs(current[key]-previous[key])<=Math.abs(to[key]-from[key])*.016+1e-10);
