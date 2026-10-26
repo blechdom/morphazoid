@@ -629,18 +629,29 @@ test('manual presets wait for stirring or finger bends while the ensemble keeps 
   await audible(page);
 });
 
-test('the ladle, fingers, nose and burned hat are native controls with clean cancellation',async({page})=>{
+test('the ladle, fingers, nose and stretchable hat are native controls with clean cancellation',async({page})=>{
   await observeWorklet(page);await open(page);await wake(page);
   await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
   const initial=await state(page);await dragWorld(page,'nose',55,0);expect((await state(page)).config.nose).toBeGreaterThan(initial.config.nose+.2);
   const beforeHat=await state(page),hatPull=await dragWorld(page,'hat',40,-50);expect((await state(page)).config.hat).toBeGreaterThan(beforeHat.config.hat);
   expect(Math.abs(hatPull.held.world.hatPullX)).toBeGreaterThan(5);
+  expect((await state(page)).world.hatClicks).toBe(0);
   const beforeSpoon=await state(page),spoonDy=beforeSpoon.spoonHeight>.5?55:-55,spoon=await dragWorld(page,'spoon',0,spoonDy);
   expect((await state(page)).config.spoonHeight).toBeCloseTo(Math.max(0,Math.min(1,spoon.grabbed.spoonHeight-spoonDy/180)),5);
-  const tip=(await state(page)).hands[0].tips[2],from=await point(page,tip.x,tip.y),fingerBefore=(await state(page)).config.fingers[2];
-  await page.mouse.move(from.x,from.y);await page.mouse.down();expect((await state(page)).manualFingerMask&4).toBe(4);
-  await page.mouse.move(from.x+45,from.y+40,{steps:5});await page.mouse.up();
-  expect((await state(page)).config.fingers[2]).not.toBe(fingerBefore);expect((await state(page)).manualFingerMask).toBe(0);
+  // Capture the live fingertip on the input session: traced snapshots can
+  // return after this fast animation has already moved away from the pointer.
+  const fingerSession=await page.context().newCDPSession(page);
+  const finger=await inputSnapshot(fingerSession,()=>{
+    const current=window.witchInstrument.state,tip=current.hands[0].tips[2],rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+    const scale=Math.min(rect.width/1000,rect.height/720);
+    return {x:rect.x+(rect.width-1000*scale)/2+tip.x*scale,y:rect.y+(rect.height-720*scale)/2+tip.y*scale,before:current.config.fingers[2]};
+  });
+  await fingerSession.send('Input.dispatchMouseEvent',{type:'mousePressed',x:finger.x,y:finger.y,button:'left',buttons:1,clickCount:1});
+  expect(await inputSnapshot(fingerSession,()=>window.witchInstrument.state.manualFingerMask&4)).toBe(4);
+  await fingerSession.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:finger.x+45,y:finger.y+40,button:'left',buttons:1});
+  await fingerSession.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:finger.x+45,y:finger.y+40,button:'left',buttons:0,clickCount:1});
+  await fingerSession.detach();
+  expect((await state(page)).config.fingers[2]).not.toBe(finger.before);expect((await state(page)).manualFingerMask).toBe(0);
   await selectScene(page,'fingers');await page.keyboard.down('3');const beforeKey=await state(page);await page.keyboard.press('ArrowDown');
   expect((await state(page)).config.fingers[2]).toBeLessThan(beforeKey.config.fingers[2]);
   await page.evaluate(()=>window.dispatchEvent(new Event('blur')));expect((await state(page)).manualFingerMask).toBe(0);await page.keyboard.up('3');
@@ -651,6 +662,30 @@ test('the ladle, fingers, nose and burned hat are native controls with clean can
   const brightness=(await state(page)).config.tone;await key(page,'+');expect((await state(page)).config.tone).toBeGreaterThan(brightness);
   await key(page,'-');expect((await state(page)).config.tone).toBeCloseTo(brightness,5);
   await audible(page);
+});
+
+test('the hat starts intact, breaks on click two and falls on click three until a new spell',async({page})=>{
+  test.setTimeout(45000);
+  await open(page);await wake(page);
+  expect((await state(page)).hatStage).toBe('intact');
+  for(const scene of ['brew','flight']) {
+    expect((await state(page)).config.scene).toBe(scene);
+    for(const [clicks,stage] of [[1,'intact'],[2,'busted'],[3,'gone']]) {
+      await clickWorld(page,'hat');
+      expect((await state(page)).world.hatClicks).toBe(clicks);
+      expect((await state(page)).hatStage).toBe(stage);
+    }
+    await expect.poll(async()=>(await state(page)).hatDrop).toBeNull();
+    expect((await state(page)).targets.hat.r).toBe(0);
+    await key(page,'k');expect((await state(page)).world.hatClicks).toBe(3);
+    if(scene==='brew') {
+      await clickWorld(page,'moon');expect((await state(page)).world.hatClicks).toBe(3);
+    }
+    await clickWorld(page,'mushrooms');
+    expect((await state(page)).world.hatClicks).toBe(0);expect((await state(page)).hatStage).toBe('intact');
+  }
+  await key(page,'k');await key(page,'k');await key(page,'k');
+  await key(page,'q');expect((await state(page)).hatStage).toBe('intact');
 });
 
 test('mouth, tree, spider, web, eyes and ghost gestures play over the running ensemble',async({page})=>{

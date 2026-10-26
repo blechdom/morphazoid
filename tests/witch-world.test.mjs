@@ -539,11 +539,11 @@ test('the enlarged flying rig follows longer returning loops while its grounded 
 });
 
 test('the enlarged flying hat, hair, broom and boots remain inside the warped scene at extremes',()=>{
-  // Inspect the current burned panels, rather than the former intact hat.
+  // Inspect both the restored original silhouette and the burned panels.
   const broomPoints=[[-295,120],[-265,126],[-310,152],[162,96],[-207,177],[-200,193],[-187,188],[-159,216],[-117,193]];
   const turn=(p,rotation,scale=1)=>({x:(Math.cos(rotation)*p.x-Math.sin(rotation)*p.y)*scale,y:(Math.sin(rotation)*p.x+Math.cos(rotation)*p.y)*scale});
-  for(let phase=0;phase<Math.PI*20;phase+=.2)for(const hat of [0,.5,1])for(const altitude of [0,1])for(const flightX of [0,1]) {
-    const state={flightLift:1,flightPhase:phase,hat,altitude,flightX,hair:1,handTime:phase,trip:3,warpTime:phase,energy:1,time:phase};
+  for(const hatClicks of [0,2])for(let phase=0;phase<Math.PI*20;phase+=.2)for(const hat of [0,.5,1])for(const altitude of [0,1])for(const flightX of [0,1]) {
+    const state={flightLift:1,flightPhase:phase,hat,hatClicks,altitude,flightX,hair:1,handTime:phase,trip:3,warpTime:phase,energy:1,time:phase};
     const body=broomTransform(state);
     const worldPoint=p=>{const q=turn(p,body.rotation,body.scale);return {x:body.x+q.x,y:body.y+q.y};};
     const hatWorld=getWitchHat(state).panels.flat();

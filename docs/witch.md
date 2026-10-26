@@ -15,8 +15,9 @@ Brightness remains on the **+ / −** keys.
 | --- | --- |
 | Stir faster, wider, or backward | The vortex and syllables follow speed, vowel opening and direction. |
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
+| Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or dice roll; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
-| Pull her nose or hat | Nose length and vocal pitch/resonance change; the burned, shredded hat stretches in any direction and changes vocal texture, then sags back when released. Nose reach is doubled and participates in presets and dice. |
+| Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and dice. |
 | Pull her hair | Small tugs stretch the tangles and add scratchy noise. A firm pull backward fades out the whole mix and holds the scene still until the next click. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |

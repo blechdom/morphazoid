@@ -8,7 +8,7 @@ import { getWitchVisitors, getWitchVisitorTargets } from './witch-visitors.js';
 import { createWitchHand } from './witch-hand.js';
 import { getWitchCatFrame, getWitchCatTargets } from './witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, witchCatMeowEnvelope } from './witch-cat-model.js';
-import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchTree, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchHatDrop, getWitchTree, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, WITCH_SETTING_PRESETS, witchPresetSettings, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -43,7 +43,7 @@ const ghostFrames=Array.from({length:3},()=>({}));
 const fingerPointers = new Map(), fingerKeys = new Set(), arrowKeys = new Set();
 let instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
 let width = 1000, height = 720, presets;
-const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0};
+const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0,hatClicks:0,hatDrop:null};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let handReady=false,handSurface=null,handSurfaces=[],pageSuspended=false,audioMotionReady=false;
@@ -155,6 +155,7 @@ function worldAction(action) {
   } else if(action==='mouth') {
     spellTransition=null;const current=config.spoonAuto?visualState().activeVoice:config.voice;config.voice=WITCH_VOICES[(WITCH_VOICES.indexOf(current)+1)%WITCH_VOICES.length];config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/WITCH_VOICES.length;send();sync();
   } else if(action==='eyes') {advancePerformanceTime();eyeShockAt=performanceTime;cue('eye-shock');}
+  else if(action==='hat') clickHat();
   else if(action==='spider') dropObject('spider');
   else if(action==='brew') setScene('brew');
 }
@@ -169,6 +170,18 @@ function trigger(kind) {
   cue(kind);
   $('gestureReadout').value = {meow:'Meow!',launch:'Bwa bwa ha ha hah ha!',moon:'A silver moon bell.',bat:'A flutter of ticking wings.',spark:'A star plucks a string.',gust:'Wind through the broom.'}[kind] || kind;
 }
+function restoreHat() {
+  world.hatClicks=0;world.hatDrop=null;world.hatPullX=world.hatPullY=0;
+}
+function clickHat() {
+  if(world.hatClicks>=3)return;
+  advancePerformanceTime();
+  const transform=getWitchHat(visualState()).transform;
+  world.hatClicks++;
+  if(world.hatClicks===3)world.hatDrop={startedAt:performanceTime,transform,
+    hat:config.hat,hatPullX:world.hatPullX,hatPullY:world.hatPullY};
+  $('gestureReadout').value=world.hatClicks===3?'The hat tumbles into the brew. A new preset brings it back.':world.hatClicks===2?'The hat breaks into burned scraps.':'One tug on the old hat.';
+}
 function returnObject(object) {
   if(!object || object.dropped) return;
   const home=WITCH_LAYOUT.objects.find(item=>item.id===object.id);
@@ -182,7 +195,7 @@ function applySpell(snapshot,{refill=true}={}) {
   spellTransition=null;advancePerformanceTime();
   const scene=config.scene;
   stopGesture();releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});config=normalizeWitchPreset({...snapshot,scene});
-  world.trip=config.trip;world.hatPullX=world.hatPullY=0;
+  world.trip=config.trip;restoreHat();
   if(refill)refillShelf();
   send();sync();
 }
@@ -193,6 +206,7 @@ function dropObject(id) {
   const origin=getWitchObjectPosition(object,visualState());
   const spell=WITCH_PRESETS.find(preset=>preset.id===object.presetId);
   if(spell) {
+    restoreHat();
     if(pointer?.type==='trail')stopGesture();
     releaseWitchTrailGesture(trailGesture,{cancel:true});
     const target=normalizeWitchPreset(spell.snapshot);
@@ -255,7 +269,7 @@ function resetPerformance() {
   hushPerformance();performanceTime=0;fabricTick=trailTick=0;quietVisual=null;
   releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});
   catMeowAt=eyeShockAt=spiderAt=webAt=fabricWindAt=diceRolledAt=-Infinity;
-  world.hatPullX=world.hatPullY=0;spellTransition=null;
+  restoreHat();spellTransition=null;
   for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id];
   config=normalizeWitchPreset({...WITCH_DEFAULTS,scene});Object.assign(catClock,createWitchCatClock(0,config));
   silentPhase=silentSpeed=ladleOffset=motionTime=silentHandTime=silentFlightPhase=silentGhostPhase=silentFlybyTime=0;
@@ -363,7 +377,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -407,6 +421,7 @@ listen(canvas,'pointermove',e => {
   }
   else if(pointer.type==='hat') {
     const t=pointer.hatTransform,dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
+    if(Math.hypot(dx,dy)>7)pointer.hatMoved=true;
     const x=(Math.cos(t.rotation)*dx+Math.sin(t.rotation)*dy)/t.scale,y=(-Math.sin(t.rotation)*dx+Math.cos(t.rotation)*dy)/t.scale;
     world.hatPullX=clamp(pointer.hatPullX+x,-185,185);world.hatPullY=clamp(pointer.hatPullY+y,-145,125);
     config.hat=clamp(pointer.hat+(Math.abs(x)*.7-y)/180);
@@ -423,6 +438,7 @@ listen(canvas,'pointermove',e => {
   send(); sync(); e.preventDefault();
 });
 function releasePointer(e) {
+  if(pointer?.id===e.pointerId&&pointer.type==='hat'&&e.type==='pointerup'&&!pointer.hatMoved)clickHat();
   if(pointer?.id===e.pointerId && pointer.type==='fabric' && e.type!=='pointerup')releaseWitchFabricGesture(fabricGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='trail' && e.type!=='pointerup')releaseWitchTrailGesture(trailGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='ghost') {
@@ -439,7 +455,7 @@ listen(canvas,'keydown',e => {
   if(e.key==='Escape') {hushPerformance();e.preventDefault();return;}
   if(e.key==='Backspace') {if(!e.repeat)resetPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
-  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnl]$/i.test(e.key)))wakePerformance();
+  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnlk]$/i.test(e.key)))wakePerformance();
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
   if(e.key==='[' || e.key===']') {
     selectedIngredient=selectedIngredient<0?(e.key===']'?0:objects.length-1):(selectedIngredient+(e.key===']'?1:-1)+objects.length)%objects.length;
@@ -461,7 +477,7 @@ listen(canvas,'keydown',e => {
     else config.treeCurl=clamp(config.treeCurl+(e.key==='ArrowUp'?.05:-.05));
     send();sync();e.preventDefault();return;
   }
-  const action={a:'sleeve',h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',s:'spider'}[e.key.toLowerCase()];
+  const action={k:'hat',a:'sleeve',h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',s:'spider'}[e.key.toLowerCase()];
   if(action) {if(!e.repeat) worldAction(action);e.preventDefault();return;}
   if(e.key.toLowerCase()==='g') { config.ghostTempo=clamp(config.ghostTempo+(e.shiftKey?-6:6),36,180);send();sync();e.preventDefault();return; }
   if(e.key.toLowerCase()==='p'){if(!e.repeat)pluckWeb((webIndex+1)%7);e.preventDefault();return;}
@@ -576,7 +592,7 @@ Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.f
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),
-    selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),ladle:getWitchLadle(state),
+    selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),hatStage:getWitchHat(state).stage,hatDrop:getWitchHatDrop(state),ladle:getWitchLadle(state),
     hairGeometry:{...hair,root:warpWitchPoint(hair.root,state),tip:warpWitchPoint(hair.tip,state),targets:hair.targets.map(p=>({...p,...warpWitchPoint(p,state)})),strands:hair.strands.map(strand=>({...strand,points:strand.points.map(p=>warpWitchPoint(p,state))}))},
     handMetadata:hand.getMetadata?.()??hand.metadata??null};
 }})});

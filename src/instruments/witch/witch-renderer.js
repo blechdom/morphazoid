@@ -117,6 +117,59 @@ function background(c,state) {
   c.restore();
 }
 
+// The original smooth cone and brim, sampled only for picking. Drawing keeps
+// the original curves; both paths share the same rooted stretch/shear.
+function sampleHatOutline(start,segments) {
+  const points=[start];let from=start;
+  for(const segment of segments) {
+    const quadratic=segment.length===4,to=segment.slice(-2);
+    for(let i=1;i<=16;i++) {
+      const t=i/16,u=1-t;
+      points.push(quadratic
+        ? [u*u*from[0]+2*u*t*segment[0]+t*t*to[0],u*u*from[1]+2*u*t*segment[1]+t*t*to[1]]
+        : [u*u*u*from[0]+3*u*u*t*segment[0]+3*u*t*t*segment[2]+t*t*t*to[0],
+          u*u*u*from[1]+3*u*u*t*segment[1]+3*u*t*t*segment[3]+t*t*t*to[1]]);
+    }
+    from=to;
+  }
+  return points;
+}
+const INTACT_HAT_OUTLINES=[
+  sampleHatOutline([-66,-33],[[-47,-99,-31,-165],[-22,-213,12,-237,47,-223],[74,-211,87,-194,115,-203],
+    [101,-178,72,-169,50,-164],[39,-107,64,-39]]),
+  sampleHatOutline([-69,-40],[[-108,-34,-139,-16,-143,-6],[-137,6,-88,6,-40,-1],[43,13,118,0],
+    [148,-4,143,-21,120,-24],[85,-25,61,-38],[-2,-17,-69,-40]]),
+];
+function intactHatDeformation(state={}) {
+  return {shear:-clamp(state.hatPullX??0,-185,185)/168,
+    stretch:1-(clamp(state.hatPullY??0,-145,125)-(clamp(state.hat??.5)-.5)*28)/168};
+}
+function intactHatPoint([x,y],state) {
+  const {shear,stretch}=intactHatDeformation(state);
+  return {x:x+shear*(y+20),y:-20+(y+20)*stretch};
+}
+
+function intactHat(c, state) {
+  const {shear,stretch}=intactHatDeformation(state);
+  c.save();c.transform(1,0,shear,stretch,shear*20,(stretch-1)*20);
+  path(c, 'M-66,-33 Q-47,-99 -31,-165 C-22,-213 12,-237 47,-223 C74,-211 87,-194 115,-203 C101,-178 72,-169 50,-164 Q39,-107 64,-39 Z', '#30263e', INK, 3);
+  path(c, 'M-58,-48 C-43,-122 -29,-182 1,-206 C-16,-156 -15,-104 4,-48 Z', '#44324f');
+  path(c, 'M5,-209 C39,-226 63,-188 94,-194 C78,-184 59,-180 42,-184', null, '#72617c', 1.2);
+  curve(c, [-35,-139,-25,-116,-12,-102,5,-99], '#584362', 1.5);
+  curve(c, [-18,-187,-5,-169,18,-170,37,-163], '#51415d', 1.2);
+  path(c, 'M-60,-63 Q-12,-43 55,-64 L64,-35 Q-2,-13 -67,-32 Z', '#675068', INK, 2);
+  path(c, 'M18,-60 L44,-63 L47,-38 L21,-34 Z M25,-54 L27,-41 L40,-43 L38,-55 Z', '#c4a77b', '#302d34', 1.5);
+  line(c, [[31,-47],[46,-49]], '#d6ba8b', 2);
+  path(c, 'M-69,-40 C-108,-34 -139,-16 -143,-6 C-137,6 -88,6 -40,-1 Q43,13 118,0 C148,-4 143,-21 120,-24 Q85,-25 61,-38 Q-2,-17 -69,-40 Z', '#352a43', INK, 3.5);
+  curve(c, [-127,-5,-70,-20,61,20,130,-10], '#7e627c', 1.6);
+  curve(c, [-109,-13,-52,-25,-7,-11,30,-9], '#57425f', 2);
+  // Small stitched moon in the hat crown.
+  path(c, 'M-14,-141 C-34,-142 -34,-117 -16,-111 C-29,-109 -40,-125 -32,-138 Q-24,-147 -14,-141 Z', '#ad9ca4');
+  for (let i = 0; i < 6; i++) line(c, [[-49 + i * 4,-72 + i * 2],[-53 + i * 4,-66 + i * 2]], '#bfa2aa70', .8);
+  c.restore();
+}
+
+
 // Torn panels share one rooted deformation: the brim holds while every loose
 // scrap follows a two-dimensional tug. No intact cone, buckle or moon badge.
 const HAT_PANELS = [
@@ -135,11 +188,35 @@ function hatPoint(point,state={}) {
     y:y+dy*free**1.2-(value-.5)*28*free+Math.sin(x*.045)*Math.abs(dx)*.12*free};
 }
 export function getWitchHat(state={}) {
-  const transform=headTransform(state),project=p=>headPoint(hatPoint(p,state),transform);
-  return {transform,target:{...project([-12,-102]),r:38*transform.scale},
-    panels:HAT_PANELS.map(panel=>panel.points.map(project))};
+  const clicks=state.hatClicks??0,visible=clicks<3,busted=clicks>=2;
+  const transform=headTransform(state),project=p=>headPoint(busted?hatPoint(p,state):intactHatPoint(p,state),transform);
+  return {transform,visible,stage:visible?(busted?'busted':'intact'):'gone',
+    target:{...project([-12,-102]),r:visible?38*transform.scale:0},
+    panels:visible?(busted?HAT_PANELS.map(panel=>panel.points):INTACT_HAT_OUTLINES).map(points=>points.map(project)):[]};
+}
+
+/** A detached hat keeps its release position even if the witch changes course.
+ * The performance clock freezes its single tumble with the rest of the scene. */
+export function getWitchHatDrop(state={}) {
+  const drop=state.hatDrop;
+  if(!drop||(state.hatClicks??0)<3)return null;
+  const age=(state.performanceTime??state.time??0)-drop.startedAt,duration=1.45;
+  if(age<0||age>=duration)return null;
+  const t=clamp(age/duration),travel=t*t*(3-2*t),pot=WITCH_LAYOUT.cauldron;
+  const center=headPoint({x:-12,y:-80},drop.transform);
+  return {x:center.x+(pot.x-center.x)*travel,
+    y:center.y+(pot.y+20-center.y)*t*t-Math.sin(Math.PI*t)*75,
+    scale:drop.transform.scale*(1-.84*travel),rotation:drop.transform.rotation+t*t*4.4,
+    opacity:clamp((1-t)/.16),progress:t};
+}
+function fallingHat(c,state) {
+  const pose=getWitchHatDrop(state);if(!pose)return;
+  c.save();c.globalAlpha*=pose.opacity;c.translate(pose.x,pose.y);c.rotate(pose.rotation);c.scale(pose.scale,pose.scale);c.translate(12,80);
+  hat(c,{...state,...state.hatDrop,hatClicks:2});c.restore();
 }
 function hat(c,state) {
+  if((state.hatClicks??0)>=3)return;
+  if((state.hatClicks??0)<2){intactHat(c,state);return;}
   const draw=(points,fill,stroke=INK,width=2.4)=>{
     const warped=points.map(p=>hatPoint(p,state));
     c.beginPath();warped.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.closePath();
@@ -1224,6 +1301,7 @@ function drawWorld(c,state) {
   if(state.flightLift>.001)broomWitch(c,state);
   reachingHand(c,state);
   ingredientObjects(c,state,true);
+  fallingHat(c,state);
   if(ground>0) {
     c.save();c.globalAlpha*=ground;hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
@@ -1359,7 +1437,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
   const ladle=getWitchLadle(state);
   const faceHits=['nose','mouth','eyes','spoon'].map(type=>({type,distance:type==='spoon'?Math.hypot(x-ladle.gx,y-ladle.gy):Math.hypot(x-targets[type].x,y-targets[type].y),radius:type==='spoon'?Math.max(27,minRadius*.75):Math.max(targets[type].r,Math.min(27,minRadius*.38))})).filter(hit=>hit.distance<hit.radius).sort((a,b)=>a.distance/a.radius-b.distance/b.radius);
   if(faceHits.length)return {type:faceHits[0].type};
-  if(Math.hypot(x-targets.hat.x,y-targets.hat.y)<targets.hat.r)return {type:'hat'};
+  if((state.hatClicks??0)<3&&Math.hypot(x-targets.hat.x,y-targets.hat.y)<targets.hat.r)return {type:'hat'};
   for(const panel of getWitchHat(state).panels) {
     let inside=false;
     for(let i=0,j=panel.length-1;i<panel.length;j=i++) {
