@@ -118,42 +118,166 @@ async function clickCat(page,{touch=false,part='body'}={}) {
 }
 async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
-  const session=touch?await page.context().newCDPSession(page):null;
+  const session=await page.context().newCDPSession(page);
+  const candidateSnapshot=(offset=null)=>page.evaluate(async({id,dy,offset})=>{
+    const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    const current=window.witchInstrument.state,ghost=current.ghosts.find(item=>item.id===id);
+    const rect=document.querySelector('#witchCanvas').getBoundingClientRect(),minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
+    const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+    const blockers=[...current.fingerTips.map(point=>({...point,r:minRadius})),
+      ...current.hands.slice(0,1).flatMap(hand=>hand.palm?[{...hand.palm,r:minRadius},{...hand.wrist,r:minRadius*.55}]:[]),
+      ...current.hairGeometry.strands.flatMap(strand=>strand.points.map(point=>({...point,r:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32))}))),
+      ...['nose','hat','tone','fabric'].map(key=>({...warpWitchPoint(current.targets[key],visual),r:Math.max(current.targets[key].r,minRadius*.7)})),
+      ...current.objects.filter(object=>!object.dropped).map(object=>({...warpWitchPoint(object,visual),r:object.r+8})),
+      {...warpWitchPoint({x:current.ladle.hx-8,y:current.ladle.hy-24},visual),r:Math.max(27,minRadius*.75)}];
+    const offsets=offset?[offset]:[[0,0],[-.65,0],[0,-.65],[0,.65],[.65,0],[-.46,-.46],[.46,-.46],[-.46,.46],[.46,.46]];
+    const candidates=offsets.map(offset=>{
+      const from={x:ghost.x+offset[0]*ghost.r,y:ghost.y+offset[1]*ghost.r};
+      return {offset,from,to:{x:from.x,y:from.y+dy},clearance:Math.min(...blockers.map(blocker=>Math.hypot(from.x-blocker.x,from.y-blocker.y)-blocker.r))};
+    });
+    const ranked=candidates.toSorted((a,b)=>b.clearance-a.clearance);
+    return {...ranked[0],offsets:ranked.map(candidate=>candidate.offset),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{id,dy,offset});
   let from,to;
-  // Flying fingers can cross a background ghost. Use the scene's real hover
-  // response to find exposed ghost anatomy before starting a captured drag.
+  // Foreground fingers and hair can cross a ghost. Pick an exposed edge with
+  // room around that anatomy, then capture immediately after live hover.
   await expect.poll(async()=>{
-    const {ghost,rect}=await page.evaluate(id=>{
-      const rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-      return {ghost:window.witchInstrument.state.ghosts.find(item=>item.id===id),
-        rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
-    },id);
-    for(const [dx,dyOffset] of [[0,0],[-.6,0],[0,-.6],[0,.6],[.6,0]]) {
-      const x=ghost.x+dx*ghost.r,y=ghost.y+dyOffset*ghost.r;
-      const candidate=stagePoint(rect,x,y);
+    const ranking=await candidateSnapshot();
+    for(const offset of ranking.offsets) {
+      const snapshot=await candidateSnapshot(offset);
+      if(snapshot.clearance<30)continue;
+      const candidate=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y);
       await page.mouse.move(candidate.x,candidate.y);
-      if((await page.locator('#witchCanvas').getAttribute('title'))?.startsWith('Lift a ghost')) {
-        from=candidate;to=stagePoint(rect,x,y+dy);return true;
-      }
+      if(!(await page.locator('#witchCanvas').getAttribute('title'))?.startsWith('Lift a ghost'))continue;
+      const fresh=await candidateSnapshot(offset);
+      if(fresh.clearance<30)continue;
+      from=stagePoint(fresh.rect,fresh.from.x,fresh.from.y);to=stagePoint(fresh.rect,fresh.to.x,fresh.to.y);
+      if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+      else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+      return true;
     }
     return false;
   },{intervals:[50,100]}).toBe(true);
-  if(session) await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
-  else await page.mouse.down();
-  if(session) {
-    for(let step=1;step<=5;step++) await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:from.x,y:from.y+(to.y-from.y)*step/5}]});
-    await session.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await session.detach();
-  } else {
-    await page.mouse.move(to.x,to.y,{steps:5});
-    if(cancel) await page.locator('#witchCanvas').dispatchEvent('pointercancel',{pointerId:1});
-    await page.mouse.up();
+  for(let step=1;step<=5;step++) {
+    const position={x:from.x,y:from.y+(to.y-from.y)*step/5};
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[position]});
+    else await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...position,button:'left',buttons:1});
   }
+  if(touch)await session.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});
+  else {
+    if(cancel)await page.locator('#witchCanvas').dispatchEvent('pointercancel',{pointerId:1});
+    await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
+  }
+  await session.detach();
 }
 async function ghostRate(page,duration=450) {
   return page.evaluate(ms=>new Promise(resolve=>{
     const phase=window.witchInstrument.state.ghostPhase,time=performance.now();
     setTimeout(()=>resolve((window.witchInstrument.state.ghostPhase-phase)*1000/(performance.now()-time)),ms);
   }),duration);
+}
+async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
+  const canvas=page.locator('#witchCanvas');await canvas.scrollIntoViewIfNeeded();
+  const session=await page.context().newCDPSession(page);
+  await canvas.evaluate(async canvas=>{
+    const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    window.witchHairPointerId=null;
+    canvas.addEventListener('pointerdown',event=>{
+      window.witchHairPointerId=event.pointerId;
+      const current=window.witchInstrument.state,rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/1000,rect.height/720);
+      const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+      const raw={x:(event.clientX-rect.x-(rect.width-1000*scale)/2)/scale,y:(event.clientY-rect.y-(rect.height-720*scale)/2)/scale};
+      const p=warpWitchPoint(raw,visual,true),minRadius=Math.max(46,24/scale);
+      const hairDistances=current.hairGeometry.strands.slice(0,8).flatMap(strand=>strand.points.slice(7).map((_,index)=>{
+        const a=warpWitchPoint(strand.points[index+6],visual,true),b=warpWitchPoint(strand.points[index+7],visual,true),dx=b.x-a.x,dy=b.y-a.y;
+        const along=Math.min(1,Math.max(0,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+        return Math.hypot(p.x-a.x-along*dx,p.y-a.y-along*dy);
+      }));
+      window.witchHairDown={x:p.x,y:p.y,minRadius,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,sampleAge:performance.now()-window.witchHairSampleAt,
+        hairDistance:Math.min(...hairDistances),hairRadius:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32)),
+        nose:Math.hypot(p.x-current.targets.nose.x,p.y-current.targets.nose.y)-Math.max(current.targets.nose.r,minRadius*.65),
+        hat:Math.hypot(p.x-current.targets.hat.x,p.y-current.targets.hat.y)-Math.max(current.targets.hat.r,minRadius*.7),
+        spoon:Math.hypot(p.x-current.ladle.hx+8,p.y-current.ladle.hy+24)-Math.max(27,minRadius*.75),
+        fingers:Math.min(...current.fingerTips.map(target=>{const q=warpWitchPoint(target,visual,true);return Math.hypot(p.x-q.x,p.y-q.y)-minRadius;})),
+        ghosts:Math.min(...current.ghosts.map(target=>{const q=warpWitchPoint(target,visual,true);return Math.hypot(p.x-q.x,p.y-q.y)-Math.max(target.r,minRadius);})),
+      };
+    },{once:true,capture:true});
+  });
+  const candidateSnapshot=(index=null)=>page.evaluate(async({amount,index})=>{
+    const {warpWitchPoint,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
+    const current=window.witchInstrument.state,geometry=current.hairGeometry;
+    const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
+    const rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+    const minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
+    const unwarp=point=>warpWitchPoint(point,visual,true);
+    const blockers=[...['nose','hat','tone','fabric'].map(key=>{
+      const target=current.targets[key],radius={nose:minRadius*.65,hat:minRadius*.7,tone:Math.min(50,minRadius*.7),fabric:minRadius*.6}[key];
+      return {...target,r:Math.max(target.r,radius)};
+    }),{x:current.ladle.hx-8,y:current.ladle.hy-24,r:Math.max(27,minRadius*.75)},
+      ...current.fingerTips.map(target=>({...unwarp(target),r:minRadius})),
+      ...current.objects.filter(object=>!object.dropped).map(object=>({...object,r:object.r+8})),
+      {...WITCH_LAYOUT.moon,r:Math.max(WITCH_LAYOUT.moon.r+12,minRadius)}];
+    const candidates=geometry.targets.map((target,index)=>{
+      const start=unwarp(target),clearance=Math.min(...blockers.map(blocker=>Math.hypot(start.x-blocker.x,start.y-blocker.y)-blocker.r));
+      return {index,from:target,clearance,to:warpWitchPoint({x:start.x+geometry.axis.x*geometry.pullDistance*amount,
+        y:start.y+geometry.axis.y*geometry.pullDistance*amount},visual)};
+    });
+    const chosen=index===null?candidates.toSorted((a,b)=>b.clearance-a.clearance)[0]:candidates[index];
+    window.witchHairSampleAt=performance.now();
+    return {...chosen,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{amount,index});
+  let from,to;
+  await expect.poll(async()=>{
+    // Pick a free end clear of foreground controls, then confirm its live
+    // hover response. Background ghosts must not steal visible hair pulls.
+    const snapshot=await candidateSnapshot();
+    if(snapshot.clearance<30)return false;
+    const candidate=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y);
+    await page.mouse.move(candidate.x,candidate.y);
+    if((await canvas.getAttribute('title'))!=='Pull her hair for a noisier spell')return false;
+    const fresh=await candidateSnapshot(snapshot.index);
+    if(fresh.clearance<30)return false;
+    from=stagePoint(fresh.rect,fresh.from.x,fresh.from.y);to=stagePoint(fresh.rect,fresh.to.x,fresh.to.y);
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+    else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+    return true;
+  },{intervals:[50,100]}).toBe(true);
+  expect(await canvas.evaluate(canvas=>canvas.hasPointerCapture(window.witchHairPointerId))).toBe(true);
+  if(hold) {
+    const before=await state(page);
+    for(let i=0;i<3;i++) {
+      await page.waitForTimeout(100);
+      if(!touch)await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from,button:'left',buttons:1});
+      expect((await state(page)).config.hair).toBe(before.config.hair);
+    }
+    const after=await state(page);
+    expect(Math.hypot(after.hairGeometry.root.x-before.hairGeometry.root.x,after.hairGeometry.root.y-before.hairGeometry.root.y)).toBeGreaterThan(.5);
+  }
+  for(let step=1;step<=5;step++) {
+    const position={x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5};
+    if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[position]});
+    else await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...position,button:'left',buttons:1});
+  }
+  if(touch)await session.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});
+  else {
+    if(cancel)await canvas.dispatchEvent('pointercancel',{pointerId:await page.evaluate(()=>window.witchHairPointerId)});
+    await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
+  }
+  await session.detach();
+  expect(await canvas.evaluate(canvas=>canvas.hasPointerCapture(window.witchHairPointerId))).toBe(false);
+  const released=(await state(page)).config.hair;
+  await page.mouse.move(to.x+16,to.y+12);
+  expect((await state(page)).config.hair).toBe(released);
+}
+function expectHairInScene(current) {
+  const geometry=current.hairGeometry;
+  expect(geometry.targets.length).toBeGreaterThan(0);
+  const points=[geometry.root,geometry.tip,...geometry.targets,...geometry.strands.flatMap(strand=>strand.points)];
+  expect(points.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y))).toBe(true);
+  expect(Math.min(...points.map(point=>point.x))).toBeGreaterThan(0);
+  expect(Math.max(...points.map(point=>point.x))).toBeLessThan(1000);
+  expect(Math.min(...points.map(point=>point.y))).toBeGreaterThan(0);
+  expect(Math.max(...points.map(point=>point.y))).toBeLessThan(720);
 }
 
 test('parameters start tucked away while presets, transport and every ingredient remain reachable',async({page})=>{
@@ -727,6 +851,57 @@ test('stirring, presets, cancellation and page lifecycle preserve the ensemble a
 for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['landscape',844,390]]) {
   test.describe(label,()=>{
     test.use({viewport:{width,height},hasTouch:label!=='desktop',isMobile:label!=='desktop'});
+    test(`Witches Brew ${label}: hair pulls stay independent, cancel cleanly and keep sounding during flight`,async({page},testInfo)=>{
+      test.setTimeout(60000);
+      const errors=[];page.on('pageerror',error=>errors.push(error.message));
+      await observeWorklet(page);await open(page);
+      await expect(page.locator('#hair')).toBeHidden();
+      if(label==='desktop') {
+        await parameters(page);await page.locator('#hair').focus();
+        for(const [key,value] of [['End',1],['Home',0]]) {
+          await page.keyboard.press(key);expect((await state(page)).config.hair).toBe(value);
+          expect((await state(page)).audioOn).toBe(false);
+        }
+        expect((await readAudioStatus(page)).connectionCount).toBe(0);
+        await parameters(page,false);
+      }
+      const initial=await state(page);expectHairInScene(initial);
+      await dragHair(page,.75,{touch:label!=='desktop'});
+      const pulled=await state(page);
+      expect(pulled.config.hair).toBeGreaterThan(initial.config.hair+.4);
+      expect(pulled.config).toEqual({...initial.config,hair:pulled.config.hair});
+      expect(pulled).toMatchObject({playing:true,audioOn:false});
+      expect(Number(await page.locator('#hair').inputValue())).toBeCloseTo(pulled.config.hair,2);
+      expect((await readAudioStatus(page)).connectionCount).toBe(0);
+      expectHairInScene(pulled);
+      await page.screenshot({path:testInfo.outputPath(`${label}-hair-brew.png`),fullPage:true});
+      await dragHair(page,-.65,{touch:label!=='desktop',cancel:true});
+      const combed=await state(page);
+      expect(combed.config.hair).toBeLessThan(pulled.config.hair-.3);
+      expect(combed.config).toEqual({...pulled.config,hair:combed.config.hair});
+      expect(combed).toMatchObject({playing:true,audioOn:false});
+      expect((await readAudioStatus(page)).connectionCount).toBe(0);
+      if(label==='desktop')await page.emulateMedia({reducedMotion:'no-preference'});
+      await selectScene(page,'flight');await range(page,'lineBend',label==='desktop'?3:2);
+      await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+      await page.locator('#audioButton').click();
+      await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.0001&&window.witchVisual?.handLevel>.0001)).toBe(true);
+      const flying=await state(page);expectHairInScene(flying);
+      await dragHair(page,.7,{touch:label!=='desktop',hold:true});
+      const spell=await state(page);
+      expect(spell.config,JSON.stringify(await page.evaluate(()=>window.witchHairDown))).toEqual({...flying.config,hair:spell.config.hair});
+      expect(spell.config.hair).toBeGreaterThan(flying.config.hair+.3);
+      expect(spell).toMatchObject({playing:true,audioOn:true});
+      for(const clock of ['performanceTime','handTime','flightPhase'])expect(spell[clock]).toBeGreaterThan(flying[clock]);
+      expectHairInScene(spell);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+      await page.screenshot({path:testInfo.outputPath(`${label}-hair-flight.png`),fullPage:true});
+      const envelope=await sampleAudioEnvelope(page,{durationMs:350});
+      expect(envelope.summary.finite).toBe(true);expect(envelope.summary.maxPeak).toBeGreaterThan(.001);expect(envelope.summary.clippedSamples).toBe(0);
+      await page.locator('#resetButton').click();
+      expect((await state(page))).toMatchObject({playing:false,config:{hair:0}});
+      expect(errors).toEqual([]);
+    });
     test(`Witches Brew ${label}: controls, two hands and ongoing flight fit`,async({page},testInfo)=>{
       const errors=[];page.on('pageerror',error=>errors.push(error.message));
       await observeWorklet(page);await open(page);

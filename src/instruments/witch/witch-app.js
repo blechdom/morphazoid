@@ -3,7 +3,7 @@ import { WITCH_VOICES, WITCH_SHELF, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH
 import { createWitchHand } from './witch-hand.js';
 import { getWitchCatFrame, getWitchCatTargets } from './witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, witchCatMeowEnvelope } from './witch-cat-model.js';
-import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, getWitchHair, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -39,9 +39,9 @@ const hand=createWitchHand({onStatus:message=>{$('liveStatus').textContent=messa
 hand.ready.then(ready=>{if(disposed)return;handReady=ready;canvas.dataset.handReady=String(ready);});
 audio.onError=error => { audioMotionReady=false;audioOn=false; starting=false; $('liveStatus').textContent=error.message; sync(); };
 const sceneCopy = {
-  brew: ['She brews her own voice.', 'Stir the pot. Touch her right hand, the moon, or the mushrooms.', 'Stir for me', 'stirring'],
+  brew: ['She brews her own voice.', 'Stir the pot. Pull her hair for noise. Touch her right hand, the moon, or the mushrooms.', 'Stir for me', 'stirring'],
   fingers: ['An instrument in every finger.', 'Pull her fingertips. Touch the pot to return, the moon to fly, or mushrooms for trouble.', 'Play the hand', 'hand'],
-  flight: ['Music for a midnight ride.', 'Drag the sky to fly. Ghosts keep a distant beat. Stir the pot while flying; B lands. Mushrooms bend the night.', 'Take flight', 'flight'],
+  flight: ['Music for a midnight ride.', 'Drag the sky to fly. Pull her streaming hair for noise. Ghosts keep a distant beat. Stir the pot while flying; B lands. Mushrooms bend the night.', 'Take flight', 'flight'],
 };
 function fingerMask() {
   let mask=0;
@@ -80,9 +80,9 @@ function sync() {
   for(const button of document.querySelectorAll('[data-drop]'))button.disabled=objects.some(object=>object.id===button.dataset.drop&&object.dropped);
   $('palette').value=config.palette; $('lineBend').value=config.trip; $('lineBendOut').value=['Still','A ripple','Bent','Wonkywonk'][config.trip];
   $('ghostTempo').value=config.ghostTempo; $('ghostTempoOut').value=`${Math.round(config.ghostTempo)} BPM`;
-  for (const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) { $(key).value=config[key]; $(`${key}Out`).value=`${Math.round(config[key]*100)}%`; }
+  for (const key of ['speed','radius','altitude','tone','flightX','nose','hat','hair','spoonHeight']) { $(key).value=config[key]; $(`${key}Out`).value=`${Math.round(config[key]*100)}%`; }
   config.fingers.forEach((value,i) => { $(`finger${i}`).value=value; $(`finger${i}Out`).value=`${Math.round(value*100)}%`; });
-  for (const key of ['glass','hair']) $(`${key}Out`).value=`${Math.round(config[key]*100)}%`;
+  $('glassOut').value=`${Math.round(config.glass*100)}%`;
   $('reverseButton').setAttribute('aria-pressed',String(config.direction<0));
   $('reverseButton').textContent = config.direction<0 ? '↶ Backward spell' : '↻ Forward spell';
   for(const id of ['nightControls','fingerControls','ingredientControls','voiceControl','radiusControl','reverseButton','speedControl','toneControl']) $(id).hidden=false;
@@ -176,7 +176,7 @@ listen($('playButton'),'click',() => { stopGesture(); setPlaying(!playing); send
 listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); performanceTime=0; catMeowAt=-Infinity; config=normalizeWitchPreset(WITCH_DEFAULTS); Object.assign(catClock,createWitchCatClock(0,config)); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock)); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
 listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/5; send(); sync(); });
-for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
+for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','hair','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
 listen($('ghostTempo'),'input',()=>{config.ghostTempo=clamp($('ghostTempo').value,36,180);send();sync();});
 listen($('palette'),'change',()=>{config.palette=Math.round(clamp($('palette').value,0,7));sync();});
 listen($('lineBend'),'input',()=>{config.trip=Math.round(clamp($('lineBend').value,0,3));world.trip=config.trip;sync();});
@@ -201,12 +201,12 @@ for(const type of ['pointerup','pointercancel']) listen(window,type,e=>{ if(slid
 listen($('reverseButton'),'click',() => { config.direction*=-1; send(); sync(); });
 listen($('outputLevel'),'input',() => { $('outputLevelOut').value=`${Math.round(Number($('outputLevel').value)*100)}%`; send(); });
 for(const button of document.querySelectorAll('[data-effect]')) listen(button,'click',() => trigger(button.dataset.effect));
-for(const key of ['glass','hair']) listen($(`${key}Button`),'click',() => { config[key]=clamp(config[key]+.25); event={kind:key,age:0}; send(); sync(); });
+listen($('glassButton'),'click',() => { config.glass=clamp(config.glass+.25); event={kind:'glass',age:0}; send(); sync(); });
 listen($('clearIngredients'),'click',() => { config.glass=0; config.hair=0; send(); sync(); });
-function canonical(e, logical=false) {
+function canonical(e, logical=false, warpState) {
   const rect=canvas.getBoundingClientRect(); const scale=Math.min(rect.width/1000,rect.height/720);
   const p={x:(e.clientX-rect.left-(rect.width-1000*scale)/2)/scale,y:(e.clientY-rect.top-(rect.height-720*scale)/2)/scale};
-  return logical?warpWitchPoint(p,visualState(),true):p;
+  return logical?warpWitchPoint(p,warpState??visualState(),true):p;
 }
 function stirLocation(point) {
   const pot=WITCH_LAYOUT.cauldron;
@@ -227,7 +227,7 @@ function visualState() {
 }
 listen(canvas,'pointerdown',e => {
   if(pointer || e.button!==0) return;
-  const raw=canonical(e), hit=hitTestWitch(raw.x,raw.y,visualState()),p=canonical(e,true);
+  const initial=visualState(),raw=canonical(e),hit=hitTestWitch(raw.x,raw.y,initial),p=canonical(e,true,initial);
   if(!hit) return;
   canvas.focus({preventScroll:true});
   if(['hand','moon','broom','mushrooms'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
@@ -245,8 +245,9 @@ listen(canvas,'pointerdown',e => {
   }
   keyboardGate=false;
   const visual=visualState(), start=stirLocation(p), pot=WITCH_LAYOUT.cauldron;
+  const hair=hit.type==='hair'?getWitchHair(initial):null;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:hair?{trip:initial.trip,warpTime:initial.warpTime}:null,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
   if(hit.type==='stir') { config.speed=.05; if(!onHandle) config.radius=pointer.radius; }
@@ -265,15 +266,21 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow!',broom:'Take flight',fabric:'Pull the cloth to filter the brew',trail:'Pull or push the string to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow!',broom:'Take flight',fabric:'Pull the cloth to filter the brew',trail:'Pull or push the string to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hair:'Pull her hair for a noisier spell',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
     return;
   }
-  const p=canonical(e,true), now=performance.now();
+  const p=canonical(e,true,pointer.type==='hair'?pointer.hairWarp:undefined), now=performance.now();
   if(pointer.type==='fabric') {config.fabricX=clamp(pointer.fabricX+(p.x-pointer.start.x)/120);config.fabricY=clamp(pointer.fabricY+(pointer.start.y-p.y)/120);}
   else if(pointer.type==='trail') {config.trailPull=clamp(pointer.trailPull+(p.x-pointer.start.x)/180);config.trailTwist=clamp(pointer.trailTwist+(pointer.start.y-p.y)/150);}
   else if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
   else if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
   else if(pointer.type==='tone') { config.tone=clamp(pointer.tone+(pointer.start.y-p.y)/130); }
+  else if(pointer.type==='hair') {
+    // The captured direction and warp keep moving broom/mushroom animation
+    // from tugging the control underneath a stationary pointer.
+    const dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
+    config.hair=clamp(pointer.hair+(dx*pointer.hairAxis.x+dy*pointer.hairAxis.y)/Math.max(1,pointer.hairDistance));
+  }
   else if(pointer.type==='nose' || pointer.type==='hat') {
     const key=pointer.type;config[key]=clamp(pointer[key]+(key==='nose'?(p.x-pointer.start.x):(pointer.start.y-p.y))/150);
   }
@@ -403,12 +410,13 @@ listen(window,'pagehide',e => {
 });
 presets=registerHeaderPresets({id:'witch',presets:WITCH_PRESETS,capture:()=>structuredClone(config),apply:snapshot=>applySpell(snapshot),randomize:randomizeWitchPreset});
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
-  const state=visualState(),catTargets=getWitchCatTargets(state);
+  const state=visualState(),catTargets=getWitchCatTargets(state),hair=getWitchHair(state);
   return {catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),playing,audioOn,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),
     selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),ladle:getWitchLadle(state),
+    hairGeometry:{...hair,root:warpWitchPoint(hair.root,state),tip:warpWitchPoint(hair.tip,state),targets:hair.targets.map(p=>({...p,...warpWitchPoint(p,state)})),strands:hair.strands.map(strand=>({...strand,points:strand.points.map(p=>warpWitchPoint(p,state))}))},
     handMetadata:hand.getMetadata?.()??hand.metadata??null};
 }})});
 sync(); send(); resize(); resumeDrawing();

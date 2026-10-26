@@ -68,6 +68,9 @@ class CauldronDSP {
     this.spoonTime = 0; this.spoonHeight = .5; this.activeVoice = 'mutter';
     this.spoonSmooth = 1 - Math.exp(-this.dt / .4);
     this.envelope = 0; this.releaseAir = 0; this.lastGate = false; this.sourceLow = 0; this.noiseLow = 0;
+    this.hairFriction = 0; this.hairBody = 0;
+    this.hairFrictionFollow = 1 - Math.exp(-TAU * Math.min(4300, this.rate * .32) * this.dt);
+    this.hairBodyFollow = 1 - Math.exp(-TAU * 380 * this.dt);
     this.lastInput = 0; this.dc = 0; this.gain = 0; this.targetHz = 139; this.frequency = 139;
     this.targetAir = .13; this.air = .13; this.targetRasp = .23; this.rasp = .23;
     this.targetSustain = .24; this.sustain = .24; this.targetVibrato = .009; this.vibrato = .009;
@@ -216,6 +219,14 @@ class CauldronDSP {
       const articulation = this.sustain + (1 - this.sustain) * this.chant.articulation;
       const release = (noise - this.noiseLow) * this.releaseAir * .026;
       let sample = (vowel * articulation * .88 + cycle * (1 - this.air) * .035) * this.envelope + release;
+      // Pulling tangles adds uneven, scratchy friction around the voiced spell.
+      // Reuse its noise sample so an untouched head preserves the original RNG
+      // and voice exactly; fixed band-limiting keeps the new strand bounded.
+      this.hairFriction += (noise - this.hairFriction) * this.hairFrictionFollow;
+      this.hairBody += (this.hairFriction - this.hairBody) * this.hairBodyFollow;
+      const snarl = .25 + .75 * Math.sin(this.wobblePhase + Math.sin(this.vibratoPhase) * 2.1) ** 2;
+      const scratch = (this.hairFriction - this.hairBody) * this.hair * (.12 + this.hair * .22) * snarl;
+      sample += scratch * (.35 + articulation * .65) * this.envelope;
       sample += this.effectSample();
       const delayed = this.delay[this.delayIndex]; this.delay[this.delayIndex] = sample + delayed * .17;
       this.delayIndex = (this.delayIndex + 1) % this.delay.length;

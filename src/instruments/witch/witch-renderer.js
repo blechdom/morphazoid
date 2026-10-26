@@ -190,18 +190,81 @@ function hat(c, state) {
   c.restore();
 }
 
+// Hair is a small bundle of fixed-budget strands in head coordinates. The
+// pull vector adds exactly the same displacement to every free tip; roots stay
+// tucked beneath the brim while the playing clock drives the frayed curls.
+function witchHairLocal(state = {}) {
+  const amount=clamp(state.hair),lift=clamp(state.flightLift);
+  const time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
+  const phase=state.reducedMotion?0:(state.flightPhase??time*.72);
+  const pull={x:-85,y:48},pullDistance=Math.hypot(pull.x,pull.y);
+  const strands=[];
+  for(let i=0;i<15;i++) {
+    const root={x:-73+i*3.3,y:-24+Math.sin(i*.7)*4},points=[];
+    for(let j=0;j<=20;j++) {
+      const u=j/20,free=u*u,envelope=Math.sin(u*Math.PI);
+      const snake=Math.sin(u*(6+amount*5+lift*7)-time*(1.5+lift*2.4)+i*.48);
+      const fray=Math.sin(u*29-time*2.7+i*1.9)*amount*5;
+      const curl=envelope*(snake*(3+amount*10+lift*25)+fray);
+      const sweep=lift*(110+Math.sin(phase*1.4)*23)*u**1.5;
+      points.push({x:root.x-13*free+pull.x*amount*free-sweep+curl,
+        y:root.y+(168+(i%3)*9)*u+pull.y*amount*free-lift*(50+Math.cos(phase*1.4)*21)*free+curl*.63});
+    }
+    strands.push({points,width:i%3===0?2.6:3.8,index:i});
+  }
+  const middle=strands[7],root=middle.points[0],tip=middle.points.at(-1);
+  // These are actual visible locks, excluding the section hidden by her face.
+  const targets=[];
+  for(const index of [1,4,7])for(const sample of [9,13,17,20])
+    targets.push({...strands[index].points[sample],r:11});
+  return {root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,strands,targets};
+}
+function headTransform(state = {}, flying = clamp(state.flightLift)>.5) {
+  if(flying) {
+    const flight=broomTransform(state);
+    return {...broomPoint({x:-53,y:-149},state),scale:flight.scale,rotation:flight.rotation-.1};
+  }
+  const time=state.reducedMotion?0:(state.handTime??state.motionTime??state.time??0),energy=clamp(state.energy);
+  return {x:439,y:254+Math.sin(time*1.9)*(1+energy*1.4),scale:1,rotation:.025+Math.sin(time*.8)*.008};
+}
+function headPoint(point,transform) {
+  const cos=Math.cos(transform.rotation),sin=Math.sin(transform.rotation);
+  return {...point,x:transform.x+(cos*point.x-sin*point.y)*transform.scale,
+    y:transform.y+(sin*point.x+cos*point.y)*transform.scale};
+}
+/** Render/pick geometry before mushroom warping, using the visible head's
+ * transform. The axis and full pull range let pointer motion stay head-relative. */
+export function getWitchHair(state = {}) {
+  const local=witchHairLocal(state),transform=headTransform(state);
+  const cos=Math.cos(transform.rotation),sin=Math.sin(transform.rotation);
+  return {root:headPoint(local.root,transform),tip:headPoint(local.tip,transform),
+    axis:{x:cos*local.axis.x-sin*local.axis.y,y:sin*local.axis.x+cos*local.axis.y},
+    pullDistance:local.pullDistance*transform.scale,scale:transform.scale,
+    targets:local.targets.map(point=>({...headPoint(point,transform),r:point.r*transform.scale})),
+    strands:local.strands.map(strand=>({...strand,width:strand.width*transform.scale,
+      points:strand.points.map(point=>headPoint(point,transform))}))};
+}
+function drawWitchHair(c,state) {
+  const {strands}=witchHairLocal(state),amount=clamp(state.hair),lift=clamp(state.flightLift);
+  const colors=['#bcc5ac','#81758e','#6c7286','#92b9ae','#bb9cb9'];
+  for(const strand of strands) {
+    const points=strand.points.map(point=>[point.x,point.y]);
+    line(c,points,INK,strand.width+3.5);
+    line(c,points,colors[strand.index%colors.length],strand.width);
+    // Fine split ends become tangled and electrically wiry when pulled.
+    if(amount>.01||lift>.01) {
+      const end=strand.points[17],tip=strand.points.at(-1),curl=(amount*12+lift*18)*(strand.index%2?1:-1);
+      curve(c,[end.x,end.y,tip.x+curl,tip.y-18,tip.x-curl*1.5,tip.y+16,tip.x-8-amount*8,tip.y+7],colors[(strand.index+2)%colors.length],.8+amount*.5);
+    }
+  }
+}
+
 function witchHead(c, state, x, y, scale = 1, tilt = 0) {
   const vocal = true;
-  const time = state.time || 0, energy = clamp(state.energy), mouth = vocal ? clamp(state.mouth) : 0;
+  const mouth = vocal ? clamp(state.mouth) : 0;
   const nose=(clamp(state.nose??.5)-.5)*40;
   c.save(); c.translate(x, y); c.rotate(tilt); c.scale(scale, scale);
-  // Hair is behind the face, with separate wiry strands rather than a flat mass.
-  path(c, 'M-42,-38 C-76,-34 -89,-4 -83,40 C-99,84 -68,110 -81,155 Q-57,148 -57,124 Q-40,150 -30,163 Q-42,110 -24,82 Q-4,42 1,-8 Z', '#827b7f', INK, 2.5);
-  for (let i = 0; i < 13; i++) {
-    const x0 = -72 + i * 4.4;
-    const wave = Math.sin(time * 1.1 + i) * (2 + clamp(state.hair) * 6);
-    curve(c, [x0,-23,x0 - 20 + wave,46,x0 + 12 + wave,85,x0 - 4 + Math.sin(i) * 10,140 + (i % 3) * 10], i % 3 === 0 ? '#c0b3ac' : '#5b5867', i % 3 === 0 ? 1.4 : 2.1);
-  }
+  drawWitchHair(c,state);
   path(c, 'M-28,88 L11,91 L31,153 L-9,166 L-42,126 Z', '#92aa80', INK, 2.5);
   curve(c, [-19,112,-15,133,1,140,8,147], '#5e7863', 1.6);
   path(c, `M-35,-30 C-23,-55 12,-57 33,-34 Q48,-19 43,2 C58,12 56,24 60,33 L${91+nose},55 C${108+nose},71 ${86+nose},80 ${67+nose*.3},68 L61,65 Q53,80 60,87 C76,102 67,115 50,120 L37,139 C18,152 -9,135 -8,113 Q-29,107 -37,84 C-46,69 -51,34 -45,18 Q-52,-11 -35,-30 Z`, SKIN, INK, 3);
@@ -411,7 +474,8 @@ function brewScene(c, state) {
   c.restore();
   ladleArm(c,state);
   c.save();c.globalAlpha*=1-clamp(state.flightLift);
-  witchHead(c, state, 439, 254 + Math.sin(time * 1.9) * (1 + energy * 1.4), 1, .025 + Math.sin(time * .8) * .008);
+  const head=headTransform(state,false);
+  witchHead(c,state,head.x,head.y,head.scale,head.rotation);
   // Far hand is poised over the rising vapor.
   path(c, 'M391,411 Q358,407 341,438 L381,483 Q411,462 421,443 Z', '#4b3650', INK, 3);
   line(c, [[365,436],[386,464]], '#80637a', 1.1);
@@ -490,13 +554,8 @@ export function getWitchTrail(state = {}) {
 }
 
 export function getWitchTargets(state = {}) {
-  const time=state.time||0,lift=clamp(state.flightLift),energy=clamp(state.energy);
-  let origin,scale,rotation;
-  if(lift>.5) {
-    const flight=broomTransform(state);origin=broomPoint({x:-53,y:-149},state);scale=flight.scale;rotation=flight.rotation-.1;
-  } else { origin={x:439,y:254+Math.sin(time*1.9)*(1+energy*1.4)};scale=1;rotation=.025+Math.sin(time*.8)*.008; }
-  const point=(x,y,r)=>({x:origin.x+(Math.cos(rotation)*x-Math.sin(rotation)*y)*scale,
-    y:origin.y+(Math.sin(rotation)*x+Math.cos(rotation)*y)*scale,r:r*scale});
+  const transform=headTransform(state);
+  const point=(x,y,r)=>({...headPoint({x,y},transform),r:r*transform.scale});
   const shape=hatShape(state),hx=-10,hy=-111*shape.stretch;
   return {nose:point(87+(clamp(state.nose??.5)-.5)*40,57,20),
     hat:point(Math.cos(shape.tilt)*hx-Math.sin(shape.tilt)*hy,Math.sin(shape.tilt)*hx+Math.cos(shape.tilt)*hy,66*Math.max(1,shape.stretch)),
@@ -1031,7 +1090,6 @@ export function hitTestWitch(x, y, state = {}) {
   for(const m of WITCH_LAYOUT.mushrooms) if(Math.hypot(x-m.x,y-m.y)<Math.max(m.r,minRadius)) return {type:'mushrooms'};
   const handPoint=transformHandPoint({x:590,y:415},state);
   if(Math.hypot(x-handPoint.x,y-handPoint.y)<Math.max(38,minRadius)) return {type:'hand'};
-
   if(clamp(state.flightLift)<.35) {
     const a=parkedBroomPoint({x:-295,y:120}),b=parkedBroomPoint({x:162,y:96}),dx=b.x-a.x,dy=b.y-a.y;
     const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
@@ -1039,6 +1097,14 @@ export function hitTestWitch(x, y, state = {}) {
   }
   const pot=WITCH_LAYOUT.cauldron;
   if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
+  // Visible locks sit in front of the background ghosts, bats and spirits.
+  // Hands, utensil, face, hat, shelf icons and the pot retain priority.
+  const hair=getWitchHair(state),hairRadius=Math.min(28,Math.max(12*hair.scale,minRadius*.32));
+  for(const strand of hair.strands.slice(0,8))for(let i=7;i<strand.points.length;i++) {
+    const a=strand.points[i-1],b=strand.points[i],dx=b.x-a.x,dy=b.y-a.y;
+    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<hairRadius)return {type:'hair'};
+  }
   let ghostHit=null,ghostDistance=Infinity;
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
     const ghost=getWitchGhostPosition(index,state),distance=Math.hypot(x-ghost.x,y-ghost.y);

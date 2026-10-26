@@ -16,6 +16,7 @@ changes keep Audio, Play and the live clocks running.
 | Stir faster | Faster vortex and articulation | Faster invented syllables |
 | Lift or lower the spoon | Five glowing motes follow its height | Selects mutter, whisper, creak, cackle or singing |
 | Pull her nose / hat | Nose lengthens / hat stretches and tips | Nose bends pitch and nasal resonances; hat changes rasp |
+| Pull her hair away from her scalp; push it back | Wiry locks stretch and knot; flying hair whips behind her | Adds or eases a scratchy, tangled noise texture in the voice |
 | Widen the circle | Wider whirlpool and open jaw | Broader vowel resonances |
 | Reverse | Vortex changes direction | The syllable path runs backward |
 | Release a gesture | Automatic motion resumes while Play is active | The ensemble continues; stopped manual gestures fade |
@@ -37,7 +38,12 @@ The spoon rises and falls automatically through muttering, whisper, creak,
 cackle and singing. Drag its handle vertically to take over its height. The
 checkbox inside Parameters resumes automatic selection; choosing Character
 or the height slider holds a selection. Nose and hat pulls reshape the voice
-independently of the instrumental finger bends.
+independently of the instrumental finger bends. Pull her hair outward to stretch
+the strands and add scratchy noise; push back toward her head to soften it.
+The amount stays where you leave it and follows preset recall. Flying stretches
+the same hair into snaking, wind-whipped tangles. The **Hair tangle** slider
+inside Parameters provides a keyboard alternative, and **Empty the potion**
+clears it with the glass resonance.
 These are procedural synthesis gestures using a voiced/noisy source and
 vowel-like resonances, not recordings or a measured model of a real singer.
 Backward means reversing the authored syllable trajectory, not reversing a

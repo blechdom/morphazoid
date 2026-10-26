@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -341,4 +341,76 @@ test('eight preset palettes keep gesture geometry and mushroom deformation indep
     }
     assert.equal(filters.size,8);
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+
+test('hair pulls extend the same rooted locks along the advertised gesture axis',()=>{
+  for(const flightLift of [0,.25,.5,.75,1])for(const flightPhase of [0,1,4,9]) {
+    const state={flightLift,flightPhase,handTime:3.7,hat:.8};
+    const slack=getWitchHair({...state,hair:0}),pulled=getWitchHair({...state,hair:1});
+    assert.deepEqual(pulled.root,slack.root,'a pull never detaches hair from the scalp');
+    assert.ok(Math.abs(Math.hypot(pulled.axis.x,pulled.axis.y)-1)<1e-12);
+    assert.ok(Math.abs(pulled.tip.x-slack.tip.x-pulled.axis.x*pulled.pullDistance)<1e-10);
+    assert.ok(Math.abs(pulled.tip.y-slack.tip.y-pulled.axis.y*pulled.pullDistance)<1e-10);
+    for(const amount of [0,.5,1]) {
+      const hair=getWitchHair({...state,hair:amount});
+      assert.equal(hair.strands.length,15);
+      for(const strand of hair.strands) {
+        assert.equal(strand.points.length,21,'strand geometry has a fixed rendering budget');
+        for(const p of strand.points)assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>80&&p.x<900&&p.y>100&&p.y<600);
+      }
+      // The existing face crossfade draws both heads. Picking uses the more
+      // visible head, never an interpolated position in empty space between them.
+      const nose=getWitchTargets({...state,hair:amount}).nose;
+      assert.ok(Math.hypot(hair.root.x-nose.x,hair.root.y-nose.y)<175*hair.scale);
+    }
+  }
+});
+
+test('flying hair whips into snakes on the performance clock while reduced motion stays still',()=>{
+  const base={hair:.7,handTime:3.2,flightPhase:1.3};
+  const ground=getWitchHair({...base,flightLift:0}),flying=getWitchHair({...base,flightLift:1});
+  const extension=h=>Math.hypot(h.tip.x-h.root.x,h.tip.y-h.root.y)/h.scale;
+  assert.ok(extension(flying)>extension(ground)*1.1,'flight sweeps the free ends well behind the scalp');
+  assert.notDeepEqual(getWitchHair({...base,flightLift:1,handTime:3.8}).strands,flying.strands,'the shared musical clock whips the locks');
+  assert.deepEqual(getWitchHair({...base,time:999}),getWitchHair({...base,time:1}),'wall time does not animate stopped hair');
+  for(const flightLift of [0,1]) {
+    const reduced={...base,flightLift,reducedMotion:true};
+    assert.deepEqual(getWitchHair({...reduced,time:1,handTime:1,flightPhase:1}),getWitchHair({...reduced,time:999,handTime:999,flightPhase:999}));
+    assert.notDeepEqual(getWitchHair({...reduced,hair:0}).tip,getWitchHair({...reduced,hair:1}).tip,'direct pulls remain responsive without automatic wiggles');
+  }
+});
+
+test('visible hair locks remain pickable in brew and flight without replacing existing targets',()=>{
+  for(const hair of [0,.5,1])for(const flightLift of [0,1])for(const flightPhase of [0,.5,2,4,8,17])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++) {
+    const state={hair,flightLift,flightPhase,hitRadius,trip,warpTime:2.8,handTime:3.7,handReach:1,scene:flightLift?'flight':'brew'};
+    const geometry=getWitchHair(state);
+    assert.ok(geometry.targets.some(target=>{
+      const p=warpWitchPoint(target,state);
+      return hitTestWitch(p.x,p.y,state)?.type==='hair';
+    }),'some exposed lock can always start a pull');
+    const previous={...state,hair:0},targets=getWitchTargets(state),ladle=getWitchLadle(state);
+    const points=[targets.nose,targets.hat,{x:ladle.hx-8,y:ladle.hy-24},WITCH_LAYOUT.moon,...WITCH_LAYOUT.mushrooms,...WITCH_LAYOUT.objects];
+    for(const target of points) {
+      const p=warpWitchPoint(target,state),before=hitTestWitch(p.x,p.y,previous),after=hitTestWitch(p.x,p.y,state);
+      if(before?.type!=='hair')assert.deepEqual(after,before,'hair cannot take an established object or performer target');
+    }
+  }
+  const state={hair:.5,handTime:2};
+  const target=getWitchHair(state).targets.find(p=>hitTestWitch(p.x,p.y,state)?.type==='hair');
+  assert.ok(target);
+  const foreground={...state,handReach:1,handTips:[{index:2,...transformHandPoint(target,{...state,handReach:1},0,true)}]};
+  assert.deepEqual(hitTestWitch(target.x,target.y,foreground),{type:'finger',index:2},'actual foreground fingertips still win over hair');
+});
+
+test('foreground hair wins over a background ghost halo while exposed ghost points remain playable',()=>{
+  for(const hitRadius of [67,80])for(const trip of [0,3]) {
+    const state={hair:0,flightLift:1,flightPhase:4,handTime:3.7,handReach:1,scene:'flight',hitRadius,trip,warpTime:2.8};
+    const lock=getWitchHair(state).targets[0],ghost=getWitchGhostPosition(2,state);
+    assert.ok(Math.hypot(lock.x-ghost.x,lock.y-ghost.y)<Math.max(ghost.r,hitRadius),'the visible lock overlaps the ghost touch halo');
+    const point=warpWitchPoint(lock,state);
+    assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'hair'},'grabbing visible hair must not alter the ghost beat');
+    const clear={...state,flightPhase:2},exposed=warpWitchPoint(getWitchGhostPosition(2,clear),clear);
+    assert.deepEqual(hitTestWitch(exposed.x,exposed.y,clear),{type:'ghost',index:2},'the ghost becomes playable again as the witch moves clear');
+  }
 });
