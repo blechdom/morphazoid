@@ -23,18 +23,18 @@ const RANDOM_LABEL = 'Random body plan';
 const MOCAP_RIGS = {
   mocap: { label: 'Mocap humanoid (Quaternius UAL · CC0)', url: 'assets/rig-a-jig/ual-humanoid-bones.glb', clip: 'Dance_Loop', view: { yaw: 0.25, pitch: 0.16, zoom: 2.6, lookY: 0.85 } },
   kaykit: { label: 'Skeleton (KayKit · CC0)', url: 'assets/rig-a-jig/KayKit_Skeleton_bones.glb', clip: 'Idle_A' },
-  cow: { label: 'Cow (Quaternius · CC0)', url: 'assets/rig-a-jig/Cow_bones.glb', clip: 'Walk' },
-  horseMocap: { label: 'Horse (Quaternius · CC0)', url: 'assets/rig-a-jig/Horse_bones.glb', clip: 'Walk' },
-  llama: { label: 'Llama (Quaternius · CC0)', url: 'assets/rig-a-jig/Llama_bones.glb', clip: 'Idle' },
-  pig: { label: 'Pig (Quaternius · CC0)', url: 'assets/rig-a-jig/Pig_bones.glb', clip: 'Idle' },
-  pug: { label: 'Pug (Quaternius · CC0)', url: 'assets/rig-a-jig/Pug_bones.glb', clip: 'Idle' },
-  sheep: { label: 'Sheep (Quaternius · CC0)', url: 'assets/rig-a-jig/Sheep_bones.glb', clip: 'Idle' },
-  zebra: { label: 'Zebra (Quaternius · CC0)', url: 'assets/rig-a-jig/Zebra_bones.glb', clip: 'Walk' },
-  frogMocap: { label: 'Frog (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Frog_bones.glb', clip: 'Frog_Idle' },
-  rat: { label: 'Rat (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Rat_bones.glb', clip: 'Rat_Walk' },
-  snakeMocap: { label: 'Snake (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Snake_bones.glb', clip: 'Snake_Walk' },
-  spiderMocap: { label: 'Spider (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Spider_bones.glb', clip: 'Spider_Walk' },
-  wasp: { label: 'Wasp (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Wasp_bones.glb', clip: 'Wasp_Flying' },
+  cow: { label: 'Cow (Quaternius · CC0)', url: 'assets/rig-a-jig/Cow_bones.glb', skinUrl: 'assets/rig-a-jig/Cow_skinned.glb', clip: 'Walk' },
+  horseMocap: { label: 'Horse (Quaternius · CC0)', url: 'assets/rig-a-jig/Horse_bones.glb', skinUrl: 'assets/rig-a-jig/Horse_skinned.glb', clip: 'Walk' },
+  llama: { label: 'Llama (Quaternius · CC0)', url: 'assets/rig-a-jig/Llama_bones.glb', skinUrl: 'assets/rig-a-jig/Llama_skinned.glb', clip: 'Idle' },
+  pig: { label: 'Pig (Quaternius · CC0)', url: 'assets/rig-a-jig/Pig_bones.glb', skinUrl: 'assets/rig-a-jig/Pig_skinned.glb', clip: 'Idle' },
+  pug: { label: 'Pug (Quaternius · CC0)', url: 'assets/rig-a-jig/Pug_bones.glb', skinUrl: 'assets/rig-a-jig/Pug_skinned.glb', clip: 'Idle' },
+  sheep: { label: 'Sheep (Quaternius · CC0)', url: 'assets/rig-a-jig/Sheep_bones.glb', skinUrl: 'assets/rig-a-jig/Sheep_skinned.glb', clip: 'Idle' },
+  zebra: { label: 'Zebra (Quaternius · CC0)', url: 'assets/rig-a-jig/Zebra_bones.glb', skinUrl: 'assets/rig-a-jig/Zebra_skinned.glb', clip: 'Walk' },
+  frogMocap: { label: 'Frog (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Frog_bones.glb', skinUrl: 'assets/rig-a-jig/Frog_skinned.glb', clip: 'Frog_Idle' },
+  rat: { label: 'Rat (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Rat_bones.glb', skinUrl: 'assets/rig-a-jig/Rat_skinned.glb', clip: 'Rat_Walk' },
+  snakeMocap: { label: 'Snake (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Snake_bones.glb', skinUrl: 'assets/rig-a-jig/Snake_skinned.glb', clip: 'Snake_Walk' },
+  spiderMocap: { label: 'Spider (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Spider_bones.glb', skinUrl: 'assets/rig-a-jig/Spider_skinned.glb', clip: 'Spider_Walk' },
+  wasp: { label: 'Wasp (Easy Enemy · CC0)', url: 'assets/rig-a-jig/Wasp_bones.glb', skinUrl: 'assets/rig-a-jig/Wasp_skinned.glb', clip: 'Wasp_Flying' },
 };
 const isMocapRig = (id) => id in MOCAP_RIGS;
 const MOCAP_GROUP = [
@@ -176,7 +176,8 @@ function buildRig() {
     viewer.setRig('random', { seed: randomSeed });
   } else if (isMocapRig(rig)) {
     const def = MOCAP_RIGS[rig];
-    viewer.setRig(rig, { url: def.url, clip: currentClip, view: def.view });
+    const ghost = bodyMode === 'ghost' && def.skinUrl;
+    viewer.setRig(rig, { url: ghost ? def.skinUrl : def.url, clip: currentClip, view: def.view, ghost });
   } else {
     viewer.setRig(rig);
   }
@@ -495,7 +496,18 @@ const motionPicker = buildPicker({
 $('rigSelect').addEventListener('change', (event) => setRig(event.target.value));
 $('nextRig').addEventListener('click', () => { const v = stepSelect($('rigSelect'), 1); if (v) setRig(v); });
 $('diceRig').addEventListener('click', () => { const v = randomOption($('rigSelect')); if (v) setRig(v); });
-$('bodySelect').addEventListener('change', (event) => viewer.setBodyMode(event.target.value));
+let bodyMode = 'off';
+$('bodySelect').addEventListener('change', (event) => {
+  bodyMode = event.target.value;
+  if (isMocapRig(rig)) {
+    // Mocap rigs swap between the bones-only and skinned source GLBs.
+    buildRig();
+    if (playing) { viewer.playClip?.(currentClip); viewer.setMocapPlaying?.(true); }
+  } else {
+    // Procedural rigs use the synthesized ghost proxy.
+    viewer.setBodyMode(bodyMode === 'ghost' ? 'cloud' : 'off');
+  }
+});
 $('clipSelect').addEventListener('change', (event) => {
   currentClip = event.target.value;
   if (isMocapRig(rig)) rigClips[rig] = currentClip;

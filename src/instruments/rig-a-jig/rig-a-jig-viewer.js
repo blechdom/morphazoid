@@ -446,16 +446,35 @@ class RigFigure {
 /* A downloaded, mesh-free mocap rig: bones + AnimationClips from a GLB with no
  * mesh. Renders as the same laser joints/vectors; the clip drives the bones. */
 class MocapFigure extends RigFigure {
-  constructor(gltf, rigId, rootGroup, { clip = null } = {}) {
+  constructor(gltf, rigId, rootGroup, { clip = null, ghost = false } = {}) {
     // Use the parsed scene directly. We never mutate the source GLB and only
     // one mocap figure is alive at a time, so the expensive SkeletonUtils.clone
     // is unnecessary -- and on this mesh-free bone hierarchy it produced NaN
     // world matrices, which made the whole skeleton invisible.
     const skinnedRoot = gltf.scene;
-    // Strip any stray placeholder meshes: the rig renders as laser joints/lines.
-    const stray = [];
-    skinnedRoot.traverse((object) => { if (object.isMesh || object.isSkinnedMesh) stray.push(object); });
-    stray.forEach((object) => object.parent?.remove(object));
+    // Body handling. Two modes:
+    //  - skeleton (ghost=false): strip every mesh; render laser joints/lines.
+    //  - ghost body (ghost=true): keep the rig's real skinned mesh but render it
+    //    as a translucent additive ghost so the body reads without a lit material.
+    const ghostMeshes = [];
+    if (ghost) {
+      skinnedRoot.traverse((object) => {
+        if (object.isSkinnedMesh || object.isMesh) {
+          object.material = new THREE.MeshBasicMaterial({
+            color: 0x6fd8ff, transparent: true, opacity: 0.16,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+            wireframe: false, skinning: true,
+          });
+          object.frustumCulled = false;
+          object.userData.ghost = true;
+          ghostMeshes.push(object);
+        }
+      });
+    } else {
+      const stray = [];
+      skinnedRoot.traverse((object) => { if (object.isMesh || object.isSkinnedMesh) stray.push(object); });
+      stray.forEach((object) => object.parent?.remove(object));
+    }
     const joints = [];
     skinnedRoot.traverse((object) => { if (object.isBone) joints.push(object); });
     const rig = {
@@ -466,6 +485,7 @@ class MocapFigure extends RigFigure {
       externalScene: true,
     };
     super(rig, rigId, rootGroup, { mocapLike: true });
+    this.ghostMeshes = ghostMeshes;
     MocapFigure.count = (MocapFigure.count ?? 0) + 1;
     this.figureId = MocapFigure.count;
     globalThis.__mocapFigures = globalThis.__mocapFigures ?? [];
@@ -585,6 +605,7 @@ class MocapFigure extends RigFigure {
 
   dispose(rootGroup) {
     this.mixer.stopAllAction();
+    for (const mesh of this.ghostMeshes ?? []) mesh.material?.dispose?.();
     super.dispose(rootGroup);
   }
 }
@@ -686,8 +707,8 @@ export function createRigAJigViewer(canvas, {
       loadMocap(url).then((gltf) => {
         // Ignore stale loads (a newer setRig already created a figure).
         if (disposed || rigId !== next || token !== mocapToken) return;
-        figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip });
-        figure.setBodyMode(bodyMode);
+        figure = new MocapFigure(gltf, next, figureRoot, { clip: options.clip, ghost: Boolean(options.ghost) });
+        if (!options.ghost) figure.setBodyMode(bodyMode);
         figure.update({ rate: 0.3, amp: 0.5, sway: 0.3, fold: 0.5 }, 0);
         onRigReady?.({ clipNames: figure.clipNames() });
       }).catch((error) => onRigError?.(error));

@@ -2331,6 +2331,18 @@ copy+require	assets/rig-a-jig/Rat_bones.glb
 copy+require	assets/rig-a-jig/Snake_bones.glb
 copy+require	assets/rig-a-jig/Spider_bones.glb
 copy+require	assets/rig-a-jig/Wasp_bones.glb
+copy+require	assets/rig-a-jig/Cow_skinned.glb
+copy+require	assets/rig-a-jig/Horse_skinned.glb
+copy+require	assets/rig-a-jig/Llama_skinned.glb
+copy+require	assets/rig-a-jig/Pig_skinned.glb
+copy+require	assets/rig-a-jig/Pug_skinned.glb
+copy+require	assets/rig-a-jig/Sheep_skinned.glb
+copy+require	assets/rig-a-jig/Zebra_skinned.glb
+copy+require	assets/rig-a-jig/Frog_skinned.glb
+copy+require	assets/rig-a-jig/Rat_skinned.glb
+copy+require	assets/rig-a-jig/Snake_skinned.glb
+copy+require	assets/rig-a-jig/Spider_skinned.glb
+copy+require	assets/rig-a-jig/Wasp_skinned.glb
 
 # Rig Lab: one WIP lab, with credited downloaded animals and live geometry.
 copy+require	src/families/rig-lab/demo-motion.js
