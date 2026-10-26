@@ -340,8 +340,12 @@ test('flying fabric paints behind the scene and both long hair locks carry Candy
     const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
     assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
     const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r);
+    const eye=world.findIndex(call=>portraitUrl(call)?.endsWith('/oculoid.webp'));
     const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
     assert.ok(grid.at(-1).index<moon&&grid.at(-1).index<body,'moon and flying witch occlude the background cloth');
+    assert.ok(eye>moon&&eye<body,'the moon uses the real Oculoid portrait behind the flying witch');
+    const {x,y,r}=WITCH_LAYOUT.moon;
+    assert.deepEqual(world[eye].args,[x-r,y-r,r*2,r*2],'Oculoid retains the lunar size and hit target');
     const red=world.filter(call=>call.kind==='stroke'&&call.color==='#dc2f3f');
     assert.equal(red.length,2);assert.equal(world.filter(call=>call.kind==='stroke'&&call.color==='#fff7ea').length,2);
     assert.ok(red.every(call=>call.dash.length===2&&call.dash.every(value=>value>0)),'each cream lock has a repeated red stripe');

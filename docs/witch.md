@@ -34,7 +34,7 @@ Brightness remains on the **+ / −** keys.
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play its native L-system sound bite, with a pulse travelling through the branches. Mushrooms and the die choose new tree settings. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
 | Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
-| Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
+| Click the broom or Oculoid moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
 | Click the SHAPES charm | A native SHAPES form morphs into the next 3D/4D form and plays a short geometry-derived sound while randomizing every musical and visual setting. Refills ingredients and preserves flight/stirring and output level. The charm stays beside the pot in both modes; rapid clicks smoothly retarget it. |
@@ -56,7 +56,13 @@ Monstroid, Candy Coil Delay, SIMD Chiptune and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
 The full-height tree uses the L-system Delay instrument's seven generation colors,
-with the moon behind its branches. The three visitors use enlarged portraits
+with the moon behind its branches. The moon uses [Oculoid](../oculoid.html)'s
+actual eye portrait, cropped to the lunar circle with its glow retained.
+The eye model in that portrait is DEGUIDER's
+[Realistic Human Eye](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362),
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with Oculoid's
+authored chrome lids and lighting; [source and modifications](../assets/oculoid/SOURCE.LICENSE.txt).
+The three visitors use enlarged portraits
 and remain seated directly on the branches.
 Enlarged transparent red BLECH logos sometimes pass through the flying sky,
 playing an excerpt from its bundled Black MIDI demo.
