@@ -1,7 +1,7 @@
 {
   "confirmed": [
     {"route": "witch", "selector": "#speed", "mapping": {"unit": "powerHz", "floor": 0, "span": 1.909859317102744, "exponent": 1}, "note": "Tap one complete cauldron turn. Audio and Play stay independent.", "source": "src/pages/witch.html"},
-    {"route": "witch", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 1.15, "span": 7.8, "exponent": 1}, "note": "Tap one broom note. Audio and Play stay independent.", "source": "src/pages/witch.html"},
+    {"route": "witch", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 0.15915494309189535, "span": 0.7957747154594768, "exponent": 1}, "note": "Tap one flight delay modulation cycle: Hz=(1+speed*5)/(2π). Audio and Play stay independent.", "source": "src/pages/witch.html"},
     {
       "route": "wobblini",
       "selector": "#master-bpm",

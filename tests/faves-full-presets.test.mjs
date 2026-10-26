@@ -49,7 +49,7 @@ test("startup retains original settings with voice caps equal to the previous fi
 
 test("Faves retain implemented batch coverage and explicitly track the newly promoted page-owned banks", async () => {
   // Gesticules, Fractal Synthesis and Puggler retain their dedicated preset and browser coverage.
-  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "quadruped", "synthesis", "micmic-rust", "fractal-delay", "graphonic-calculator"]);
+  const implemented = new Set([...FAVES_PRESET_CASES.map(p => p.id), "shape-synth", "shapes", "hiccup-head", "creaturazoid", "gesticulating-hand", "fractal-signals", "puggler", "quadruped", "synthesis", "micmic-rust", "fractal-delay", "graphonic-calculator", "witch"]);
   // Fractal Delay retains its dedicated complete-preset and browser/audio checks.
   // Native Delay has twenty-six complete scenes and dedicated model/browser coverage.
   // Synthesaurus has a shared preset adapter with dedicated coverage.
@@ -66,7 +66,7 @@ test("Faves retain implemented batch coverage and explicitly track the newly pro
     assert.equal(entry.status, "unmigrated");
     assert.equal(entry.presets, null);
   }
-  assert.equal(FAVE_TOOL_IDS[0], "shapes");
+  assert.equal(FAVE_TOOL_IDS[0], "witch");
   assert.ok(["shape-synth", "solid-synth", "hyper-synth"].every(id => !FAVE_TOOL_IDS.includes(id)));
   assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 217);
 });

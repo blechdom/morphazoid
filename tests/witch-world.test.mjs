@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hitTestWitch, getFingerTips, handTransform, warpWitchPoint, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -36,7 +36,36 @@ test('the extended hand shares the actual projected tips with touch picking',()=
     }
   }
   const tucked=handTransform({...state,handReach:0});
-  assert.equal(tucked.scale,.14);
+  assert.equal(tucked.scale,.19);
   assert.ok(Math.abs(state.handWrist.x*tucked.scale+tucked.x-388)<1e-10);
   assert.ok(Math.abs(state.handWrist.y*tucked.scale+tucked.y-450)<1e-10);
+});
+
+
+test('both wrists, angled fingertips and inverse drags share their model transforms',()=>{
+  for(const reach of [0,.3,.7,1]) for(const index of [0,1]) {
+    const state={handReach:reach,handWrists:[{x:590,y:590},{x:588,y:593}],radius:.6,ladleAngle:1.7};
+    const t=handTransform(state,index);
+    assert.deepEqual(transformHandPoint(state.handWrists[index],state,index),t.wrist);
+    for(const point of [{x:530,y:300},{x:700,y:200},{x:580,y:410}]) {
+      const view=transformHandPoint(point,state,index);
+      const local=transformHandPoint(view,state,index,true);
+      assert.ok(Math.abs(local.x-point.x)<1e-10);
+      assert.ok(Math.abs(local.y-point.y)<1e-10);
+    }
+    if(index===0) assert.ok(Math.abs(t.rotation-reach*55*Math.PI/180)<1e-12);
+    else assert.equal(t.mirror,-1);
+  }
+  const state={handReach:1};
+  assert.ok(Math.hypot(handTransform(state,0).wrist.x-handTransform(state,1).wrist.x,handTransform(state,0).wrist.y-handTransform(state,1).wrist.y)>150);
+});
+
+
+test('spoon and nose remain separate drag targets throughout automatic stirring',()=>{
+  for(const spoonHeight of [0,.25,.5,.75,1]) for(let i=0;i<24;i++) {
+    const state={scene:'brew',radius:1,phase:i*Math.PI/12,spoonHeight,nose:1,hitRadius:67};
+    const ladle=getWitchLadle(state),nose=getWitchTargets(state).nose;
+    assert.equal(hitTestWitch(ladle.hx-8,ladle.hy-24,state)?.type,'spoon');
+    assert.equal(hitTestWitch(nose.x,nose.y,state)?.type,'nose');
+  }
 });

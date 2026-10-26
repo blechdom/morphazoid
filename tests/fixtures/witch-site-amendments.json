@@ -17,7 +17,7 @@
       "replacements": [
         {
           "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
-          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"witch\", label: \"Witch\", href: \"witch.html\" },\n"
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"witch\", label: \"Witches Brew\", href: \"witch.html\" },\n"
         }
       ]
     },
@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.\",\n    \"Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and five Gesticules instruments play together. Reach her long fingers, drop a miniature hand, marimba or choir mouth into the pot for a featured solo, and ride a rollercoaster broom that bends the whole mix through delay. Mushrooms warp the colors and lines.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers or drop a floating instrument into the pot; all remain playable during flight. The moon takes off, mushrooms change the picture, and Stop releases the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "replacements": [
         {
           "before": "# Morphazoid\n\n",
-          "after": "# Morphazoid\n\n**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\ntouch her right hand to stretch five witchy Gesticules fingers, click the moon\nto ride a musical broom, and touch mushrooms to warp the colors and lines. Audio starts off. [Gestures and sound](docs/witch.md).\n\n"
+          "after": "# Morphazoid\n\n**[Witches Brew](witch.html)** leads Faves: a singing cauldron and\nwitchy Gesticules hands play together. Drop floating miniature instruments into\nthe pot for featured solos, then ride a rollercoaster broom that bends the whole\nensemble through delay. Mushrooms warp the colors and lines. The scene starts\nmoving with Audio off. [Gestures and sound](docs/witch.md).\n\n"
         }
       ]
     },
@@ -85,7 +85,7 @@
       "replacements": [
         {
           "before": "export const TAP_TEMPO_TARGETS = [\n",
-          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"witch.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"title\": \"Tap one complete cauldron turn\"},\n  {\"route\": \"witch.html\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 1.15, \"span\": 7.8, \"exponent\": 1}, \"title\": \"Tap one broom note\"},\n"
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"witch.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"title\": \"Tap one complete cauldron turn\"},\n  {\"route\": \"witch.html\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"resetAfter\": 15000, \"title\": \"Tap one flight delay cycle\"},\n"
         }
       ]
     },
@@ -95,7 +95,7 @@
       "replacements": [
         {
           "before": "  \"confirmed\": [\n",
-          "after": "  \"confirmed\": [\n    {\"route\": \"witch\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"note\": \"Tap one complete cauldron turn. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 1.15, \"span\": 7.8, \"exponent\": 1}, \"note\": \"Tap one broom note. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n"
+          "after": "  \"confirmed\": [\n    {\"route\": \"witch\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"note\": \"Tap one complete cauldron turn. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"note\": \"Tap one flight delay modulation cycle: Hz=(1+speed*5)/(2π). Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n"
         }
       ]
     },
@@ -105,7 +105,7 @@
       "replacements": [
         {
           "before": "| [Wobblini]",
-          "after": "| [Witch](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (broom note) |\n| [Wobblini]"
+          "after": "| [Witches Brew](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (flight delay cycle) |\n| [Wobblini]"
         }
       ]
     }

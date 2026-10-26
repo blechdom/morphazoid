@@ -3,7 +3,7 @@
 .witch-performance { min-width: 0; display: flex; flex-direction: column; }
 .witch-page button { font: inherit; cursor: pointer; }
 .witch-viewport { position: relative; flex: 1; min-height: 360px; height: min(69vw, 730px); overflow: hidden; }
-.witch-viewport h1 { position: absolute; z-index: 1; top: 2.5%; left: 4.5%; margin: 0; color: #e4dfc5; font: 500 clamp(35px, 4.2vw, 62px)/1 Georgia, serif; letter-spacing: -.045em; pointer-events: none; }
+.witch-viewport h1 { position: absolute; z-index: 1; top: 2.5%; left: 4.5%; margin: 0; color: #e4dfc5; font: 500 clamp(25px, 3.1vw, 46px)/1.1 var(--mono); letter-spacing: -.035em; pointer-events: none; }
 #witchCanvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: grab; }
 #witchCanvas:active { cursor: grabbing; }
 #witchCanvas:focus-visible { outline: 2px solid var(--witch-lime); outline-offset: -4px; }
@@ -49,3 +49,10 @@
 @media (max-height: 500px) and (min-width: 601px) { .witch-shell { height: calc(100dvh - 58px); min-height: 260px; grid-template-columns: minmax(0,1fr) 250px; } .witch-panel { max-height: 100%; overflow-y: auto; padding: 10px 14px; } .witch-viewport { min-height: 180px; height: 100%; } .witch-understage { padding: 0 12px; min-height: 28px; } .witch-understage p { font-size: 10px; } .witch-viewport h1 { font-size: 30px; } .witch-scene-caption { bottom: 1%; font-size: 10px; } }
 @media (pointer: coarse) { .witch-page .audio-button, .witch-page #playButton { min-width: 48px; min-height: 48px; } .witch-effects button, .witch-ingredients button, .witch-wide { min-height: 44px; } }
 .witch-document, .witch-document body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+
+.witch-accessible-copy { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.witch-auto { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 11px; line-height: 1.5; color: #c8bed4; }
+.witch-auto input { accent-color: #b8c994; }
+
+.witch-panel #liveStatus { font-size: 11px; color: #e8b58e; }
+.witch-panel #liveStatus:empty { display: none; }

@@ -6,7 +6,7 @@
   "counts": {
     "implemented": 56,
     "fullPresets": 2293,
-    "favesImplemented": 19,
+    "favesImplemented": 20,
     "activeRemaining": 58,
     "regularRemaining": 130
   },
@@ -627,6 +627,16 @@
       "status": "deferred"
     },
     {
+      "id": "witch",
+      "label": "Witches Brew",
+      "href": "witch.html",
+      "category": "voice",
+      "scope": "fave",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "verification": "Twelve complete scenes and bounded parameter randomization preserve Audio, output and live Play. Focused browser tests cover recall, dice, gestures, release and three layouts. Human listening and physical touch-device acceptance remain pending."
+    },
+    {
       "id": "voicesaurus",
       "presets": 156,
       "status": "implemented-verification-pending",
@@ -989,16 +999,6 @@
       "scope": "fave",
       "presets": 132,
       "status": "implemented-verification-pending"
-    },
-    {
-      "id": "witch",
-      "label": "Witch",
-      "href": "witch.html",
-      "category": "wip",
-      "scope": "deferred-wip",
-      "presets": 12,
-      "status": "implemented-verification-pending",
-      "verification": "Twelve complete scenes and bounded parameter randomization preserve Audio, output and live Play. Focused browser tests cover recall, dice, gestures, release and three layouts. Human listening and physical touch-device acceptance remain pending."
     },
     {
       "id": "wobblini",
@@ -1864,6 +1864,7 @@
   ],
   "queues": {
     "faves": [
+      "witch",
       "shapes",
       "rubix",
       "hiccup-head",
@@ -1952,7 +1953,6 @@
       "crickets",
       "midiphoria",
       "blech-midi",
-      "witch",
       "wobblini",
       "striped-staircase-rust",
       "rig-lab",

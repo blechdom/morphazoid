@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { restoreSelectedInstrumentRecovery } from "./selected-instrument-recovery-reference.mjs";
 import { restoreQuadrupedFaves } from "./quadruped-faves-reference.mjs";
 import { restoreLSystemsEnsemble } from "./l-systems-ensemble-reference.mjs";
+import { restoreWitchesBrewFaves } from "./witches-brew-faves-reference.mjs";
 
 export const witchSiteChanges = JSON.parse(readFileSync(
   new URL("../fixtures/witch-site-amendments.json", import.meta.url), "utf8",
@@ -11,6 +12,7 @@ export const witchSiteChanges = JSON.parse(readFileSync(
 /** Peel the exact Witch additions before older frozen-source comparisons. */
 export function restoreWitchSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  source = restoreWitchesBrewFaves(source, file, { allowRestored: true });
   source = restoreLSystemsEnsemble(source, file, { allowRestored: true });
   source = restoreSelectedInstrumentRecovery(source, file, { allowRestored: true });
   source = restoreQuadrupedFaves(source, file, { allowRestored: true });

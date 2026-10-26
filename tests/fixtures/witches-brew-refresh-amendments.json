@@ -1,0 +1,36 @@
+{
+  "description": "Exact October 25 Witches Brew rename and copy refresh, after reversing its separately proven Faves promotion. Older instrument baselines retain the original Witch addition.",
+  "baseCommit": "c3e963753675fa5a23e9555001b24211ab7d2f02",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "d0207555702ea454c8fc1f685a1a2fc5df5b1b0c96b9a8ff67062907362d7195",
+      "replacements": [
+        {
+          "before": "    { id: \"witch\", label: \"Witch\", href: \"witch.html\" },\n",
+          "after": "    { id: \"witch\", label: \"Witches Brew\", href: \"witch.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "187dbcbcf114eb5e2a4186b32d32b47552b21df24cfece24317eadfcb87940b8",
+      "replacements": [
+        {
+          "before": "  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.\",\n    \"Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n",
+          "after": "  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and five Gesticules instruments play together. Reach her long fingers, drop a miniature hand, marimba or choir mouth into the pot for a featured solo, and ride a rollercoaster broom that bends the whole mix through delay. Mushrooms warp the colors and lines.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers or drop a floating instrument into the pot; all remain playable during flight. The moon takes off, mushrooms change the picture, and Stop releases the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "d2eada6c2c6345ed1b15d4d0d763b6159c544117cc900f05f3a6b5dbb9f69994",
+      "replacements": [
+        {
+          "before": "**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\ntouch her right hand to stretch five witchy Gesticules fingers, click the moon\nto ride a musical broom, and touch mushrooms to warp the colors and lines. Audio starts off. [Gestures and sound](docs/witch.md).\n\n",
+          "after": "**[Witches Brew](witch.html)** leads Faves: a singing cauldron and\nwitchy Gesticules hands play together. Drop floating miniature instruments into\nthe pot for featured solos, then ride a rollercoaster broom that bends the whole\nensemble through delay. Mushrooms warp the colors and lines. The scene starts\nmoving with Audio off. [Gestures and sound](docs/witch.md).\n\n"
+        }
+      ]
+    }
+  ]
+}

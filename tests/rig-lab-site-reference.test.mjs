@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { rigLabSiteChanges, restoreRigLabSite } from "./helpers/rig-lab-site-reference.mjs";
 import { restorePreviousGlobuleCopy } from "./helpers/globule-damacy-site-reference.mjs";
+import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const sha256 = source => createHash("sha256").update(source).digest("hex");
@@ -19,7 +20,7 @@ test("Rig Lab registrations reverse exactly to the preceding site and runtime in
     "src/site/instrument-registry.js",
   ]);
   for (const change of rigLabSiteChanges.changes) {
-    const current = await readFile(new URL(change.file, root), "utf8");
+    const current = restoreWitchesBrewRefresh(await readFile(new URL(change.file, root), "utf8"), change.file);
     const source = restorePreviousGlobuleCopy(current, change.file);
     const restored = restoreRigLabSite(source, change.file);
     assert.equal(sha256(restored), change.sha256, change.file);

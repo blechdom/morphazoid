@@ -1,5 +1,6 @@
-import { normalizeWitchControls, sampleChant, witchClamp, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
+import { normalizeWitchControls, sampleChant, witchClamp, witchHandConfig, applyWitchManualFingers, witchSpoonHeight, witchVoiceAtHeight, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_DROP_EFFECTS, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
+import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -39,7 +40,9 @@ class CauldronDSP {
     this.controls = normalizeWitchControls(); this.enabled = false; this.randomState = seed >>> 0 || 1;
     this.time = 0; this.phase = 0; this.chantPhase = 0; this.osc = 0; this.subOsc = 0;
     this.vibratoPhase = 0; this.wobblePhase = 0; this.speed = 0; this.radius = .5; this.altitude = .5;
-    this.fingers = new Float64Array([.5, .5, .5, .5, .5]); this.glass = 0; this.hair = 0;
+    this.fingers = new Float64Array([.5, .5, .5, .5, .5]); this.glass = 0; this.hair = 0; this.nose = .5; this.hat = .5;
+    this.spoonTime = 0; this.spoonHeight = .5; this.activeVoice = 'mutter';
+    this.spoonSmooth = 1 - Math.exp(-this.dt / .4);
     this.envelope = 0; this.releaseAir = 0; this.lastGate = false; this.sourceLow = 0; this.noiseLow = 0;
     this.lastInput = 0; this.dc = 0; this.gain = 0; this.targetHz = 139; this.frequency = 139;
     this.targetAir = .13; this.air = .13; this.targetRasp = .23; this.rasp = .23;
@@ -81,12 +84,14 @@ class CauldronDSP {
     return true;
   }
   tuneVoice() {
-    const c = this.controls, v = VOICE[c.voice];
+    const c = this.controls;
+    this.activeVoice = c.spoonAuto ? witchVoiceAtHeight(this.spoonHeight) : c.voice;
+    const v = VOICE[this.activeVoice];
     sampleChant(this.chantPhase, 1, this.radius, this.chant);
-    const vowel = .77 + this.fingers[1] * .46;
-    this.targetHz = v.hz * Math.pow(2.7, this.fingers[0] - .5) * this.chant.pitch;
+    const vowel = (.77 + this.fingers[1] * .46) * Math.pow(1.8, (this.nose - .5) * 2);
+    this.targetHz = v.hz * Math.pow(2.7, this.fingers[0] - .5) * this.chant.pitch * Math.pow(2, (this.hat - .5) * 1.3);
     this.targetAir = witchClamp(v.air + (this.fingers[4] - .5) * .55, 0, .98);
-    this.targetRasp = witchClamp(v.rasp + (this.fingers[2] - .5) * .8 + this.hair * .34);
+    this.targetRasp = witchClamp(v.rasp + (this.fingers[2] - .5) * .8 + this.hair * .34 + (this.hat - .5) * .5);
     this.targetVibrato = v.vibrato + this.fingers[3] ** 2 * .065;
     this.targetSustain = v.sustain;
     const width = 85 + this.targetAir * 230 + this.hair * 65;
@@ -151,8 +156,11 @@ class CauldronDSP {
       this.radius += (c.radius - this.radius) * this.smooth;
       this.altitude += (c.altitude - this.altitude) * this.smooth;
       this.glass += (c.glass - this.glass) * this.smooth; this.hair += (c.hair - this.hair) * this.smooth;
+      this.nose += (c.nose - this.nose) * this.smooth; this.hat += (c.hat - this.hat) * this.smooth;
+      if (c.gate) this.spoonTime += this.dt;
+      if (c.gate || !c.spoonAuto) this.spoonHeight += ((c.spoonAuto ? witchSpoonHeight(this.spoonTime) : c.spoonHeight) - this.spoonHeight) * this.spoonSmooth;
       for (let f = 0; f < 5; f++) this.fingers[f] += (c.fingers[f] - this.fingers[f]) * this.smooth;
-      const pace = .46 + this.speed * (c.voice === 'cackle' ? 12 : 8.6);
+      const pace = .46 + this.speed * (this.activeVoice === 'cackle' ? 12 : 8.6);
       this.chantPhase += c.direction * pace * this.dt * (c.gate ? 1 : this.speed);
       // Radians, independent from articulation so a broad chant still follows
       // the visible ladle rotation while its vowels take their own time.
@@ -198,6 +206,7 @@ class CauldronDSP {
     this.visual.energy = Math.sqrt(square / Math.max(1, left.length)); this.visual.speed = this.speed;
     this.visual.direction = c.direction; this.visual.syllable = this.chant.index; this.visual.audioTime = this.time;
     this.visual.breath = this.releaseAir;
+    this.visual.spoonHeight = this.spoonHeight; this.visual.activeVoice = this.activeVoice;
     return this.visual;
   }
 }
@@ -390,117 +399,253 @@ class FlightDSP {
   }
 }
 
-function fingerConfig(controls) {
-  return {
-    motion: { id: 'still', amount: 0 }, tremor: { amount: 0 },
-    pose: { fingers: controls.fingers.map((bend, index) => ({ mcp: bend * 70, pip: bend * (index ? 85 : 65), dip: bend * 60, spread: 0 })),
-      wrist: { flex: 0, side: 0, twist: 0 } },
-    sound: { rhythm: 'continuous', rootHz: 91, pitchSpread: 1.25, brightness: controls.tone,
-      roughness: .12, space: .14, rotationFx: 0, attack: .035, release: .28 },
-    voices: WITCH_FINGER_SOURCES.map((source, index) => ({ source, level: index > 2 ? .9 : .76 })),
-  };
+/** Keep Gesticules' sample-clock choreography and resonators intact. A held
+ * digit overrides only its own pose/targets; its neighbours keep moving. */
+class WitchHandDSP extends HandDSP {
+  constructor(rate) {
+    super(rate);
+    this.witchControls = null; this.manualConfig = null;
+    this.manualPose = createHandPose(); this.manualPrevious = createHandPose(); this.manualTargets = createHandVoices();
+  }
+  setWitchControls(controls) {
+    this.witchControls = controls;
+    const config = witchHandConfig(controls);
+    this.setConfig(config);
+    this.manualConfig = normalizeHandConfig({ ...config, motion: { id: 'still', amount: 0 } });
+    applyWitchManualFingers(controls, this.manualConfig.pose);
+  }
+  updateTargets(at) {
+    super.updateTargets(at);
+    const mask = this.witchControls?.manualFingerMask ?? 0;
+    if (!mask || !this.manualConfig) return;
+    evaluateHandVoices(this.manualConfig, 0, this.manualTargets, this.manualPose, this.manualPrevious);
+    for (let index = 0; index < 5; index++) if (mask & (1 << index)) {
+      Object.assign(this.targets[index], this.manualTargets[index]);
+      if (this.sampleRate * .17 < 4200) this.targets[index].frequency = handPlayableFrequency(this.targets[index].frequency, this.sampleRate * .17);
+      Object.assign(this.pose.fingers[index], this.manualPose.fingers[index]);
+    }
+  }
 }
 
-/** Three independent instruments share only output and gesture state. The
- * hand is the actual Gesticules engine with five fixed nonvocal materials. */
+/** Three bounded miniature solos share five existing Gesticules voice engines:
+ * glass/wire/metal, Linear Drums' marimba, and the Throatazoid-derived choir. */
+class DroppedInstrumentDSP {
+  constructor(rate) {
+    this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
+    this.hand = new HandDSP(rate); this.solo = 0; this.kind = ''; this.levels = new Float32Array(128);
+    this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ kind, mask: [19, 4, 8][i], until: -1 }));
+    this.hand.setConfig({
+      motion: { id: 'flourish', tempo: 90, amount: .48 }, tremor: { amount: 0 },
+      pose: { fingers: [.12, .28, .18, .38, .22].map(bend => ({ mcp: bend * 50, pip: bend * 60, dip: bend * 40, spread: 0 })) },
+      sound: { rhythm: 'continuous', rootHz: 137, pitchSpread: 1.6, brightness: .64, roughness: .12,
+        attack: .012, release: .42, space: .16, rotationFx: 0 },
+      voices: ['glass', 'wire', 'marimba', 'choir', 'metal'].map(source => ({ source, level: .86 })),
+    });
+    this.hand.setSoundPlaying(false); this.hand.setTransport({ playing: true }); this.hand.reset();
+    this.attack = 1 - Math.exp(-1 / (rate * .018)); this.release = 1 - Math.exp(-1 / (rate * .24));
+  }
+  setEnabled(enabled) {
+    this.enabled = enabled === true; this.hand.setEnabled(this.enabled);
+    if (!this.enabled) this.releaseAll();
+  }
+  releaseAll() { for (const slot of this.slots) slot.until = -1; }
+  trigger(kind) {
+    const slot = this.slots.find(slot => slot.kind === kind);
+    if (!this.enabled || !slot) return false;
+    slot.until = this.clock + Math.round(this.rate * 2.4); this.kind = kind; this.dormant = false;
+    for (let i = 0; i < 5; i++) if (slot.mask & (1 << i)) this.hand.auditionFinger(i, .08, this.clock / this.rate);
+    return true;
+  }
+  process(left, right) {
+    if (this.dormant) { left.fill(0); right.fill(0); this.levels.fill(0); this.clock += left.length; return; }
+    let offset = 0;
+    while (offset < left.length) {
+      let mask = 0, boundary = Infinity;
+      for (const slot of this.slots) if (slot.until > this.clock) {
+        mask |= slot.mask; boundary = Math.min(boundary, slot.until);
+      }
+      this.hand.setHeldFingers(mask);
+      const count = Math.min(left.length - offset, boundary - this.clock);
+      this.hand.process(offset === 0 && count === left.length ? left : left.subarray(offset, offset + count),
+        offset === 0 && count === right.length ? right : right.subarray(offset, offset + count), this.clock / this.rate);
+      const active = this.enabled && mask !== 0;
+      for (let i = offset; i < offset + count; i++) {
+        this.solo += ((active ? 1 : 0) - this.solo) * (active ? this.attack : this.release);
+        this.levels[i] = this.solo; this.clock++;
+      }
+      offset += count;
+    }
+    if (this.solo < 1e-6) this.kind = '';
+    if (this.solo < 1e-7 && this.hand.rms < 1e-9) { this.hand.reset(); this.dormant = true; }
+  }
+}
+
+/** One fractional stereo delay after the complete mix. Slewed read positions
+ * make pitch bends; bounded feedback and a final mute keep every layer finite. */
+export class FlightMixDelay {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate; this.controls = normalizeWitchControls();
+    this.buffers = [new Float32Array(Math.ceil(rate * 2)), new Float32Array(Math.ceil(rate * 2))];
+    this.writeIndex = 0; this.ridePhase = 0; this.wet = 0; this.feedback = 0; this.master = 0;
+    this.delayL = rate * .32; this.delayR = rate * .39; this.lowL = 0; this.lowR = 0;
+    this.left = 0; this.right = 0; this.wetLeft = 0; this.wetRight = 0; this.cleared = true;
+    this.smooth = 1 - Math.exp(-1 / (rate * .08)); this.fade = 1 - Math.exp(-1 / (rate * .025));
+  }
+  read(buffer, delay) {
+    const position = (this.writeIndex - delay + buffer.length) % buffer.length;
+    const index = Math.floor(position), fraction = position - index;
+    return buffer[index] + (buffer[(index + 1) % buffer.length] - buffer[index]) * fraction;
+  }
+  next(left, right, enabled) {
+    const c = this.controls, flying = c.mode === 'flight';
+    const wetTarget = flying ? .35 + c.altitude * .25 : 0;
+    this.wet += (wetTarget - this.wet) * this.smooth;
+    this.feedback += ((flying && c.gate ? .28 + c.speed * .4 : .16) - this.feedback) * this.smooth;
+    const ride = .018 * Math.sin(this.ridePhase);
+    const seconds = .11 + c.altitude * .43 + (1 - c.speed) * .13 + ride;
+    // A bounded read-head slope avoids abrupt discontinuities on pointer edits.
+    this.delayL += witchClamp(seconds * this.rate - this.delayL, -.24, .24);
+    this.delayR += witchClamp(seconds * (.74 + c.flightX * .48) * this.rate - this.delayR, -.24, .24);
+    const echoL = this.read(this.buffers[0], this.delayL), echoR = this.read(this.buffers[1], this.delayR);
+    this.lowL += .26 * (echoL - this.lowL); this.lowR += .26 * (echoR - this.lowR);
+    this.buffers[0][this.writeIndex] = Math.tanh((left + this.lowR * this.feedback) / .8) * .8;
+    this.buffers[1][this.writeIndex] = Math.tanh((right + this.lowL * this.feedback) / .8) * .8;
+    this.writeIndex = (this.writeIndex + 1) % this.buffers[0].length;
+    this.master += ((enabled ? 1 : 0) - this.master) * this.fade;
+    this.wetLeft = Math.tanh(echoL / .54) * .54 * this.wet * this.master;
+    this.wetRight = Math.tanh(echoR / .54) * .54 * this.wet * this.master;
+    this.left = left * (1 - this.wet) * this.master + this.wetLeft;
+    this.right = right * (1 - this.wet) * this.master + this.wetRight;
+    if (enabled) this.cleared = false;
+    else if (!this.cleared && this.master < 1e-7) {
+      for (const buffer of this.buffers) buffer.fill(0);
+      this.lowL = this.lowR = 0; this.cleared = true;
+    }
+    if(c.gate) this.ridePhase += (1 + c.speed * 5) * this.dt;
+  }
+}
+
+/** Voice and Gesticules keep their clocks together. Focus changes balance,
+ * dropped instruments briefly solo, and flight delays the complete performance. */
 export class WitchDSP {
   constructor(rate = 48000, seed = 0x71c4) {
     this.rate = witchClamp(rate, 8000, 192000, 48000); this.dt = 1 / this.rate;
     this.controls = normalizeWitchControls(); this.enabled = false; this.time = 0;
-    this.brew = new CauldronDSP(this.rate, seed); this.hand = new HandDSP(this.rate); this.flight = new FlightDSP(this.rate);
-    this.hand.setConfig(fingerConfig(this.controls)); this.hand.reset();
-    this.weights = new Float64Array([1, 0, 0]); this.fadeFrom = new Float64Array(this.weights);
+    this.brew = new CauldronDSP(this.rate, seed); this.hand = new WitchHandDSP(this.rate); this.flight = new FlightDSP(this.rate);
+    this.hand.setWitchControls(this.controls); this.hand.reset();
+    this.weights = new Float64Array([.72, .28, 0]); this.fadeFrom = new Float64Array(this.weights);
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
-    this.handDormant = true; this.flightDormant = true;
-    this.buffers = Array.from({ length: 6 }, () => new Float32Array(128));
-    this.visual = { ...this.brew.visual, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
+    this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
+    this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
+    this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
+      delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
   get chantPhase() { return this.brew.chantPhase; }
   get effectCounter() { return this.flight.noteCount; }
   get effects() { return this.brew.effects; }
-  syncPhase(phase, speed = 0) { this.brew.syncPhase(phase, speed); this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed; }
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase) {
+    this.brew.syncPhase(phase, speed); this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed;
+    if (Number.isFinite(handTime)) {
+      this.hand.setTransport({ time: witchClamp(handTime, 0, 1e9) }, this.time);
+      this.visual.handTime = this.hand.getMotionTime(this.time);
+      this.brew.spoonTime = this.visual.handTime;
+      this.delay.ridePhase = Number.isFinite(flightPhase) ? witchClamp(flightPhase, 0, 1e12) * 1.4 : this.visual.handTime * (1 + this.controls.speed * 5);
+      this.visual.flightPhase = this.delay.ridePhase / 1.4;
+      this.brew.spoonHeight = witchClamp(spoonHeight, 0, 1,
+        this.controls.spoonAuto ? witchSpoonHeight(this.visual.handTime) : this.controls.spoonHeight);
+      this.visual.spoonHeight = this.brew.spoonHeight; this.brew.controlSamples = 0;
+    }
+  }
   setControls(value) {
     const previous = this.controls;
-    this.controls = normalizeWitchControls({ ...previous, ...value });
+    this.controls = normalizeWitchControls({ ...previous, ...value,
+      handFocus: value.mode && value.mode !== previous.mode && value.handFocus === undefined ? undefined : value.handFocus ?? previous.handFocus });
     const c = this.controls;
-    if (c.mode !== previous.mode) { this.fadeFrom.set(this.weights); this.fadePosition = 0; }
-    // The cauldron advances silently when another scene is selected, preserving
-    // phase continuity while its mixed contribution reaches exactly zero.
-    this.brew.setControls({ ...c, mode: 'brew' });
-    this.flight.setControls(c);
-    if (c.tone !== previous.tone || c.fingers.some((v, i) => v !== previous.fingers[i])) {
-      this.hand.setConfig(fingerConfig(c));
-      if (c.mode === 'fingers' && c.gate && this.enabled) {
+    if (c.handFocus !== previous.handFocus) { this.fadeFrom.set(this.weights); this.fadePosition = 0; }
+    // Preserve the brewed anatomy underneath hand gestures: bending an
+    // instrumental finger must not simultaneously reshape the background voice.
+    this.brew.setControls({ ...c, mode: 'brew', fingers: this.brew.controls.fingers });
+    this.flight.setControls({ ...c, gate: false }); // flight is the shared delay; accents remain explicit.
+    this.delay.controls = c;
+    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); }
+    if (c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
+      this.hand.setWitchControls(c);
+      if (c.gate && this.enabled) {
         const mask = c.fingerMask || 31;
         for (let i = 0; i < 5; i++) if ((mask & (1 << i)) && Math.abs(c.fingers[i] - previous.fingers[i]) > .002) {
           this.hand.auditionFinger(i, .06, this.time);
         }
       }
     }
+    this.hand.setTransport({ playing: c.gate }, this.time);
     this.hand.setSoundPlaying(false);
-    this.hand.setHeldFingers(c.mode === 'fingers' && c.gate ? c.fingerMask || 31 : 0);
-    this.hand.setEnabled(this.enabled && c.mode === 'fingers');
-    this.brew.setEnabled(this.enabled && c.mode === 'brew');
-    this.flight.setEnabled(this.enabled && c.mode === 'flight');
+    this.hand.setHeldFingers(c.gate ? c.fingerMask || 31 : 0);
+    this.hand.setEnabled(this.enabled); this.brew.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
   }
   setEnabled(enabled) {
     this.enabled = enabled === true;
-    this.brew.setEnabled(this.enabled && this.controls.mode === 'brew');
-    this.hand.setEnabled(this.enabled && this.controls.mode === 'fingers');
-    this.flight.setEnabled(this.enabled && this.controls.mode === 'flight');
+    this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
+    this.drops.setEnabled(this.enabled);
   }
   trigger(kind) {
     if (!this.enabled) return false;
-    if (this.controls.mode === 'brew') return this.brew.trigger(kind);
-    if (this.controls.mode === 'flight') return this.flight.trigger(kind);
-    return false;
+    if (WITCH_DROP_EFFECTS.includes(kind)) return this.drops.trigger(kind);
+    if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) return this.flight.trigger(kind);
+    return this.brew.trigger(kind);
   }
   process(left, right = left) {
-    const mode = this.controls.mode, selected = mode === 'brew' ? 0 : mode === 'fingers' ? 1 : 2;
-    let energy = 0;
+    const c = this.controls, voiceWeight = .72 - c.handFocus * .54;
+    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0;
     for (let offset = 0; offset < left.length; offset += 128) {
       const count = Math.min(128, left.length - offset);
       const b = count === 128 ? this.buffers : this.buffers.map(buffer => buffer.subarray(0, count));
       this.brew.process(b[0], b[1]);
-      if (selected === 1 || this.weights[1] > 0) {
-        this.hand.process(b[2], b[3], this.time); this.handDormant = false;
-      } else {
-        b[2].fill(0); b[3].fill(0);
-        if (!this.handDormant) { this.hand.reset(); this.handDormant = true; }
-      }
-      if (selected === 2 || this.weights[2] > 0) {
-        this.flight.process(b[4], b[5]); this.flightDormant = false;
-      } else {
-        b[4].fill(0); b[5].fill(0);
-        if (!this.flightDormant) { this.flight.clear(); this.flightDormant = true; }
-      }
+      this.hand.process(b[2], b[3], this.time); this.flight.process(b[4], b[5]); this.drops.process(b[6], b[7]);
       for (let i = 0; i < count; i++) {
         const fade = Math.min(1, ++this.fadePosition / this.fadeSamples);
-        for (let engine = 0; engine < 3; engine++) this.weights[engine] = this.fadeFrom[engine] * (1 - fade) + (selected === engine ? fade : 0);
+        this.weights[0] = this.fadeFrom[0] * (1 - fade) + voiceWeight * fade;
+        this.weights[1] = 1 - this.weights[0];
         // Limit each engine before crossfading: changing scenes never changes
         // the transfer curve underneath a ringing sound.
-        const outL = b[0][i] * this.weights[0] + Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1]
-          + Math.tanh(b[4][i] / .54) * .54 * this.weights[2];
-        const outR = b[1][i] * this.weights[0] + Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1]
-          + Math.tanh(b[5][i] / .54) * .54 * this.weights[2];
+        const handL = Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1];
+        const handR = Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1];
+        const soloMix = this.drops.levels[i] * .8, backing = 1 - soloMix;
+        const dropL = Math.tanh(b[6][i] * 2.4 / .54) * .54 * soloMix;
+        const dropR = Math.tanh(b[7][i] * 2.4 / .54) * .54 * soloMix;
+        const dryL = Math.tanh(((b[0][i] * this.weights[0] + handL) * backing + dropL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh(((b[1][i] * this.weights[0] + handR) * backing + dropR + b[5][i] * .85) / .54) * .54;
+        this.delay.next(dryL, dryR, this.enabled);
+        const outL = this.delay.left, outR = this.delay.right;
         left[offset + i] = right === left ? (outL + outR) * .5 : outL;
         if (right !== left) right[offset + i] = outR;
         energy += (outL * outL + outR * outR) * .5;
+        brewEnergy += (b[0][i] ** 2 + b[1][i] ** 2) * .5 * this.weights[0] ** 2 * backing ** 2;
+        handEnergy += (handL * handL + handR * handR) * .5 * backing ** 2;
+        dropEnergy += (dropL * dropL + dropR * dropR) * .5;
+        delayEnergy += (this.delay.wetLeft ** 2 + this.delay.wetRight ** 2) * .5;
       }
       this.time += count * this.dt;
     }
     Object.assign(this.visual, this.brew.visual);
     this.visual.energy = Math.sqrt(energy / Math.max(1, left.length)); this.visual.audioTime = this.time;
+    this.visual.brewLevel = Math.sqrt(brewEnergy / Math.max(1, left.length));
+    this.visual.handLevel = Math.sqrt(handEnergy / Math.max(1, left.length));
+    this.visual.dropLevel = Math.sqrt(dropEnergy / Math.max(1, left.length));
+    this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
+    this.visual.delayLevel = Math.sqrt(delayEnergy / Math.max(1, left.length));
+    this.visual.delayWet = this.delay.wet; this.visual.delayTime = this.delay.delayL / this.rate;
+    this.visual.flightPhase = this.delay.ridePhase / 1.4;
+    this.visual.handTime = this.hand.getMotionTime(this.time);
     for (let i = 0; i < 5; i++) this.visual.fingerLevels[i] = this.hand.voiceLevels[i];
-    this.visual.flightPulse = selected === 2 ? this.flight.visual.flightPulse : 0;
+    this.visual.flightPulse = c.mode === 'flight' ? witchClamp(this.visual.delayLevel * 8) : 0;
     this.visual.flightStep = this.flight.visual.flightStep;
-    this.visual.launchActive = selected === 2 && this.flight.visual.launchActive;
-    this.visual.launchEnvelope = selected === 2 ? this.flight.visual.launchEnvelope : 0;
-    if (selected !== 0) {
-      this.visual.mouth = selected === 2 ? this.flight.visual.mouth : 0; this.visual.breath = 0;
-      this.visual.effect = selected === 2 ? this.flight.visual.effect : '';
-      this.visual.effectEnvelope = selected === 2 ? this.flight.visual.effectEnvelope : 0;
+    this.visual.launchActive = this.flight.visual.launchActive;
+    this.visual.launchEnvelope = this.flight.visual.launchEnvelope;
+    this.visual.mouth = Math.max(this.visual.mouth * (1 - c.handFocus * .45), this.flight.visual.mouth);
+    if (this.flight.visual.effectEnvelope > this.visual.effectEnvelope) {
+      this.visual.effect = this.flight.visual.effect;
+      this.visual.effectEnvelope = this.flight.visual.effectEnvelope;
     }
     return this.visual;
   }
@@ -515,7 +660,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
         if (!data || !this.alive) return;
         if (data.type === 'controls') this.dsp.setControls(data.controls);
         if (data.type === 'enabled') this.dsp.setEnabled(data.enabled);
-        if (data.type === 'phase') this.dsp.syncPhase(data.phase, data.speed);
+        if (data.type === 'phase') this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase);
         if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind);
         if (data.type === 'dispose') { this.alive = false; this.dsp.setEnabled(false); }
       };

@@ -1,0 +1,19 @@
+{
+  "description": "Owner-requested October 25 Witches Brew promotion to first in Faves and from Work in Progress to Voice; stable witch ID and route retained.",
+  "file": "src/site/instrument-registry.js",
+  "sha256": "52826bd7d0c9342b83c83756137cfda76173747b92a756ede232e9957cf0399d",
+  "replacements": [
+    {
+      "before": "export const FAVE_TOOL_IDS = Object.freeze([\n  \"shapes\",",
+      "after": "export const FAVE_TOOL_IDS = Object.freeze([\n  \"witch\",\n  \"shapes\","
+    },
+    {
+      "before": "  freezeGroup(\"voice\", \"Voice\", [\n",
+      "after": "  freezeGroup(\"voice\", \"Voice\", [\n    { id: \"witch\", label: \"Witches Brew\", href: \"witch.html\" },\n"
+    },
+    {
+      "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"witch\", label: \"Witches Brew\", href: \"witch.html\" },\n",
+      "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n"
+    }
+  ]
+}

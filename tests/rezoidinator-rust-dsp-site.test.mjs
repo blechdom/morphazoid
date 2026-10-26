@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { rezoidinatorRustDspSiteChanges as fixture, restoreRezoidinatorRustDspSite as restore } from './helpers/rezoidinator-rust-dsp-site-reference.mjs';
 import { restorePreviousGlobuleCopy } from './helpers/globule-damacy-site-reference.mjs';
+import { restoreWitchesBrewRefresh } from './helpers/witches-brew-refresh-reference.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 
 test('Rust DSP capacity and runtime amendments restore exact prior source', async () => {
   for (const change of fixture.changes) {
-    const current = await readFile(new URL('../' + change.file, import.meta.url), 'utf8');
+    const current = restoreWitchesBrewRefresh(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file);
     const source = restorePreviousGlobuleCopy(current, change.file);
     assert.equal(hash(source), change.approvedSha256, change.file);
     const prior = restore(source, change.file);

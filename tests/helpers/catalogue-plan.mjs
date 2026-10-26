@@ -13,10 +13,10 @@ export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-globule-damacy.json', import.meta.url), 'utf8')).additions,
   { id: "time-loom", label: "Time Loom", href: "time-loom.html", imageHref: "assets/instruments/time-loom.webp",
     categoryId: "wip", categoryLabel: "Work in Progress", tags: [] },
-  // October 18: a cauldron voice, five instrumental fingers and musical broom flight.
-  { id: 'witch', label: 'Witch', href: 'witch.html', imageHref: 'assets/instruments/witch.webp',
-    categoryId: 'wip', categoryLabel: 'Work in Progress',
-    tags: [{ id: 'voice', label: 'Voice' }, { id: 'graphic-ui', label: 'Graphic-UI' }, { id: 'synthesizer', label: 'Synthesizer' }] },
+  // October 25 owner promotion: Witches Brew leads Faves and joins Voice.
+  { id: 'witch', label: 'Witches Brew', href: 'witch.html', imageHref: 'assets/instruments/witch.webp',
+    categoryId: 'voice', categoryLabel: 'Voice',
+    tags: [{ id: 'graphic-ui', label: 'Graphic-UI' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-esi-32.json', import.meta.url), 'utf8')).additions,
   // Tapezoid is the cassette maze in Work in Progress.
   { id: 'tapezoid', label: 'Tapezoid', href: 'tapezoid.html', imageHref: 'assets/instruments/tapezoid.webp',
@@ -103,10 +103,10 @@ reordered.splice(reordered.indexOf("micmic") + 1, 0, "micmic-rust");
 reordered.splice(reordered.indexOf("micmic-rust") + 1, 0, "fractal-delay");
 // Owner follow-up October 12: Quadruped joins the creature instruments in Faves.
 reordered.splice(reordered.indexOf("hybrinx") + 1, 0, "quadruped");
-// Shapes replaces the three individual geometry instruments in the first
-// Faves section. Their ordinary Geometric catalogue records remain intact.
+// Shapes replaces the individual geometry instruments; October 25 adds
+// Witches Brew ahead of it. Their ordinary catalogue categories remain intact.
 export const expectedFaveToolIds = Object.freeze([
-  "shapes", ...reordered.filter(id => !["shape-synth", "solid-synth", "hyper-synth"].includes(id)),
+  "witch", "shapes", ...reordered.filter(id => !["shape-synth", "solid-synth", "hyper-synth"].includes(id)),
   // Owner follow-up on September 26: add Gesticules without moving existing Faves.
   "gesticulating-hand",
   // Owner follow-up on September 27: promote SIMD Chiptune into Faves.

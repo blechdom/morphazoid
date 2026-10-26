@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
+import { WitchDSP, FlightMixDelay } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
-import { WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
+import { evaluateWitchHandPose, normalizeWitchControls, witchVoiceAtHeight, WITCH_DROP_EFFECTS, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { HandDSP } from '../src/instruments/gesticulating-hand/hand-dsp.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
@@ -47,8 +47,9 @@ test('stalled UI and different render block sizes preserve exact audio-clock syn
   const uninterrupted = render(a, 5, 128);
   const singleCall = render(b, 5, RATE * 5);
   assert.deepEqual(uninterrupted, singleCall);
-  assert.equal(a.effectCounter, b.effectCounter); assert.ok(a.effectCounter > 0);
+  assert.equal(a.visual.handTime, b.visual.handTime); assert.ok(a.visual.delayLevel > .001);
   assert.equal(a.visual.chantPhase, b.visual.chantPhase);
+  assert.equal(a.visual.flightPhase, b.visual.flightPhase);
   assert.ok(Math.abs(a.visual.audioTime - 5) < 1e-9);
 });
 
@@ -63,23 +64,50 @@ test('stir speed accelerates articulation; reverse retraces syllable and vortex 
 
 test('phase alignment joins silent motion without restarting a vocal phrase or arming audio', () => {
   const dsp = playing(); render(dsp, .5);
-  const phrase = dsp.chantPhase; dsp.syncPhase(2.4, .62);
+  const phrase = dsp.chantPhase; dsp.syncPhase(2.4, .62, 3.2);
   assert.equal(dsp.chantPhase, phrase); assert.ok(Math.abs(dsp.visual.phase - 2.4) < 1e-12);
   assert.equal(dsp.visual.speed, .62);
+  assert.equal(dsp.visual.handTime, 3.2);
   const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
-  audio.syncPhase(2.4, .62);
+  audio.syncPhase(2.4, .62, 3.2);
   assert.equal(calls.contexts, 0); assert.equal(audio.audible, false);
   assert.equal(audio.visual.speed, .62);
+  assert.equal(audio.visual.handTime, 3.2);
+  dsp.setControls({ spoonAuto: true }); dsp.syncPhase(2.4, .62, 3.2, .83);
+  audio.update({ spoonAuto: true }); audio.syncPhase(2.4, .62, 3.2, .83);
+  assert.equal(dsp.visual.spoonHeight, .83); assert.equal(audio.visual.spoonHeight, .83);
+  dsp.syncPhase(2.4, .62, 3.2); audio.syncPhase(2.4, .62, 3.2);
+  assert.ok(dsp.visual.spoonHeight > .9, 'first arm joins the current automatic spoon position');
+  assert.equal(audio.visual.spoonHeight, dsp.visual.spoonHeight);
+  assert.equal(calls.contexts, 0); assert.equal(audio.audible, false);
 });
 
-test('each finger and both ingredients alter the exact DSP output', () => {
-  const reference = render(playing({ voice: 'sing' }));
+test('flight and delay keep continuous phase through speed changes, first arm and Stop', () => {
+  const dsp = playing({ mode: 'flight', speed: .4 });
+  const { runtime } = fakeRuntime(), audio = new WitchAudio(runtime);
+  dsp.syncPhase(0, .4, 20, undefined, 42);
+  audio.syncPhase(0, .4, 20, undefined, 42);
+  assert.equal(dsp.visual.flightPhase, 42); assert.equal(audio.visual.flightPhase, 42);
+  assert.equal(audio.pendingPhase.flightPhase, 42);
+  dsp.setControls({ speed: .9 });
+  render(dsp, 1 / RATE);
+  assert.ok(Math.abs(dsp.visual.flightPhase - 42 - 5.5 / RATE / 1.4) < 1e-10, 'speed changes the slope without relocating the broom');
+  assert.equal(dsp.visual.flightPhase, dsp.delay.ridePhase / 1.4, 'the ride follows the same oscillator as the delay');
+  dsp.setControls({ gate: false }); const stopped = dsp.visual.flightPhase;
+  render(dsp, .2); assert.equal(dsp.visual.flightPhase, stopped);
+  dsp.setControls({ gate: true }); render(dsp, .2);
+  assert.ok(Math.abs(dsp.visual.flightPhase - stopped - 5.5 * .2 / 1.4) < 1e-9);
+});
+
+test('fingers shape materials; nose, hat and ingredients independently alter the ongoing singer', () => {
+  const reference = render(playing({ mode: 'fingers', voice: 'sing' }));
   for (let index = 0; index < 5; index++) {
     const fingers = [.5, .5, .5, .5, .5]; fingers[index] = 1;
-    assert.ok(difference(reference, render(playing({ voice: 'sing', fingers }))) > .015, `finger ${index}`);
+    assert.ok(difference(reference, render(playing({ mode: 'fingers', voice: 'sing', fingers }))) > .005, `finger ${index}`);
   }
-  for (const controls of [{ radius: 0 }, { glass: 1 }, { hair: 1 }, { mode: 'flight', altitude: 1 }]) {
-    assert.ok(difference(reference, render(playing({ voice: 'sing', ...controls }))) > .012, JSON.stringify(controls));
+  const singer = render(playing({ voice: 'sing' }));
+  for (const controls of [{ radius: 0 }, { glass: 1 }, { hair: 1 }, { nose: 1 }, { hat: 1 }]) {
+    assert.ok(difference(singer, render(playing({ voice: 'sing', ...controls }))) > .005, JSON.stringify(controls));
   }
 });
 
@@ -89,7 +117,7 @@ test('cauldron vocal effects sound from a closed gate, finish, and have bounded 
     const dsp = new WitchDSP(RATE); dsp.setEnabled(true);
     assert.equal(dsp.trigger(kind), true);
     const sound = render(dsp, 1); buffers.push(sound);
-    assert.ok(rms(sound) > .005, kind);
+    assert.ok(rms(sound.subarray(0, RATE * .35)) > .005, kind);
     render(dsp, 4); assert.ok(rms(render(dsp, .2)) < .000001, `${kind} ends`);
   }
   for (let i = 1; i < buffers.length; i++) assert.ok(difference(buffers[0], buffers[i]) > .02);
@@ -99,7 +127,7 @@ test('cauldron vocal effects sound from a closed gate, finish, and have bounded 
   for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
 });
 
-test('fingers reuse Gesticules with five isolated nonvocal sources and independent gates', () => {
+test('fingers retain five isolated Gesticules materials over a quiet cauldron and release together', () => {
   const signals = [];
   for (let finger = 0; finger < 5; finger++) {
     const dsp = playing({ mode: 'fingers', fingerMask: 1 << finger });
@@ -107,9 +135,9 @@ test('fingers reuse Gesticules with five isolated nonvocal sources and independe
     signals.push(render(dsp, .35));
     assert.deepEqual(dsp.hand.voices.map(v => v.source), WITCH_FINGER_SOURCES);
     assert.ok(rms(signals[finger]) > .007);
-    assert.equal(dsp.visual.mouth, 0); assert.equal(dsp.visual.breath, 0);
+    assert.ok(dsp.visual.mouth > 0); assert.ok(dsp.visual.brewLevel > .001);
     for (let i = 0; i < 5; i++) assert.equal(dsp.visual.fingerLevels[i] > .1, i === finger);
-    dsp.setControls({ gate: false, fingerMask: 0 }); render(dsp, 2);
+    dsp.setControls({ gate: false, fingerMask: 0 }); render(dsp, 6);
     assert.ok(rms(render(dsp, .2)) < .000001, `finger ${finger} releases`);
   }
   for (let i = 0; i < 5; i++) for (let j = 0; j < i; j++) assert.ok(difference(signals[i], signals[j]) > .008);
@@ -122,8 +150,8 @@ test('fingers reuse Gesticules with five isolated nonvocal sources and independe
 test('each finger continuously bends its own material, and movement re-strikes mallets', () => {
   for (let finger = 0; finger < 5; finger++) {
     const low = Array(5).fill(.5), high = [...low]; low[finger] = .1; high[finger] = .9;
-    const a = playing({ mode: 'fingers', fingerMask: 1 << finger, fingers: low });
-    const b = playing({ mode: 'fingers', fingerMask: 1 << finger, fingers: high });
+    const a = playing({ mode: 'fingers', fingerMask: 1 << finger, manualFingerMask: 1 << finger, fingers: low });
+    const b = playing({ mode: 'fingers', fingerMask: 1 << finger, manualFingerMask: 1 << finger, fingers: high });
     const first = render(a, .35), second = render(b, .35);
     assert.ok(difference(first, second) > .008, `finger ${finger} pitch/tone destination`);
     assert.ok(b.hand.targets[finger].frequency > a.hand.targets[finger].frequency * 2);
@@ -132,20 +160,24 @@ test('each finger continuously bends its own material, and movement re-strikes m
     const other = playing({ mode: 'fingers', fingerMask: 1 << finger, fingers: unrelated });
     assert.deepEqual(render(held, .2), render(other, .2), 'unheld finger does not alter the held source');
     if (finger > 2) {
-      render(a, 2); const quiet = rms(render(a, .1));
+      render(a, 2.1); const quiet = a.visual.handLevel;
       a.setControls({ fingers: high });
-      assert.ok(rms(render(a, .1)) > quiet * 2 + .001, 'moving a ringing material re-excites it');
+      render(a, .1);
+      assert.ok(a.visual.handLevel > quiet * 2 + .001, 'moving a ringing material re-excites it');
     }
   }
 });
 
-test('instrumental scenes are completely independent of voice character and ingredients', () => {
+test('all focuses retain the singer and independently articulated instrumental hand', () => {
   for (const mode of ['fingers', 'flight']) {
     const a = playing({ mode, voice: 'whisper', glass: 0, hair: 0 });
     const b = playing({ mode, voice: 'cackle', glass: 1, hair: 1 });
-    assert.deepEqual(render(a, 1), render(b, 1), mode);
-    assert.equal(a.visual.mouth, 0); assert.equal(b.visual.mouth, 0);
-    for (const kind of ['cackle', 'moan', 'howl']) assert.equal(a.trigger(kind), false, `${mode} rejects ${kind}`);
+    const delta = difference(render(a, 1), render(b, 1));
+    assert.ok(delta > .005, 'the brewed voice remains audible');
+    assert.ok(a.visual.mouth > 0 && a.visual.brewLevel > .001 && a.visual.handLevel > .001);
+    assert.deepEqual(a.hand.targets, b.hand.targets, 'hand material controls stay independent');
+    assert.equal(difference(a.buffers[2], b.buffers[2]), 0, 'the material performance stays identical');
+    for (const kind of ['cackle', 'moan', 'howl']) assert.equal(a.trigger(kind), true, `${mode} accepts vocal gestures`);
   }
 });
 
@@ -157,22 +189,71 @@ test('finger synthesis and flight music retain sample-clock timing through rende
     assert.ok(difference(render(lowTone, .4), render(highTone, .4)) > .003, `${mode} tone`);
   }
   const slow = playing({ mode: 'fingers', speed: .05 }), fast = playing({ mode: 'fingers', speed: .95 });
-  assert.deepEqual(render(slow, .5), render(fast, .5), 'finger performance does not require the flight/stir speed');
+  assert.ok(difference(render(slow, .5), render(fast, .5)) > .002, 'stir speed still shapes the background');
+  assert.equal(difference(slow.buffers[2], fast.buffers[2]), 0, 'hand choreography is independent of the stir speed');
+  assert.equal(slow.visual.handTime, fast.visual.handTime);
 });
 
-test('flight speed controls strikes, altitude bends pitch, and horizontal position controls stereo', () => {
+test('hand incantation and its quiet bed continue from the cauldron phase and release on Stop', () => {
+  const moving = playing(), cauldron = playing();
+  render(moving, .4); render(cauldron, .4);
+  moving.setControls({ mode: 'fingers' });
+  render(moving, .4); render(cauldron, .4);
+  assert.equal(moving.chantPhase, cauldron.chantPhase, 'the existing phrase continues without restarting');
+  assert.equal(moving.visual.phase, cauldron.visual.phase, 'stirring retains its exact phase');
+  assert.ok(moving.visual.brewLevel > .001 && moving.visual.brewLevel < cauldron.visual.brewLevel * .38);
+  assert.ok(moving.visual.handLevel > moving.visual.brewLevel * 1.3, 'the materials are foreground');
+  const poseTime = Math.floor((Math.round(moving.time * RATE) - 1) / 32) * 32 / RATE;
+  const expected = evaluateWitchHandPose(moving.controls, poseTime);
+  for (let i = 0; i < 5; i++) for (const key of ['mcp', 'pip', 'dip', 'spread']) {
+    assert.ok(Math.abs(moving.hand.pose.fingers[i][key] - expected.fingers[i][key]) < 1e-8, 'the rendered choreography drives the sound');
+  }
+  moving.setControls({ gate: false }); const heldTime = moving.visual.handTime;
+  assert.ok(rms(render(moving, .08)) > .001, 'Stop releases rather than cutting the mix');
+  render(moving, 6);
+  assert.equal(moving.visual.handTime, heldTime);
+  assert.ok(rms(render(moving, .2)) < .000001);
+});
+
+test('a held finger overrides the audio-clock gesture without dropping other voices or changing the brew', () => {
+  const direct = playing({ mode: 'fingers' }), automatic = playing({ mode: 'fingers' });
+  render(direct, .3); render(automatic, .3);
+  direct.setControls({ fingers: [.5, .8, .5, .5, .5], manualFingerMask: 2 });
+  render(direct, .3); render(automatic, .3);
+  assert.deepEqual(direct.hand.pose.fingers[1], { mcp: 56, pip: 68, dip: 48, spread: 0 });
+  assert.ok(direct.visual.fingerLevels.every(level => level > .1), 'all five material gates remain active during Play');
+  assert.equal(difference(direct.buffers[0], automatic.buffers[0]), 0, 'instrumental finger edits leave the brewed anatomy alone');
+  assert.ok(difference(direct.buffers[2], automatic.buffers[2]) > .001);
+  const neighbour = direct.hand.pose.fingers[2].mcp; render(direct, .3);
+  assert.notEqual(direct.hand.pose.fingers[2].mcp, neighbour);
+  assert.equal(direct.hand.pose.fingers[1].mcp, 56);
+  direct.setControls({ manualFingerMask: 0 }); render(direct, .2);
+  assert.notEqual(direct.hand.pose.fingers[1].mcp, 56, 'release rejoins the incantation');
+});
+
+test('silent hand transport never arms sound and joins its phase when explicitly enabled', () => {
+  const dsp = new WitchDSP(RATE); dsp.setControls({ mode: 'fingers', gate: true });
+  assert.equal(rms(render(dsp, .4)), 0);
+  assert.ok(Math.abs(dsp.visual.handTime - .4) < 1e-9);
+  dsp.syncPhase(1.2, .6, 4.5); assert.equal(dsp.visual.handTime, 4.5);
+  assert.equal(rms(render(dsp, .2)), 0);
+  dsp.setEnabled(true); assert.ok(rms(render(dsp, .2)) > .005);
+  assert.ok(Math.abs(dsp.visual.handTime - 4.9) < 1e-9);
+});
+
+test('flight controls change the shared stereo delay while both original performers continue', () => {
   const slow = playing({ mode: 'flight', speed: .05 }), fast = playing({ mode: 'flight', speed: .95 });
   render(slow, 2); render(fast, 2);
-  assert.ok(fast.flight.noteCount > slow.flight.noteCount * 3);
+  assert.ok(fast.delay.feedback > slow.delay.feedback + .3);
+  assert.ok(slow.visual.delayTime > fast.visual.delayTime + .05);
+  assert.ok(fast.visual.brewLevel > .001 && fast.visual.handLevel > .001);
   assert.ok(fast.visual.flightPulse >= 0 && fast.visual.flightPulse <= 1);
   const low = playing({ mode: 'flight', altitude: .05 }), high = playing({ mode: 'flight', altitude: .95 });
-  assert.ok(difference(render(low, .6), render(high, .6)) > .02);
-  assert.ok(high.flight.rootHz > low.flight.rootHz * 4);
-  for (const x of [0, 1]) {
-    const dsp = playing({ mode: 'flight', flightX: x }); render(dsp, .3);
-    const left = new Float32Array(RATE), right = new Float32Array(RATE); dsp.process(left, right);
-    assert.ok(x === 0 ? rms(left) > rms(right) * 1.7 : rms(right) > rms(left) * 1.7);
-  }
+  assert.ok(difference(render(low, 1), render(high, 1)) > .01);
+  assert.ok(high.visual.delayTime > low.visual.delayTime + .3);
+  const left = playing({ mode: 'flight', flightX: 0 }), right = playing({ mode: 'flight', flightX: 1 });
+  assert.ok(difference(render(left, 2), render(right, 2)) > .005);
+  assert.ok(right.delay.delayR > left.delay.delayR * 1.4);
 });
 
 test('flight scenery produces bounded musical effects and releases with no vocal mouth', () => {
@@ -180,19 +261,20 @@ test('flight scenery produces bounded musical effects and releases with no vocal
   for (const kind of WITCH_FLIGHT_EFFECTS.filter(kind => kind !== 'launch')) {
     const dsp = playing({ mode: 'flight', gate: false });
     assert.equal(dsp.trigger(kind), true); signals.push(render(dsp, 1));
-    assert.ok(rms(signals.at(-1)) > .005, kind); assert.equal(dsp.visual.mouth, 0);
-    render(dsp, 4); assert.ok(rms(render(dsp, .1)) < .000001, `${kind} ends`);
+    assert.ok(rms(kind === 'bat' ? signals.at(-1).subarray(0, RATE * .5) : signals.at(-1)) > .005, kind);
+    assert.equal(dsp.visual.mouth, 0);
+    render(dsp, 8); assert.ok(rms(render(dsp, .1)) < .000001, `${kind} and its echoes end`);
   }
   for (let i = 1; i < signals.length; i++) assert.ok(difference(signals[0], signals[i]) > .015);
   const dsp = playing({ mode: 'flight' });
   for (let i = 0; i < 1000; i++) dsp.trigger(WITCH_FLIGHT_EFFECTS[i % 5]);
   assert.equal(dsp.flight.voices.length, 8);
   for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
-  dsp.setControls({ gate: false }); render(dsp, 4);
+  dsp.setControls({ gate: false }); render(dsp, 9);
   assert.ok(rms(render(dsp, .2)) < .000001);
 });
 
-test('takeoff cackle is an explicit bounded one-shot, then its output and mouth close completely', () => {
+test('takeoff cackle is a bounded one-shot followed by a finite shared-delay tail', () => {
   const dsp = playing({ mode: 'flight', gate: false });
   assert.equal(dsp.trigger('launch'), true);
   const first = render(dsp, .2);
@@ -202,17 +284,20 @@ test('takeoff cackle is an explicit bounded one-shot, then its output and mouth 
   for (const value of render(dsp, WITCH_LAUNCH_DURATION)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
   assert.equal(dsp.flight.launch.active, false);
   assert.equal(dsp.visual.launchEnvelope, 0); assert.equal(dsp.visual.mouth, 0);
-  assert.equal(rms(render(dsp, .3)), 0, 'no voice or tail remains after the finite phrase');
+  assert.ok(rms(render(dsp, .3)) > .00001, 'the phrase enters the same flight delay');
+  render(dsp, 8); assert.ok(rms(render(dsp, .3)) < 1e-7, 'echoes decay without another voice');
 });
 
-test('takeoff does not alter or automatically repeat over the instrumental flight pattern', () => {
+test('takeoff does not restart or automatically repeat over either ongoing performer', () => {
   const withLaunch = playing({ mode: 'flight' }), musicOnly = playing({ mode: 'flight' });
   withLaunch.trigger('launch');
   assert.ok(difference(render(withLaunch, .6), render(musicOnly, .6)) > .02);
   render(withLaunch, WITCH_LAUNCH_DURATION); render(musicOnly, WITCH_LAUNCH_DURATION);
-  assert.deepEqual(render(withLaunch, 3), render(musicOnly, 3), 'music resumes bit-identically after the one-shot');
-  assert.equal(withLaunch.visual.launchEnvelope, 0); assert.equal(withLaunch.visual.mouth, 0);
-  assert.equal(withLaunch.flight.noteCount, musicOnly.flight.noteCount);
+  render(withLaunch, 8); render(musicOnly, 8);
+  assert.ok(difference(render(withLaunch, 1), render(musicOnly, 1)) < .00001, 'the finite accent and echoes decay');
+  assert.equal(withLaunch.visual.launchEnvelope, 0); assert.ok(withLaunch.visual.mouth > 0, 'singing continues');
+  assert.equal(withLaunch.visual.handTime, musicOnly.visual.handTime);
+  assert.equal(withLaunch.chantPhase, musicOnly.chantPhase);
 });
 
 test('repeated and near-expiry launches reuse one voice and have one finite end', () => {
@@ -227,21 +312,20 @@ test('repeated and near-expiry launches reuse one voice and have one finite end'
   dsp.trigger('launch'); render(dsp, .025);
   assert.ok(voice.active && voice.age < .025, 'a takeoff near the previous expiry is preserved');
   render(dsp, WITCH_LAUNCH_DURATION + .1);
-  assert.equal(voice.active, false); assert.equal(rms(render(dsp, .2)), 0);
+  assert.equal(voice.active, false); render(dsp, 8); assert.ok(rms(render(dsp, .2)) < 1e-7);
 });
 
-test('muting or leaving flight cancels takeoff without stale voice on return', () => {
+test('muting and Stop cancel takeoff without a stale phrase or echo on return', () => {
   const muted = playing({ mode: 'flight', gate: false }); muted.trigger('launch'); render(muted, .2);
   muted.setEnabled(false); assert.ok(rms(render(muted, .01)) > .0001, 'mute retains a short release');
-  render(muted, .04); assert.equal(muted.flight.launch.active, false);
+  render(muted, .6); assert.equal(muted.flight.launch.active, false);
   assert.equal(muted.trigger('launch'), false);
-  muted.setEnabled(true); assert.equal(rms(render(muted, .3)), 0);
-  const changed = playing({ mode: 'flight', gate: false }); changed.trigger('launch'); render(changed, .2);
-  changed.setControls({ mode: 'fingers' }); render(changed, .07);
-  assert.equal(changed.visual.mouth, 0); assert.equal(changed.visual.launchEnvelope, 0);
-  assert.equal(changed.trigger('launch'), false);
-  changed.setControls({ mode: 'flight' }); assert.equal(rms(render(changed, .3)), 0);
-  const cauldron = playing(); assert.equal(cauldron.trigger('launch'), false);
+  muted.setEnabled(true); assert.ok(rms(render(muted, .3)) < 1e-9);
+  const stopped = playing({ mode: 'flight' }); stopped.trigger('launch'); render(stopped, .2);
+  stopped.setControls({ gate: false }); render(stopped, .07);
+  assert.equal(stopped.visual.launchActive, false); assert.equal(stopped.visual.launchEnvelope, 0);
+  render(stopped, 9); assert.ok(rms(render(stopped, .3)) < .000001);
+  const cauldron = playing(); assert.equal(cauldron.trigger('launch'), true);
 });
 
 test('takeoff timing and syllables are unchanged by rendering stalls', () => {
@@ -251,20 +335,103 @@ test('takeoff timing and syllables are unchanged by rendering stalls', () => {
   assert.equal(a.visual.launchEnvelope, 0); assert.equal(b.visual.launchEnvelope, 0);
 });
 
-test('scene changes completely remove previous vocals after their short crossfade', () => {
+test('hand focus ducks the voice; flight changes neither performer clock nor their chosen balance', () => {
   for (const mode of ['fingers', 'flight']) {
     const a = playing({ voice: 'whisper' }), b = playing({ voice: 'sing' });
     render(a, .3); render(b, .3); a.trigger('cackle'); b.trigger('howl');
     a.setControls({ mode }); b.setControls({ mode });
     render(a, .06); render(b, .06);
-    assert.equal(a.weights[0], 0); assert.equal(b.weights[0], 0);
-    assert.deepEqual(render(a, .4), render(b, .4), `${mode} contains no earlier vocal tail`);
+    assert.ok(Math.abs(a.weights[0] - (mode === 'fingers' ? .18 : .72)) < 1e-12);
+    assert.ok(Math.abs(b.weights[0] - (mode === 'fingers' ? .18 : .72)) < 1e-12);
+    const delta = difference(render(a, .4), render(b, .4));
+    assert.ok(delta > .005, 'both focuses retain the existing cauldron character and tail');
+    assert.ok(a.visual.fingerLevels.every(level => level > .1));
   }
   const interrupted = playing(); render(interrupted, .2);
   interrupted.setControls({ mode: 'fingers' }); render(interrupted, .02);
   interrupted.setControls({ mode: 'flight' }); render(interrupted, .01);
   assert.ok(Math.abs(interrupted.weights.reduce((sum, weight) => sum + weight, 0) - 1) < 1e-12,
     'interrupting a crossfade keeps its summed gain');
+  interrupted.setControls({ mode: 'flight', handFocus: 1 }); render(interrupted, .1);
+  assert.ok(Math.abs(interrupted.weights[0] - .18) < 1e-12, 'the hand may remain foreground during flight');
+});
+
+test('three dropped mini-instruments feature real materials, duck both performers, then return the mix', () => {
+  const sounds = [];
+  for (const kind of WITCH_DROP_EFFECTS) {
+    const dsp = playing(), reference = playing(); render(dsp, .5); render(reference, .5);
+    assert.ok(dsp.drops.hand instanceof HandDSP);
+    assert.equal(dsp.trigger(kind), true); sounds.push(render(dsp, .2)); render(reference, .2);
+    assert.equal(dsp.visual.dropKind, kind); assert.ok(dsp.visual.dropEnvelope > .95);
+    assert.ok(dsp.visual.dropLevel > dsp.visual.brewLevel + dsp.visual.handLevel, 'the dropped instrument takes the foreground');
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001, 'the performers remain underneath');
+    assert.ok(dsp.visual.brewLevel < reference.visual.brewLevel * .3);
+    assert.equal(dsp.chantPhase, reference.chantPhase); assert.equal(dsp.visual.handTime, reference.visual.handTime);
+    render(dsp, 6); render(reference, 6);
+    assert.ok(dsp.visual.dropEnvelope < 1e-6); assert.equal(dsp.visual.dropKind, '');
+    assert.ok(difference(render(dsp, .2), render(reference, .2)) < 1e-6, 'the original mix returns without restarting it');
+  }
+  for (let i = 1; i < sounds.length; i++) assert.ok(difference(sounds[0], sounds[i]) > .01);
+});
+
+test('all four layers coexist in flight; fixed solo slots and the complete mix release on Stop', () => {
+  const dsp = playing({ mode: 'flight', handFocus: 1, speed: 1, altitude: 1 });
+  render(dsp, .5);
+  for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % 3]), true);
+  for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .54);
+  assert.equal(dsp.drops.slots.length, 3); assert.equal(dsp.drops.hand.voices.length, 5);
+  for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
+  assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .68);
+  dsp.setControls({ gate: false }); const handTime = dsp.visual.handTime;
+  assert.ok(rms(render(dsp, .04)) > .001, 'all layers release smoothly');
+  render(dsp, 9);
+  assert.ok(rms(render(dsp, .3)) < .000001);
+  assert.equal(dsp.visual.handTime, handTime); assert.ok(dsp.visual.dropEnvelope < 1e-6);
+});
+
+test('dropped solos also work while stopped and do not arm Audio or depend on graphics', () => {
+  const off = new WitchDSP(RATE); off.setControls({ gate: true, mode: 'flight' });
+  for (const kind of WITCH_DROP_EFFECTS) assert.equal(off.trigger(kind), false);
+  assert.equal(rms(render(off, .2)), 0);
+  const a = playing({ mode: 'flight', gate: false }), b = playing({ mode: 'flight', gate: false });
+  a.trigger('drop-marimba'); b.trigger('drop-marimba');
+  const signal = render(a, 3.4, 128);
+  assert.ok(rms(signal) > .005); assert.equal(difference(signal, render(b, 3.4, RATE * 4)), 0);
+  assert.equal(a.visual.handTime, 0); render(a, 8); assert.ok(rms(render(a, .2)) < 1e-7);
+});
+
+test('the shared flight delay has smooth live control changes, bounded feedback and no stale mute tail', () => {
+  const rate = 8000, delay = new FlightMixDelay(rate);
+  delay.controls = normalizeWitchControls({ mode: 'flight', gate: true, speed: 1, altitude: 1 });
+  let previous = 0, largestStep = 0, heardEcho = false;
+  for (let i = 0; i < rate * 3; i++) {
+    if (i === rate) delay.controls = normalizeWitchControls({ mode: 'flight', gate: true, speed: 0, altitude: 0, flightX: 0 });
+    if (i === rate * 2) delay.controls = normalizeWitchControls({ mode: 'flight', gate: true, speed: 1, altitude: 1, flightX: 1 });
+    const source = Math.sin(i / rate * Math.PI * 2 * 107) * .15;
+    delay.next(source, source * .7, true);
+    largestStep = Math.max(largestStep, Math.abs(delay.left - previous)); previous = delay.left;
+    heardEcho ||= Math.abs(delay.wetLeft) > .01;
+    assert.ok(Number.isFinite(delay.left) && Math.abs(delay.left) <= .54 && delay.feedback <= .68);
+  }
+  assert.ok(heardEcho); assert.ok(largestStep < .08, 'pointer jumps slew instead of clicking the read head');
+  for (let i = 0; i < rate; i++) delay.next(0, 0, false);
+  assert.ok(Math.abs(delay.left) < 1e-9); assert.equal(delay.cleared, true);
+  for (let i = 0; i < rate; i++) { delay.next(0, 0, true); assert.ok(Math.abs(delay.left) < 1e-8); }
+});
+
+test('automatic spoon height selects all five singing characters on the sample clock and pauses on Stop', () => {
+  const dsp = playing({ spoonAuto: true }), seen = new Set();
+  for (let i = 0; i < 110; i++) { render(dsp, .1); seen.add(dsp.visual.activeVoice); }
+  assert.deepEqual([...seen].sort(), [...WITCH_VOICES].sort());
+  dsp.setControls({ gate: false }); const stopped = dsp.visual.spoonHeight;
+  render(dsp, .5); assert.equal(dsp.visual.spoonHeight, stopped);
+  dsp.setControls({ gate: true, spoonAuto: false, spoonHeight: .1, voice: witchVoiceAtHeight(.1) });
+  render(dsp, 2); assert.equal(dsp.visual.activeVoice, 'mutter'); assert.ok(dsp.visual.spoonHeight < .11);
+  const before = dsp.visual.spoonHeight; dsp.setControls({ spoonAuto: true }); render(dsp, .02);
+  assert.ok(Math.abs(dsp.visual.spoonHeight - before) < .05, 'automatic motion resumes from the held height smoothly');
+  const a = playing({ spoonAuto: true }), b = playing({ spoonAuto: true });
+  assert.equal(difference(render(a, 2.4), render(b, 2.4, RATE * 3)), 0);
+  assert.equal(a.visual.spoonHeight, b.visual.spoonHeight);
 });
 
 test('every scene and queued effect mutes smoothly without lingering output', () => {

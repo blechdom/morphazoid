@@ -22,9 +22,9 @@ const CATALOG_DETAILS = Object.freeze({
     ["Generated demo", "Audio file", "Microphone", "Grain size", "Random grain size", "Presets", "Sample collage", "Pointer", "Touch", "Undo"],
   ),
   witch: define(
-    "A cauldron voice, five fingers and a musical broom",
-    "Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.",
-    "Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.",
+    "A singing cauldron, gesticulating hands and a flying ensemble",
+    "A witch’s cauldron voice and five Gesticules instruments play together. Reach her long fingers, drop a miniature hand, marimba or choir mouth into the pot for a featured solo, and ride a rollercoaster broom that bends the whole mix through delay. Mushrooms warp the colors and lines.",
+    "The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers or drop a floating instrument into the pot; all remain playable during flight. The moon takes off, mushrooms change the picture, and Stop releases the sound.",
     ["Built-in synth", "Pointer", "Touch", "Gesture sound", "Presets"],
   ),
   wobblini: define(

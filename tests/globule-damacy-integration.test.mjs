@@ -12,6 +12,7 @@ import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js"
 import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { refreshRolloutStatus } from "../scripts/presets/rollout-status.mjs";
+import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
 
 const root = new URL("../", import.meta.url), id = "globule-damacy";
 const sha = source => createHash("sha256").update(source).digest("hex");
@@ -23,7 +24,7 @@ test("Globule Damacy's exact metadata amendments reverse to the untouched main f
     "src/site/catalogue-taxonomy.js", "src/site/instrument-midi-capabilities.js",
   ]);
   for (const change of globuleDamacySiteChanges.changes) {
-    const current = await readFile(new URL(change.file, root), "utf8");
+    const current = restoreWitchesBrewRefresh(await readFile(new URL(change.file, root), "utf8"), change.file);
     const restored = restoreGlobuleDamacySite(current, change.file);
     assert.equal(sha(restored), change.sha256, `${change.file}: previous metadata preserved byte-for-byte`);
     assert.doesNotMatch(restored, /globule-damacy/);
@@ -45,7 +46,7 @@ test("Globule's public route, runtime inventory, overview and icon attribution l
     "README.md", "assets/instruments/CATALOGUE_LOGOS.md",
   ]);
   for (const change of globuleDamacySiteChanges.sharedChanges) {
-    const current = await readFile(new URL(change.file, root), "utf8");
+    const current = restoreWitchesBrewRefresh(await readFile(new URL(change.file, root), "utf8"), change.file);
     const restored = restoreGlobuleDamacySite(current, change.file);
     assert.equal(sha(restored), change.sha256, `${change.file}: preceding main bytes preserved`);
     assert.doesNotMatch(restored, /globule-damacy/i);

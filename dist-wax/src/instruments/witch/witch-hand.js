@@ -1,6 +1,7 @@
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { createHandRig } from '../gesticulating-hand/hand-rig.js';
+import { evaluateWitchHandPose } from './witch-model.js';
 
 // Runtime adaptation of Elena FF's "Rigged hand", the same skinned source used
 // by Gesticules. Model/derived model appearance: CC BY-SA 4.0. Original source:
@@ -9,7 +10,8 @@ import { createHandRig } from '../gesticulating-hand/hand-rig.js';
 const MODEL = new URL('../../../assets/gesticulating-hand/hand.glb', import.meta.url);
 const REPORT = new URL('../../../assets/gesticulating-hand/rig-report.json', import.meta.url);
 const WIDTH = 1000, HEIGHT = 720;
-const DIGIT_COLORS = [0xe7a574,0xdfcf83,0x83c6b4,0x87aadb,0xc3a0d1];
+const RENDER_WIDTH = 800, RENDER_HEIGHT = 576, FRAME_INTERVAL = 50;
+const DIGIT_COLORS = [0xff9868,0xe7dc66,0x50ebba,0x5d9bff,0xd77bff];
 const clamp = (value, low = 0, high = 1) => Math.max(low,Math.min(high,Number.isFinite(value)?value:low));
 
 function disposeTree(root) {
@@ -50,24 +52,34 @@ function clawGeometry() {
   return geometry;
 }
 
-/** The caller owns the animation clock and draws the returned transparent
- * canvas into its world. All returned points use canonical 1000×720 pixels. */
+/** One source rig and WebGL context serve both hands. Each independently posed
+ * result is copied into its own transparent canvas, so drawing the second hand
+ * cannot change the first hand's pixels or picking coordinates. The caller owns
+ * the sample-clock time, placement and mirroring; points are 1000×720 pixels. */
 export function createWitchHand({onStatus = () => {}} = {}) {
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH; canvas.height = HEIGHT;
+  canvas.width = RENDER_WIDTH; canvas.height = RENDER_HEIGHT;
+  const hands = Array.from({length:2},(_,index)=>{
+    const surface=document.createElement('canvas'); surface.width=index===0?360:320; surface.height=Math.round(surface.width*HEIGHT/WIDTH);
+    return {surface,context:surface.getContext('2d'),signature:'',lastRender:0,state:{},tips:[],wrist:{x:590,y:590}};
+  });
+  const handSlot = index => hands[index===1?1:0];
   const abort = new AbortController();
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-500,500,360,-360,.1,4000);
   camera.position.set(0,0,1000); camera.lookAt(0,0,0); camera.updateMatrixWorld(true);
   const placement = new THREE.Group(); scene.add(placement);
-  const ambient = new THREE.HemisphereLight(0xe3e8cc,0x292434,1.7); scene.add(ambient);
-  const key = new THREE.DirectionalLight(0xffedd2,3.2); key.position.set(-350,550,600); scene.add(key);
-  const fill = new THREE.DirectionalLight(0x9fbbce,1.35); fill.position.set(350,100,400); scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xc6e5a1,2.1); rim.position.set(100,350,-450); scene.add(rim);
+  const ambient = new THREE.HemisphereLight(0xd9efdc,0x381847,1.5); scene.add(ambient);
+  const key = new THREE.DirectionalLight(0xffcf9d,3.0); key.position.set(-350,550,600); scene.add(key);
+  const fill = new THREE.DirectionalLight(0x7b91ff,1.8); fill.position.set(350,100,400); scene.add(fill);
+  const rim = new THREE.DirectionalLight(0x76ffd2,2.4); rim.position.set(100,350,-450); scene.add(rim);
+  const skinColor={value:new THREE.Color()},skinAccent={value:new THREE.Color()};
+  const skinPalettes=[
+    [new THREE.Color(0x239e88),new THREE.Color(0xb858bd)],
+    [new THREE.Color(0x8061c5),new THREE.Color(0xb5be4c)],
+  ];
   const projected = new THREE.Vector3(), temporary = new THREE.Vector3();
   let renderer = null, rig = null, loaded = false, disposed = false, lost = false;
-  let renderSignature='',lastRender=0;
-  let latestState = {}, projectedTips = [], projectedWrist = {x:590,y:590};
   let vertices = 0, triangles = 0, sourceRoot = null;
   const claws = [], anchors = [];
 
@@ -76,7 +88,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     object.getWorldPosition(projected).project(camera);
     return {x:(projected.x+1)*WIDTH/2,y:(1-projected.y)*HEIGHT/2,...(index===undefined?{}:{index})};
   }
-  function pose(state) {
+  function restingPose(state) {
     const values = state.fingers || [.35,.35,.25,.3,.3];
     return {
       fingers: Array.from({length:5},(_,index) => {
@@ -91,21 +103,23 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       wrist:{flex:-5,side:0,twist:0},
     };
   }
-  function update(state) {
-    rig.setPose(pose(state));
+  function update(state,handIndex,pose) {
+    const slot=handSlot(handIndex),palette=skinPalettes[handIndex];
+    rig.setPose(pose);
+    skinColor.value.copy(palette[0]); skinAccent.value.copy(palette[1]);
     for (let index = 0; index < claws.length; index++) {
-      const level = clamp(state.fingerLevels?.[index]);
-      claws[index].material.emissiveIntensity = level*.7;
-      claws[index].material.roughness = .38-level*.15;
+      const level = clamp(state.handFingerLevels?.[handIndex]?.[index]??state.fingerLevels?.[index]);
+      claws[index].material.emissiveIntensity = .08+level*.55;
+      claws[index].material.roughness = .32-level*.13;
     }
     placement.updateMatrixWorld(true);
     for (const mesh of rig.meshes) mesh.skeleton?.update();
-    projectedTips = anchors.map((anchor,index)=>project(anchor,index));
-    projectedWrist = project(rig.wrist);
+    slot.tips = anchors.map((anchor,index)=>project(anchor,index));
+    slot.wrist = project(rig.wrist);
   }
   function frame() {
     placement.rotation.set(.08,Math.PI-.18,-.035);
-    rig.setPose(pose({fingers:[0,0,0,0,0]}));
+    rig.setPose(restingPose({fingers:[0,0,0,0,0]}));
     placement.updateMatrixWorld(true);
     const wrist = rig.wrist.getWorldPosition(new THREE.Vector3());
     let left = wrist.x, right = wrist.x, top = wrist.y;
@@ -121,23 +135,37 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     placement.position.set(90-temporary.x,-230-temporary.y,-temporary.z);
     placement.updateMatrixWorld(true);
   }
-  function render(state = {}) {
-    latestState = state;
-    if (!loaded || disposed || lost || !renderer) return canvas;
-    const signature=JSON.stringify([state.fingers,state.fingerLevels?.map(v=>Math.round(v*24))]);
-    const now=performance.now();
-    if(signature===renderSignature || (now-lastRender<32 && renderSignature)) return canvas;
-    update(state);
+  function render(state = {},handIndex=0) {
+    handIndex=handIndex===1?1:0;
+    const slot=handSlot(handIndex); slot.state=state;
+    if (!loaded || disposed || lost || !renderer) return slot.surface;
+    const width=handIndex===1?320:state.handReach>.1?RENDER_WIDTH:360;
+    const height=Math.round(width*HEIGHT/WIDTH),now=performance.now();
+    // Small figures do not need full-stage textures. Keep the backing WebGL
+    // buffer fixed and render at most 20 fps; only reaching changes resolution.
+    if(now-slot.lastRender<FRAME_INTERVAL && slot.signature && slot.surface.width===width) return slot.surface;
+    const pose=state.handPoses?.[handIndex]??evaluateWitchHandPose(state,
+      state.handTime??state.incantationPhase??state.motionTime??0,handIndex);
+    const levels=state.handFingerLevels?.[handIndex]??state.fingerLevels;
+    const signature=JSON.stringify([width,pose,levels?.map(v=>Math.round(v*24))]);
+    if(signature===slot.signature) return slot.surface;
+    update(state,handIndex,pose);
+    renderer.setViewport(0,0,width,height); renderer.setScissor(0,0,width,height); renderer.setScissorTest(true);
     renderer.render(scene,camera);
-    renderSignature=signature;lastRender=now;
-    return canvas;
+    if(slot.surface.width!==width) { slot.surface.width=width;slot.surface.height=height; }
+    else slot.context.clearRect(0,0,width,height);
+    // WebGL viewports start at the lower left; Canvas source rectangles start
+    // at the upper left. Projection/picking always stays in canonical pixels.
+    slot.context.drawImage(canvas,0,RENDER_HEIGHT-height,width,height,0,0,width,height);
+    slot.signature=signature;slot.lastRender=now;
+    return slot.surface;
   }
-  function getTips() { return loaded && !lost && !disposed ? projectedTips.map(point=>({...point})) : []; }
-  function getWrist() { return {...projectedWrist}; }
-  function pick(x,y,radius=46) {
+  function getTips(handIndex=0) { return loaded && !lost && !disposed ? handSlot(handIndex).tips.map(point=>({...point})) : []; }
+  function getWrist(handIndex=0) { return {...handSlot(handIndex).wrist}; }
+  function pick(x,y,radius=46,handIndex=0) {
     if (!loaded || lost || disposed || !Number.isFinite(x) || !Number.isFinite(y)) return null;
     let hit = null, distance = clamp(radius,8,160);
-    for (const point of projectedTips) {
+    for (const point of handSlot(handIndex).tips) {
       const d = Math.hypot(x-point.x,y-point.y);
       if (d <= distance) { hit={type:'finger',index:point.index}; distance=d; }
     }
@@ -151,24 +179,29 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       author:'Elena FF', title:'Rigged hand', license:'CC BY-SA 4.0',
       vertices,triangles,deformBones:rig?.deformMap.size??0,
       runtimeAdapted:true,claws:claws.length,
+      modelInstances:hands.length,webglContexts:renderer?1:0,
     };
   }
   function dispose() {
     if (disposed) return;
     disposed=true; loaded=false; abort.abort();
     rig?.dispose(); disposeTree(sourceRoot); sourceRoot=null;
-    placement.clear(); projectedTips=[];
+    placement.clear();
+    for (const slot of hands) { slot.tips=[];slot.state={};slot.context.clearRect(0,0,WIDTH,HEIGHT); }
     renderer?.dispose(); renderer?.forceContextLoss(); renderer=null;
   }
   const ready = (async () => {
     try {
-      renderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});
-      renderer.setPixelRatio(1); renderer.setSize(WIDTH,HEIGHT,false);
+      renderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});
+      renderer.setPixelRatio(1); renderer.setSize(RENDER_WIDTH,RENDER_HEIGHT,false);
       renderer.setClearColor(0x000000,0); renderer.outputColorSpace=THREE.SRGBColorSpace;
       renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
       canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();lost=true;status('The hand view was interrupted. Finger controls remain available.');},{signal:abort.signal});
-      canvas.addEventListener('webglcontextrestored',()=>{lost=false;renderSignature='';render(latestState);status('');},{signal:abort.signal});
-      status('Loading her Gesticules hand…');
+      canvas.addEventListener('webglcontextrestored',()=>{
+        lost=false;
+        hands.forEach((slot,index)=>{slot.signature='';render(slot.state,index);}); status('');
+      },{signal:abort.signal});
+      status('Loading her Gesticules hands…');
       const [modelResponse,reportResponse] = await Promise.all([
         fetch(MODEL,{signal:abort.signal}),fetch(REPORT,{signal:abort.signal}),
       ]);
@@ -185,13 +218,15 @@ export function createWitchHand({onStatus = () => {}} = {}) {
         vertices += object.geometry.attributes.position?.count??0;
         triangles += (object.geometry.index?.count??object.geometry.attributes.position?.count??0)/3;
         for (const material of Array.isArray(object.material)?object.material:[object.material]) {
-          // Keep the source skin, nails, pores, and normal maps under a witch tint.
-          material.color.set(0xffffff); material.roughness=.76; material.metalness=0;
+          // Preserve source pores, nails and creases beneath mottled jewel tones.
+          material.color.set(0xffffff); material.roughness=.66; material.metalness=.06;
           material.onBeforeCompile=shader=>{
+            shader.uniforms.witchSkinColor=skinColor; shader.uniforms.witchSkinAccent=skinAccent;
+            shader.fragmentShader='uniform vec3 witchSkinColor;\nuniform vec3 witchSkinAccent;\n'+shader.fragmentShader;
             shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',
-              '#include <map_fragment>\nfloat witchSkinLight=dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722));\ndiffuseColor.rgb=vec3(0.38,0.54,0.29)*(0.5+witchSkinLight*0.9);');
+              '#include <map_fragment>\nfloat witchSkinLight=dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722));\nfloat witchMottle=0.35;\n#ifdef USE_MAP\nwitchMottle=0.5+0.5*sin(vMapUv.x*13.0+sin(vMapUv.y*17.0)*2.2);\n#endif\ndiffuseColor.rgb=mix(witchSkinColor,witchSkinAccent,witchMottle*0.64)*(0.62+witchSkinLight*1.1);');
           };
-          material.customProgramCacheKey=()=> 'witch-source-skin-v1';
+          material.customProgramCacheKey=()=> 'witch-source-skin-v2';
           if (material.map) material.map.anisotropy=Math.min(2,renderer.capabilities.getMaxAnisotropy());
         }
       });
@@ -206,12 +241,15 @@ export function createWitchHand({onStatus = () => {}} = {}) {
         digit[0].bone.scale.set(index===0?.95:.9,[1.52,1.88,2.08,1.97,1.83][index],.86);
         digit[1].bone.scale.set(.96,1.04,.96);
         digit[2].bone.scale.set(.9,1.07,.92);
-        const material=new THREE.MeshStandardMaterial({color:0x251b2f,roughness:.38,metalness:.16,emissive:DIGIT_COLORS[index],emissiveIntensity:0});
+        const material=new THREE.MeshPhysicalMaterial({color:DIGIT_COLORS[index],roughness:.32,metalness:.7,
+          iridescence:1,iridescenceIOR:1.45,iridescenceThicknessRange:[120,470],
+          emissive:DIGIT_COLORS[index],emissiveIntensity:.08});
         const claw=new THREE.Mesh(geometry,material); claw.frustumCulled=false;
         const tip=rig.tips[index]; tip.add(claw); claws.push(claw);
         const anchor=new THREE.Object3D(); anchor.position.set(-.062,.253,0); tip.add(anchor); anchors.push(anchor);
       }
-      frame(); loaded=true; render(latestState); status('');
+      frame(); loaded=true;
+      hands.forEach((slot,index)=>render(slot.state,index)); status('');
       return true;
     } catch (error) {
       loaded=false;

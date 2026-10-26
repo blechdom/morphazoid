@@ -27,9 +27,9 @@ import { FAVE_TOOL_IDS } from "../src/site/instrument-registry.js";
 
 const equalIds = (actual, records) => assert.deepEqual(new Set(actual), new Set(records.map(record => record.id)));
 
-test("Shapes leads Faves while individual geometry instruments remain category-only", () => {
+test("Witches Brew leads Faves while individual geometry instruments remain category-only", () => {
   assert.deepEqual(FAVE_TOOL_IDS, [
-    "shapes", "rubix", "hiccup-head", "synthesis",
+    "witch", "shapes", "rubix", "hiccup-head", "synthesis",
     "creaturazoid", "hybrinx", "quadruped", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
     "fractal-delay", "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
     "gesticulating-hand", "simd-chiptune", "blech-midi", "midiphoria", "graphonic-calculator",

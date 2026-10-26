@@ -2,7 +2,7 @@
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
   {"route": "witch.html", "selector": "#speed", "mapping": {"unit": "powerHz", "floor": 0, "span": 1.909859317102744, "exponent": 1}, "title": "Tap one complete cauldron turn"},
-  {"route": "witch.html", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 1.15, "span": 7.8, "exponent": 1}, "title": "Tap one broom note"},
+  {"route": "witch.html", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 0.15915494309189535, "span": 0.7957747154594768, "exponent": 1}, "resetAfter": 15000, "title": "Tap one flight delay cycle"},
   {"route": "graphonic-calculator.html", "selector": "#sweepTempo", "mapping": {"unit": "bpm"}, "title": "Tap one complete sweep"},
   {"route": "trackazoid.html", "selector": "#aBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck A source BPM"},
   {"route": "trackazoid.html", "selector": "#bBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck B source BPM"},

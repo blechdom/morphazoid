@@ -19,7 +19,8 @@ test('randomization reaches every scene, character, direction and continuous mus
   assert.equal(new Set(scenes.map(s=>s.scene)).size,3);
   assert.equal(new Set(scenes.map(s=>s.voice)).size,5);
   assert.equal(new Set(scenes.map(s=>s.direction)).size,2);
-  for(const key of ['speed','radius','glass','hair','altitude','flightX','tone']) {
+  assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);
+  for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }

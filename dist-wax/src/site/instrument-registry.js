@@ -7,6 +7,7 @@ const freezeGroup = (id, label, tools, metadata = {}) => Object.freeze({
 });
 
 export const FAVE_TOOL_IDS = Object.freeze([
+  "witch",
   "shapes",
   "rubix",
   "hiccup-head",
@@ -121,6 +122,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "crickets", label: "Crickets", href: "crickets.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
   ]),
   freezeGroup("voice", "Voice", [
+    { id: "witch", label: "Witches Brew", href: "witch.html" },
     { id: "voicesaurus", label: "Voicesaurus", href: "voicesaurus.html" },
     { id: "spelling-synthesizer", label: "Spelling Synthesizer", href: "spelling-synthesizer.html" },
     { id: "vocalzoid", label: "Vocalzoid", href: "vocalzoid.html" },
@@ -178,7 +180,6 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
   ]),
   freezeGroup("wip", "Work in Progress", [
-    { id: "witch", label: "Witch", href: "witch.html" },
     { id: "wobblini", label: "Wobblini", href: "wobblini.html", imageHref: "assets/instruments/wobblini.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "rig-lab", label: "Rig Lab", href: "rig-lab.html", imageHref: "assets/instruments/lab-placeholder.webp", catalogue: false, browse: true, entryType: "lab" },

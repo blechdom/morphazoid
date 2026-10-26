@@ -54,8 +54,8 @@ test("the Synthesaurus icon amendment preserves older catalogue evidence exactly
   assert.equal(restoreSynthesaurusIcon("untouched", "unrelated.js"), "untouched");
 });
 
-test("Shapes leads Faves and Shape/Solid/Hyper remain only in Geometric", () => {
-  assert.equal(FAVE_TOOL_IDS[0], "shapes");
+test("Witches Brew leads Faves and Shape/Solid/Hyper remain only in Geometric", () => {
+  assert.equal(FAVE_TOOL_IDS[0], "witch");
   for (const id of ["shape-synth", "solid-synth", "hyper-synth"]) {
     assert.equal(FAVE_TOOL_IDS.includes(id), false);
     assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === id)).map(group => group.id), ["geometric"]);

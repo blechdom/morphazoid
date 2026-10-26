@@ -1,5 +1,5 @@
-export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', speed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5 });
-const scene = (id, label, values) => ({ id, label, snapshot: { ...WITCH_DEFAULTS, fingers: [...WITCH_DEFAULTS.fingers], ...values } });
+export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', speed: .4, radius: .55, direction: 1, fingers: Object.freeze([.5,.5,.3,.25,.25]), glass: 0, hair: 0, altitude: .5, flightX: .5, tone: .5, nose: .5, hat: .5, spoonHeight: .5, spoonAuto: true });
+const scene = (id, label, values) => ({ id, label, snapshot: { ...WITCH_DEFAULTS, fingers: [...WITCH_DEFAULTS.fingers], ...values, spoonAuto: values.voice ? false : WITCH_DEFAULTS.spoonAuto } });
 export const WITCH_PRESETS = [
   scene('small-spell', 'A small, suspicious spell', {}),
   scene('secret', 'A secret in the steam', { voice:'whisper', speed:.2, radius:.22, fingers:[.3,.22,.15,.15,.88] }),
@@ -24,10 +24,11 @@ export function normalizeWitchPreset(input = {}) {
     direction: input.direction === -1 ? -1 : 1,
     fingers: d.fingers.map((value,i) => unit(input.fingers?.[i],value)),
     glass: unit(input.glass,d.glass), hair: unit(input.hair,d.hair), altitude: unit(input.altitude,d.altitude),
+    nose: unit(input.nose,d.nose), hat: unit(input.hat,d.hat), spoonHeight: unit(input.spoonHeight,d.spoonHeight), spoonAuto: typeof input.spoonAuto==='boolean'?input.spoonAuto:d.spoonAuto,
     flightX: Math.max(.12,Math.min(.88,unit(input.flightX,d.flightX))), tone: unit(input.tone,d.tone),
   };
 }
 export function randomizeWitchPreset(_previous, random = Math.random) {
   const r = () => unit(random(), .5);
-  return normalizeWitchPreset({ scene:['brew','fingers','flight'][Math.min(2,Math.floor(r()*3))], voice:['mutter','whisper','creak','cackle','sing'][Math.min(4,Math.floor(r()*5))], speed:.08+r()*.9, radius:.1+r()*.9, direction:r()<.5?-1:1, fingers:Array.from({length:5},r), glass:r(), hair:r(), altitude:r(), flightX:.12+r()*.76, tone:r() });
+  return normalizeWitchPreset({ scene:['brew','fingers','flight'][Math.min(2,Math.floor(r()*3))], voice:['mutter','whisper','creak','cackle','sing'][Math.min(4,Math.floor(r()*5))], speed:.08+r()*.9, radius:.1+r()*.9, direction:r()<.5?-1:1, fingers:Array.from({length:5},r), glass:r(), hair:r(), altitude:r(), flightX:.12+r()*.76, tone:r(), nose:r(), hat:r(), spoonHeight:r(), spoonAuto:r()<.5 });
 }

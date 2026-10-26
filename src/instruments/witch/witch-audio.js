@@ -1,6 +1,6 @@
 import { unlockAudioContext } from '../../audio.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { normalizeWitchControls, witchClamp, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_TAU } from './witch-model.js';
+import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_TAU } from './witch-model.js';
 
 /** Only start(), called directly by the explicit Audio handler, creates or
  * resumes a context. Gesture updates and one-shots are safe while Audio is off. */
@@ -11,7 +11,8 @@ export class WitchAudio {
     this.starting = null; this.generation = 0; this.releaseOutput = null;
     this.pendingPhase = null;
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
-      fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
+      handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
+      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.onError = null;
   }
   get running() { return this.audible && this.context?.state === 'running' && Boolean(this.node); }
@@ -77,22 +78,33 @@ export class WitchAudio {
     this.post({ type: 'enabled', enabled: this.audible }); this.setGain();
   }
   /** Align silent viewport motion on first arm or explicit visual recovery.
-   * This does not arm audio or restart the vocal phrase. Units are radians. */
-  syncPhase(phase, speed = 0) {
+   * This does not arm audio or restart the vocal phrase. Vortex phase is radians;
+   * optional handTime is seconds of the independent Gesticules choreography;
+   * spoonHeight joins its visible position; flightPhase keeps the broom and delay
+   * at their current point through silent speed changes. */
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase) {
     const message = { type: 'phase', phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
       speed: witchClamp(speed) };
+    if (Number.isFinite(handTime)) {
+      message.handTime = witchClamp(handTime, 0, 1e9); this.visual.handTime = message.handTime;
+      message.spoonHeight = witchClamp(spoonHeight, 0, 1,
+        this.controls.spoonAuto ? witchSpoonHeight(message.handTime) : this.controls.spoonHeight);
+      this.visual.spoonHeight = message.spoonHeight;
+      message.flightPhase = witchClamp(flightPhase, 0, 1e12, message.handTime * (1 + this.controls.speed * 5) / 1.4);
+      this.visual.flightPhase = message.flightPhase;
+    }
     this.visual.phase = message.phase; this.visual.speed = message.speed;
     if (this.node) this.post(message); else this.pendingPhase = message;
   }
   update(value = {}) {
     const priorVolume = this.controls.volume;
-    this.controls = normalizeWitchControls({ ...this.controls, ...value });
+    this.controls = normalizeWitchControls({ ...this.controls, ...value,
+      handFocus: value.mode && value.mode !== this.controls.mode && value.handFocus === undefined ? undefined : value.handFocus ?? this.controls.handFocus });
     this.post({ type: 'controls', controls: this.controls });
     if (this.controls.volume !== priorVolume) this.setGain();
   }
   trigger(kind) {
-    const allowed = this.controls.mode === 'brew' ? WITCH_VOCAL_EFFECTS : this.controls.mode === 'flight' ? WITCH_FLIGHT_EFFECTS : [];
-    if (!this.running || !allowed.includes(kind)) return false;
+    if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
     this.post({ type: 'trigger', kind, at: this.context.currentTime }); return true;
   }
   detach() {

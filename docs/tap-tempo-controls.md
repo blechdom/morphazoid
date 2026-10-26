@@ -153,7 +153,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Wave Pool · Morphazoid](../wave-pool.html) | `#tempoBpm` |
 | [WebGPU 303](../webgpu-303.html) | `#timeScale`, `[role="slider"][data-param-key="timeScale"]` |
 | [WebGPU Chiptune](../webgpu-chiptune.html) | `#tempo`, `[role="slider"][data-param-key="tempo"]` |
-| [Witch](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (broom note) |
+| [Witches Brew](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (flight delay cycle) |
 | [Wobblini](../wobblini.html) | `#master-bpm` (selected master tempo) |
 | [Yoyodyne](../yoyodyne.html) | `#tempo` |
 

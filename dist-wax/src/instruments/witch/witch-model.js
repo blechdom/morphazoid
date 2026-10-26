@@ -1,15 +1,19 @@
 /** Pure gesture and fictional vocal controls. Frequencies are synthesis choices,
  * not measurements of a human voice. No pitch scale or note quantizer is used. */
+import { createHandPose, evaluateHandPose } from '../gesticulating-hand/hand-model.js';
+
 export const WITCH_TAU = Math.PI * 2;
 export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing']);
 export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'ghost', 'bat']);
 export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
 export const WITCH_LAUNCH_DURATION = 1.86;
 export const WITCH_FINGER_SOURCES = Object.freeze(['glass', 'reed', 'wire', 'metal', 'marimba']);
-export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS])]);
+export const WITCH_DROP_EFFECTS = Object.freeze(['drop-gesticules', 'drop-marimba', 'drop-choir']);
+export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
-  fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
+  fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
+  nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
 export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
   Math.min(max, Math.max(min, Number.isFinite(Number(value)) ? Number(value) : fallback))
@@ -18,16 +22,58 @@ export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
 export function normalizeWitchControls(value = {}) {
   const input = value && typeof value === 'object' ? value : {};
   const result = {};
-  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'volume']) {
+  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
+  result.spoonAuto = input.spoonAuto === true;
   result.mode = ['brew', 'fingers', 'flight'].includes(input.mode) ? input.mode : 'brew';
+  result.handFocus = witchClamp(input.handFocus, 0, 1, result.mode === 'fingers' ? 1 : 0);
   result.voice = WITCH_VOICES.includes(input.voice) ? input.voice : 'mutter';
   result.fingers = Array.from({ length: 5 }, (_, i) => witchClamp(input.fingers?.[i], 0, 1, .5));
   result.fingerMask = Math.round(witchClamp(input.fingerMask, 0, 31));
+  result.manualFingerMask = Math.round(witchClamp(input.manualFingerMask, 0, 31));
   return result;
+}
+
+export const witchSpoonHeight = seconds => .5 + .48 * Math.sin(witchClamp(seconds, 0, 1e9) * .62);
+export const witchVoiceAtHeight = height => WITCH_VOICES[Math.min(4, Math.floor(witchClamp(height) * 5))];
+
+/** The two hands use authored Gesticules choreography, with different timing
+ * and a low starting curl that keeps the elongated fingers legible. */
+export function witchHandConfig(state = {}, handIndex = 0) {
+  return {
+    motion: { id: handIndex ? 'claw-pulse' : 'finger-roll', amount: handIndex ? .44 : .66, tempo: 62, speed: 1 },
+    tremor: { amount: 0 },
+    pose: { fingers: Array.from({ length: 5 }, (_, index) => {
+      const bend = witchClamp(state.fingers?.[index], 0, 1, .5);
+      return { mcp: bend * 38, pip: bend * (index ? 44 : 35), dip: bend * 30, spread: 0 };
+    }), wrist: { flex: 0, side: 0, twist: 0 } },
+    sound: { rhythm: 'continuous', rootHz: 91, pitchSpread: 1.25, brightness: witchClamp(state.tone, 0, 1, .5),
+      roughness: .12, space: .14, rotationFx: 0, attack: .035, release: .28 },
+    voices: WITCH_FINGER_SOURCES.map((source, index) => ({ source, level: index > 2 ? .9 : .76 })),
+  };
+}
+
+/** Directly held digits retain their complete bend while the other fingers
+ * continue their incantation. The second, ladle-side hand is independently offset. */
+export function applyWitchManualFingers(state, pose, handIndex = 0) {
+  const mask = handIndex ? 0 : Math.round(witchClamp(state.manualFingerMask, 0, 31));
+  for (let index = 0; index < 5; index++) if (mask & (1 << index)) {
+    const bend = witchClamp(state.fingers?.[index], 0, 1, .5), f = pose.fingers[index];
+    f.mcp = bend * 70; f.pip = bend * (index ? 85 : 65); f.dip = bend * 60; f.spread = 0;
+  }
+  return pose;
+}
+
+/** Time is seconds of the audio-owned hand transport. Passing the same time
+ * freezes the pose without resetting it; reduced motion suppresses wrist flourishes. */
+export function evaluateWitchHandPose(state = {}, seconds = 0, handIndex = 0, out = createHandPose()) {
+  evaluateHandPose(witchHandConfig(state, handIndex), witchClamp(seconds, 0, 1e9) + (handIndex ? .73 : 0), out);
+  applyWitchManualFingers(state, out, handIndex);
+  if (state.reducedMotion) out.wrist.flex = out.wrist.side = out.wrist.twist = 0;
+  return out;
 }
 
 export function createStirState() {
