@@ -691,6 +691,31 @@ test('stirring and fingers wake only their own part, including during a hair fad
   await key(page,'w');expect((await state(page)).parts).toEqual({brew:true,hand:true});
 });
 
+test('web plucks wake alone and the dice and mushrooms restore the preset performance',async({page})=>{
+  test.setTimeout(45000);await observeWorklet(page);await open(page);
+  await clickWorld(page,'web',{index:6});
+  await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
+  expect(await state(page)).toMatchObject({playing:true,parts:{brew:false,hand:false},backingAwake:false});
+  await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('web-6'))).toBe(true);
+  const web=await sampleAudioEnvelope(page,{durationMs:180});
+  expect(web.summary.finite).toBe(true);expect(web.summary.maxPeak).toBeGreaterThan(.001);expect(web.summary.clippedSamples).toBe(0);
+  expect(await page.evaluate(()=>['brewLevel','handLevel','ghostLevel','catLevel','flybyLevel'].every(key=>window.witchVisual[key]<.000001))).toBe(true);
+  await clickWorld(page,'die');
+  expect(await state(page)).toMatchObject({parts:{brew:true,hand:true},backingAwake:true});
+  expect(await page.evaluate(()=>window.witchTriggers.includes('dice-charm'))).toBe(true);
+  await preset(page,'small-spell');await audible(page);
+  await dragHair(page,.85);
+  await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
+  await key(page,'p');
+  expect(await state(page)).toMatchObject({parts:{brew:false,hand:false},backingAwake:false});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??1)).toBeLessThan(.000001);
+  expect(await page.evaluate(()=>window.witchVisual.handLevel)).toBeLessThan(.000001);
+  await clickWorld(page,'mushrooms');
+  expect(await state(page)).toMatchObject({parts:{brew:true,hand:true},backingAwake:true});
+  expect(await page.evaluate(()=>window.witchTriggers.includes('mushroom-gloop'))).toBe(true);
+  await audible(page);
+});
+
 test('the ladle, fingers, nose and stretchable hat are native controls with clean cancellation',async({page})=>{
   await observeWorklet(page);await open(page);await wake(page);
   await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);

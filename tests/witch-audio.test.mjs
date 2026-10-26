@@ -91,6 +91,46 @@ test('independent source fades remain bounded and identical across render block 
   }
 });
 
+test('a web-only wake leaves automatic visitors silent with live clocks, then backing can join without a seek', () => {
+  assert.equal(normalizeWitchControls().backingEnabled, true);
+  assert.equal(normalizeWitchControls({ backingEnabled: false }).backingEnabled, false);
+  assert.equal(normalizeWitchControls({ backingEnabled: 'false' }).backingEnabled, true);
+  for (const mode of ['brew', 'flight']) {
+    const dsp = playing({ mode, ghostGate: true, brewEnabled: false, handEnabled: false, backingEnabled: false });
+    const boundaries = mode === 'brew' ? [18, 30, 44] : [5, 16, 18.2];
+    for (const boundary of boundaries) {
+      const time = boundary - .05;
+      dsp.syncPhase(0, 0, 0, .5, 0, 2, createWitchCatClock(time), time);
+      assert.equal(rms(render(dsp, .2)), 0, `${mode} remains silent across the visitor at ${boundary}s`);
+      assert.ok(Math.abs(dsp.visual.catTime - time - .2) < 1e-8, 'performance and paw clocks still advance');
+      assert.ok(dsp.visual.ghostPhase > 2, 'the shared beat clock still advances');
+      if (mode === 'flight') {
+        assert.ok(dsp.visual.flightPhase > 0, 'flight continues');
+        assert.ok(Math.abs(dsp.visual.flybyTime - time - .2) < 1e-8, 'muted BLECH events are consumed on time');
+      }
+      assert.equal(dsp.cat.triggerCount, 0);
+      assert.ok(dsp.visitors.visitors.every(visitor => visitor.triggerCount === 0));
+      assert.ok(dsp.blechFlyby.slots.every(slot => slot.age < 0));
+      assert.ok(dsp.ghosts.voices.every(voice => voice.envelope === 0));
+    }
+    assert.equal(dsp.trigger('web-3'), true);
+    assert.ok(rms(render(dsp, .4)) > .002, 'the directly played web stays audible');
+    for (const field of ['brewLevel', 'handLevel', 'ghostLevel', 'flybyLevel', 'catLevel']) assert.equal(dsp.visual[field], 0, field);
+
+    // Enabling the backing uses the current clocks, including future visit
+    // boundaries; it does not restart a previously skipped BLECH passage.
+    const next = mode === 'brew' ? 59.95 : 30.95;
+    dsp.syncPhase(0, 0, 0, .5, 0, 2, createWitchCatClock(next), next);
+    const before = [dsp.cat.time, dsp.ghosts.phase, dsp.blechFlyby.time, dsp.delay.ridePhase];
+    dsp.setControls({ brewEnabled: true, handEnabled: true, backingEnabled: true });
+    assert.deepEqual([dsp.cat.time, dsp.ghosts.phase, dsp.blechFlyby.time, dsp.delay.ridePhase], before);
+    assert.ok(rms(render(dsp, .3)) > .002);
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001);
+    if (mode === 'brew') assert.ok(dsp.cat.triggerCount > 0 && dsp.visual.catLevel > 0, 'footsteps join at the next visit');
+    else assert.ok(dsp.visual.flybyLevel > 0 && dsp.blechFlyby.nextVariant === 1, 'only the new flyby joins');
+  }
+});
+
 test('stalled UI and different render block sizes preserve exact audio-clock synthesis', () => {
   const a = playing({ mode: 'flight', speed: .85 }), b = playing({ mode: 'flight', speed: .85 });
   const uninterrupted = render(a, 5, 128);

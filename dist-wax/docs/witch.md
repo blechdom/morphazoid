@@ -7,7 +7,9 @@ arms Audio and fades in the performance. On the ground, pulling her hair firmly 
 ensemble over 3.2 seconds, then holds the scene still. Stirring wakes only her
 voice; bending her fingers wakes only the hand sounds. Each stays active, so
 you can bring the two parts back separately. The same gestures work from the
-initial quiet scene, and selecting a new preset restores the complete ensemble.
+initial quiet scene. Plucking the web starts only its own sound, leaving the
+voice, fingers and automatic background sounds asleep. The mushrooms and floor
+die restore the complete preset performance.
 In flight, hair pulls reshape the shared delay while the ensemble keeps playing. The full-width picture contains the controls: mushrooms cycle presets,
 the floor die randomizes settings, and grounded hair pulling hushes the scene. There is no preset
 menu, playback/reset overlay, help button or parameter sidebar.
@@ -29,7 +31,7 @@ Brightness remains on the **+ / −** keys.
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to send an elastic ripple through the cloth and the ensemble. The witch, moon, pot, mushrooms and hair noodles keep priority. Grounded sound bypasses the fabric. |
 | Click or drag a branch | Click to play its native L-system sound bite, with a pulse travelling through the branches. Mushrooms and the die choose new tree settings. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
-| Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale. |
+| Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |

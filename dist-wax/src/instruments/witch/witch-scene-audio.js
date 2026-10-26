@@ -104,11 +104,11 @@ export class WitchBlechFlyby {
 }
 
 export const WITCH_WEB_RATIOS = Object.freeze([1, 1.071, Math.SQRT2, 1.493, Math.sqrt(3), 2.031, Math.sqrt(5)]);
-// Slow displaced silk: the native string's long noisy excitation, dispersion
-// and tension glide creak into pitch instead of striking like a guitar pick.
-const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .58, decay: 2.2,
-  texture: .94, slide: .9, coupling: .08, pluckRegister: -3, pluckSpread: .86,
-  pluckAttack: .055, pluckHold: .14, pluckRelease: 1.45 });
+// Halfway between the original picked strings and the slower displaced silk:
+// a clearer pluck still bends and rasps into pitch, at the restrained web level.
+const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .38, decay: 1.95,
+  texture: .715, slide: .49, coupling: .08, pluckRegister: 1, pluckSpread: .93,
+  pluckAttack: .0295, pluckHold: .0825, pluckRelease: 1.325 });
 
 const CHARM_BELLS = Object.freeze([
   [0, 1175, -.55], [.049, 988, .1], [.103, 784, .5],
@@ -267,7 +267,7 @@ export class WitchSceneDSP {
     if (kind === 'tree-l-system') { this.tree.trigger(); return true; }
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
-      this.web.pluck(67 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
+      this.web.pluck(69 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
       this.active = 2.8; return true;
     }
     if (kind === 'spider-groan') {
@@ -285,12 +285,12 @@ export class WitchSceneDSP {
       this.webControl = 31;
       for (const voice of this.web.voices) if (voice.remaining > 0) {
         const age = voice.age / this.rate;
-        const strain = 1 + .105 * Math.sin(age * 17.3 + voice.segmentId) * Math.exp(-age * 1.5)
-          + .026 * Math.sin(age * 83.1);
+        const strain = 1 + .0525 * Math.sin(age * 17.3 + voice.segmentId) * Math.exp(-age * 1.5)
+          + .013 * Math.sin(age * 83.1);
         voice.targetPeriod = Math.max(3, Math.min(4092, this.rate / (voice.frequency * strain) - voice.loss));
       }
     }
-    this.web.sample(this.levels, .24, WEB_SOUND);
+    this.web.sample(this.levels, .47, WEB_SOUND);
     this.webLowL += (this.web.left - this.webLowL) * this.webLowpass;
     this.webLowR += (this.web.right - this.webLowR) * this.webLowpass;
     this.groan = 0;
@@ -305,8 +305,9 @@ export class WitchSceneDSP {
     }
     this.tree.next(enabled);
     this.pictureAccents.next(enabled);
-    this.left = (this.webLowL * 1.05 + this.groan) * this.gain + this.tree.left + this.pictureAccents.left;
-    this.right = (this.webLowR * 1.05 + this.groan * .8) * this.gain + this.tree.right + this.pictureAccents.right;
+    // Restore half the unfiltered pluck while keeping the quieter 1.05 trim.
+    this.left = ((this.webLowL + this.web.left) * .525 + this.groan) * this.gain + this.tree.left + this.pictureAccents.left;
+    this.right = ((this.webLowR + this.web.right) * .525 + this.groan * .8) * this.gain + this.tree.right + this.pictureAccents.right;
     if (this.gain < 1e-9) this.groanAge = 2;
   }
 }
