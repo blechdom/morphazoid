@@ -7,10 +7,11 @@ test('ingredient flights interpolate whole spells while leaving clocks and outpu
   const from=WITCH_PRESETS.find(p=>p.id==='beautiful').snapshot,to=WITCH_PRESETS.find(p=>p.id==='shelf-synthesis').snapshot;
   const original=structuredClone(from);
   assert.deepEqual(blendWitchSpell(from,to,-1),from);
-  assert.deepEqual(blendWitchSpell(from,to,2),to);
+  assert.deepEqual(blendWitchSpell(from,to,2),{...to,scene:from.scene});
   let previous=from;
   for(let i=1;i<=100;i++) {
     const current=blendWitchSpell(from,to,i/100);
+    assert.equal(current.scene,from.scene);
     for(const key of ['speed','nose','hat','hair','handRate','spellBalance','fabricX','trailPull']) {
       assert.ok(Number.isFinite(current[key]));
       assert.ok(current[key]>=Math.min(from[key],to[key])&&current[key]<=Math.max(from[key],to[key]));
@@ -22,6 +23,14 @@ test('ingredient flights interpolate whole spells while leaving clocks and outpu
   assert.deepEqual(from,original);
   const interrupted=blendWitchSpell(from,to,.37),next=WITCH_PRESETS[3].snapshot;
   assert.deepEqual(blendWitchSpell(interrupted,next,0),normalizeWitchPreset(interrupted));
+});
+
+test('ingredient transitions never launch, land or change the player-selected hand focus',()=>{
+  for(const scene of ['brew','fingers','flight'])for(const targetScene of ['brew','fingers','flight']) {
+    const from={...WITCH_PRESETS[0].snapshot,scene},to={...WITCH_PRESETS[1].snapshot,scene:targetScene};
+    for(const progress of [0,.25,.5,.75,1,2])assert.equal(blendWitchSpell(from,to,progress).scene,scene);
+    assert.deepEqual(blendWitchSpell(from,to,1),{...to,scene});
+  }
 });
 
 test('eye and spider accents start gently and end at their fixed duration',()=>{

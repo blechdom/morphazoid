@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
+import { WITCH_DEFAULTS, WITCH_PRESETS, WITCH_SETTING_PRESETS, normalizeWitchPreset, witchPresetSettings, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
 import { TOOL_GROUPS } from '../src/site/instrument-registry.js';
@@ -19,10 +19,25 @@ test('every complete Witch scene survives recall without bringing transport or o
   }
 });
 
-test('randomization reaches every scene, character, direction and continuous musical parameter within bounds',()=>{
+test('header snapshots recall complete settings independently of legacy stirring and flight modes',()=>{
+  validateFullPresetBank(WITCH_SETTING_PRESETS);
+  for(const [index,{snapshot}] of WITCH_SETTING_PRESETS.entries()) {
+    assert.equal('scene' in snapshot,false);
+    assert.deepEqual(snapshot,witchPresetSettings(WITCH_PRESETS[index].snapshot));
+    for(const scene of ['brew','fingers','flight']) {
+      const recalled=normalizeWitchPreset({...snapshot,scene});
+      assert.equal(recalled.scene,scene);
+      assert.deepEqual(witchPresetSettings(recalled),snapshot);
+    }
+    assert.notEqual(snapshot.fingers,WITCH_PRESETS[index].snapshot.fingers);
+  }
+});
+
+test('randomization preserves the chosen mode and reaches every character, direction and continuous setting within bounds',()=>{
   let seed=42;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  const scenes=Array.from({length:150},()=>randomizeWitchPreset(WITCH_DEFAULTS,random));
-  assert.equal(new Set(scenes.map(s=>s.scene)).size,3);
+  const modes=['brew','fingers','flight'];
+  const scenes=Array.from({length:150},(_,i)=>randomizeWitchPreset({...WITCH_DEFAULTS,scene:modes[i%3]},random));
+  scenes.forEach((snapshot,i)=>assert.equal(snapshot.scene,modes[i%3]));
   assert.deepEqual([...new Set(scenes.map(s=>s.voice))].sort(),[...WITCH_VOICES].sort());
   assert.equal(new Set(scenes.map(s=>s.direction)).size,2);
   assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);

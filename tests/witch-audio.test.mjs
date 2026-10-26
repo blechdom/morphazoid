@@ -512,9 +512,17 @@ function fakeRuntime({ deferModule = false, failModule = false } = {}) {
   const calls = { contexts: 0, resumed: 0, modules: 0, closed: 0, messages: [], disconnected: 0 };
   let finishModule;
   const moduleReady = deferModule ? new Promise(resolve => { finishModule = resolve; }) : Promise.resolve();
-  const gain = { value: 0, targets: [], cancelAndHoldAtTime() {}, setTargetAtTime(value) { this.targets.push(value); } };
+  const makeGain = () => ({ value: 0, targets: [], events: [],
+    cancelAndHoldAtTime(time) { this.events.push(['hold', time]); },
+    cancelScheduledValues(time) { this.events.push(['cancel', time]); },
+    setValueAtTime(value, time) { this.events.push(['value', value, time]); },
+    linearRampToValueAtTime(value, time) { this.events.push(['linear', value, time]); },
+    setTargetAtTime(value) { this.targets.push(value); },
+  });
+  const gain = makeGain(), gains = [];
   class Node {
-    connect() {} disconnect() { calls.disconnected++; }
+    constructor() { this.connections = []; }
+    connect(node) { this.connections.push(node); } disconnect() { calls.disconnected++; }
   }
   class Context {
     constructor() {
@@ -523,7 +531,7 @@ function fakeRuntime({ deferModule = false, failModule = false } = {}) {
     }
     resume() { calls.resumed++; this.state = 'running'; return Promise.resolve(); }
     close() { calls.closed++; this.state = 'closed'; return Promise.resolve(); }
-    createGain() { const node = new Node(); node.gain = gain; return node; }
+    createGain() { const node = new Node(); node.gain = gains.length ? makeGain() : gain; gains.push(node.gain); return node; }
   }
   class Worklet extends Node {
     constructor(_context, _name, options) { super(); calls.options = options; this.port = { postMessage: data => calls.messages.push(data), close() {} }; }
@@ -536,6 +544,7 @@ test('audio boundary creates only on start, stays muted until explicitly armed, 
   audio.update({ gate: true, speed: .9 }); assert.equal(audio.trigger('cackle'), false);
   assert.equal(calls.contexts, 0);
   await audio.start(); assert.equal(calls.contexts, 1); assert.equal(calls.resumed, 1);
+  assert.equal(audio.presenceNode.gain.value, 1, 'the independent presence fade defaults to unity');
   assert.equal(audio.audible, false); assert.equal(gain.targets.at(-1), 0);
   audio.setAudible(true); assert.equal(audio.running, true); assert.equal(gain.targets.at(-1), .6);
   assert.equal(audio.trigger('moan'), true);
@@ -547,6 +556,35 @@ test('audio boundary creates only on start, stays muted until explicitly armed, 
   await audio.dispose(); assert.equal(calls.closed, 1); assert.equal(manager.connectionCount(), 0);
   assert.equal(audio.context, null); assert.equal(audio.node, null);
   await assert.rejects(audio.start(), /disposed/);
+});
+
+test('performance presence fades independently, reverses continuously and never creates or enables audio', async () => {
+  const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
+  audio.setPresence(0, 0);
+  assert.equal(calls.contexts, 0); assert.equal(audio.presence, 0);
+  await audio.start(); audio.setAudible(true);
+  const node = audio.presenceNode, param = node.gain;
+  assert.equal(param.value, 0, 'first construction keeps the stored silent presence');
+  assert.equal(audio.node.connections[0], node); assert.equal(node.connections[0], audio.master);
+  const controls = audio.controls, messageCount = calls.messages.length;
+  audio.setPresence(1, .8);
+  assert.deepEqual(param.events, [['hold', 0], ['value', 0, 0], ['linear', 1, .8]]);
+  assert.equal(audio.controls, controls); assert.equal(audio.audible, true); assert.equal(calls.messages.length, messageCount);
+  audio.context.currentTime = .2; audio.setPresence(0, .8);
+  assert.deepEqual(param.events.slice(-3), [['hold', .2], ['value', .25, .2], ['linear', 0, 1]]);
+  const fadeEvents = structuredClone(param.events);
+  audio.update({ volume: .3 }); audio.setAudible(false); audio.setAudible(true);
+  assert.deepEqual(param.events, fadeEvents, 'output level and Audio changes leave the presence ramp alone');
+  audio.context.currentTime = .4; audio.setPresence(1, .6);
+  assert.deepEqual(param.events.slice(-3), [['hold', .4], ['value', .1875, .4], ['linear', 1, 1]]);
+  delete param.cancelAndHoldAtTime;
+  audio.context.currentTime = .7; audio.setPresence(0, .2);
+  assert.equal(param.events.at(-3)[0], 'cancel');
+  assert.ok(Math.abs(param.events.at(-2)[1] - .59375) < 1e-12, 'the fallback also holds the current ramp value');
+  audio.setPresence(4, 0); assert.deepEqual(param.events.at(-1), ['value', 1, .7]);
+  await audio.dispose(); assert.equal(audio.presenceNode, null); assert.equal(audio.presenceFade, null);
+  const eventsAfterDispose = param.events.length;
+  audio.setPresence(1); assert.equal(param.events.length, eventsAfterDispose); assert.equal(calls.contexts, 1);
 });
 
 test('explicit accent release posts a separate message without arming or changing transport', async () => {

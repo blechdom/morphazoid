@@ -69,6 +69,20 @@ matched by `#playButton` or `[data-primary-transport]` may be inside `<details>`
 only when that disclosure is open in the authored HTML, preserving the same
 route when modules fail or JavaScript is unavailable.
 
+## Witches Brew picture wake
+
+The owner requested an explicit exception for Witches Brew: it loads still and
+silent, and a real picture or preset gesture wakes playback, arms Audio within
+that user gesture, and fades in the ensemble. Its visible Wake/Space action does
+the same. Programmatic scene events and passive preset registration never arm
+Audio. Pulling the hair backward or using Hush fades the performance to silence
+and freezes its visible clocks until the next gesture. Audio and output level
+remain separate from that performance fade.
+
+The live flight/stirring mode is also outside the settings preset contract.
+Presets, ingredient transitions, mushrooms, and both randomizers preserve it;
+moon/broom gestures and explicit flight keyboard actions control it.
+
 ## Explicit preset motion on Shape
 
 The owner requested that Shape's main presets restore Playhead and Rotation

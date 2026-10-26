@@ -24,97 +24,34 @@
     <section class="witch-performance" aria-label="Witches Brew performance">
       <div class="witch-viewport" id="witchViewport">
         <h1>witches brew</h1>
-        <canvas id="witchCanvas" tabindex="0" aria-label="Witch and cauldron. Drag the ladle in circles to brew her voice." aria-describedby="gestureHint keyboardHelp">An animated witch. The controls beside the scene provide keyboard alternatives to every gesture.</canvas>
-        <div class="witch-accessible-copy"><span id="sceneLabel">She brews her own voice.</span><output id="gestureReadout">The pot is listening.</output></div>
-      </div>
-      <div class="witch-accessible-copy">
-        <p id="gestureHint">Grab the ladle. Circle to chant. Widen to open her voice. Reverse the spell.</p>
+        <canvas id="witchCanvas" tabindex="0" aria-label="Witch and cauldron. Click the picture to wake the brew; drag the ladle in circles to shape her voice." aria-describedby="gestureHint keyboardHelp">An interactive witch, cauldron, instrument cupboard and haunted tree. Use the picture or its keyboard shortcuts to play.</canvas>
+        <div class="witch-presets" data-instrument-preset-host aria-label="Witches Brew presets"></div>
+        <div class="witch-scene-tools">
+          <div class="witch-player" role="group" aria-label="Performance controls">
+            <button id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Wake the brew" title="Wake or hush the brew · Space"><span id="playGlyph" aria-hidden="true">▶</span><span id="playLabel" class="witch-accessible-copy">Wake the brew</span></button>
+            <button id="resetButton" class="witch-reset" type="button" data-reset-all data-reset-in-place aria-label="Reset the brew" title="Reset the brew"><span aria-hidden="true">↺</span></button>
+          </div>
+          <details class="witch-help">
+            <summary aria-label="Playing notes and keyboard shortcuts" title="Playing notes and keyboard shortcuts"><span aria-hidden="true">?</span></summary>
+            <div class="witch-help-content">
+              <p>The night starts still and quiet. Click the picture to fade into the brew. Pull her hair back to hush the sound and hold everything still; your next click wakes it again, on the ground or in flight.</p>
+              <p>Stir the ladle to shape her singing. Spoon height chooses the voice; click her mouth for another phrase. Pull her nose for pitch and resonance, stretch her burned hat for vocal texture, or bend her spell-casting fingers. Click her eyes for an orange electrical hex.</p>
+              <p>Click an instrument on the cupboard or tree to hear its sound bite and fade into new settings as it dives into the cauldron. The giant mushrooms choose another whole preset. The twenty-sided die beside the pot randomizes all the settings. Mushrooms, moon, presets and the die refill the ingredients. Settings never launch or land the witch: only you choose when she flies.</p>
+              <p>Click the moon or leaning broom to fly; click either again to land. Pull the noodles growing from her hair for large delay bends. Touch and pull the green-and-pink fabric behind the moon to catch and filter the wind. The mushrooms and die stay within reach in flight.</p>
+              <p>Touch branches for L-system notes and a new tree shape, the spider for a groan, and its web for low plucks. Catch the cat, ceiling lizard or wall-crawling mouse to add them to the potion.</p>
+              <p id="keyboardHelp">On the picture: Space wakes or hushes; D rolls the die; H features fingers; M toggles flight; B lands; W chooses the next spell; F catches wind; V changes her phrase; X shocks her eyes; T plays and reshapes the tree; S wakes the spider; P plucks the web; C/N/L catch cat/mouse/lizard. Hold 1–5 and use arrows to bend fingers. Q/E/R add Gesticules, Rattlesnake and Throatazoid. [ and ] select an ingredient; Enter sends it to the pot. G / Shift+G change ghost tempo. Escape hushes the spell.</p>
+              <a href="docs/witch.md">About the instrument</a>
+            </div>
+          </details>
+        </div>
+        <div class="witch-accessible-copy">
+          <span id="sceneLabel">The witch is resting.</span>
+          <output id="gestureReadout">Click the picture to wake the brew.</output>
+          <p id="gestureHint">Click the picture to fade in. Stir the ladle to chant. Pull her hair back to hush and hold still until the next click.</p>
+          <p id="liveStatus" role="status" aria-live="polite"></p>
+        </div>
       </div>
     </section>
-    <aside class="witch-panel" data-instrument-preset-host aria-label="Witches Brew controls">
-      <div class="witch-player">
-        <button id="playButton" type="button" data-primary-transport aria-pressed="true" aria-label="Stop brewing"><span id="playGlyph" aria-hidden="true">■</span> <span id="playLabel">Release</span></button>
-        <button id="resetButton" class="witch-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
-      </div>
-      <p id="liveStatus" role="status"></p>
-      <details class="witch-parameters" id="witchParameters">
-        <summary>Parameters</summary>
-      <section class="witch-control-section" aria-labelledby="sceneHeading">
-        <h2 id="sceneHeading">The night</h2>
-        <label class="witch-select" for="visualMode"><span>Mushroom vision</span><select id="visualMode"></select></label>
-        <label class="witch-range" for="treeShape"><span>Tree branches</span><input id="treeShape" type="range" min="0" max="5" step="1" value="0" /></label>
-        <label class="witch-select" for="palette"><span>Night colors</span><select id="palette"><option value="0">Foxfire</option><option value="1">Ember and ash</option><option value="2">Poison gold</option><option value="3">Spectral green</option><option value="4">Drowned blue</option><option value="5">Bruised violet</option><option value="6">Blood moon</option><option value="7">Nightshade</option></select></label>
-        <label class="witch-range" for="lineBend"><span>Line bend <output id="lineBendOut" for="lineBend">Still</output></span><input id="lineBend" type="range" min="0" max="3" step="1" value="0" /></label>
-      </section>
-      <section class="witch-control-section" aria-labelledby="voiceHeading">
-        <h2 id="voiceHeading">Her voice</h2>
-        <label class="witch-select" id="voiceControl" for="voice"><span>Character</span><select id="voice"><option value="mutter">Under her breath</option><option value="whisper">Whisper</option><option value="creak">Old wood creak</option><option value="cackle">Wicked cackle</option><option value="sing">Moonlit singing</option><option value="wail">Moon wail</option><option value="chatter">Hex chatter</option></select></label>
-        <label class="witch-auto"><input id="spoonAuto" type="checkbox" checked /> Let the spoon choose her singing</label>
-        <label class="witch-range" for="spoonHeight"><span>Spoon height <output id="spoonHeightOut" for="spoonHeight">50%</output></span><input id="spoonHeight" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="nose"><span>Pull her nose <output id="noseOut" for="nose">50%</output></span><input id="nose" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="hat"><span>Tug her hat <output id="hatOut" for="hat">50%</output></span><input id="hat" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <div id="speedControl"><label class="witch-range" for="speed"><span><span id="speedLabel">Motion</span> <output id="speedOut" for="speed">40%</output></span><input id="speed" type="range" min="0.02" max="1" step="0.01" value="0.4" /></label></div>
-        <label class="witch-range" id="radiusControl" for="radius"><span>Vowel opening <output id="radiusOut" for="radius">55%</output></span><input id="radius" type="range" min="0.08" max="1" step="0.01" value="0.55" /></label>
-        <label class="witch-range" id="toneControl" for="tone"><span>Brightness <output id="toneOut" for="tone">50%</output></span><input id="tone" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <button id="reverseButton" class="witch-wide" type="button" aria-pressed="false">↻ Forward spell</button>
-      </section>
-      <section class="witch-control-section" id="fingerControls" aria-labelledby="fingerHeading">
-        <h2 id="fingerHeading">Five little spells</h2>
-        <label class="witch-select" for="handMotion"><span>Incantation motion</span><select id="handMotion"></select></label>
-        <label class="witch-select" for="handSound"><span>Finger sound</span><select id="handSound"></select></label>
-        <label class="witch-range" for="handRate"><span>Incantation speed <output id="handRateOut" for="handRate"></output></span><input id="handRate" type="range" min="0.25" max="6" step="0.01" value="1" /></label>
-        <label class="witch-range" for="spellBalance"><span>Voice ↔ fingers <output id="spellBalanceOut" for="spellBalance">50%</output></span><input id="spellBalance" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="handDepth"><span>Gesture depth <output id="handDepthOut" for="handDepth"></output></span><input id="handDepth" type="range" min="0" max="1" step="0.01" value="0.66" /></label>
-        <div class="witch-finger-controls">
-          <label class="witch-range" for="finger0"><span><span id="finger0Label">Thumb · pitch</span> <output id="finger0Out" for="finger0">50%</output></span><input id="finger0" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-          <label class="witch-range" for="finger1"><span><span id="finger1Label">Index · vowel</span> <output id="finger1Out" for="finger1">50%</output></span><input id="finger1" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-          <label class="witch-range" for="finger2"><span><span id="finger2Label">Middle · rasp</span> <output id="finger2Out" for="finger2">30%</output></span><input id="finger2" type="range" min="0" max="1" step="0.01" value="0.3" /></label>
-          <label class="witch-range" for="finger3"><span><span id="finger3Label">Ring · tremble</span> <output id="finger3Out" for="finger3">25%</output></span><input id="finger3" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
-          <label class="witch-range" for="finger4"><span><span id="finger4Label">Little · breath</span> <output id="finger4Out" for="finger4">25%</output></span><input id="finger4" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
-        </div>
-      </section>
-      <section class="witch-control-section" id="ghostControls" aria-labelledby="ghostHeading">
-        <h2 id="ghostHeading">Ghosts in the mist</h2>
-        <label class="witch-range" for="ghostTempo"><span>Ghost beat <output id="ghostTempoOut" for="ghostTempo">72 BPM</output></span><input id="ghostTempo" type="range" min="36" max="180" step="1" value="72" /></label>
-      </section>
-      <section class="witch-control-section" id="nightControls" aria-labelledby="nightHeading">
-        <h2 id="nightHeading">Rollercoaster delay</h2>
-        <label class="witch-range" for="trailPull"><span>Pull the flight string <output id="trailPullOut" for="trailPull"></output></span><input id="trailPull" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="trailTwist"><span>Twist the flight string <output id="trailTwistOut" for="trailTwist"></output></span><input id="trailTwist" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="flightSpeed"><span>Flight speed <output id="flightSpeedOut" for="flightSpeed">40%</output></span><input id="flightSpeed" type="range" min="0.02" max="1" step="0.01" value="0.4" /></label>
-        <label class="witch-range" for="altitude"><span>Altitude <output id="altitudeOut" for="altitude">50%</output></span><input id="altitude" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="flightX"><span>Across the sky <output id="flightXOut" for="flightX">50%</output></span><input id="flightX" type="range" min="0.12" max="0.88" step="0.01" value="0.5" /></label>
-        <div class="witch-effects"><button type="button" data-effect="moon">Moon bell</button><button type="button" data-effect="bat">Bat ticks</button><button type="button" data-effect="spark">Star pluck</button><button type="button" data-effect="gust">Wind rush</button></div>
-      </section>
-      <section class="witch-control-section" aria-labelledby="soloHeading">
-        <h2 id="soloHeading">Shelf and tree visitors</h2>
-        <div class="witch-effects witch-potion-list" id="potionShelfControls"></div>
-      </section>
-      <section class="witch-control-section" aria-labelledby="treeHeading">
-        <h2 id="treeHeading">Spider's tree</h2>
-        <div class="witch-effects"><button type="button" data-world-action="tree">Change branches</button><button type="button" data-world-action="spider">Spider groan</button></div>
-        <div class="witch-effects" aria-label="Web strings"><button type="button" data-web="0">Web 1</button><button type="button" data-web="1">Web 2</button><button type="button" data-web="2">Web 3</button><button type="button" data-web="3">Web 4</button><button type="button" data-web="4">Web 5</button><button type="button" data-web="5">Web 6</button><button type="button" data-web="6">Web 7</button></div>
-      </section>
-      <section class="witch-control-section" aria-labelledby="catHeading">
-        <h2 id="catHeading">Night visitors</h2>
-        <div class="witch-effects"><button type="button" data-animal="cat">Catch the cat</button><button type="button" data-animal="mouse">Catch the mouse</button><button type="button" data-animal="lizard">Catch the lizard</button></div>
-        <label class="witch-select" for="catGait"><span>Gait</span><select id="catGait"></select></label>
-        <label class="witch-range" for="catSpeed"><span>Cat pace <output id="catSpeedOut" for="catSpeed"></output></span><input id="catSpeed" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
-      </section>
-      <section class="witch-control-section" aria-labelledby="fabricHeading">
-        <h2 id="fabricHeading">Fabric in the wind</h2>
-        <label class="witch-range" for="fabricX"><span>Weave <output id="fabricXOut" for="fabricX"></output></span><input id="fabricX" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-        <label class="witch-range" for="fabricY"><span>Filter opening <output id="fabricYOut" for="fabricY"></output></span><input id="fabricY" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
-      </section>
-      <section class="witch-control-section" id="ingredientControls" aria-labelledby="ingredientHeading">
-        <h2 id="ingredientHeading">A pinch of trouble</h2>
-        <div class="witch-ingredients"><button id="glassButton" type="button" aria-label="Add glass resonance">Ringing resonance <output id="glassOut">0%</output></button></div>
-        <label class="witch-range" for="hair"><span>Hair tangle <output id="hairOut" for="hair">0%</output></span><input id="hair" type="range" min="0" max="1" step="0.01" value="0" /></label>
-        <button id="clearIngredients" class="witch-quiet" type="button">Empty the potion</button>
-      </section>
-      </details>
-      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Voice and fingers keep brewing together. The eighteen real instruments on the left shelf play short sound bites and fade the scene into a new preset as they fly into the cauldron. BLECH MIDI, Syrinx and Creaturazoid sing from the tree before diving. Click the mushrooms or moon, or choose another preset, to refill the shelf and tree. Click her mouth to cycle singing phrases; the spoon height also chooses her voice. Pull her nose for pitch and resonance, her burned hat in any direction for vocal texture, and her hair for a longer scratchy tail. Click her eyes for an orange electrical hex. Her right hand features the instrumental fingers. In flight, touch the green-and-pink fabric behind the moon for wind, and pull it to filter the sound. Touch branches to play the L-system synth and reshape the tree, the spider for a groan, and the web for low, unsettling plucks. Click the leaning broom or moon to fly; click either again to land. The forest fades away while her arms, hands, hair and broom travel together. Her longer route circles back through smaller loops. Pull the denser noodles growing from her hair for stronger delay bends. BLECH MIDI visitors sometimes fly past with their sound. The giant right mushrooms change the whole preset: sounds, finger animation, colors and scenery. They remain playable in flight and keep her airborne. The lizard crawls upside down along the top; the mouse scurries up and down the left edge and along the bottom. Catch the cat, mouse or lizard to send it into the potion. The cat still meows. On the picture: H features fingers; M toggles flight; B lands; W chooses the next whole spell; F catches wind in the flying fabric; V changes her phrase; X shocks her eyes; T plays and reshapes the tree; S wakes the spider; P plucks the web; C/N/L catch cat/mouse/lizard. Hold 1–5 and use arrows to bend fingers. Q/E/R add Gesticules, Rattlesnake and Throatazoid. [ and ] select an ingredient; Enter sends it to the pot. G / Shift+G change ghost tempo. Space starts or stops; Escape lands and releases. Parameters contains keyboard-accessible alternatives.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="mouth">Next witch phrase</button><button type="button" data-world-action="eyes">Eye shock</button><button type="button" data-world-action="hand">Feature fingers</button><button type="button" data-world-action="broom">Ride the broom</button><button type="button" data-world-action="mushrooms">Next mushroom spell</button><button type="button" data-world-action="fabric">Wind through fabric</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
-    </aside>
   </main>
   <script type="module" src="nav.js"></script>
   <script type="module" src="src/instruments/witch/witch-app.js"></script>

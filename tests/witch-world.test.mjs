@@ -13,7 +13,7 @@ function distanceToPolyline(point,points) {
   return distance;
 }
 
-test('moon, pot and mushrooms remain playable in flight while grounded scenery fades away',()=>{
+test('moon, pot, mushrooms and die remain playable in flight while grounded scenery fades away',()=>{
   assert.equal(WITCH_LAYOUT.mushrooms.length,1);
   assert.equal(WITCH_LAYOUT.mushrooms[0].x,844);
   for(const flightLift of [0,.5,1]) {
@@ -21,7 +21,10 @@ test('moon, pot and mushrooms remain playable in flight while grounded scenery f
     assert.equal(hitTestWitch(800,164,state)?.type,'moon');
     assert.equal(hitTestWitch(600,540,state)?.type,'stir');
     const mushroom=WITCH_LAYOUT.mushrooms[0];
-    assert.equal(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
+    assert.equal(hitTestWitch(mushroom.x+34*mushroom.scale,mushroom.y+5*mushroom.scale,state)?.type,'mushrooms');
+    const die=getWitchTargets(state).die;
+    assert.deepEqual(die,WITCH_LAYOUT.die);
+    assert.deepEqual(hitTestWitch(die.x,die.y,state),{type:'dice'});
   }
   assert.equal(hitTestWitch(388,450,{scene:'brew'})?.type,'hand');
   assert.equal(hitTestWitch(NaN,450),null);
@@ -31,7 +34,7 @@ test('moon, pot and mushrooms remain playable in flight while grounded scenery f
 test('mushroom deformation has an exact inverse and preserves direct targets',()=>{
   for(let trip=0;trip<4;trip++) for(const warpTime of [0,.2,1.7,129.8]) {
     const state={scene:'brew',trip,warpTime};
-    for(const point of [WITCH_LAYOUT.moon,WITCH_LAYOUT.hand,...WITCH_LAYOUT.mushrooms,{x:600,y:520}]) {
+    for(const point of [WITCH_LAYOUT.moon,WITCH_LAYOUT.hand,WITCH_LAYOUT.die,...WITCH_LAYOUT.mushrooms,{x:600,y:520}]) {
       const visible=warpWitchPoint(point,state), restored=warpWitchPoint(visible,state,true);
       assert.ok(Math.abs(restored.x-point.x)<1e-10); assert.equal(restored.y,point.y);
       assert.deepEqual(hitTestWitch(visible.x,visible.y,state),hitTestWitch(point.x,point.y,{scene:'brew'}));
@@ -153,7 +156,8 @@ test('parked broom, flying fabric and hair delay strands have direct gesture tar
 test('ingredient touch halos preserve scenery targets and choose the nearest object',()=>{
   for(const time of [0,1,4,17,39]) {
     const state={time,handReach:1,hitRadius:80};
-    for(const [point,type] of [[WITCH_LAYOUT.moon,'moon'],...WITCH_LAYOUT.mushrooms.map(point=>[point,'mushrooms']),
+    for(const [point,type] of [[WITCH_LAYOUT.moon,'moon'],...WITCH_LAYOUT.mushrooms.map(point=>[
+      {x:point.x+34*point.scale,y:point.y+5*point.scale},'mushrooms']),
       [getWitchTargets(state).spider,'spider']]) {
       assert.equal(hitTestWitch(point.x,point.y,state)?.type,type,`${type} at ${point.x},${point.y}`);
     }
@@ -324,7 +328,8 @@ test('the ladle sleeve stays behind both faces and all instrument minis use thei
         assert.equal(pixels[3],0,'black square backgrounds are cut away');
         assert.equal(pixels[(70*160+80)*4+3],255,'enclosed dark details remain');
       }
-      assert.equal(world.filter(call=>call.kind==='text').length,0,'shelf names do not add text to the scene');
+      assert.deepEqual(world.filter(call=>call.kind==='text').map(call=>call.value),['20','20','7','13','4'],
+        'only the D20 face engravings add text; shelf names stay absent in brew and flight');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
@@ -577,19 +582,23 @@ test('all eight visual modes have bounded exact inverse picking and respect redu
       const frozen={visualMode,reducedMotion:true,eyeShock:.7};
       assert.deepEqual(warpWitchPoint(point,{...frozen,warpTime:0}),warpWitchPoint(point,{...frozen,warpTime:999}));
     }
+    for(const flightLift of [0,.5,1]) {
+      const current={...state,flightLift},die=warpWitchPoint(getWitchTargets(current).die,current);
+      assert.deepEqual(hitTestWitch(die.x,die.y,current),{type:'dice'});
+    }
     patterns.add(JSON.stringify(samples));
   }
   assert.equal(patterns.size,8);
 });
 
-test('full flight preserves broom and moon gestures and a bounded screen-wide noodle trail',()=>{
+test('full flight preserves broom, moon and die gestures and a bounded screen-wide noodle trail',()=>{
   for(let flightPhase=0;flightPhase<20;flightPhase+=.8)for(const visualMode of [0,3,7]) {
     const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase},trail=getWitchTrail(state);
     assert.equal(trail.length,257);
     assert.ok(trail.every(p=>p.x>=24&&p.x<=976&&p.y>=38&&p.y<=674));
     assert.ok(Math.max(...trail.map(p=>p.x))-Math.min(...trail.map(p=>p.x))>700);
-    for(const type of ['broom','moon']) {
-      const target=type==='moon'?WITCH_LAYOUT.moon:getWitchTargets(state).broom,p=warpWitchPoint(target,state);
+    for(const type of ['broom','moon','dice']) {
+      const target=type==='moon'?WITCH_LAYOUT.moon:getWitchTargets(state)[type==='dice'?'die':'broom'],p=warpWitchPoint(target,state);
       assert.equal(hitTestWitch(p.x,p.y,state)?.type,type);
     }
     for(const type of ['tree','web','spider']) {

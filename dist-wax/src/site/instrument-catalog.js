@@ -24,7 +24,7 @@ const CATALOG_DETAILS = Object.freeze({
   witch: define(
     "A singing cauldron, gesticulating hands and a flying ensemble",
     "A witch’s cauldron voice and Gesticules fingers play together. Click real instruments on the cupboard and tree to add short sound bites and fade into new spells. Pluck the spider web, catch passing animals, or fly a wooden broom through a playable delay trail.",
-    "The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers, pull her hair or the fabric, and click instruments into the pot. The moon or broom toggles flight; mushrooms change the picture. Release stops the sound.",
+    "Click the quiet picture to fade in. Stir, bend fingers, or add instruments to the pot; pull her hair back to hush until the next click. The moon or broom toggles flight. Mushrooms choose settings; the twenty-sided die randomizes them. Presets preserve flight or stirring.",
     ["Built-in synth", "Pointer", "Touch", "Gesture sound", "Presets"],
   ),
   wobblini: define(

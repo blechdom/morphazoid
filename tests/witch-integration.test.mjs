@@ -8,7 +8,6 @@ import { instrumentById } from "../src/site/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { TAP_TEMPO_TARGETS } from "../src/site/tap-tempo-targets.js";
-import { createTapTempoTracker, tapTempoBpm, tapTempoValue } from "../src/tap-tempo.js";
 import { restoreRezoidinatorModesSite } from "./helpers/rezoidinator-modes-site-reference.mjs";
 import { restoreWitchSite, witchSiteChanges } from "./helpers/witch-site-reference.mjs";
 import { restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument-recovery-reference.mjs";
@@ -18,6 +17,7 @@ import { restoreWitchesBrewFaves, witchesBrewFavesAmendment } from "./helpers/wi
 
 const root = new URL("../", import.meta.url);
 const digest = source => createHash("sha256").update(source).digest("hex");
+const retiredWitchTapFiles = new Set(["src/site/tap-tempo-targets.js", "docs/tap-tempo-controls.json", "docs/tap-tempo-controls.md"]);
 
 test("Witches Brew leads Faves as a gesture instrument with shared MIDI controls and no generic note keyboard", () => {
   const item = instrumentById("witch");
@@ -38,21 +38,12 @@ test("Witches Brew leads Faves as a gesture instrument with shared MIDI controls
   });
 });
 
-test("Witches Brew flight Tap follows a complete delay cycle across its playable speed range", () => {
-  const target = TAP_TEMPO_TARGETS.find(({ route, selector }) => route === "witch.html" && selector === "#flightSpeed");
-  assert.ok(target);
+test("Witches Brew picture controls leave no retired slider Tap targets in the shared registry", () => {
+  assert.deepEqual(TAP_TEMPO_TARGETS.filter(({ route }) => route === "witch.html"), []);
   const inventory = JSON.parse(readFileSync(new URL("docs/tap-tempo-controls.json", root), "utf8"));
-  const documented = inventory.confirmed.find(({ route, selector }) => route === "witch" && selector === "#flightSpeed");
-  assert.deepEqual(documented.mapping, target.mapping);
-  for (const speed of [.02, .4, 1]) {
-    const cycleMs = 2 * Math.PI / (1 + speed * 5) * 1000;
-    const tracker = createTapTempoTracker();
-    assert.equal(tracker.tap(0, target.resetAfter), null);
-    const bpm = tracker.tap(cycleMs, target.resetAfter);
-    assert.ok(bpm > 0, "the slowest complete cycle remains a valid tap interval");
-    assert.ok(Math.abs(tapTempoValue(bpm, target.mapping) - speed) < 1e-12);
-    assert.ok(Math.abs(60000 / tapTempoBpm(speed, target.mapping) - cycleMs) < 1e-9);
-  }
+  assert.deepEqual(inventory.confirmed.filter(({ route }) => route === "witch"), []);
+  const page = readFileSync(new URL("src/pages/witch.html", root), "utf8");
+  assert.doesNotMatch(page, /id=["'](?:witchParameters|handRate|catSpeed|ghostTempo|speed|flightSpeed)["']/);
 });
 
 test("Witch additions preserve the preceding shared source and expose unknown drift", async () => {
@@ -61,7 +52,18 @@ test("Witch additions preserve the preceding shared source and expose unknown dr
     // Later recovery, Faves, Time Loom, Rezoidinator and mobile additions have independent proofs.
     const promoted = restoreWitchesBrewFaves(await readFile(new URL(change.file, root), "utf8"), change.file, { allowRestored: true });
     const current = restoreSelectedInstrumentRecovery(promoted, change.file, { allowRestored: true });
-    const source = restoreRezoidinatorModesSite(restoreTimeLoomSite(restoreQuadrupedFaves(current, change.file, { allowRestored: true }), change.file, { allowRestored: true }), change.file, { allowRestored: true });
+    let source = restoreRezoidinatorModesSite(restoreTimeLoomSite(restoreQuadrupedFaves(current, change.file, { allowRestored: true }), change.file, { allowRestored: true }), change.file, { allowRestored: true });
+    if (retiredWitchTapFiles.has(change.file)) {
+      // Retiring the slider UI restores these exact earlier shared files.
+      // Keep the old amendment's strict rejection checks below on its
+      // reconstructed historical form, while pinning today's source here.
+      assert.equal(digest(source), change.sha256, `${change.file}: exact retired Tap baseline`);
+      for (const { before, after } of change.replacements) {
+        assert.equal(source.includes(after), false, `${change.file}: retired rows stay absent`);
+        assert.equal(source.split(before).length - 1, 1, `${change.file}: unique retired insertion point`);
+        source = source.replace(before, () => after);
+      }
+    }
     const restored = restoreWitchSite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
     assert.equal(restoreWitchSite(restored, change.file, { allowRestored: true }), restored);

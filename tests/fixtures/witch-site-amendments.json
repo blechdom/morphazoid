@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and Gesticules fingers play together. Click real instruments on the cupboard and tree to add short sound bites and fade into new spells. Pluck the spider web, catch passing animals, or fly a wooden broom through a playable delay trail.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers, pull her hair or the fabric, and click instruments into the pot. The moon or broom toggles flight; mushrooms change the picture. Release stops the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and Gesticules fingers play together. Click real instruments on the cupboard and tree to add short sound bites and fade into new spells. Pluck the spider web, catch passing animals, or fly a wooden broom through a playable delay trail.\",\n    \"Click the quiet picture to fade in. Stir, bend fingers, or add instruments to the pot; pull her hair back to hush until the next click. The moon or broom toggles flight. Mushrooms choose settings; the twenty-sided die randomizes them. Presets preserve flight or stirring.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "replacements": [
         {
           "before": "# Morphazoid\n\n",
-          "after": "# Morphazoid\n\n**[Witches Brew](witch.html)** leads Faves: a singing cauldron and\nwitchy Gesticules hands play together. Click real instrument icons on the\ncupboard or tree to mix short sound bites and fade into new spells. Pluck the\nspider web, catch passing animals, or fly the wooden broom through a playable\ndelay trail. Mushrooms bend the colors and picture. The scene starts moving\nwith Audio off. [Gestures and sound](docs/witch.md).\n\n"
+          "after": "# Morphazoid\n\n**[Witches Brew](witch.html)** leads Faves with a quiet, still scene.\nClick the picture to fade in her singing cauldron and Gesticules hands; pull\nher hair back to hush and freeze the scene until the next click. Shelf and\ntree instruments add sound bites as they dive into the pot. Mushrooms recall\nwhole spells; the floor's 20-sided die randomizes the settings. Presets keep\nyour chosen flight or stirring mode. The moon or broom toggles flight through\nher playable hair delay trail. Pluck the web and catch passing animals.\n[Gestures and sound](docs/witch.md).\n\n"
         }
       ]
     },

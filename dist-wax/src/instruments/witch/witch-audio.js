@@ -3,11 +3,12 @@ import { unlockAudioContext } from '../../audio.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_TAU } from './witch-model.js';
 
-/** Only start(), called directly by the explicit Audio handler, creates or
- * resumes a context. Gesture updates and one-shots are safe while Audio is off. */
+/** Only start(), called directly by Audio or a genuine scene-wake gesture,
+ * creates or resumes a context. Control updates never arm audio themselves. */
 export class WitchAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime; this.context = null; this.node = null; this.master = null;
+    this.presenceNode = null; this.presence = 1; this.presenceFade = null;
     this.controls = normalizeWitchControls(); this.audible = false; this.disposed = false;
     this.starting = null; this.generation = 0; this.releaseOutput = null;
     this.pendingPhase = null; this.phaseGeneration = 0;
@@ -55,7 +56,9 @@ export class WitchAudio {
       processorOptions: { phaseGeneration: this.phaseGeneration },
     });
     const master = context.createGain(); master.gain.value = 0;
-    node.connect(master); this.node = node; this.master = master;
+    const presence = context.createGain(); presence.gain.value = this.presence;
+    node.connect(presence); presence.connect(master);
+    this.node = node; this.master = master; this.presenceNode = presence; this.presenceFade = null;
     this.releaseOutput = connectAudioOutput(context, master, { runtime: this.runtime });
     node.port.onmessage = ({ data }) => {
       if (this.node !== node || data?.type !== 'visual') return;
@@ -81,6 +84,24 @@ export class WitchAudio {
   setAudible(value) {
     this.audible = value === true && !this.disposed;
     this.post({ type: 'enabled', enabled: this.audible }); this.setGain();
+  }
+  /** Fade the whole performance without changing Audio, transport or volume.
+   * A separate node keeps output-level edits from replacing a hair/wake fade. */
+  setPresence(value, seconds = .8) {
+    if (this.disposed) return;
+    const target = witchClamp(value, 0, 1, this.presence);
+    if (!this.presenceNode || !this.context) { this.presence = target; this.presenceFade = null; return; }
+    const now = this.context.currentTime, fade = this.presenceFade;
+    const duration = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : .8;
+    const progress = fade ? witchClamp((now - fade.start) / Math.max(1e-9, fade.end - fade.start)) : 1;
+    const current = fade ? fade.from + (fade.to - fade.from) * progress : this.presence;
+    const param = this.presenceNode.gain;
+    if (typeof param.cancelAndHoldAtTime === 'function') param.cancelAndHoldAtTime(now);
+    else param.cancelScheduledValues(now);
+    param.setValueAtTime(duration ? current : target, now);
+    if (duration) param.linearRampToValueAtTime(target, now + duration);
+    this.presence = target;
+    this.presenceFade = { from: duration ? current : target, to: target, start: now, end: now + duration };
   }
   /** Align silent viewport motion on first arm or explicit visual recovery.
    * This does not arm audio or restart the vocal phrase. Vortex phase is radians;
@@ -122,10 +143,11 @@ export class WitchAudio {
   detach() {
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }
     this.releaseOutput?.(); this.releaseOutput = null;
+    this.presenceNode?.disconnect(); this.presenceNode = null; this.presenceFade = null;
     this.master?.disconnect(); this.node = null; this.master = null;
   }
   async dispose() {
-    this.disposed = true; this.generation++; this.audible = false;
+    this.disposed = true; this.generation++; this.audible = false; this.presence = 0;
     const context = this.context; this.post({ type: 'dispose' }); this.detach(); this.context = null;
     if (context && context.state !== 'closed') await context.close();
   }

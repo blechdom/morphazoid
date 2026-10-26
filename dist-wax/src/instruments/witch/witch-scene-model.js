@@ -6,6 +6,8 @@ const discrete = new Set(['scene','voice','spoonAuto','direction','palette','tri
 /** A potion flight morphs musical parameters without replacing clocks/devices. */
 export function blendWitchSpell(from, to, progress) {
   const a=normalizeWitchPreset(from),b=normalizeWitchPreset(to);
+  // Ingredients change the spell; only the player chooses when to fly or land.
+  b.scene=a.scene;
   const t=Math.max(0,Math.min(1,Number(progress)||0)),mix=t*t*(3-2*t);
   if(t===0)return a;
   if(t===1)return b;

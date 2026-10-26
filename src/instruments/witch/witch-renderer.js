@@ -21,6 +21,7 @@ const miniatureSize=id=>(id==='blech'?1.5:1)*(treeIconIds.has(id)?1.35:1);
 export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
+  die: Object.freeze({ x: 344, y: 657, r: 38 }),
   moon: Object.freeze({ x: 800, y: 164, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:105,scale:2.58}]),
@@ -438,6 +439,32 @@ function mushrooms(c, x, y, scale = 1) {
   c.restore();
 }
 
+function spellDie(c,state) {
+  const {x,y,r}=WITCH_LAYOUT.die,roll=state.reducedMotion?0:clamp(state.diceRoll);
+  const hop=Math.sin(roll*Math.PI)*12;
+  ellipse(c,x,y+r+4,32-hop*.45,7-hop*.15,'#080d19a8');
+  c.save();c.translate(x,y-hop);c.rotate(-.12+Math.sin(roll*TAU*2)*roll*.32);
+  c.scale(r/39,r/39);
+  // An icosahedron's ten facing triangles, with an engraved central face.
+  const points=[[0,-39],[34,-20],[34,20],[0,39],[-34,20],[-34,-20],[0,-22],[23,15],[-23,15]];
+  const faces=[[[0,1,6],'#a48c8d'],[[1,2,7],'#545272'],[[2,3,7],'#253c48'],
+    [[3,4,8],'#32444c'],[[4,5,8],'#518677'],[[5,0,6],'#8fb8a0'],
+    [[5,6,8],'#548572'],[[1,7,6],'#74628f'],[[3,8,7],'#4b354f'],[[6,7,8],'#314959']];
+  for(const [vertices,color] of faces) {
+    c.beginPath();vertices.forEach((index,i)=>i?c.lineTo(...points[index]):c.moveTo(...points[index]));c.closePath();
+    c.fillStyle=color;c.fill();c.strokeStyle='#151a2b';c.lineWidth=1.2;c.stroke();
+  }
+  line(c,[points[4],points[5],points[0],points[1]],'#b7ccaf',1.35);
+  line(c,[points[8],points[6],points[7]],'#a6b99d',1);
+  c.textAlign='center';c.textBaseline='middle';c.font='bold 19px Georgia, serif';
+  c.fillStyle='#0c1c28';c.fillText('20',.7,4.7);c.fillStyle='#e5dca7';c.fillText('20',0,4);
+  c.font='9px Georgia, serif';c.fillStyle='#d9c6ab';
+  c.save();c.translate(-23,-10);c.rotate(-Math.PI/3);c.fillText('7',0,0);c.restore();
+  c.save();c.translate(23,-9);c.rotate(Math.PI/3);c.fillText('13',0,0);c.restore();
+  c.save();c.translate(0,27);c.rotate(Math.PI);c.fillText('4',0,0);c.restore();
+  c.restore();
+}
+
 export function getWitchLadle(state = {}) {
   const angle=Number.isFinite(state.ladleAngle)?state.ladleAngle:state.phase||0;
   const radius=28+clamp(state.radius)*109,lift=clamp(state.flightLift);
@@ -650,6 +677,7 @@ export function getWitchTargets(state = {}) {
   // from the moon, mushrooms, cauldron and the foreground witch.
   const trail=getWitchTrail(state).reduce((best,p)=>Math.hypot(p.x-145,p.y-270)<Math.hypot(best.x-145,best.y-270)?p:best);
   return {nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
+    die:{...WITCH_LAYOUT.die},
     hat:getWitchHat(state).target,
     fabric:{...witchFabricPoint(19/24,.05,state),r:18},
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
@@ -1072,6 +1100,7 @@ function drawWorld(c,state) {
   if(ground>0) {
     c.save();c.globalAlpha*=ground;ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
+  spellDie(c,state);
 }
 /** Face, hat and hair only, with a transparent background for the catalogue. */
 export function renderWitchFaceIcon(ctx,size=512) {
@@ -1119,6 +1148,9 @@ export function renderWitch(ctx, width, height, state = {}) {
 export function hitTestWitch(x, y, state = {}) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
+  // The die stays in front of the walking visitors and the flight noodles.
+  const die=WITCH_LAYOUT.die;
+  if(Math.hypot(x-die.x,y-die.y)<die.r+7)return {type:'dice'};
   const grounded=clamp(state.flightLift)<.85;
   const visitor=grounded?hitTestWitchVisitors(x,y,state):null;
   if(visitor)return visitor;

@@ -2,11 +2,13 @@
 
 Witches Brew is one continuous animated instrument. Her cauldron voice and
 Gesticules fingers keep playing together, with different foreground balances in
-the presets. The scene starts moving with **Audio off**; enable Audio to listen.
-**Release** stops the performance and releases the sound. Presets and playback
-stay visible; secondary controls live inside the closed **Parameters** section.
+the presets. The scene starts still and silent. A real click in the picture or its preset
+controls arms Audio and fades in the performance. Pull her hair firmly backward
+to fade out and hold the scene still until the next click. This works on the
+ground and in flight. Presets and compact playback controls sit over the full-width
+picture; the parameter sidebar is gone.
 The cauldron sits over flickering flames, charred logs and rising embers.
-Brightness remains in Parameters and on the **+ / −** keys.
+Brightness remains on the **+ / −** keys.
 
 | Gesture | Picture and sound |
 | --- | --- |
@@ -14,7 +16,7 @@ Brightness remains in Parameters and on the **+ / −** keys.
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
 | Pull her nose or hat | Nose length and vocal pitch/resonance change; the burned, shredded hat stretches in any direction and changes vocal texture, then sags back when released. Nose reach is doubled and participates in presets and dice. |
-| Pull her hair | Fuller tangles stretch into the wind, adding scratchy noise with a longer tail. |
+| Pull her hair | Small tugs stretch the tangles and add scratchy noise. A firm pull backward fades out the whole mix and holds the scene still until the next click. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
@@ -24,7 +26,8 @@ Brightness remains in Parameters and on the **+ / −** keys.
 | Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
-| Click the giant right mushrooms | Chooses the next complete preset, including sounds, finger animation, scene and colors, and refills the instrument shelves. During flight she stays airborne. |
+| Click the giant right mushrooms | Chooses the next complete settings preset and refills the ingredients, preserving whether she is flying or stirring. |
+| Click the twenty-sided die | Randomizes every musical and visual setting using the same full randomizer as the preset dice. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
@@ -51,8 +54,10 @@ over from the transition without resetting the audio clocks or output level.
 The witch's two hands use Gesticules' weighted 3D hand model, sixteen authored
 animations and ten instrumental source banks. Voice and fingers retain separate
 clocks. Presets choose their balance, motion, speed, sound, vocal anatomy,
-ghost beat, flight, color, distortion and tree shape. The hidden **Voice ↔ fingers**
-control provides a manual mix. Older saved presets retain their chosen voice
+ghost beat, flight-path settings, color, distortion and tree shape. Presets,
+ingredient transitions and either die preserve the live flight/stirring mode;
+only the performer launches or lands her. The singer/finger balance varies
+through presets and full randomization. Older saved presets retain their chosen voice
 and original balance; new fields receive safe defaults.
 
 Most factory and ingredient spells keep the picture steady while the witch
@@ -71,8 +76,7 @@ five-second phrase through the same delay and fabric. They leave the shelf intac
 The physical broom is wood and bundled bristles. Four screen-filling delay
 strands grow directly from her hair; the flying fabric uses Fabric Filter’s
 green columns and pink rows. Clicking the moon or broom again lands her without
-stopping her song. The ingredient list remains available in Parameters during
-flight.
+stopping her song. Keyboard ingredient shortcuts remain available during flight.
 
 The black cat is 20% larger than its preceding appearance and keeps its
 Quadruped gait and contact sounds. It crosses every thirty seconds of Play;
@@ -85,19 +89,20 @@ Ghost portraits keep a quiet background beat while grounded, and can still be
 raised or lowered to adjust its tempo.
 
 With the picture focused: **H** features fingers, **M** toggles flight, **B** lands,
-**W** chooses the next whole spell, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
+**W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** plays and reshapes the tree, **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.
 **[ / ]** select an ingredient and **Enter** sends it into the pot.
-**G / Shift+G** adjusts the ghost tempo. **Space** starts/stops; **Escape** lands
-and releases. All picture actions also have native controls inside Parameters
-or Playing notes.
+**G / Shift+G** adjusts the ghost tempo. **Space** wakes/hushes; **Escape**
+hushes and releases. The **?** control opens Playing notes and keyboard shortcuts.
 
 The singer uses a fictional voiced/noisy source with vowel-like resonances;
 backward means traversing the authored syllable path in reverse. It is not
 recorded speech or a measured human-voice model. The independent fingers remain
-instrumental. Audio is armed only through the Audio control. All effects have
+instrumental. The owner-requested picture-wake gesture arms Audio directly;
+passive loading and synthetic picture events stay silent. The masthead Audio
+control can also wake or mute the performance. All effects have
 bounded output, voice counts and release paths; automated checks establish
 mechanical behavior, while listening and physical touchscreen feel require a
 human pass.
