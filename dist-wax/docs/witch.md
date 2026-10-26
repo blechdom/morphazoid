@@ -19,6 +19,7 @@ Brightness remains on the **+ / −** keys.
 | Pull her hair | Small tugs stretch the tangles and add scratchy noise. A firm pull backward fades out the whole mix and holds the scene still until the next click. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
+| Click her forearm sleeve | Cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
@@ -62,7 +63,7 @@ and original balance; new fields receive safe defaults.
 
 Most factory and ingredient spells keep the picture steady while the witch
 performs. Dice choose a steady picture 60% of the time, gentle warps 25%, and
-glitch modes 15%. The Parameters menu still offers all eight looks independently. VHS, static,
+glitch modes 15%. All eight looks remain available through presets and the die. VHS, static,
 pixel and angular shifts have half their earlier horizontal displacement;
 Pixel rot uses finer blocks so the scene stays readable.
 
@@ -88,7 +89,7 @@ visit. Stop freezes the visitor clock; changing presets does not restart it.
 Ghost portraits keep a quiet background beat while grounded, and can still be
 raised or lowered to adjust its tempo.
 
-With the picture focused: **H** features fingers, **M** toggles flight, **B** lands,
+With the picture focused: **A** cycles hand animations, **H** features fingers, **M** toggles flight, **B** lands,
 **W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** plays and reshapes the tree, **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the

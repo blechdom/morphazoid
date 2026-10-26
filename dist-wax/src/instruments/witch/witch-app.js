@@ -1,5 +1,5 @@
 import { WitchAudio } from './witch-audio.js';
-import { WITCH_VOICES, WITCH_HAND_SOUNDS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
+import { WITCH_VOICES, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
 import { blendWitchSpell, witchAccentEnvelope, getWitchBlechFlyby } from './witch-scene-model.js';
 import { createWitchSpider } from './witch-spider.js';
 import { getWitchVisitors, getWitchVisitorTargets } from './witch-visitors.js';
@@ -120,6 +120,11 @@ function worldAction(action) {
   if(action==='hand') {
     if(config.scene==='flight') { stopGesture();world.handOpen=!world.handOpen;sync();send(); }
     else setScene(world.handOpen?'brew':'fingers');
+  }
+  else if(action==='sleeve') {
+    spellTransition=null;
+    config.handMotion=WITCH_HAND_MOTIONS[(WITCH_HAND_MOTIONS.indexOf(config.handMotion)+1)%WITCH_HAND_MOTIONS.length];
+    send();sync();$('gestureReadout').value=`Hand animation: ${config.handMotion.replaceAll('-',' ')}.`;
   }
   else if(action==='moon'||action==='broom') {
     if(config.scene!=='flight') { setScene('flight'); trigger('launch'); }
@@ -284,7 +289,7 @@ listen(canvas,'pointerdown',e => {
   if(!hit) return;
   canvas.focus({preventScroll:true});
   if(hit.type!=='object')spellTransition=null;
-  if(['hand','moon','broom','mushrooms','dice','mouth','eyes','tree','spider'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
+  if(['hand','sleeve','moon','broom','mushrooms','dice','mouth','eyes','tree','spider'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
   if(hit.type==='cat'||hit.type==='animal'){captureAnimal(hit.type==='cat'?'cat':hit.id);e.preventDefault();return;}
   if(hit.type==='web'){pluckWeb(hit.index??0);pointer={id:e.pointerId,type:'web',lastWeb:hit.index??0};canvas.setPointerCapture(e.pointerId);e.preventDefault();return;}
   if(['bat','spark','gust'].includes(hit.type)) { trigger(hit.type); return; }
@@ -323,7 +328,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree and reshape its branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Touch the mesh for wind; pull to filter it',trail:'Pull her flying hair to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree and reshape its branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Touch the mesh for wind; pull to filter it',trail:'Pull her flying hair to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair back to hush; touch the picture to wake',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -374,7 +379,7 @@ listen(canvas,'keydown',e => {
   if(e.altKey || e.ctrlKey || e.metaKey) return;
   if(e.key==='Escape') {hushPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
-  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[qerhmbwdfvxtsgpcnl]$/i.test(e.key)))wakePerformance();
+  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnl]$/i.test(e.key)))wakePerformance();
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
   if(e.key==='[' || e.key===']') {
     selectedIngredient=selectedIngredient<0?(e.key===']'?0:objects.length-1):(selectedIngredient+(e.key===']'?1:-1)+objects.length)%objects.length;
@@ -385,7 +390,7 @@ listen(canvas,'keydown',e => {
   if(['-','_','+','='].includes(e.key)) { config.tone=clamp(config.tone+(['+','='].includes(e.key)?.05:-.05));send();sync();e.preventDefault();return; }
   const objectId={q:'gesticules',e:'marimba',r:'choir'}[e.key.toLowerCase()];
   if(objectId){if(!e.repeat)dropObject(objectId);e.preventDefault();return;}
-  const action={h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',t:'tree',s:'spider'}[e.key.toLowerCase()];
+  const action={a:'sleeve',h:'hand',m:'moon',b:'brew',w:'mushrooms',d:'dice',f:'fabric',v:'mouth',x:'eyes',t:'tree',s:'spider'}[e.key.toLowerCase()];
   if(action) {if(!e.repeat) worldAction(action);e.preventDefault();return;}
   if(e.key.toLowerCase()==='g') { config.ghostTempo=clamp(config.ghostTempo+(e.shiftKey?-6:6),36,180);send();sync();e.preventDefault();return; }
   if(e.key.toLowerCase()==='p'){if(!e.repeat)pluckWeb((webIndex+1)%7);e.preventDefault();return;}

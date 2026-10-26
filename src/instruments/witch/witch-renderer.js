@@ -1213,6 +1213,14 @@ export function hitTestWitch(x, y, state = {}) {
   }
   const handPoint=transformHandPoint({x:590,y:415},state);
   if(Math.hypot(x-handPoint.x,y-handPoint.y)<Math.max(38,minRadius)) return {type:'hand'};
+  if(state.handSurface) {
+    // Follow the visible tapered forearm, including its solid rounded elbow.
+    const {elbow,wrist,axis,cuff,width}=getWitchSpellArm(state);
+    const dx=x-elbow.x,dy=y-elbow.y,length=Math.hypot(wrist.x-elbow.x,wrist.y-elbow.y);
+    const along=(dx*axis.x+dy*axis.y)/length,halfWidth=width*1.25;
+    if(Math.hypot(dx,dy)<halfWidth+2||along>=0&&along<=1&&
+      Math.abs(-dx*axis.y+dy*axis.x)<halfWidth+(cuff-halfWidth)*along+2)return {type:'sleeve'};
+  }
   // Visible locks sit in front of the background ghosts and scenery.
   // Hands, utensil, face, hat and shelf icons retain priority.
   const hair=getWitchHair(state),hairRadius=Math.min(28,Math.max(12*hair.scale,minRadius*.32));
