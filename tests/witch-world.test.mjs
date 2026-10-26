@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -56,7 +56,7 @@ test('both wrists, angled fingertips and inverse drags share their model transfo
     if(index===0) assert.ok(Math.abs(t.rotation-reach*55*Math.PI/180)<1e-12);
     else {
       assert.equal(t.mirror,-1);
-      assert.ok(Math.abs(t.rotation-(-.38+Math.PI*1.5))<1e-12);
+      assert.ok(Math.abs(t.rotation-(-.38+Math.PI/2))<1e-12);
       assert.ok(Math.abs(t.scale-.23*1.25*1.25)<1e-12);
     }
   }
@@ -74,16 +74,57 @@ test('spoon and nose remain separate drag targets throughout automatic stirring'
   }
 });
 
-test('every floating ingredient stays pickable through mist, flight and mushroom warping',()=>{
+test('all eighteen shelf instruments stay pickable through flight and mushroom warping',()=>{
   assert.deepEqual(WITCH_LAYOUT.objects.map(object=>object.id),[
-    'glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir',
+    'glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir','blowhole','syrinx','throat-singing','julie-saw',
   ]);
   for(const scene of ['brew','flight'])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++)for(const time of [0,1,4,17,39]) {
     const state={scene,handReach:1,flightLift:scene==='flight'?1:0,hitRadius,trip,time,warpTime:time};
     for(const [index,object] of WITCH_LAYOUT.objects.entries()) {
       const visible=getWitchObjectPosition(object,state),point=warpWitchPoint(visible,state);
-      assert.ok(point.x>15&&point.x<985&&point.y>75&&point.y<705,`${object.id} remains inside the scene`);
+      assert.ok(point.x>30&&point.x<970&&point.y>75&&point.y<705,`${object.id} remains inside the scene`);
       assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'object',id:object.id,kind:object.kind,index});
+    }
+  }
+});
+
+test('shelf instruments stay parked until a single arc carries each into the potion',()=>{
+  for(const home of WITCH_LAYOUT.objects) {
+    const initial=getWitchObjectPosition(home,{});
+    for(const time of [0,1,27,619])for(const flightLift of [0,.5,1])
+      assert.deepEqual(getWitchObjectPosition(home,{time,flightLift}),initial,'a shelf icon never hovers or fades');
+    const start=getWitchObjectPosition({...home,dropped:true,dropAge:0});
+    const middle=getWitchObjectPosition({...home,dropped:true,dropAge:.425});
+    const end=getWitchObjectPosition({...home,dropped:true,dropAge:.85});
+    assert.equal(start.x,home.x);assert.equal(start.y,home.y);
+    assert.equal(middle.x,(home.x+600)/2);
+    assert.ok(middle.y<(home.y+544)/2-100,'the solo follows a visible thrown arc');
+    assert.equal(end.x,600);assert.equal(end.y,544);assert.equal(end.alpha,0);
+    const objects=WITCH_LAYOUT.objects.map(object=>object.id===home.id?{...object,dropped:true,dropAge:4}:object);
+    assert.notEqual(hitTestWitch(home.x,home.y,{objects})?.id,home.id,'consumed ingredients cannot be picked again');
+  }
+});
+
+test('parked broom, cloth and continuous flight string have direct gesture targets',()=>{
+  const lowered=getWitchTargets({fabricY:0}).fabric,raised=getWitchTargets({fabricY:1}).fabric;
+  assert.ok(raised.y<lowered.y,'an upward pull raises both the filter setting and visible cloth');
+  for(const trip of [0,1,2,3])for(const warpTime of [0,.7,2.8]) {
+    const state={trip,warpTime};
+    const broom=warpWitchPoint(getWitchTargets(state).broom,state);
+    assert.deepEqual(hitTestWitch(broom.x,broom.y,state),{type:'broom'});
+    for(const fabricX of [0,.5,1])for(const fabricY of [0,.5,1]) {
+      const current={...state,fabricX,fabricY},cloth=warpWitchPoint(getWitchTargets(current).fabric,current);
+      assert.deepEqual(hitTestWitch(cloth.x,cloth.y,current),{type:'fabric'});
+    }
+    for(const flightPhase of [0,1,2,3,4,5,6,8,9]) {
+      const current={...state,flightLift:1,scene:'flight',flightPhase},trail=getWitchTrail(current);
+      const end=trail.at(-1),broom=broomTransform(current);
+      assert.ok(Math.abs(end.x-(broom.x+(Math.cos(broom.rotation)*-265-Math.sin(broom.rotation)*126)*broom.scale))<1e-10);
+      assert.ok(Math.abs(end.y-(broom.y+(Math.sin(broom.rotation)*-265+Math.cos(broom.rotation)*126)*broom.scale))<1e-10);
+      assert.ok(trail.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y)));
+      const visible=warpWitchPoint(getWitchTargets(current).trail,current);
+      assert.deepEqual(hitTestWitch(visible.x,visible.y,current),{type:'trail'});
+      assert.notDeepEqual(getWitchTrail({...current,trailPull:0,trailTwist:0}),getWitchTrail({...current,trailPull:1,trailTwist:1}));
     }
   }
 });
@@ -170,6 +211,7 @@ function captureWitchPaint() {
     const context=new Proxy({canvas,calls,globalAlpha:1,save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
       fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle});},
+      fillText(value){calls.push({kind:'text',value});},
       drawImage(source,...args){calls.push({kind:'image',source,args,alpha:this.globalAlpha});},
       getImageData(){
         const data=new Uint8ClampedArray(160*160*4);
@@ -186,6 +228,8 @@ function captureWitchPaint() {
   return {context:canvas.getContext('2d'),canvases};
 }
 
+const portraitUrl=call=>call.kind==='image'?(call.source.src||call.source?.getContext?.('2d').calls.find(entry=>entry.kind==='image'&&entry.source.src)?.source.src):null;
+
 test('spectral instrument portraits always paint behind witch, pot, hands and solo ingredients',()=>{
   const previousPath=globalThis.Path2D;
   globalThis.Path2D=class {constructor(d){this.d=d;}};
@@ -193,10 +237,10 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
     for(const scene of ['brew','flight']) {
       const {context,canvases}=captureWitchPaint(),hand0={},hand1={};
       renderWitch(context,1000,720,{scene,flightLift:scene==='flight'?1:0,handReach:1,
-        handSurface:hand0,handSurfaces:[hand0,hand1],ghostPresence:[1,1,1],ghostPulses:[1,1,1],ghostPhase:4});
+        handSurface:hand0,handSurfaces:[hand0,hand1],ghostPresence:[1,1,1],ghostPulses:[1,1,1],ghostPhase:4,
+        objects:WITCH_LAYOUT.objects.map(object=>object.id==='hiccup'?{...object,dropped:true,dropAge:.3}:object)});
       const world=canvases[1].getContext('2d').calls;
-      const isGhost=call=>call.kind==='image'&&call.source?.getContext?.('2d').calls.some(entry=>
-        entry.kind==='image'&&/\/(creaturazoid|colony-syrinx|hiccup-head)\.webp$/.test(entry.source.src||''));
+      const isGhost=call=>call.args?.[2]>90&&/\/(creaturazoid|colony-syrinx|hiccup-head)\.webp$/.test(portraitUrl(call)||'');
       const portraits=world.map((call,index)=>({call,index})).filter(({call})=>isGhost(call));
       assert.equal(portraits.length,3,'each original instrument portrait paints once');
       for(const {call} of portraits.slice(0,2)) {
@@ -210,7 +254,7 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
         assert.ok(world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith('M412,520'))>index,'cauldron occludes ghosts');
         assert.ok(world.findIndex(entry=>entry.kind==='image'&&entry.source===hand0)>index,'extended hand occludes ghosts');
         assert.ok(world.findIndex(entry=>entry.kind==='image'&&entry.source===hand1)>index,'ladle/broom hand occludes ghosts');
-        assert.ok(world.findIndex(entry=>entry.kind==='image'&&/\/hiccup-head\.webp$/.test(entry.source.src||''))>index,'featured miniature stays in front');
+        assert.ok(world.findIndex(entry=>entry.args?.[2]===60&&/\/hiccup-head\.webp$/.test(portraitUrl(entry)||''))>index,'featured miniature stays in front');
       }
       const witchBody=world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith(scene==='flight'?'M-67,-32':'M398,360'));
       assert.ok(witchBody>portraits.at(-1).index,'the same depth applies while flying');
@@ -219,7 +263,7 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
 });
 
 
-test('the enlarged flipped ladle hand holds the spoon in its real palm throughout takeoff and stirring',()=>{
+test('the enlarged turned ladle hand holds the spoon in its real palm throughout takeoff and stirring',()=>{
   const state={handReach:1,handWrists:[{x:590,y:590},{x:588,y:593}],handPalms:[{x:588,y:516},{x:583,y:512}],radius:.76};
   for(const flightLift of [0,.15,.5,.8,1])for(const flightPhase of [0,.5,2,8,17])for(const phase of [0,1.7,4.2])for(const spoonHeight of [0,.5,1]) {
     const current={...state,flightLift,flightPhase,phase,spoonHeight},ladle=getWitchLadle(current),t=handTransform(current,1);
@@ -237,6 +281,20 @@ test('the enlarged flipped ladle hand holds the spoon in its real palm throughou
   assert.equal(first.lx,later.lx);assert.equal(first.ly,later.ly);
 });
 
+test('both actual hand models become body-sized and travel with the flying witch',()=>{
+  const state={handReach:1};
+  for(const index of [0,1]) {
+    const ground=handTransform(state,index),first=handTransform({...state,flightLift:1,flightPhase:0},index);
+    const later=handTransform({...state,flightLift:1,flightPhase:3},index);
+    assert.ok(first.scale<ground.scale*.75,'both hands shrink as the body moves into the sky');
+    assert.ok(Math.hypot(first.wrist.x-later.wrist.x,first.wrist.y-later.wrist.y)>50,'neither hand remains pinned to the foreground');
+    for(const phase of [0,2,4,6,8]) {
+      const current={...state,flightLift:1,flightPhase:phase},hand=handTransform(current,index),body=broomTransform(current);
+      assert.ok(Math.hypot(hand.wrist.x-body.x,hand.wrist.y-body.y)<135,'wrists stay near the flying body');
+    }
+  }
+});
+
 test('the ladle sleeve stays behind both faces and all instrument minis use their catalogue portraits',()=>{
   const previousPath=globalThis.Path2D;
   globalThis.Path2D=class {constructor(d){this.d=d;}};
@@ -250,9 +308,18 @@ test('the ladle sleeve stays behind both faces and all instrument minis use thei
       assert.ok(sleeve>=0&&faces.length>=1);
       for(const {index} of faces)assert.ok(index>sleeve,'face occludes the sleeve at every flight transition');
       assert.equal(world.filter(call=>call.kind==='image'&&call.source===hand1).length,1,'one continuous ladle hand, without a duplicate flight copy');
-      const portraits=world.filter(call=>call.kind==='image'&&call.source.src).map(call=>call.source.src.split('/').at(-1));
-      for(const asset of ['roach-synth.webp','spider-synth.webp','rubix.webp','hiccup-head.webp','gesticulating-hand.webp','linear-drums.webp','throatazoid.webp','fm-drums.webp'])
-        assert.equal(portraits.filter(name=>name===asset).length,1,asset+' miniature uses its actual instrument icon');
+      const portraits=world.map((call,index)=>({call,index,url:portraitUrl(call)})).filter(({call,url})=>url&&call.args[2]<=64);
+      assert.equal(portraits.length,18,'only eighteen catalogue portraits occupy the shelf');
+      const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith(flightLift===1?'M-67,-32':'M398,360'));
+      for(const object of WITCH_LAYOUT.objects) {
+        const matching=portraits.filter(({url})=>url.endsWith('/'+object.imageHref));
+        assert.equal(matching.length,1,object.name+' uses its actual instrument icon');
+        assert.ok(matching[0].index<body,'stationary instruments paint behind the witch');
+        const pixels=matching[0].call.source.getContext('2d').calls.find(call=>call.kind==='pixels').pixels.data;
+        assert.equal(pixels[3],0,'black square backgrounds are cut away');
+        assert.equal(pixels[(70*160+80)*4+3],255,'enclosed dark details remain');
+      }
+      assert.equal(world.filter(call=>call.kind==='text').length,0,'shelf names do not add text to the scene');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

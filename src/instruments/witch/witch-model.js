@@ -1,6 +1,8 @@
 /** Pure gesture and fictional vocal controls. Frequencies are synthesis choices,
  * not measurements of a human voice. No pitch scale or note quantizer is used. */
-import { createHandPose, evaluateHandPose } from '../gesticulating-hand/hand-model.js';
+import { WITCH_CAT_GAITS } from './witch-cat-model.js';
+export { WITCH_CAT_GAITS };
+import { createHandPose, evaluateHandPose, setHandEffectiveTempo } from '../gesticulating-hand/hand-model.js';
 
 export const WITCH_TAU = Math.PI * 2;
 export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing']);
@@ -8,14 +10,42 @@ export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'gho
 export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
 export const WITCH_LAUNCH_DURATION = 1.86;
 export const WITCH_FINGER_SOURCES = Object.freeze(['glass', 'reed', 'wire', 'metal', 'marimba']);
+export const WITCH_HAND_MOTIONS = Object.freeze(['finger-roll','claw-pulse','spider-walk','finger-drumming','flourish-spiral','finger-swarm','frantic-orbit','polyrhythmic-tangle','scatter','flick','wrist-turn','opposition-walk','pinch-ladder','figure-eight','source-grasp','beckon']);
+export const WITCH_HAND_SOUNDS = Object.freeze([
+  ['glass-and-wire','Glass and wire',['glass','reed','wire','metal','marimba'],91,.12,.14,.035,.28],
+  ['rusted-strings','Rusted strings',['bowed','wire','metal','bowed','reed'],61,.78,.23,.07,.48],
+  ['bone-glass','Bone glass',['glass','metal','glass','marimba','wire'],137,.46,.32,.008,.4],
+  ['insect-static','Insect static',['pulse','air','wire','pulse','metal'],113,.91,.08,.006,.12],
+  ['iron-claws','Iron claws',['metal','wire','bowed','metal','pulse'],73,.83,.19,.012,.23],
+  ['bowed-shadows','Bowed shadows',['bowed','reed','bowed','wire','air'],47,.64,.38,.11,.62],
+  ['hollow-reeds','Hollow reeds',['reed','air','wire','reed','bowed'],83,.52,.26,.04,.35],
+  ['clockwork-teeth','Clockwork teeth',['marimba','pulse','metal','wire','glass'],169,.62,.11,.004,.16],
+  ['shattered-bells','Shattered bells',['glass','metal','wire','glass','metal'],211,.88,.43,.007,.56],
+  ['buried-wires','Buried wires',['wire','bowed','air','metal','wire'],39,.94,.3,.025,.51],
+].map(([id,label,sources,rootHz,roughness,space,attack,release])=>Object.freeze({id,label,sources:Object.freeze(sources),rootHz,roughness,space,attack,release})));
+// Stable trigger IDs keep saved controls usable. Every visible shelf object is
+// an actual catalogue instrument; former organic ingredients now hold voices.
+export const WITCH_SHELF = Object.freeze([
+  ['glass','alien-larynx','Alien Larynx'], ['tail','tongued-beasts','Tongued Beasts'],
+  ['earwax','digestazoid','Digestazoid'], ['eyeball','creaturazoid','Creaturazoid'],
+  ['newt','monstroid','Monstroid','colony-syrinx'], ['hair','hybrinx','Hybrinx'],
+  ['roach','roach-synth','Roach Synth'], ['spider','spider-synth','Spider Synth'],
+  ['oculoid','fm-drums','FM Drums'], ['rubix','rubix','Rubix Cube Sequencer'],
+  ['hiccup','hiccup-head','Hiccup Head'], ['gesticules','gesticulating-hand','Gesticules'],
+  ['marimba','linear-drums','Rattlesnake'], ['choir','throatazoid','Throatazoid'],
+  ['blowhole','blowhole','Blowhole'], ['syrinx','syrinx','Syrinx'],
+  ['throat-singing','throat-singing','Throat Singer'], ['julie-saw','julie-saw','Julie Saw'],
+].map(([id,instrumentId,name,icon=instrumentId])=>Object.freeze({id,instrumentId,name,kind:`drop-${id}`,imageHref:`assets/instruments/${icon}.webp`,presetId:`shelf-${instrumentId}`})));
 export const WITCH_DROP_EFFECTS = Object.freeze([
   'gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair',
-  'roach', 'spider', 'oculoid', 'rubix', 'hiccup',
+  'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw',
 ].map(id => `drop-${id}`));
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
   ghostTempo: 72, ghostGate: false,
+  handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire',
+  catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
@@ -26,13 +56,18 @@ export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
 export function normalizeWitchControls(value = {}) {
   const input = value && typeof value === 'object' ? value : {};
   const result = {};
-  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume']) {
+  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
   result.ghostGate = input.ghostGate === true;
   result.ghostTempo = witchClamp(input.ghostTempo, 36, 180, WITCH_DEFAULTS.ghostTempo);
+  result.handMotion = WITCH_HAND_MOTIONS.includes(input.handMotion) ? input.handMotion : WITCH_DEFAULTS.handMotion;
+  result.handRate = witchClamp(input.handRate, .25, 6, WITCH_DEFAULTS.handRate);
+  result.handSound = WITCH_HAND_SOUNDS.some(sound=>sound.id===input.handSound) ? input.handSound : WITCH_DEFAULTS.handSound;
+  result.catGait = WITCH_CAT_GAITS.includes(input.catGait) ? input.catGait : WITCH_DEFAULTS.catGait;
+  result.catSpeed = witchClamp(input.catSpeed, .5, 2, WITCH_DEFAULTS.catSpeed);
   result.spoonAuto = input.spoonAuto === true;
   result.mode = ['brew', 'fingers', 'flight'].includes(input.mode) ? input.mode : 'brew';
   result.handFocus = witchClamp(input.handFocus, 0, 1, result.mode === 'fingers' ? 1 : 0);
@@ -71,16 +106,17 @@ export function witchGhostFrame(phase = 0, index = 0, out = {}) {
 /** The two hands use authored Gesticules choreography, with different timing
  * and a low starting curl that keeps the elongated fingers legible. */
 export function witchHandConfig(state = {}, handIndex = 0) {
+  const bank=WITCH_HAND_SOUNDS.find(sound=>sound.id===state.handSound)||WITCH_HAND_SOUNDS[0];
   return {
-    motion: { id: handIndex ? 'claw-pulse' : 'finger-roll', amount: handIndex ? .44 : .66, tempo: 62, speed: 1 },
+    motion: setHandEffectiveTempo({ id: WITCH_HAND_MOTIONS.includes(state.handMotion) ? state.handMotion : (handIndex ? 'claw-pulse' : 'finger-roll'), amount: witchClamp(state.handDepth,0,1,.66)*(handIndex?.72:1) }, 62*witchClamp(state.handRate,.25,6,1)),
     tremor: { amount: 0 },
     pose: { fingers: Array.from({ length: 5 }, (_, index) => {
       const bend = witchClamp(state.fingers?.[index], 0, 1, .5);
       return { mcp: bend * 38, pip: bend * (index ? 44 : 35), dip: bend * 30, spread: 0 };
     }), wrist: { flex: 0, side: 0, twist: 0 } },
-    sound: { rhythm: 'continuous', rootHz: 91, pitchSpread: 1.25, brightness: witchClamp(state.tone, 0, 1, .5),
-      roughness: .12, space: .14, rotationFx: 0, attack: .035, release: .28 },
-    voices: WITCH_FINGER_SOURCES.map((source, index) => ({ source, level: index > 2 ? .9 : .76 })),
+    sound: { rhythm: 'continuous', rootHz: bank.rootHz, pitchSpread: 1.25, brightness: witchClamp(state.tone, 0, 1, .5),
+      roughness: bank.roughness, space: bank.space, rotationFx: 0, attack: bank.attack, release: bank.release },
+    voices: bank.sources.map((source, index) => ({ source, level: index > 2 ? .9 : .76 })),
   };
 }
 

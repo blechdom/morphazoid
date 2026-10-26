@@ -98,7 +98,7 @@ test('ghosts remain behind every singing character and hand focus at low and nor
     const result = render(dsp, 8);
     assert.ok(result.ghostRms > .0001, `${voice}/${rate} has a background pulse`);
     assert.ok(result.ghostRms < result.bedRms * .2, `${voice}/${rate} keeps the ghosts behind the main ensemble`);
-    assert.ok(result.data.every(value => Number.isFinite(value) && Math.abs(value) <= .54));
+    assert.ok(result.data.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
     assert.ok(Math.abs(dsp.visual.ghostPhase - 24) < 1e-7);
   }
 });

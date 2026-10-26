@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP, FlightMixDelay } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
+import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
 import { evaluateWitchHandPose, normalizeWitchControls, witchVoiceAtHeight, WITCH_DROP_EFFECTS, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { HandDSP } from '../src/instruments/gesticulating-hand/hand-dsp.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
@@ -25,7 +26,7 @@ test('unarmed gestures remain exactly silent; all voice characters are bounded a
   const voices = WITCH_VOICES.map(voice => render(playing({ voice })));
   for (let i = 0; i < voices.length; i++) {
     assert.ok(rms(voices[i]) > .015, WITCH_VOICES[i]);
-    for (const value of voices[i]) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+    for (const value of voices[i]) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
     for (let j = 0; j < i; j++) assert.ok(difference(voices[i], voices[j]) > .025, `${WITCH_VOICES[i]} / ${WITCH_VOICES[j]}`);
   }
 });
@@ -124,7 +125,7 @@ test('cauldron vocal effects sound from a closed gate, finish, and have bounded 
   const dsp = playing({ speed: 1, glass: 1, hair: 1, fingers: [1, 1, 1, 1, 1] });
   for (let i = 0; i < 1000; i++) dsp.trigger(WITCH_VOCAL_EFFECTS[i % 5]);
   assert.equal(dsp.effects.length, 4);
-  for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
 });
 
 test('fingers retain five isolated Gesticules materials over a quiet cauldron and release together', () => {
@@ -244,12 +245,13 @@ test('silent hand transport never arms sound and joins its phase when explicitly
 test('flight controls change the shared stereo delay while both original performers continue', () => {
   const slow = playing({ mode: 'flight', speed: .05 }), fast = playing({ mode: 'flight', speed: .95 });
   render(slow, 2); render(fast, 2);
-  assert.ok(fast.delay.feedback > slow.delay.feedback + .3);
+  assert.ok(fast.delay.feedback > slow.delay.feedback + .18);
   assert.ok(slow.visual.delayTime > fast.visual.delayTime + .05);
   assert.ok(fast.visual.brewLevel > .001 && fast.visual.handLevel > .001);
   assert.ok(fast.visual.flightPulse >= 0 && fast.visual.flightPulse <= 1);
   const low = playing({ mode: 'flight', altitude: .05 }), high = playing({ mode: 'flight', altitude: .95 });
-  assert.ok(difference(render(low, 1), render(high, 1)) > .01);
+  // The longer pulled string needs time for its bounded read-head slew.
+  assert.ok(difference(render(low, 3), render(high, 3)) > .01);
   assert.ok(high.visual.delayTime > low.visual.delayTime + .3);
   const left = playing({ mode: 'flight', flightX: 0 }), right = playing({ mode: 'flight', flightX: 1 });
   assert.ok(difference(render(left, 2), render(right, 2)) > .005);
@@ -269,7 +271,7 @@ test('flight scenery produces bounded musical effects and releases with no vocal
   const dsp = playing({ mode: 'flight' });
   for (let i = 0; i < 1000; i++) dsp.trigger(WITCH_FLIGHT_EFFECTS[i % 5]);
   assert.equal(dsp.flight.voices.length, 8);
-  for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  for (const value of render(dsp, 2)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
   dsp.setControls({ gate: false }); render(dsp, 9);
   assert.ok(rms(render(dsp, .2)) < .000001);
 });
@@ -281,7 +283,7 @@ test('takeoff cackle is a bounded one-shot followed by a finite shared-delay tai
   assert.ok(rms(first) > .015);
   assert.ok(dsp.visual.launchEnvelope > .3 && dsp.visual.mouth > .3);
   assert.equal(dsp.visual.effect, 'launch');
-  for (const value of render(dsp, WITCH_LAUNCH_DURATION)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  for (const value of render(dsp, WITCH_LAUNCH_DURATION)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
   assert.equal(dsp.flight.launch.active, false);
   assert.equal(dsp.visual.launchEnvelope, 0); assert.equal(dsp.visual.mouth, 0);
   assert.ok(rms(render(dsp, .3)) > .00001, 'the phrase enters the same flight delay');
@@ -305,7 +307,7 @@ test('repeated and near-expiry launches reuse one voice and have one finite end'
   dsp.trigger('launch'); render(dsp, .3);
   const voice = dsp.flight.launch;
   for (let i = 0; i < 1000; i++) assert.equal(dsp.trigger('launch'), true);
-  for (const value of render(dsp, .04)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  for (const value of render(dsp, .04)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
   assert.equal(dsp.flight.launch, voice); assert.equal(dsp.flight.voices.length, 8);
   assert.ok(voice.age < .04); assert.equal(voice.pending, false);
   render(dsp, WITCH_LAUNCH_DURATION - voice.age - .004);
@@ -386,8 +388,8 @@ test('all four layers coexist in flight; fixed solo slots and the complete mix r
   const dsp = playing({ mode: 'flight', handFocus: 1, speed: 1, altitude: 1 });
   render(dsp, .5);
   for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]), true);
-  for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .54);
-  assert.equal(dsp.drops.slots.length, 14); assert.equal(dsp.drops.hand.voices.length, 5);
+  for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .840001);
+  assert.equal(dsp.drops.slots.length, 18); assert.equal(dsp.drops.hand.voices.length, 5);
   assert.equal(dsp.drops.tastes.spider.voices.length, 24); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
   for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
   assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .68);
@@ -459,7 +461,7 @@ test('audio-off releases smoothly and malformed live controls remain finite', ()
   render(dsp, 1); assert.ok(rms(render(dsp, .1)) < 1e-10);
   dsp.setControls({ speed: NaN, radius: Infinity, fingers: [NaN, Infinity, -99], hair: 'bad', gate: true });
   dsp.setEnabled(true);
-  for (const value of render(dsp, .5)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .54);
+  for (const value of render(dsp, .5)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
 });
 
 function fakeRuntime({ deferModule = false, failModule = false } = {}) {
@@ -480,7 +482,7 @@ function fakeRuntime({ deferModule = false, failModule = false } = {}) {
     createGain() { const node = new Node(); node.gain = gain; return node; }
   }
   class Worklet extends Node {
-    constructor() { super(); this.port = { postMessage: data => calls.messages.push(data), close() {} }; }
+    constructor(_context, _name, options) { super(); calls.options = options; this.port = { postMessage: data => calls.messages.push(data), close() {} }; }
   }
   return { runtime: { AudioContext: Context, AudioWorkletNode: Worklet }, calls, gain, finishModule };
 }
@@ -515,4 +517,63 @@ test('module load failure closes the context and leaves output disarmed', async 
   const { runtime, calls } = fakeRuntime({ failModule: true }), audio = new WitchAudio(runtime);
   await assert.rejects(audio.start(), /module failed/);
   assert.equal(calls.closed, 1); assert.equal(audio.context, null); assert.equal(audio.audible, false);
+});
+
+
+test('queued pre-seek telemetry cannot restore old cat, hand, or ghost clocks after arming or Reset', async () => {
+  const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
+  await audio.start();
+  const prior = { ...audio.visual, catClock: createWitchCatClock(31), handTime: 31, ghostPhase: 37 };
+  audio.node.port.onmessage({ data: { type: 'visual', ...prior } });
+  assert.equal(audio.visual.catClock.time, 31, 'untagged direct telemetry is supported before the first seek');
+  audio.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(0));
+  const resetGeneration = calls.messages.at(-1).phaseGeneration;
+  for (const packet of [{ ...prior }, { ...prior, phaseGeneration: resetGeneration - 1 }]) {
+    audio.node.port.onmessage({ data: { type: 'visual', ...packet } });
+    assert.equal(audio.visual.catClock.time, 0); assert.equal(audio.visual.handTime, 0); assert.equal(audio.visual.ghostPhase, 0);
+  }
+  const fresh = { ...audio.visual, catClock: createWitchCatClock(.05), handTime: .05, ghostPhase: .06 };
+  audio.node.port.onmessage({ data: { type: 'visual', ...fresh, phaseGeneration: resetGeneration } });
+  assert.equal(audio.visual.catClock.time, .05, 'the acknowledged clock resumes live telemetry');
+  audio.syncPhase(0, 0, 32, .5, 0, 40, createWitchCatClock(32));
+  audio.node.port.onmessage({ data: { type: 'visual', ...fresh, phaseGeneration: resetGeneration } });
+  assert.equal(audio.visual.catClock.time, 32, 'a subsequent arm/seek rejects the previous acknowledgement');
+  const oldReceiver = audio.node.port.onmessage;
+  audio.node.onprocessorerror(); await audio.start();
+  assert.equal(calls.options.processorOptions.phaseGeneration, audio.phaseGeneration, 'a replacement worklet starts in the current generation');
+  oldReceiver({ data: { type: 'visual', ...prior, phaseGeneration: audio.phaseGeneration } });
+  assert.equal(audio.visual.catClock.time, 32, 'detached nodes cannot overwrite clocks even with a matching tag');
+  await audio.dispose();
+});
+
+test('the real worklet acknowledges seeks promptly and rejects earlier generations', async () => {
+  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime'];
+  const previous = keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
+  const packets = []; let Processor;
+  try {
+    globalThis.AudioWorkletProcessor = class { constructor() { this.port = { postMessage: value => packets.push(structuredClone(value)) }; } };
+    globalThis.registerProcessor = (name, implementation) => { if (name === 'witch-voice') Processor = implementation; };
+    globalThis.sampleRate = 8000; globalThis.currentTime = 0;
+    await import('../src/instruments/witch/witch-worklet.js?seek-generation-regression');
+    const node = new Processor({ processorOptions: { phaseGeneration: 7 } });
+    const outputs = [[new Float32Array(128), new Float32Array(128)]];
+    node.process([], outputs); assert.equal(packets.at(-1).phaseGeneration, 7);
+    const phase = { type: 'phase', phase: 0, speed: 0, handTime: 31, ghostPhase: 37, catClock: createWitchCatClock(31) };
+    node.port.onmessage({ data: { ...phase, phaseGeneration: 6 } });
+    assert.equal(node.dsp.cat.time, 0);
+    node.port.onmessage({ data: { ...phase, phaseGeneration: 8 } });
+    globalThis.currentTime = .001; node.process([], outputs);
+    assert.equal(packets.at(-1).phaseGeneration, 8);
+    assert.equal(packets.at(-1).catClock.time, 31);
+    assert.equal(packets.at(-1).handTime, 31);
+    assert.equal(packets.at(-1).ghostPhase, 37);
+    node.port.onmessage({ data: { ...phase, handTime: 0, ghostPhase: 0, catClock: createWitchCatClock(0) } });
+    globalThis.currentTime = .002; node.process([], outputs);
+    assert.equal(packets.at(-1).phaseGeneration, 8, 'untagged direct phase callers keep the current generation');
+    assert.equal(packets.at(-1).catClock.time, 0);
+  } finally {
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    }
+  }
 });

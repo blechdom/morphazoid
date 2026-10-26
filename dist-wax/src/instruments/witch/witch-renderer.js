@@ -1,4 +1,5 @@
 import { drawWitchCat } from './witch-cat.js';
+import { WITCH_SHELF } from './witch-model.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -16,28 +17,18 @@ export const WITCH_LAYOUT = Object.freeze({
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{ x: 162, y: 639, r: 48 }, { x: 846, y: 655, r: 42 }]),
   ghosts: Object.freeze([
-    Object.freeze({id:'creaturazoid',x:160,y:280,r:45,size:115,color:'#a7ccc7'}),
-    Object.freeze({id:'monstroid',x:854,y:414,r:44,size:116,color:'#a5bcd3'}),
+    Object.freeze({id:'creaturazoid',x:286,y:305,r:45,size:115,color:'#a7ccc7'}),
+    Object.freeze({id:'monstroid',x:798,y:370,r:44,size:116,color:'#a5bcd3'}),
     Object.freeze({id:'hiccup',x:620,y:180,r:43,size:102,color:'#c0b2ce'}),
   ]),
-  bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 868, y: 310, r: 28 }]),
-  spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:84,y:365,r:30})]),
-  objects: Object.freeze([
-    Object.freeze({id:'glass',kind:'drop-glass',name:'Glass',x:76,y:135,r:29,color:'#a1def0'}),
-    Object.freeze({id:'tail',kind:'drop-tail',name:'Tail',x:218,y:218,r:30,color:'#dda5c2'}),
-    Object.freeze({id:'earwax',kind:'drop-earwax',name:'Ear wax',x:75,y:247,r:27,color:'#d9ab58'}),
-    Object.freeze({id:'eyeball',kind:'drop-eyeball',name:'Eyeball',x:211,y:393,r:29,color:'#d9a9bf'}),
-    Object.freeze({id:'newt',kind:'drop-newt',name:'Newt',x:79,y:464,r:32,color:'#a7cc69'}),
-    Object.freeze({id:'hair',kind:'drop-hair',name:'Hair',x:223,y:511,r:31,color:'#af9ed8'}),
-    Object.freeze({id:'roach',kind:'drop-roach',name:'Roach Synth',x:73,y:568,r:34,color:'#c99b65'}),
-    Object.freeze({id:'spider',kind:'drop-spider',name:'Spider Synth',x:265,y:637,r:35,color:'#d3cb81'}),
-    Object.freeze({id:'oculoid',kind:'drop-oculoid',name:'FM Drums',x:930,y:119,r:33,color:'#a5dfb6'}),
-    Object.freeze({id:'rubix',kind:'drop-rubix',name:'Rubix',x:927,y:240,r:34,color:'#c7a5ec'}),
-    Object.freeze({id:'hiccup',kind:'drop-hiccup',name:'Hiccup Head',x:925,y:360,r:32,color:'#e8a2cf'}),
-    Object.freeze({id:'gesticules',kind:'drop-gesticules',name:'Gesticules',x:923,y:477,r:33,color:'#79e0c8'}),
-    Object.freeze({id:'marimba',kind:'drop-marimba',name:'Rattlesnake',x:925,y:586,r:34,color:'#e8b075'}),
-    Object.freeze({id:'choir',kind:'drop-choir',name:'Throatazoid',x:62,y:659,r:33,color:'#e698c8'}),
-  ]),
+  bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 955, y: 260, r: 28 }]),
+  spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:795,y:425,r:28})]),
+  shelves:Object.freeze([{x:35,y:150,w:235,h:407,rows:[232,334,436,538]},{x:818,y:344,w:135,h:307,rows:[426,529,632]}]),
+  objects: Object.freeze(WITCH_SHELF.map((entry,index)=>Object.freeze({...entry,
+    x:index<12?[80,154,228][index%3]:[850,916][(index-12)%2],
+    y:index<12?[196,298,400,502][Math.floor(index/3)]:[390,493,596][Math.floor((index-12)/2)],
+    r:29,color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
+  }))),
 });
 
 function path(c, d, fill, stroke = null, width = 1.5) {
@@ -460,28 +451,13 @@ function brewScene(c, state) {
     ellipse(c, px, py, 1.2 + (i % 2), 1.2 + (i % 2), `rgba(216,238,164,${(1 - age) * (.2 + energy * .5)})`);
   }
   mushrooms(c, 162, 639, 1.1); mushrooms(c, 846, 655, .76);
-  // Two apothecary bottles remain props; actual ingredient controls live in HTML.
+  // A little apothecary bottle sits beside the wooden instrument shelves.
   path(c, 'M222,589 L234,589 L234,608 Q249,612 247,641 L211,641 Q209,611 222,608 Z', '#394c45', '#101b20', 2);
   ellipse(c,229,620,15,5,'#8eaa7670'); line(c,[[224,596],[224,611]],'#b6c39b80',2);
   path(c, 'M218,583 L238,583 L238,592 L218,592 Z', '#8c7661', '#28282b', 1.3);
   ellipse(c,229,628,7,9,'#b0b59790'); line(c,[[227,624],[232,632]],'#485c4c',1);
   if (clamp(state.glass) > .01) {
     for (let i = 0; i < 4; i++) star(c, 550 + i * 32, 488 + Math.sin(time * 2 + i) * 9, 3 + clamp(state.glass) * 3, '#cdf6f1', .6);
-  }
-  const ingredient = state.event;
-  if ((ingredient?.kind === 'glass' || ingredient?.kind === 'hair') && ingredient.age < 1.1) {
-    const fall = clamp((ingredient.age || 0) / .75);
-    c.save(); c.translate(665 - fall * 26, 332 + fall * fall * 183);
-    c.globalAlpha = Math.min(1, (1.1 - (ingredient.age || 0)) * 3);
-    if (ingredient.kind === 'glass') {
-      c.rotate(fall * 2.1);
-      path(c, 'M-15,-19 L19,-6 L-1,21 Z', '#c0eceb47', '#c1e9dc', 1.4);
-      path(c, 'M-15,-19 L-1,21 L1,-8 Z', '#bce2d851');
-      line(c,[[-10,-12],[10,-5]],'#f4f4d5',1.1);
-    } else {
-      for (let i = 0; i < 7; i++) curve(c,[-17+i*5,-19,-31+i*6,5,29-i*4,-10,-11+i*3,27],'#bdb2b0',1.2);
-    }
-    c.restore();
   }
 }
 
@@ -500,6 +476,19 @@ function broomPoint(point,state) {
   const t=broomTransform(state),cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
   return {x:t.x+(cos*point.x-sin*point.y)*t.scale,y:t.y+(sin*point.x+cos*point.y)*t.scale};
 }
+/** One continuous string trails the broom; the same points receive pulls. */
+export function getWitchTrail(state = {}) {
+  const time=state.motionTime??state.time??0,pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5);
+  const points=[];
+  for(let i=0;i<=64;i++) {
+    const tail=1-i/64,age=tail*6.4;
+    const past={...state,motionTime:time-age,flightPhase:state.flightPhase===undefined?undefined:state.flightPhase-age*(1+clamp(state.speed??.4)*5)/1.4};
+    const p=broomPoint({x:-265,y:126},past),wave=tail*(7+twist*23);
+    points.push({x:p.x+Math.sin(wave)*tail*(12+pull*31),y:p.y+Math.sin(wave*.83)*tail*(8+pull*57)});
+  }
+  return points;
+}
+
 export function getWitchTargets(state = {}) {
   const time=state.time||0,lift=clamp(state.flightLift),energy=clamp(state.energy);
   let origin,scale,rotation;
@@ -511,7 +500,10 @@ export function getWitchTargets(state = {}) {
   const shape=hatShape(state),hx=-10,hy=-111*shape.stretch;
   return {nose:point(87+(clamp(state.nose??.5)-.5)*40,57,20),
     hat:point(Math.cos(shape.tilt)*hx-Math.sin(shape.tilt)*hy,Math.sin(shape.tilt)*hx+Math.cos(shape.tilt)*hy,66*Math.max(1,shape.stretch)),
-    tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32}};
+    tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32},
+    fabric:{x:830+clamp(state.fabricX??.5)*70,y:320-clamp(state.fabricY??.5)*60,r:32},
+    broom:{...parkedBroomPoint({x:60,y:108}),r:32},
+    trail:{...getWitchTrail(state)[22],r:28}};
 }
 
 // Each model has its own projected pose. Display and picking share this affine
@@ -521,14 +513,14 @@ export function handTransform(state = {}, index = 0) {
   const palm=state.handPalms?.[index]||{x:wrist.x,y:wrist.y-80};
   const reach = index === 0 ? clamp(state.handReach) : 0;
   const lift=clamp(state.flightLift),flight=broomTransform(state);
-  const baseScale=(index===0?.19:.23)*(1-lift)+flight.scale*.28*lift;
-  const scale = (baseScale+(1-baseScale)*reach)*(index===1?1.25*1.25:1);
-  const rotation = index===0 ? flight.rotation*lift*(1-reach)+reach*55*Math.PI/180 : -.38+Math.PI*1.5+flight.rotation*lift;
+  const groundScale=index===0?.19+.81*reach:.23*1.25*1.25;
+  const scale=groundScale*(1-lift)+flight.scale*(index===0?.48:.28*1.25*1.25)*lift;
+  const rotation=index===0?reach*55*Math.PI/180+flight.rotation*lift:-.38+Math.PI/2+flight.rotation*lift;
   const mirror = index === 0 ? 1 : -1;
-  const ladle=getWitchLadle(state),flying=broomPoint({x:32,y:59},state);
+  const ladle=getWitchLadle(state),flying=broomPoint({x:38,y:165},state);
   const anchor=index===1?palm:wrist;
-  const targetX=index===1?ladle.gx:((388*(1-lift)+flying.x*lift)*(1-reach)+435*reach);
-  const targetY=index===1?ladle.gy:((450*(1-lift)+flying.y*lift)*(1-reach)+635*reach);
+  const targetX=index===1?ladle.gx:((388+(435-388)*reach)*(1-lift)+flying.x*lift);
+  const targetY=index===1?ladle.gy:((450+(635-450)*reach)*(1-lift)+flying.y*lift);
   const a = Math.cos(rotation)*scale*mirror, b = Math.sin(rotation)*scale*mirror;
   const c = -Math.sin(rotation)*scale, d = Math.cos(rotation)*scale;
   const x=targetX-a*anchor.x-c*anchor.y,y=targetY-b*anchor.x-d*anchor.y;
@@ -558,25 +550,26 @@ function drawHandModel(c,state,index) {
 function reachingHand(c, state) {
   if (!state.handSurface) return;
   const t = handTransform(state), {x:wx,y:wy} = t.wrist;
-  const reach = clamp(state.handReach), cuff = 12 + reach*39;
+  const lift=clamp(state.flightLift),reach=clamp(state.handReach)*(1-lift),cuff=(12+clamp(state.handReach)*39)*(1-lift*.72);
   const ux=Math.cos(t.rotation)*cuff,uy=Math.sin(t.rotation)*cuff;
-  const lift=clamp(state.flightLift),flying=broomPoint({x:-8,y:19},state);
+  const flying=broomPoint({x:-8,y:19},state);
   const sx=365*(1-lift)+flying.x*lift,sy=410*(1-lift)+flying.y*lift;
   c.save();
   // The cuff rotates with the model so the stretched arm meets its actual wrist.
   const sleeve=c.createLinearGradient(sx,sy,wx,wy);
   sleeve.addColorStop(0,'#59305f');sleeve.addColorStop(.55,'#49375e');sleeve.addColorStop(1,'#275a65');
-  path(c, `M${sx},${sy} Q${sx-25},${sy+59+reach*105} ${wx-ux},${wy-uy} Q${wx-10},${wy+26} ${wx+ux},${wy+uy} Q${sx+55},${sy-3+reach*28} ${sx+38},${sy-1} Z`, sleeve, INK, 3);
+  path(c, `M${sx},${sy} Q${sx-25},${sy+59*(1-lift)+18*lift+reach*105} ${wx-ux},${wy-uy} Q${wx-10},${wy+26} ${wx+ux},${wy+uy} Q${sx+55*(1-lift)+16*lift},${sy-3+reach*28} ${sx+38*(1-lift)+14*lift},${sy-1} Z`, sleeve, INK, 3);
   curve(c,[sx+14,sy+12,sx-9,sy+73+reach*95,wx-30,wy+25,wx-14,wy+7],'#bc78ae',1.5);
   line(c,[[wx-ux,wy-uy],[wx+ux,wy+uy]],'#ddac87',2);
   drawHandModel(c,state,0);
-  if (reach > .5) {
+  if (clamp(state.handReach) > .5) {
+    const cue=1-lift*.7;
     const colors=['#ffc17e','#e5ef82','#75f0cb','#86c9ff','#ee9ee9'];
     for (const tip of getFingerTips(state)) {
       const level=clamp(state.fingerLevels?.[tip.index]);
-      c.save(); c.globalAlpha *= reach;
-      ellipse(c,tip.x,tip.y,17+level*13,17+level*13,null,colors[tip.index],state.selectedFinger===tip.index?2:1);
-      if(level>.01) { glow(c,tip.x,tip.y,38+level*18,`${colors[tip.index]}55`); star(c,tip.x+23,tip.y-13,level*6,colors[tip.index]); }
+      c.save(); c.globalAlpha *= .7+reach*.3;
+      ellipse(c,tip.x,tip.y,(17+level*13)*cue,(17+level*13)*cue,null,colors[tip.index],state.selectedFinger===tip.index?2:1);
+      if(level>.01) { glow(c,tip.x,tip.y,(38+level*18)*cue,`${colors[tip.index]}55`); star(c,tip.x+23*cue,tip.y-13*cue,level*6*cue,colors[tip.index]); }
       c.restore();
     }
   } else {
@@ -629,6 +622,27 @@ const ghostSources=Object.freeze({
   hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
 });
 const ghostImages=new WeakMap();
+function removePortraitBackdrop(pixels) {
+  const {data:rgba,width,height}=pixels;
+  // Remove only near-black pixels connected to the border. Dark eyes and
+  // other enclosed anatomy stay intact; already transparent icons are safe.
+  const seen=new Uint8Array(width*height),queue=new Uint32Array(width*height);
+  let start=0,end=0;
+  const add=index=>{
+    if(seen[index])return;seen[index]=1;
+    const p=index*4;
+    if(Math.max(rgba[p],rgba[p+1],rgba[p+2])<=36||rgba[p+3]===0)queue[end++]=index;
+  };
+  for(let x=0;x<width;x++) {add(x);add((height-1)*width+x);}
+  for(let y=0;y<height;y++) {add(y*width);add(y*width+width-1);}
+  while(start<end) {
+    const index=queue[start++],p=index*4,x=index%width,y=Math.floor(index/width);
+    const edge=clamp((Math.max(rgba[p],rgba[p+1],rgba[p+2])-3)/33);
+    rgba[p+3]*=edge*edge*(3-2*edge);
+    if(x>0)add(index-1);if(x<width-1)add(index+1);
+    if(y>0)add(index-width);if(y<height-1)add(index+width);
+  }
+}
 function ghostPortrait(c,ghost) {
   const doc=c.canvas?.ownerDocument;
   if(!doc)return null;
@@ -647,26 +661,7 @@ function ghostPortrait(c,ghost) {
     const ink=surface.getContext('2d');
     ink.drawImage(portrait.image,0,0,160,160);
     const pixels=ink.getImageData(0,0,160,160),rgba=pixels.data;
-    if(ghost.id!=='hiccup') {
-      // These two catalogue portraits have opaque black backgrounds. Remove
-      // only darkness connected to the image border, before tinting can lift
-      // it into a rectangular plate. Enclosed dark anatomy stays intact.
-      const seen=new Uint8Array(160*160),queue=new Uint16Array(160*160);
-      let start=0,end=0;
-      const add=index=>{
-        if(seen[index])return;seen[index]=1;
-        const p=index*4;
-        if(Math.max(rgba[p],rgba[p+1],rgba[p+2])<=36||rgba[p+3]===0)queue[end++]=index;
-      };
-      for(let i=0;i<160;i++) {add(i);add(159*160+i);add(i*160);add(i*160+159);}
-      while(start<end) {
-        const index=queue[start++],p=index*4,x=index%160,y=Math.floor(index/160);
-        const edge=clamp((Math.max(rgba[p],rgba[p+1],rgba[p+2])-3)/33);
-        rgba[p+3]*=edge*edge*(3-2*edge);
-        if(x>0)add(index-1);if(x<159)add(index+1);
-        if(y>0)add(index-160);if(y<159)add(index+160);
-      }
-    }
+    if(ghost.id!=='hiccup')removePortraitBackdrop(pixels);
     const tint=[1,3,5].map(offset=>parseInt(ghost.color.slice(offset,offset+2),16));
     for(let p=0;p<rgba.length;p+=4) {
       const gray=Math.min(255,(rgba[p]*.2126+rgba[p+1]*.7152+rgba[p+2]*.0722)*1.36+25.5);
@@ -698,13 +693,20 @@ function backgroundGhosts(c,state) {
   }
 }
 
-function broomWitch(c, state) {
-  const time = state.motionTime ?? state.time ?? 0;
-  const pulse = clamp(state.flightPulse);
-  const spark = state.event?.kind === 'spark' ? clamp(1-(state.event.age || 0)/1.2) : 0;
-  const lift = clamp(state.flightLift ?? 1);
-  const transform=broomTransform(state);
-  c.save(); c.globalAlpha *= lift; c.translate(transform.x,transform.y); c.rotate(transform.rotation); c.scale(transform.scale,transform.scale);
+function parkedBroomPoint(point) {
+  const angle=-.23,scale=.48;
+  return {x:190+(Math.cos(angle)*point.x-Math.sin(angle)*point.y)*scale,
+    y:540+(Math.sin(angle)*point.x+Math.cos(angle)*point.y)*scale};
+}
+function parkedBroom(c,state) {
+  const alpha=1-clamp(state.flightLift);
+  if(alpha<=0)return;
+  c.save();c.globalAlpha*=alpha;c.translate(190,540);c.rotate(-.23);c.scale(.48,.48);
+  broomShape(c,state);c.restore();
+}
+function broomShape(c,state) {
+  const time=state.motionTime??state.time??0,pulse=clamp(state.flightPulse);
+  const spark=state.event?.kind==='spark'?clamp(1-(state.event.age||0)/1.2):0;
   // The broom is the rhythm source: its reeds light on each actual attack.
   const shimmer = Math.max(pulse,spark);
   if (shimmer > .01) {
@@ -736,13 +738,22 @@ function broomWitch(c, state) {
   }
   line(c,shadowCoil,'#211c2b',10);line(c,shadowCoil,'#5e9f9b',6.7);
   line(c,coil,'#251c29',10);line(c,coil,'#c682a4',7);
-  c.save();c.setLineDash([11,14]);c.lineDashOffset=-time*9;
-  line(c,coil,'#e0c8a3',4);c.lineDashOffset=-time*9+12;line(c,shadowCoil,'#92e0c6',2.1);c.restore();
+  line(c,coil,'#e0c8a3',1.3);line(c,shadowCoil,'#92e0c6',1);
   if (pulse > .01) {
     c.save(); c.globalAlpha = pulse;
     curve(c,[-219,127,-110,109,54,133,161,94],'#e7ebbb',1.5+pulse*1.5);
     c.restore();
   }
+}
+
+function broomWitch(c, state) {
+  const time = state.motionTime ?? state.time ?? 0;
+  const pulse = clamp(state.flightPulse);
+  const spark = state.event?.kind === 'spark' ? clamp(1-(state.event.age || 0)/1.2) : 0;
+  const lift = clamp(state.flightLift ?? 1);
+  const transform=broomTransform(state);
+  c.save(); c.globalAlpha *= lift; c.translate(transform.x,transform.y); c.rotate(transform.rotation); c.scale(transform.scale,transform.scale);
+  broomShape(c,state);
   path(c, 'M-67,-32 Q-103,-8 -102,45 Q-151,74 -181,85 L-156,111 Q-122,98 -117,119 Q-79,96 -66,111 Q-14,94 25,109 Q48,96 29,76 L-6,47 L-3,-5 Z', '#3b2b47', INK, 3);
   path(c, 'M-87,14 Q-107,77 -159,88 L-143,97 Q-120,80 -109,96 Q-68,75 -54,95 L-30,65 Z', '#58405b');
   curve(c,[-67,5,-40,50,-69,75,-81,90],'#80637b',1.3);
@@ -763,19 +774,9 @@ function flightScene(c, state) {
   }
   c.restore();
   if(state.flightLift>.01) {
-    c.save();c.globalAlpha=clamp(state.flightLift)*(.42+clamp(state.flightPulse)*.25);
-    const points=[];
-    for(let i=0;i<=44;i++) {
-      const age=(44-i)*.12;
-      const past={...state,motionTime:time-age,flightPhase:state.flightPhase===undefined?undefined:state.flightPhase-age*(1+clamp(state.speed??.4)*5)/1.4};
-      const p=broomPoint({x:-235,y:130},past),twist=(44-i)*.47;
-      points.push([p.x+Math.sin(twist)*14,p.y+Math.cos(twist)*21]);
-    }
-    line(c,points,'#a34383',7);c.setLineDash([9,13]);c.lineDashOffset=-time*21;line(c,points,'#8ee6cc',3);c.setLineDash([]);
-    for(let i=8;i<points.length;i+=11) {
-      const [x,y]=points[i];
-      curve(c,[x-15,y+13,x-49,y-47,x+52,y-48,x+12,y+15],'#d0a4f1a9',1.7);
-    }
+    const points=getWitchTrail(state).map(point=>[point.x,point.y]);
+    c.save();c.globalAlpha=clamp(state.flightLift)*(.46+clamp(state.flightPulse)*.18);
+    line(c,points,'#2b213b',9);line(c,points,'#b56a9f',5.2);line(c,points,'#97ddc2',1.7);
     c.restore();
   }
   if (state.event?.kind === 'gust' && (state.event.age || 0) < 1.6) {
@@ -809,105 +810,46 @@ function flightScene(c, state) {
   }
 }
 
-/** The same hover/drop coordinates are used for drawing, pickup and dragging. */
+/** Shelf and automatic drop positions are shared by drawing and picking. */
 export function getWitchObjectPosition(object, state = {}) {
   const id=typeof object==='string'?object:object?.id;
   const home=WITCH_LAYOUT.objects.find(entry=>entry.id===id)||WITCH_LAYOUT.objects[0];
   const live=typeof object==='object'?object:state.objects?.find(entry=>entry.id===id)||home;
-  const index=WITCH_LAYOUT.objects.indexOf(home),time=state.reducedMotion?0:(state.time||0);
   const x=Number.isFinite(live.x)?live.x:home.x,y=Number.isFinite(live.y)?live.y:home.y;
   if(live.dropped) {
-    const age=Math.max(0,live.dropAge||0),fall=clamp(age/.65);
-    return {...home,...live,x:x+(600-x)*fall,y:y+(544-y)*fall,alpha:1-clamp(age/.8),rotation:age*2.4,r:home.r};
+    const age=Math.max(0,live.dropAge||0),fall=clamp(age/.85),travel=fall*fall*(3-2*fall);
+    return {...home,...live,x:x+(600-x)*travel,y:y+(544-y)*travel-Math.sin(fall*Math.PI)*110,
+      alpha:1-clamp((fall-.7)/.3),rotation:fall*2.4,scale:1-fall*.55,r:home.r};
   }
-  return {...home,...live,x:x+(live.dragging?0:Math.sin(time*.49+index*2.3)*9),
-    y:y+(live.dragging?0:Math.sin(time*.81+index*2.1)*12),
-    alpha:live.dragging?1:.68+.3*Math.sin(time*.37+index)**2,
-    rotation:live.dragging?0:Math.sin(time*.43+index)*.13,r:home.r};
+  return {...home,...live,x,y,alpha:1,rotation:0,scale:1,r:home.r};
 }
 
-// Reuse the instruments' existing transparent portraits as tiny visual tastes;
+// Reuse the instruments' existing portraits as tiny visual tastes;
 // no extra WebGL scene, model, or instrument controller is instantiated here.
-const miniatureSources=Object.freeze({
-  roach:new URL('../../../assets/instruments/roach-synth.webp',import.meta.url).href,
-  spider:new URL('../../../assets/instruments/spider-synth.webp',import.meta.url).href,
-  rubix:new URL('../../../assets/instruments/rubix.webp',import.meta.url).href,
-  hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
-  gesticules:new URL('../../../assets/instruments/gesticulating-hand.webp',import.meta.url).href,
-  marimba:new URL('../../../assets/instruments/linear-drums.webp',import.meta.url).href,
-  choir:new URL('../../../assets/instruments/throatazoid.webp',import.meta.url).href,
-  oculoid:new URL('../../../assets/instruments/fm-drums.webp',import.meta.url).href,
-});
+const miniatureSources=Object.freeze(Object.fromEntries(WITCH_SHELF.map(entry=>[
+  entry.id,new URL('../../../'+entry.imageHref,import.meta.url).href,
+])));
 const miniatureImages=new WeakMap();
 function drawInstrumentMiniature(c,id) {
   const source=miniatureSources[id],doc=c.canvas?.ownerDocument;
   if(!source||!doc)return false;
   let images=miniatureImages.get(doc);
   if(!images) { images=new Map();miniatureImages.set(doc,images); }
-  let image=images.get(id);
-  if(!image) {image=doc.createElement('img');image.decoding='async';image.src=source;images.set(id,image);}
-  if(!image.complete||!image.naturalWidth)return false;
-  const size=id==='spider'?86:id==='hiccup'?67:75;
-  c.drawImage(image,-size/2,-size/2,size,size);
+  let portrait=images.get(id);
+  if(!portrait) {
+    const image=doc.createElement('img');image.decoding='async';image.src=source;
+    portrait={image,surface:null};images.set(id,portrait);
+  }
+  if(!portrait.image.complete||!portrait.image.naturalWidth)return false;
+  if(!portrait.surface) {
+    const surface=doc.createElement('canvas');surface.width=surface.height=160;
+    const ink=surface.getContext('2d');ink.drawImage(portrait.image,0,0,160,160);
+    const pixels=ink.getImageData(0,0,160,160);removePortraitBackdrop(pixels);ink.putImageData(pixels,0,0);
+    portrait.surface=surface;
+  }
+  const size=id==='spider'?64:60;
+  c.drawImage(portrait.surface,-size/2,-size/2,size,size);
   return true;
-}
-
-function potionEye(c,orbital=false) {
-  if(orbital) {
-    ellipse(c,0,0,37,13,null,'#7ed7c3',1.4,-.45);
-    ellipse(c,0,0,16,35,null,'#d49ee8',1.2,.58);
-    star(c,-29,14,4,'#e7d7a5');
-  } else {
-    curve(c,[-17,12,-28,35,-3,27,-14,43],'#af738d',3);
-    curve(c,[-17,12,-22,30,-7,28,-14,43],'#e5adbb',.8);
-  }
-  ellipse(c,0,0,25,24,'#d7cbbb','#5e4b62',1.6);
-  for(let i=0;i<5;i++) {
-    const angle=i*TAU/5;
-    const x=Math.cos(angle),y=Math.sin(angle);
-    curve(c,[x*24,y*23,x*16-y*3,y*18+x*5,x*16+y*4,y*13-x*2,x*10,y*10],'#aa7380',.9);
-  }
-  ellipse(c,5,-2,14,16,orbital?'#68baa0':'#b39c53','#385d65',1.2);
-  for(let i=0;i<12;i++) {
-    const a=i*TAU/12;
-    line(c,[[5+Math.cos(a)*8,-2+Math.sin(a)*9],[5+Math.cos(a)*13,-2+Math.sin(a)*15]],orbital?'#c9eb9c':'#8d6957',.7);
-  }
-  ellipse(c,6,-2,orbital?4:6,10,'#161c28');ellipse(c,10,-8,3,3,'#faf2d2');
-}
-
-function potionMaterial(c,id) {
-  if(id==='glass') {
-    path(c,'M-27,17 L-13,-32 L4,-16 L-3,28 Z','#7fc5db44','#bce9ed',1.5);
-    path(c,'M3,29 L10,-25 L30,-36 L23,18 Z','#ad9eec55','#c5b6eb',1.5);
-    path(c,'M-7,0 L12,-9 L19,25 Z','#c0f4db4d','#d5f2cf',1.3);
-    line(c,[[-16,0],[-12,-23]],'#f7efd6',1.5);line(c,[[12,-16],[24,-28]],'#f7efd6',1.5);
-  } else if(id==='tail') {
-    path(c,'M-26,-24 C-5,-19 22,-6 18,15 C15,36 -13,40 -20,24 C-27,8 -7,0 0,13 C-11,7 -17,20 -8,23 C1,28 11,18 5,8 C-3,-3 -21,-2 -33,-9 Z','#b87994','#dfb4ad',1.6);
-    for(let i=0;i<5;i++)line(c,[[-25+i*6,-16+i*2],[-28+i*7,-9+i*2]],'#753e62',1.1);
-    path(c,'M-34,-10 L-41,-18 L-31,-15 L-33,-26 L-23,-20 L-19,-31 L-18,-20 Z','#6e4b6d','#d5a8b7',.8);
-  } else if(id==='earwax') {
-    path(c,'M-27,13 Q-32,-7 -17,-12 Q-16,-31 3,-24 Q17,-29 21,-12 Q34,-5 24,11 Q25,31 7,28 Q-2,34 -12,24 Q-25,29 -27,13 Z','#ad772c','#e1bd6e',1.6);
-    ellipse(c,-8,-5,12,10,'#d4a043');ellipse(c,13,10,8,7,'#956327');
-    curve(c,[-11,13,4,23,13,-2,4,-8],'#efd285',2);
-    for(const [x,y] of [[-22,12],[14,-13],[3,23]])line(c,[[x,y],[x-3,y-8]],'#453735',1);
-  } else if(id==='eyeball') {
-    potionEye(c);
-  } else if(id==='newt') {
-    for(const [x,y,sign] of [[-10,-9,-1],[9,1,1],[-12,13,-1],[7,22,1]]) {
-      line(c,[[x,y],[x+sign*15,y-6],[x+sign*24,y+1]],'#9eae67',3);
-      for(let i=0;i<3;i++)line(c,[[x+sign*24,y+1],[x+sign*(27+i*3),y-4+i*4]],'#aebd7a',1.1);
-    }
-    path(c,'M-9,-18 Q-16,-39 0,-40 Q16,-37 11,-18 Q18,0 7,23 C5,37 27,33 29,46 C19,37 -5,48 -8,25 Q-22,1 -9,-18 Z','#638963','#bfd18a',1.4);
-    for(let i=0;i<5;i++)ellipse(c,-3+Math.sin(i)*4,-15+i*8,3,3,'#d0a769');
-    ellipse(c,-8,-30,3,4,'#edcb81');ellipse(c,8,-30,3,4,'#edcb81');
-    ellipse(c,-8,-30,1,3,'#222730');ellipse(c,8,-30,1,3,'#222730');
-  } else if(id==='hair') {
-    for(let i=0;i<13;i++) {
-      const x=-23+i*3.8;
-      curve(c,[x,-31,x-23+Math.sin(i)*11,-3,x+28,10,x-12+Math.sin(i)*10,32+(i%4)*3],['#8d7396','#c0b0b0','#716e9b'][i%3],i%3===0?1.7:1);
-    }
-    line(c,[[-22,-28],[18,-29]],'#a3bfa1',2.4);
-  }
 }
 
 function toneFirefly(c,state) {
@@ -931,10 +873,41 @@ function toneFirefly(c,state) {
   c.restore();
 }
 
-function ingredientObjects(c,state) {
+function instrumentShelves(c) {
+  for(const shelf of WITCH_LAYOUT.shelves) {
+    const {x,y,w,h}=shelf;
+    path(c,`M${x},${y+13} L${x+10},${y} L${x+w-8},${y+5} L${x+w},${y+h} L${x-3},${y+h+4} Z`,'#080d15','#332a3c',3);
+    for(const side of [x,x+w-9]) {
+      path(c,`M${side},${y+8} L${side+8},${y+3} L${side+10},${y+h+9} L${side-2},${y+h+9} Z`,'#272333','#51404b',1.1);
+      line(c,[[side+3,y+18],[side+5,y+h-14]],'#7260513d',1);
+    }
+    for(const row of shelf.rows) {
+      path(c,`M${x+5},${row} L${x+w-4},${row-2} L${x+w-5},${row+10} L${x+4},${row+13} Z`,'#332837','#89725b',.8);
+      line(c,[[x+10,row+3],[x+w-12,row+1]],'#b38f695c',1.1);
+      for(let i=0;i<3;i++)line(c,[[x+18+i*(w-30)/3,row+8],[x+32+i*(w-30)/3,row+7]],'#0a0e17',1);
+    }
+  }
+}
+function fabricCloth(c,state) {
+  const p=getWitchTargets(state).fabric,time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
+  const point=(u,v)=>({x:p.x+(u-.5)*62+Math.sin(v*5+time*2.3)*(3+v*5),
+    y:p.y+(v-.5)*47+Math.sin(u*5+time*2.3+v*2)*5});
+  c.save();
+  for(let row=0;row<5;row++)for(let column=0;column<6;column++) {
+    const corners=[[column/6,row/5],[(column+1)/6,row/5],[(column+1)/6,(row+1)/5],[column/6,(row+1)/5]].map(([u,v])=>point(u,v));
+    c.beginPath();corners.forEach((q,i)=>i?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y));c.closePath();
+    c.fillStyle=(row+column)%2?'#806091b8':'#365f79b8';c.fill();c.strokeStyle='#c4a6c14d';c.lineWidth=.8;c.stroke();
+  }
+  for(let i=0;i<8;i++) {
+    const q=point(i/7,1);line(c,[[q.x,q.y],[q.x+Math.sin(time+i)*3,q.y+5+(i%3)]],'#ad8ba8',.8);
+  }
+  c.restore();
+}
+function ingredientObjects(c,state,foreground=false) {
   for(const home of WITCH_LAYOUT.objects) {
     const color=home.color;
     const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
+    if(Boolean(object.dropped||object.dragging)!==foreground)continue;
     if(object.dropped) {
       const age=Math.max(0,object.dropAge||0),envelope=Math.max(0,1-age/3.6);
       if(envelope>0) {
@@ -949,14 +922,8 @@ function ingredientObjects(c,state) {
       }
     }
     if(object.alpha<=0)continue;
-    c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.globalAlpha=object.alpha;
-    // The objects appear through torn mist rather than enclosed cartoon badges.
-    glow(c,0,8,55,`${color}19`);
-    for(let i=0;i<3;i++)curve(c,[-43,15+i*6,-12,34+i*5,31,-12+i*4,44,7+i*8],`${color}30`,1.3+i*.7);
-    if(state.selectedIngredient===home.id)ellipse(c,0,2,home.r+10,home.r+13,null,`${color}aa`,1.2);
-    if(miniatureSources[home.id]) drawInstrumentMiniature(c,home.id);
-    else potionMaterial(c,home.id);
-    if(object.dragging) {c.font='11px monospace';c.textAlign='center';c.fillStyle='#eee3da';c.fillText(home.name,0,58);}
+    c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.scale(object.scale,object.scale);c.globalAlpha=object.alpha;
+    drawInstrumentMiniature(c,home.id);
     c.restore();
   }
 }
@@ -989,19 +956,15 @@ function drawWorld(c, state) {
   c.clearRect(0,0,1000,720); c.lineCap='round'; c.lineJoin='round';
   background(c,state);
   backgroundGhosts(c,state);
+  instrumentShelves(c);ingredientObjects(c,state,false);
+  parkedBroom(c,state);
   brewScene(c,state);
   flightScene(c,state);
   reachingHand(c,state);
   toneFirefly(c,state);
-  ingredientObjects(c,state);
+  ingredientObjects(c,state,true);
+  fabricCloth(c,state);
   hauntedMist(c,state);
-  if (state.trip) {
-    const t=state.warpTime??state.time??0;
-    for(const m of WITCH_LAYOUT.mushrooms) {
-      glow(c,m.x,m.y-12,70,'#e8b2ee30');
-      for(let i=0;i<3;i++) ellipse(c,m.x,m.y-10,32+i*12+Math.sin(t*2+i)*6,12+i*7,null,'#e5b8df77',1.3);
-    }
-  }
   drawWitchCat(c,state);
 }
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
@@ -1043,10 +1006,8 @@ export function hitTestWitch(x, y, state = {}) {
       nearestObject={type:'object',id:home.id,kind:home.kind,index};objectDistance=distance;objectRadius=home.r+8;
     }
   }
-  // Ingredients draw above the hands. Their visible centers win, while the
-  // extra touch halo cannot swallow a nearby moon, ghost, spoon or fingertip.
-  if(nearestObject&&objectDistance<objectRadius)return nearestObject;
   const targets=getWitchTargets(state);
+  if(Math.hypot(x-targets.fabric.x,y-targets.fabric.y)<Math.max(targets.fabric.r,minRadius*.6))return {type:'fabric'};
   if(Math.hypot(x-targets.tone.x,y-targets.tone.y)<Math.max(targets.tone.r,Math.min(50,minRadius*.7)))return {type:'tone'};
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
@@ -1059,6 +1020,7 @@ export function hitTestWitch(x, y, state = {}) {
     const hit=state.pickHand?.(local.x,local.y,minRadius/t.scale);
     if(hit) return hit;
   }
+  if(nearestObject&&objectDistance<objectRadius)return nearestObject;
   const ladle=getWitchLadle(state);
   if(Math.hypot(x-(ladle.hx-8),y-(ladle.hy-24))<Math.max(27,minRadius*.75))return {type:'spoon'};
   if(Math.hypot(x-targets.nose.x,y-targets.nose.y)<Math.max(targets.nose.r,minRadius*.65))return {type:'nose'};
@@ -1069,6 +1031,11 @@ export function hitTestWitch(x, y, state = {}) {
   const handPoint=transformHandPoint({x:590,y:415},state);
   if(Math.hypot(x-handPoint.x,y-handPoint.y)<Math.max(38,minRadius)) return {type:'hand'};
 
+  if(clamp(state.flightLift)<.35) {
+    const a=parkedBroomPoint({x:-295,y:120}),b=parkedBroomPoint({x:162,y:96}),dx=b.x-a.x,dy=b.y-a.y;
+    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
+    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(18,minRadius*.45))return {type:'broom'};
+  }
   const pot=WITCH_LAYOUT.cauldron;
   if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
   let ghostHit=null,ghostDistance=Infinity;
@@ -1084,6 +1051,13 @@ export function hitTestWitch(x, y, state = {}) {
   }
   for(const spirit of WITCH_LAYOUT.spirits) if(Math.hypot(x-spirit.x,y-spirit.y)<Math.max(spirit.r,minRadius*.7))return {type:spirit.kind};
   if(nearestObject)return nearestObject;
+  if(clamp(state.flightLift)>.05) {
+    const trail=getWitchTrail(state);
+    for(let i=1;i<trail.length;i++) {
+      const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+      if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
+    }
+  }
   if(state.scene==='flight') return {type:'flight'};
   if(Math.hypot(x-ladle.hx,y-ladle.hy)<Math.max(35,minRadius*.8)) return {type:'spoon'};
   return null;

@@ -1,30 +1,35 @@
 import { createQuadrupedState, deriveQuadrupedPose } from '../quadruped/quadruped.js';
 import { deriveQuadrupedVisualRig, drawQuadrupedConstellationRig } from '../quadruped/quadruped-visual-skins.js';
+import { createWitchCatClock, WITCH_CAT_GAITS, WITCH_CAT_PERIOD, WITCH_CAT_DURATION } from './witch-cat-model.js';
 
 // Reuse Quadruped's authored cat-prowl score, feline morphology, articulated
 // feet, spine and head. This is a small coat/presentation adapter, with no
 // instrument controller, audio graph, extra renderer, timer or asset lifecycle.
-const CAT_SCORE = createQuadrupedState('cat', 'cat-prowl');
+const CAT_SCORES = new Map(WITCH_CAT_GAITS.map(gait => [gait, createQuadrupedState('cat', gait)]));
 const LOCAL_WIDTH = 500, LOCAL_HEIGHT = 260, LOCAL_GROUND = 240;
-const PERIOD = 30, DURATION = 7, GROUND = 700, MARGIN = 130;
+const GROUND = 700, MARGIN = 130 * 1.25;
 const TAU = Math.PI * 2;
 const clamp = value => Math.max(0, Math.min(1, value));
 
 /** Read the owner's Play-only clock. The first visit starts at 30 seconds;
  * freezing that clock freezes both travel and paws, including mid-crossing. */
 export function getWitchCatFrame(state = {}) {
-  const time = Number.isFinite(state.performanceTime) ? Math.max(0, state.performanceTime) : 0;
-  const visit = Math.floor(time / PERIOD), elapsed = time - visit * PERIOD;
-  const active = visit > 0 && elapsed < DURATION;
-  const progress = active ? elapsed / DURATION : 0;
+  // Once Audio exists, this is the exact worklet snapshot. Before arming,
+  // the owner advances the same model from its silent primary-Play clock.
+  const source = state.catFrame;
+  const clock = source ? createWitchCatClock(source.time, state, source)
+    : createWitchCatClock(state.performanceTime, state);
+  const { time, visit, active, speed } = clock;
+  const elapsed = time - visit * WITCH_CAT_PERIOD;
+  const progress = active ? clock.progress : 0;
   const direction = visit % 2 === 1 ? 1 : -1;
   return {
     active, visit, progress, direction, elapsed: active ? elapsed : 0,
     x: direction > 0 ? -MARGIN + progress * (1000 + MARGIN * 2) : 1000 + MARGIN - progress * (1000 + MARGIN * 2),
     y: GROUND,
-    position: active ? elapsed * 48 : 0,
-    alpha: active ? clamp(elapsed / .25) * clamp((DURATION - elapsed) / .25) : 0,
-    source: 'quadruped', animalId: 'cat', behaviorId: 'cat-prowl',
+    position: active ? clock.position : 0,
+    alpha: active ? clamp(elapsed / .25) * clamp((1 - progress) * WITCH_CAT_DURATION / speed / .25) : 0,
+    source: 'quadruped', animalId: 'cat', behaviorId: clock.gait,
   };
 }
 
@@ -116,10 +121,11 @@ function drawLaserEye(context, rig, frame) {
 export function drawWitchCat(context, state = {}) {
   const frame = getWitchCatFrame(state);
   if (!frame.active || frame.alpha <= 0) return frame;
-  const pose = deriveQuadrupedPose(CAT_SCORE, frame.position);
-  const rig = deriveQuadrupedVisualRig(pose, LOCAL_WIDTH, LOCAL_HEIGHT, LOCAL_GROUND, CAT_SCORE);
+  const score = CAT_SCORES.get(frame.behaviorId);
+  const pose = deriveQuadrupedPose(score, frame.position);
+  const rig = deriveQuadrupedVisualRig(pose, LOCAL_WIDTH, LOCAL_HEIGHT, LOCAL_GROUND, score);
   context.save(); context.globalAlpha *= frame.alpha;
-  context.translate(frame.x, frame.y); context.scale(frame.direction, 1);
+  context.translate(frame.x, frame.y); context.scale(frame.direction * 1.25, 1.25);
   context.translate(-LOCAL_WIDTH / 2, -LOCAL_GROUND);
   context.lineJoin = 'round'; context.lineCap = 'round';
   drawCoat(context, rig); drawLaserEye(context, rig, frame);

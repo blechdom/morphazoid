@@ -8,6 +8,21 @@ import { hiccupHeadGestureFrame, physicalVoiceParameters } from '../hiccup-head/
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../fm-drums/fm-drums.js';
 import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../../families/tract/throatazoid.js';
+import { moireFilterTarget, stableSvfCoefficients } from '../moire-drone/moire-drone.js';
+import { barberDelayCurve, barberDelayWindow, sandySyrupTargetRate } from '../../families/barber-delay/barber-delay.js';
+import { animalState, interpolateGesture, resolveSourceControls, CALL_GESTURES } from '../../families/syrinx/syrinx.js';
+import { TONGUED_BEASTS_FULL_PRESETS } from '../../families/syrinx/voice-presets.js';
+import { sampleTongueMotionPreset } from '../../families/syrinx/tongue-performance.js';
+import { tongueCavityGuides } from '../../families/syrinx/tongue-physics.js';
+import { applyHybrinxTimelinePerformance } from '../hybrinx/hybrinx-timeline.js';
+import { resolveCreaturazoidEventState } from '../creaturazoid/creaturazoid.js';
+import { ALIEN_LARYNX_FULL_PRESETS } from '../alien-larynx/full-presets.js';
+import { DIGESTAZOID_EVENT_PROFILES } from '../digestazoid/digestazoid.js';
+import { createBlowholeState, createBlowholeVoicePlan } from '../blowhole/blowhole.js';
+import { throatSingingState, ventricularFoldSupercycle, dualFocusTargets } from '../throat-singing/throat-singing.js';
+import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
+import { buildPhysicalModalBank } from '../../physical-sounds.js';
+import { WitchCatDSP } from './witch-cat-audio.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -55,7 +70,7 @@ class CauldronDSP {
     this.targetAir = .13; this.air = .13; this.targetRasp = .23; this.rasp = .23;
     this.targetSustain = .24; this.sustain = .24; this.targetVibrato = .009; this.vibrato = .009;
     this.formants = Array.from({ length: 3 }, () => new Resonator(this.rate));
-    this.ring = new Resonator(this.rate); this.chant = sampleChant(0); this.controlSamples = 0;
+    this.ring = new Resonator(this.rate); this.nasal = new Resonator(this.rate); this.chant = sampleChant(0); this.controlSamples = 0;
     this.effects = Array.from({ length: 4 }, () => ({ kind: '', age: 0, duration: 0, phase: 0, low: 0, envelope: 0,
       formants: [new Resonator(this.rate), new Resonator(this.rate)] }));
     this.delay = new Float32Array(Math.ceil(this.rate * .19)); this.delayIndex = 0;
@@ -96,7 +111,7 @@ class CauldronDSP {
     const v = VOICE[this.activeVoice];
     sampleChant(this.chantPhase, 1, this.radius, this.chant);
     const vowel = (.77 + this.fingers[1] * .46) * Math.pow(1.8, (this.nose - .5) * 2);
-    this.targetHz = v.hz * Math.pow(2.7, this.fingers[0] - .5) * this.chant.pitch * Math.pow(2, (this.hat - .5) * 1.3);
+    this.targetHz = v.hz * Math.pow(2.7, this.fingers[0] - .5) * this.chant.pitch * Math.pow(2, (this.hat - .5) * 1.3 + (this.nose - .5) * 1.5);
     this.targetAir = witchClamp(v.air + (this.fingers[4] - .5) * .55, 0, .98);
     this.targetRasp = witchClamp(v.rasp + (this.fingers[2] - .5) * .8 + this.hair * .34 + (this.hat - .5) * .5);
     this.targetVibrato = v.vibrato + this.fingers[3] ** 2 * .065;
@@ -105,6 +120,7 @@ class CauldronDSP {
     this.formants[0].tune(this.chant.f1 * vowel, width);
     this.formants[1].tune(this.chant.f2 * vowel, width * 1.3);
     this.formants[2].tune(this.chant.f3 * (.94 + vowel * .06), width * 1.7);
+    this.nasal.tune(370 + this.nose * 1390, 65 + (1 - this.nose) * 70);
     this.ring.tune(1140 + this.radius * 1780 + this.fingers[1] * 270, 32 + (1 - this.glass) * 70);
   }
   effectSample() {
@@ -193,6 +209,8 @@ class CauldronDSP {
       let vowel = this.formants[0].next(source) * 1.8 + this.formants[1].next(source) * 1.3 + this.formants[2].next(source) * .7;
       const ringing = this.ring.next(source + noise * this.releaseAir * .04);
       vowel += this.glass * ringing * 2.4;
+      const nasalAmount = (this.nose - .5) * 2;
+      vowel = vowel * (1 - Math.abs(nasalAmount) * .27) + this.nasal.next(source) * nasalAmount * 3.2;
       const articulation = this.sustain + (1 - this.sustain) * this.chant.articulation;
       const release = (noise - this.noiseLow) * this.releaseAir * .026;
       let sample = (vowel * articulation * .88 + cycle * (1 - this.air) * .035) * this.envelope + release;
@@ -598,8 +616,72 @@ class WitchGhostDSP {
 /** Fixed resources for the new potion ingredients. Roach shares its actual
  * contact percussion and wire rasp; Spider shares its actual silk waveguides.
  * Throatazoid uses its own glottal spectrum and authored vowel resonances; the
- * legacy Oculoid slot is now the actual FM Drums factory-kit excerpt. The six
- * ordinary potion materials remain original Witch sounds. */
+ * legacy Oculoid slot is now the actual FM Drums factory-kit excerpt. The
+ * remaining shelf objects reuse compact excerpts from their named instruments. */
+// Each miniature keeps its instrument's authored source/gesture data. Only
+// fixed source voices and three resonators are retained, never complete UIs.
+const ALIEN_TASTE = ALIEN_LARYNX_FULL_PRESETS.find(preset => preset.id === 'double-fold').snapshot;
+const ALIEN_SPECTRUM = glottalHarmonics(ALIEN_TASTE.exciterTenseness, 48, 1024);
+const THROAT_SINGER_TASTE = throatSingingState('open-drone');
+const THROAT_SINGER_SPECTRUM = ventricularFoldSupercycle(THROAT_SINGER_TASTE);
+const TONGUE_TASTE = TONGUED_BEASTS_FULL_PRESETS.find(preset => preset.id === 'wolf-rolled-howl').snapshot;
+const BLOWHOLE_TASTE = createBlowholeState('humpback-two-voice-phrase');
+const BLOWHOLE_TASTE_FRAMES = Array.from({ length: 129 }, (_, i) => createBlowholeVoicePlan(BLOWHOLE_TASTE, i / 128));
+// Fixed per-instrument trims retain phrase dynamics while putting very
+// different native source gains in the same featured-solo neighborhood.
+const TASTE_LEVELS = Object.freeze({ 'drop-choir': .45, 'drop-glass': .8, 'drop-tail': .075,
+  'drop-earwax': .26, 'drop-eyeball': .3, 'drop-newt': .13, 'drop-hair': .07,
+  'drop-roach': .75, 'drop-spider': .44, 'drop-oculoid': 1.1, 'drop-rubix': 1,
+  'drop-hiccup': .33, 'drop-blowhole': .5, 'drop-syrinx': .4, 'drop-throat-singing': .22, 'drop-julie-saw': .42 });
+const TASTE_FORMANT_KEYS = ['f1', 'f2', 'f3'];
+const DIGEST_TASTE_PROFILES = [DIGESTAZOID_EVENT_PROFILES.MB, DIGESTAZOID_EVENT_PROFILES.BURP, DIGESTAZOID_EVENT_PROFILES.HS];
+const DIGEST_TASTE_STARTS = [0, 1.45, 1.8];
+const SINGER_FOCUS_FRAMES = Array.from({ length: 129 }, (_, i) => dualFocusTargets(THROAT_SINGER_TASTE, THROAT_SINGER_TASTE.trueFoldHz * (6 + 5 * Math.sin(Math.PI * i / 128))));
+const SAW_TASTE_STATE = { ...JULIE_SAW_DEFAULTS };
+const SOURCE_TASTE_KEYS = ['frequencyHz', 'pressure', 'tension', 'adduction', 'breath', 'sourceScale', 'asymmetry', 'sourceBalance', 'roughness', 'pulseRateHz', 'coupling', 'feedback', 'outputGain'];
+const SOURCE_TASTE_FRAMES = Object.fromEntries(['drop-tail', 'drop-eyeball', 'drop-newt', 'drop-hair', 'drop-syrinx'].map(kind => {
+  const frames = Array.from({ length: 129 }, (_, i) => {
+    const phase = i / 128;
+    let host, tongue = null;
+    if (kind === 'drop-tail') {
+      const motion = sampleTongueMotionPreset(TONGUE_TASTE.motion, phase * 2.4, TONGUE_TASTE.tongue);
+      host = { ...interpolateGesture(TONGUE_TASTE.state.callId, phase, TONGUE_TASTE.state), ...motion.host, active: true };
+      tongue = motion.tongue;
+    } else if (kind === 'drop-eyeball') host = resolveCreaturazoidEventState('caw', { phase, velocity: .9 });
+    else if (kind === 'drop-hair') {
+      const base = animalState('hyena');
+      const performance = applyHybrinxTimelinePerformance(CALL_GESTURES[base.callId], base, {}, phase);
+      host = performance.host; tongue = performance.tongue;
+    } else if (kind === 'drop-syrinx') {
+      const base = animalState('songbird'); host = interpolateGesture(base.callId, phase, base);
+    } else host = interpolateGesture('lion-roar', phase, animalState('lion'));
+    const source = { ...resolveSourceControls(host) };
+    if (kind === 'drop-newt') Object.assign(source, {
+      // Monstroid's collision-roar source profile (monstroid-processor.js).
+      model: 'twoMass', frequencyHz: source.frequencyHz * .72, tension: Math.max(0, source.tension - .16),
+      adduction: .9, sourceScale: .9, breath: .38, roughness: .68, asymmetry: .34,
+      coupling: .46, feedback: .62, outputGain: 1.04, pulseRateHz: 19,
+    });
+    const quarter = 343 / (4 * source.tractLengthM);
+    const guides = tongue ? tongueCavityGuides(source.tractLengthM, tongue) : null;
+    return { ...source, f1: kind === 'drop-newt' ? 286 : guides?.rearQuarterWaveHz ?? quarter,
+      f2: kind === 'drop-newt' ? 720 : guides?.frontQuarterWaveHz ?? quarter * 3,
+      f3: kind === 'drop-newt' ? 1360 : quarter * 5 };
+  });
+  return [kind, frames];
+}));
+
+function spectrumSample(spectrum, phase, frequency, rate) {
+  const c = Math.cos(TAU * phase), s = Math.sin(TAU * phase);
+  let cosine = c, sine = s, sum = 0;
+  for (let harmonic = 1; harmonic < spectrum.real.length; harmonic++) {
+    const fade = witchClamp((rate * .45 - frequency * harmonic) / (rate * .06));
+    sum += (spectrum.real[harmonic] * cosine + spectrum.imaginary[harmonic] * sine) * fade;
+    const next = cosine * c - sine * s; sine = sine * c + cosine * s; cosine = next;
+  }
+  return sum;
+}
+
 class PotionTasteDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate;
@@ -608,6 +690,9 @@ class PotionTasteDSP {
     this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
     this.fmDrums = new FmTasteDSP(rate);
     this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
+    this.alienBody = throatVoiceParameters(ALIEN_TASTE, 0, rate);
+    this.sawBank = buildPhysicalModalBank('bowed-things', { presetId: 'musical-saw', baseFrequencyHz: bendToFrequency(JULIE_SAW_DEFAULTS),
+      damping: .5, brightness: .5, energy: .58, stereoWidth: .3, bowPressure: .65, bowVelocity: .5, bowPosition: .4, rosin: .6, size: 1 }, { sampleRate: rate, maxModes: 8 });
     this.left = 0; this.right = 0;
     this.attack = 1 - Math.exp(-1 / (rate * .012)); this.release = 1 - Math.exp(-1 / (rate * .07));
   }
@@ -615,7 +700,10 @@ class PotionTasteDSP {
     const slot = { kind, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
       phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
       eventAge: 0, kit: RUBIX_TASTE_KIT[0], control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
-      formants: Array.from({ length: kind === 'drop-choir' ? 4 : 3 }, () => new Resonator(this.rate)) };
+      formants: Array.from({ length: kind === 'drop-choir' ? 4 : 3 }, () => new Resonator(this.rate)),
+      source: SOURCE_TASTE_FRAMES[kind] ? new SyrinxSourceEngine({ sampleRate: this.rate, seed: 0xa37d,
+        model: SOURCE_TASTE_FRAMES[kind][0].model, parameters: SOURCE_TASTE_FRAMES[kind][0] }) : null,
+      sawPhase: kind === 'drop-julie-saw' ? new Float64Array(8) : null };
     for (let i = 0; i < 3; i++) slot.formants[i].tune(HICCUP_TASTE_PLAN.formantFrequenciesHz[i], HICCUP_TASTE_PLAN.formantBandwidthsHz[i]);
     return slot;
   }
@@ -626,6 +714,7 @@ class PotionTasteDSP {
   }
   releaseAll() { this.roach.releaseAll(); this.spider.release(); }
   finish(slot, left, right) {
+    left *= TASTE_LEVELS[slot.kind] ?? 1; right *= TASTE_LEVELS[slot.kind] ?? 1;
     const blend = Math.min(1, slot.age / (this.rate * .008));
     const outgoing = 1 - blend * blend * (3 - 2 * blend);
     this.left = slot.lastL = left * (1 - outgoing) + slot.tailL * outgoing;
@@ -723,46 +812,87 @@ class PotionTasteDSP {
       sample = slot.formants[0].next(source) * 3.1 + slot.formants[1].next(source) * 2.4 + slot.formants[2].next(source) * 1.2;
       sample += Math.sin(slot.phase * TAU) * pressure * voicing * .14;
       sample *= 1.45;
+    } else if (slot.source) {
+      const local = slot.kind === 'drop-eyeball' ? (t % .55) / .55 : t / 2.4;
+      const position = Math.min(128, local * 128), index = Math.min(127, Math.floor(position)), mix = position - index;
+      const frames = SOURCE_TASTE_FRAMES[slot.kind], a = frames[index], b = frames[index + 1];
+      if (slot.control-- <= 0) {
+        for (const key of SOURCE_TASTE_KEYS) slot.source.target[key] = a[key] + (b[key] - a[key]) * mix;
+        for (let i = 0; i < 3; i++) {
+          const key = TASTE_FORMANT_KEYS[i]; slot.formants[i].tune(a[key] + (b[key] - a[key]) * mix, 80 + i * 75);
+        }
+        slot.control = 31;
+      }
+      const source = slot.source.renderSample(slot.low * .12);
+      sample = source * .18 + slot.formants[0].next(source) * 2.4 + slot.formants[1].next(source) * 1.7 + slot.formants[2].next(source) * .7;
+      slot.low += .14 * (sample - slot.low);
+      sample *= 1.7 * Math.min(1, t / .025);
     } else if (slot.kind === 'drop-glass') {
-      const age = t % .71;
-      frequency = 724 + 39 * Math.floor(t / .71);
+      // Alien Larynx's Double Fold snapshot: actual LF coefficients and tract,
+      // with its second fold, asymmetry, and bounded local feedback.
+      const larynx = ALIEN_TASTE.alien.larynx;
+      frequency = ALIEN_TASTE.exciterPitch * (1 + Math.sin(t * 5.7) * .04);
       slot.phase = (slot.phase + frequency * this.dt) % 1;
-      slot.phase2 = (slot.phase2 + frequency * 2.756 * this.dt) % 1;
-      slot.phase3 = (slot.phase3 + Math.min(this.rate * .4, frequency * 5.404) * this.dt) % 1;
-      sample = (Math.sin(slot.phase * TAU) + Math.sin(slot.phase2 * TAU) * .5 + Math.sin(slot.phase3 * TAU) * .19)
-        * Math.exp(-age * 5) * Math.min(1, age / .004) * .29;
-    } else if (slot.kind === 'drop-tail') {
-      const age = t % .57, sweep = Math.exp(-age * 11);
-      frequency = 52 + 320 * sweep;
-      slot.phase = (slot.phase + frequency * this.dt) % 1;
-      sample = (Math.sin(TAU * slot.phase + Math.sin(slot.phase * TAU * 2) * sweep * 2.1) + noise * sweep * .2)
-        * Math.exp(-age * 6) * Math.min(1, age / .008) * .34;
+      slot.phase2 = (slot.phase2 + frequency * .5 * this.dt) % 1;
+      const primary = spectrumSample(ALIEN_SPECTRUM, slot.phase, frequency, this.rate);
+      const fold = spectrumSample(ALIEN_SPECTRUM, slot.phase2, frequency * .5, this.rate);
+      const source = Math.tanh(primary + fold * larynx.falseFoldMix + slot.low * larynx.feedback)
+        * (1 + Math.sin(slot.phase2 * TAU) * larynx.asymmetry);
+      if (slot.control-- <= 0) {
+        for (let i = 0; i < 3; i++) slot.formants[i].tune(this.alienBody.formants[i], this.alienBody.formants[i] / this.alienBody.resonance);
+        slot.control = 31;
+      }
+      sample = slot.formants[0].next(source) * 2.8 + slot.formants[1].next(source) * 1.8 + slot.formants[2].next(source) * .7;
+      slot.low += .2 * (sample - slot.low); sample *= Math.min(1, t / .03);
     } else if (slot.kind === 'drop-earwax') {
-      const age = t % .67, pressure = Math.sin(Math.PI * Math.min(1, age / .56)) ** 2;
-      frequency = 63 + pressure * 165;
-      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * .713 * this.dt) % 1;
-      const squelch = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * (1 + pressure * 7));
-      slot.low += (.025 + pressure * .12) * (squelch - slot.low);
-      sample = slot.low * pressure * .72;
-    } else if (slot.kind === 'drop-eyeball') {
-      const age = t % .41, pop = Math.exp(-age * 16);
-      frequency = 107 + 480 * pop;
+      const index = t < 1.45 ? 0 : t < 1.8 ? 1 : 2, profile = DIGEST_TASTE_PROFILES[index];
+      const age = Math.max(0, t - DIGEST_TASTE_STARTS[index]);
+      const envelope = Math.min(1, age / profile.attackSeconds) * Math.exp(-age / profile.releaseSeconds);
+      frequency = profile.peakFrequencyHz * (1 + .3 * Math.exp(-age * 18));
       slot.phase = (slot.phase + frequency * this.dt) % 1;
-      slot.phase2 = (slot.phase2 + frequency * 1.37 * this.dt) % 1;
-      sample = (Math.sin(slot.phase * TAU) + Math.sin(slot.phase2 * TAU) * pop * .5 + noise * pop * .12)
-        * Math.exp(-age * 9) * Math.min(1, age / .004) * .4;
-    } else if (slot.kind === 'drop-newt') {
-      const age = t % .33, curl = Math.sin(Math.PI * Math.min(1, age / .28));
-      frequency = 260 + curl * 680 + 90 * Math.sin(t * 4.9);
-      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * .27 * this.dt) % 1;
-      sample = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * 1.9) * curl ** 2 * .27;
-    } else if (slot.kind === 'drop-hair') {
-      frequency = 117 + Math.sin(t * 7.3) * 24 + Math.sin(t * 19) * 8;
-      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * 1.437 * this.dt) % 1;
-      slot.phase3 = (slot.phase3 + frequency * 3.173 * this.dt) % 1;
-      slot.low += .06 * (noise - slot.low);
-      sample = (Math.sin(slot.phase * TAU) * .19 + Math.sin(slot.phase2 * TAU) * .12 + Math.sin(slot.phase3 * TAU) * .07
-        + (noise - slot.low) * .09) * (.55 + .45 * Math.sin(t * 23) ** 2);
+      slot.phase2 = (slot.phase2 + frequency * .47 * this.dt) % 1;
+      if (slot.control-- <= 0) { slot.formants[0].tune(profile.peakFrequencyHz, profile.bandwidthHz); slot.control = 31; }
+      const source = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * 2.3) + noise * .27;
+      sample = (slot.formants[0].next(source) * 2.1 + source * .25) * envelope * .66;
+    } else if (slot.kind === 'drop-blowhole') {
+      const position = Math.min(128, t / 2.4 * 128), index = Math.min(127, Math.floor(position)), mix = position - index;
+      const a = BLOWHOLE_TASTE_FRAMES[index], b = BLOWHOLE_TASTE_FRAMES[index + 1];
+      for (let i = 0; i < a.voices.length; i++) {
+        const first = a.voices[i], next = b.voices[i], key = i ? 'phase2' : 'phase';
+        frequency = first.monitorFrequencyHz + (next.monitorFrequencyHz - first.monitorFrequencyHz) * mix;
+        slot[key] = (slot[key] + Math.min(this.rate * .35, frequency) * this.dt) % 1;
+        const gain = first.gain + (next.gain - first.gain) * mix;
+        const closure = first.closure + (next.closure - first.closure) * mix;
+        const roughness = first.roughness + (next.roughness - first.roughness) * mix;
+        const phase = slot[key] * TAU;
+        sample += (Math.sin(phase) + Math.sin(phase * 2) * closure * .37 + noise * roughness * .05) * gain * .68;
+      }
+    } else if (slot.kind === 'drop-throat-singing') {
+      frequency = THROAT_SINGER_TASTE.trueFoldHz * THROAT_SINGER_SPECTRUM.baseFrequencyRatio;
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      if (slot.control-- <= 0) {
+        const focus = SINGER_FOCUS_FRAMES[Math.min(128, Math.floor(t / 2.4 * 128))];
+        slot.formants[0].tune(340, 150); slot.formants[1].tune(focus.f2Hz, focus.bandwidthHz); slot.formants[2].tune(focus.f3Hz, focus.bandwidthHz);
+        slot.control = 63;
+      }
+      const source = spectrumSample(THROAT_SINGER_SPECTRUM, slot.phase, frequency, this.rate);
+      sample = source * .16 + slot.formants[0].next(source) * 1.6 + slot.formants[1].next(source) * 2.5 + slot.formants[2].next(source) * 2.2;
+      sample *= Math.min(1, t / .045);
+    } else if (slot.kind === 'drop-julie-saw') {
+      const state = JULIE_SAW_DEFAULTS, bank = this.sawBank, blade = julieSawBlade(state.bladeId);
+      // Continuous blade flex and the actual musical-saw modal ratios/T60s.
+      // A short bow excites this fixed modal bank; no note quantization.
+      if (slot.control-- <= 0) { SAW_TASTE_STATE.bend = .32 + .32 * Math.sin(t * 1.3) ** 2; slot.frequency = bendToFrequency(SAW_TASTE_STATE); slot.control = 31; }
+      frequency = slot.frequency;
+      const bow = Math.min(1, t / .16) * Math.min(1, (2.4 - t) / .3);
+      for (let i = 0; i < bank.modeCount; i++) {
+        const hz = frequency * bank.frequenciesHz[i] / bank.fundamentalHz;
+        if (hz > this.rate * .44) continue;
+        slot.sawPhase[i] = (slot.sawPhase[i] + hz * (1 + .008 * Math.sin(t * 32)) * this.dt) % 1;
+        const t60 = bank.t60Seconds[i] * blade.decayScale;
+        sample += Math.sin(slot.sawPhase[i] * TAU) * bank.gains[i] * Math.exp(-t / Math.max(.3, t60)) / (1 + i * .45);
+      }
+      sample = (sample * .54 + noise * state.edgeRasp * .018) * bow;
     } else if (slot.kind === 'drop-oculoid') {
       if (active && t >= slot.nextEvent && slot.event < FM_TASTE_VOICES.length) {
         this.fmDrums.strike(FM_TASTE_VOICES[slot.event++]); slot.nextEvent += .32;
@@ -775,14 +905,14 @@ class PotionTasteDSP {
   }
 }
 
-/** Fourteen fixed ingredient slots share a five-voice Gesticules engine and
+/** Eighteen fixed ingredient slots share a five-voice Gesticules engine and
  * bounded miniature components. A retrigger reuses the same slot and clocks;
  * every phrase finishes, leaving the continuing singer and fingers audible. */
 class DroppedInstrumentDSP {
   constructor(rate) {
     this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
     this.hand = new HandDSP(rate); this.tastes = new PotionTasteDSP(rate);
-    this.solo = 0; this.kind = ''; this.levels = new Float32Array(128);
+    this.solo = 0; this.kind = ''; this.handMakeup = 1.4; this.handMakeupTarget = 1.4; this.levels = new Float32Array(128);
     this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ ...this.tastes.createSlot(kind), mask: [19, 4][i] || 0 }));
     this.hand.setConfig({
       motion: { id: 'flourish', tempo: 90, amount: .48 }, tremor: { amount: 0 },
@@ -816,11 +946,14 @@ class DroppedInstrumentDSP {
         mask |= slot.mask; active = true; boundary = Math.min(boundary, slot.until);
       }
       this.hand.setHeldFingers(mask);
+      if (mask) this.handMakeupTarget = mask === 4 ? 5.5 : 1.4;
       const count = Math.min(left.length - offset, boundary - this.clock);
       this.hand.process(offset === 0 && count === left.length ? left : left.subarray(offset, offset + count),
         offset === 0 && count === right.length ? right : right.subarray(offset, offset + count), this.clock / this.rate);
       active = this.enabled && active;
       for (let i = offset; i < offset + count; i++) {
+        this.handMakeup += (this.handMakeupTarget - this.handMakeup) * this.attack;
+        left[i] *= this.handMakeup; right[i] *= this.handMakeup;
         for (const slot of this.slots) if (!slot.mask && (slot.until > this.clock || slot.gain > 1e-8)) {
           this.tastes.sample(slot, this.enabled && slot.until > this.clock);
           left[i] += this.tastes.left; right[i] += this.tastes.right;
@@ -843,6 +976,7 @@ export class FlightMixDelay {
     this.buffers = [new Float32Array(Math.ceil(rate * 2)), new Float32Array(Math.ceil(rate * 2))];
     this.writeIndex = 0; this.ridePhase = 0; this.wet = 0; this.feedback = 0; this.master = 0;
     this.delayL = rate * .32; this.delayR = rate * .39; this.lowL = 0; this.lowR = 0;
+    this.pull = .5; this.twist = .5; this.headPhase = 0;
     this.left = 0; this.right = 0; this.wetLeft = 0; this.wetRight = 0; this.cleared = true;
     this.smooth = 1 - Math.exp(-1 / (rate * .08)); this.fade = 1 - Math.exp(-1 / (rate * .025));
   }
@@ -853,15 +987,31 @@ export class FlightMixDelay {
   }
   next(left, right, enabled) {
     const c = this.controls, flying = c.mode === 'flight';
-    const wetTarget = flying ? .35 + c.altitude * .25 : 0;
+    this.pull += (c.trailPull - this.pull) * this.smooth;
+    this.twist += (c.trailTwist - this.twist) * this.smooth;
+    const wetTarget = flying ? .35 + c.altitude * .2 + this.pull * .15 : 0;
     this.wet += (wetTarget - this.wet) * this.smooth;
-    this.feedback += ((flying && c.gate ? .28 + c.speed * .4 : .16) - this.feedback) * this.smooth;
-    const ride = .018 * Math.sin(this.ridePhase);
-    const seconds = .11 + c.altitude * .43 + (1 - c.speed) * .13 + ride;
+    this.feedback += ((flying && c.gate ? .22 + c.speed * .22 + this.pull * .3 : .16) - this.feedback) * this.smooth;
+    const ride = (.008 + Math.abs(this.twist - .5) * .045) * Math.sin(this.ridePhase);
+    const seconds = .07 + c.altitude * .43 + (1 - c.speed) * .1 + this.pull * .55 + ride;
     // A bounded read-head slope avoids abrupt discontinuities on pointer edits.
     this.delayL += witchClamp(seconds * this.rate - this.delayL, -.24, .24);
     this.delayR += witchClamp(seconds * (.74 + c.flightX * .48) * this.rate - this.delayR, -.24, .24);
-    const echoL = this.read(this.buffers[0], this.delayL), echoR = this.read(this.buffers[1], this.delayR);
+    // Two complementary Candy Coil heads use its actual centered hump/window;
+    // Sandy Syrup's exponential rate map gives the string twist its pitch range.
+    const up = this.twist >= .5, range = .025 + Math.abs(this.twist - .5) * .18;
+    const phase = this.headPhase, other = (phase + .5) % 1;
+    const window = barberDelayWindow(phase), windowOther = barberDelayWindow(other);
+    const span = range * this.rate;
+    const movingL = this.read(this.buffers[0], this.delayL + barberDelayCurve('candy', phase, up) * span) * window
+      + this.read(this.buffers[0], this.delayL + barberDelayCurve('candy', other, up) * span) * windowOther;
+    const movingR = this.read(this.buffers[1], this.delayR + barberDelayCurve('candy', phase, up) * span) * windowOther
+      + this.read(this.buffers[1], this.delayR + barberDelayCurve('candy', other, up) * span) * window;
+    const coil = Math.abs(this.twist - .5) * 1.8;
+    const echoL = this.read(this.buffers[0], this.delayL) * (1 - coil) + movingL * coil;
+    const echoR = this.read(this.buffers[1], this.delayR) * (1 - coil) + movingR * coil;
+    if (c.gate) this.headPhase = (phase + this.dt * (.12 + c.speed * .6)
+      * sandySyrupTargetRate(2.5, this.twist, true)) % 1;
     this.lowL += .26 * (echoL - this.lowL); this.lowR += .26 * (echoR - this.lowR);
     this.buffers[0][this.writeIndex] = Math.tanh((left + this.lowR * this.feedback) / .8) * .8;
     this.buffers[1][this.writeIndex] = Math.tanh((right + this.lowL * this.feedback) / .8) * .8;
@@ -880,6 +1030,47 @@ export class FlightMixDelay {
   }
 }
 
+/** Four pairs from Fabric Filter's actual lattice/fabric mapping. The center
+ * rests dry; wind displacement morphs the whole delayed mix through notches.
+ * Targets update only on control edits; fixed TPT states slew sample by sample. */
+export class WitchFabricFilter {
+  constructor(rate) {
+    this.rate = rate; this.wet = 0; this.targetWet = 0; this.left = 0; this.right = 0;
+    this.smooth = 1 - Math.exp(-1 / (rate * .045));
+    this.filters = Array.from({ length: 8 }, () => ({ ic1: 0, ic2: 0, a1: 1, a2: 0, a3: 0, k: 1, target: null }));
+    this.setControls(.5, .5);
+  }
+  setControls(x, y) {
+    const a = (x - .5) * 2, b = (y - .5) * 2;
+    this.targetWet = Math.min(1, Math.hypot(a, b));
+    for (let i = 0; i < 8; i++) {
+      const target = moireFilterTarget({ index: i % 4, bank: i >> 2, sampleRate: this.rate,
+        phaseA: a * .3, phaseB: .37 + b * .3, fabricVectorAX: a, fabricVectorAY: b,
+        fabricVectorBX: -b, fabricVectorBY: a,
+        parameters: { filterPairs: 4, lowFrequency: 130, highFrequency: 6400,
+          resonance: .36 + Math.abs(b) * .42, fabricDepth: 2.4, fieldADepth: .7, fieldBDepth: .8 } });
+      this.filters[i].target = stableSvfCoefficients(target.frequency, target.q, this.rate);
+    }
+  }
+  next(left, right) {
+    this.wet += (this.targetWet - this.wet) * this.smooth;
+    for (let channel = 0; channel < 2; channel++) {
+      const dry = channel ? right : left; let sample = dry;
+      for (let i = 0; i < 4; i++) {
+        const f = this.filters[channel * 4 + i], t = f.target;
+        f.a1 += (t.a1 - f.a1) * this.smooth; f.a2 += (t.a2 - f.a2) * this.smooth;
+        f.a3 += (t.a3 - f.a3) * this.smooth; f.k += (t.k - f.k) * this.smooth;
+        const v3 = sample - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3;
+        const v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
+        f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
+        sample -= f.k * v1 * .92;
+      }
+      const output = dry + (sample - dry) * this.wet;
+      if (channel) this.right = output; else this.left = output;
+    }
+  }
+}
+
 /** Voice and Gesticules keep their clocks together. Focus changes balance,
  * dropped instruments briefly solo, and flight delays the complete performance. */
 export class WitchDSP {
@@ -891,19 +1082,22 @@ export class WitchDSP {
     this.weights = new Float64Array([.72, .28, 0]); this.fadeFrom = new Float64Array(this.weights);
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
+    this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate);
     this.ghosts = new WitchGhostDSP(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
-      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
+      catClock: this.cat.clock, catTime: 0, catLevel: 0, ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
   get chantPhase() { return this.brew.chantPhase; }
   get effectCounter() { return this.flight.noteCount; }
   get effects() { return this.brew.effects; }
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase) {
-    this.brew.syncPhase(phase, speed); this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed;
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock) {
+    this.brew.syncPhase(phase, speed);
+    if (catClock && typeof catClock === 'object') { this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; }
+    this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed;
     if (Number.isFinite(ghostPhase)) { this.ghosts.syncPhase(ghostPhase); this.visual.ghostPhase = this.ghosts.phase; }
     if (Number.isFinite(handTime)) {
       this.hand.setTransport({ time: witchClamp(handTime, 0, 1e9) }, this.time);
@@ -927,8 +1121,9 @@ export class WitchDSP {
     this.brew.setControls({ ...c, mode: 'brew', fingers: this.brew.controls.fingers });
     this.flight.setControls({ ...c, gate: false }); // flight is the shared delay; accents remain explicit.
     this.delay.controls = c;
+    if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); }
-    if (c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
+    if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
         const mask = c.fingerMask || 31;
@@ -969,20 +1164,25 @@ export class WitchDSP {
         // the transfer curve underneath a ringing sound.
         const handL = Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1];
         const handR = Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1];
-        const soloMix = this.drops.levels[i] * .8, backing = 1 - soloMix;
-        const dropL = Math.tanh(b[6][i] * 2.4 / .54) * .54 * soloMix;
-        const dropR = Math.tanh(b[7][i] * 2.4 / .54) * .54 * soloMix;
+        const soloMix = this.drops.levels[i] * .9, backing = 1 - soloMix * .91;
+        const dropL = Math.tanh(b[6][i] * 3.4 / .54) * .54 * soloMix;
+        const dropR = Math.tanh(b[7][i] * 3.4 / .54) * .54 * soloMix;
         const bedL = b[0][i] * this.weights[0] + handL, bedR = b[1][i] * this.weights[0] + handR;
         this.backingEnergy += ((bedL * bedL + bedR * bedR) * .5 - this.backingEnergy) * this.backingFollow;
         this.ghosts.next(c, this.enabled);
+        this.cat.next(c, this.enabled && c.ghostGate, c.ghostGate);
         // The visitors stay below the singer/fingers even in very quiet
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
         const ghostL = this.ghosts.left * ghostCeiling * backing, ghostR = this.ghosts.right * ghostCeiling * backing;
-        const dryL = Math.tanh((bedL * backing + ghostL + dropL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + dropR + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + this.cat.left * .3 * backing + dropL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + this.cat.right * .3 * backing + dropR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
-        const outL = this.delay.left, outR = this.delay.right;
+        this.fabric.next(this.delay.left, this.delay.right);
+        // Fixed makeup preserves relative whispers and decays. This memoryless
+        // soft peak ceiling cannot raise a tail or chase silence like AGC.
+        const outL = Math.tanh(this.fabric.left * 2.9 / .84) * .84;
+        const outR = Math.tanh(this.fabric.right * 2.9 / .84) * .84;
         left[offset + i] = right === left ? (outL + outR) * .5 : outL;
         if (right !== left) right[offset + i] = outR;
         energy += (outL * outL + outR * outR) * .5;
@@ -999,6 +1199,7 @@ export class WitchDSP {
     this.visual.brewLevel = Math.sqrt(brewEnergy / Math.max(1, left.length));
     this.visual.handLevel = Math.sqrt(handEnergy / Math.max(1, left.length));
     this.visual.dropLevel = Math.sqrt(dropEnergy / Math.max(1, left.length));
+    this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; this.visual.catLevel = this.cat.level;
     this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));
@@ -1026,13 +1227,24 @@ export class WitchDSP {
 // The guard permits offline import of the exact DSP without faking browser globals.
 if (typeof globalThis.AudioWorkletProcessor === 'function') {
   class WitchProcessor extends AudioWorkletProcessor {
-    constructor() {
-      super(); this.dsp = new WitchDSP(sampleRate); this.alive = true; this.nextTelemetry = 0;
+    constructor(options = {}) {
+      super(); this.phaseGeneration = Number.isSafeInteger(options.processorOptions?.phaseGeneration)
+        ? Math.max(0, options.processorOptions.phaseGeneration) : 0;
+      this.dsp = new WitchDSP(sampleRate); this.alive = true; this.nextTelemetry = 0;
       this.port.onmessage = ({ data }) => {
         if (!data || !this.alive) return;
         if (data.type === 'controls') this.dsp.setControls(data.controls);
         if (data.type === 'enabled') this.dsp.setEnabled(data.enabled);
-        if (data.type === 'phase') this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase);
+        if (data.type === 'phase') {
+          const generation = data.phaseGeneration;
+          // Untagged direct callers retain the current generation. Tagged
+          // seeks are ordered, and an older one cannot rewind a newer node.
+          if (generation === undefined || (Number.isSafeInteger(generation) && generation >= this.phaseGeneration)) {
+            if (generation !== undefined) this.phaseGeneration = generation;
+            this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase, data.catClock);
+            this.nextTelemetry = 0;
+          }
+        }
         if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind);
         if (data.type === 'dispose') { this.alive = false; this.dsp.setEnabled(false); }
       };
@@ -1044,7 +1256,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
       this.dsp.process(channels[0], channels[1] || channels[0]);
       if (currentTime >= this.nextTelemetry) {
         this.nextTelemetry = currentTime + 1 / 30;
-        this.port.postMessage({ type: 'visual', ...this.dsp.visual, audioTime: currentTime });
+        this.port.postMessage({ type: 'visual', ...this.dsp.visual, audioTime: currentTime, phaseGeneration: this.phaseGeneration });
       }
       return true;
     }

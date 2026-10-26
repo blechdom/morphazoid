@@ -28,7 +28,7 @@
       "replacements": [
         {
           "before": "",
-          "after": "copy+require\tsrc/instruments/witch/witch-cat.js\n"
+          "after": "copy+require\tsrc/instruments/witch/witch-cat.js\ncopy+require\tsrc/instruments/witch/witch-cat-model.js\ncopy+require\tsrc/instruments/witch/witch-cat-audio.js\n"
         }
       ]
     },

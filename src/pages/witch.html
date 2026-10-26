@@ -17,7 +17,7 @@
     <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">Gesticules</option><option value="witch.html" selected>Witches Brew</option><option value="throat-singing.html">Throat Singer</option></select></label>
     <div class="audio-strip" role="group" aria-label="Audio controls">
       <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
-      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">40%</output></span><input id="outputLevel" type="range" min="0" max="1" step="0.01" value="0.4" /></label>
+      <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">75%</output></span><input id="outputLevel" type="range" min="0" max="1" step="0.01" value="0.75" /></label>
     </div>
   </header>
   <main class="witch-shell">
@@ -58,6 +58,10 @@
       </section>
       <section class="witch-control-section" id="fingerControls" aria-labelledby="fingerHeading">
         <h2 id="fingerHeading">Five little spells</h2>
+        <label class="witch-select" for="handMotion"><span>Incantation motion</span><select id="handMotion"></select></label>
+        <label class="witch-select" for="handSound"><span>Finger sound</span><select id="handSound"></select></label>
+        <label class="witch-range" for="handRate"><span>Incantation speed <output id="handRateOut" for="handRate"></output></span><input id="handRate" type="range" min="0.25" max="6" step="0.01" value="1" /></label>
+        <label class="witch-range" for="handDepth"><span>Gesture depth <output id="handDepthOut" for="handDepth"></output></span><input id="handDepth" type="range" min="0" max="1" step="0.01" value="0.66" /></label>
         <div class="witch-finger-controls">
           <label class="witch-range" for="finger0"><span><span id="finger0Label">Thumb · pitch</span> <output id="finger0Out" for="finger0">50%</output></span><input id="finger0" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
           <label class="witch-range" for="finger1"><span><span id="finger1Label">Index · vowel</span> <output id="finger1Out" for="finger1">50%</output></span><input id="finger1" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
@@ -72,6 +76,8 @@
       </section>
       <section class="witch-control-section" id="nightControls" aria-labelledby="nightHeading">
         <h2 id="nightHeading">Rollercoaster delay</h2>
+        <label class="witch-range" for="trailPull"><span>Pull the flight string <output id="trailPullOut" for="trailPull"></output></span><input id="trailPull" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+        <label class="witch-range" for="trailTwist"><span>Twist the flight string <output id="trailTwistOut" for="trailTwist"></output></span><input id="trailTwist" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
         <label class="witch-range" for="flightSpeed"><span>Flight speed <output id="flightSpeedOut" for="flightSpeed">40%</output></span><input id="flightSpeed" type="range" min="0.02" max="1" step="0.01" value="0.4" /></label>
         <label class="witch-range" for="altitude"><span>Altitude <output id="altitudeOut" for="altitude">50%</output></span><input id="altitude" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
         <label class="witch-range" for="flightX"><span>Across the sky <output id="flightXOut" for="flightX">50%</output></span><input id="flightX" type="range" min="0.12" max="0.88" step="0.01" value="0.5" /></label>
@@ -79,23 +85,25 @@
       </section>
       <section class="witch-control-section" aria-labelledby="soloHeading">
         <h2 id="soloHeading">Add to the potion</h2>
-        <div class="witch-effects witch-potion-list">
-          <button type="button" data-drop="glass">Glass</button><button type="button" data-drop="tail">Tail</button>
-          <button type="button" data-drop="earwax">Ear wax</button><button type="button" data-drop="eyeball">Eyeball</button>
-          <button type="button" data-drop="newt">Newt</button><button type="button" data-drop="hair">Hair</button>
-          <button type="button" data-drop="roach">Roach Synth</button><button type="button" data-drop="spider">Spider Synth</button>
-          <button type="button" data-drop="oculoid">FM Drums</button><button type="button" data-drop="rubix">Rubix cube</button>
-          <button type="button" data-drop="hiccup">Hiccup Head</button><button type="button" data-drop="gesticules">Gesticules</button>
-          <button type="button" data-drop="marimba">Rattlesnake</button><button type="button" data-drop="choir">Throatazoid</button>
-        </div>
+        <div class="witch-effects witch-potion-list" id="potionShelfControls"></div>
+      </section>
+      <section class="witch-control-section" aria-labelledby="catHeading">
+        <h2 id="catHeading">The black cat</h2>
+        <label class="witch-select" for="catGait"><span>Gait</span><select id="catGait"></select></label>
+        <label class="witch-range" for="catSpeed"><span>Cat pace <output id="catSpeedOut" for="catSpeed"></output></span><input id="catSpeed" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
+      </section>
+      <section class="witch-control-section" aria-labelledby="fabricHeading">
+        <h2 id="fabricHeading">Fabric in the wind</h2>
+        <label class="witch-range" for="fabricX"><span>Weave <output id="fabricXOut" for="fabricX"></output></span><input id="fabricX" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+        <label class="witch-range" for="fabricY"><span>Filter opening <output id="fabricYOut" for="fabricY"></output></span><input id="fabricY" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
       </section>
       <section class="witch-control-section" id="ingredientControls" aria-labelledby="ingredientHeading">
         <h2 id="ingredientHeading">A pinch of trouble</h2>
-        <div class="witch-ingredients"><button id="glassButton" type="button" aria-label="Add glass resonance">◇ Glass <output id="glassOut">0%</output></button><button id="hairButton" type="button" aria-label="Add tangled hair harmonics">〰 Hair <output id="hairOut">0%</output></button></div>
+        <div class="witch-ingredients"><button id="glassButton" type="button" aria-label="Add glass resonance">Ringing resonance <output id="glassOut">0%</output></button><button id="hairButton" type="button" aria-label="Add tangled hair harmonics">Unstable harmonics <output id="hairOut">0%</output></button></div>
         <button id="clearIngredients" class="witch-quiet" type="button">Empty the potion</button>
       </section>
       </details>
-      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Choose a preset to change the whole spell, including its colors and crooked lines. Voice and fingers brew together. A black Quadruped cat prowls across the scene every thirty seconds while playing. Drag the spoon upward or downward through five singing characters; its automatic motion chooses them too. Pull her nose or hat to change her singing. Lift the glowing ember to brighten her finger spells and night accents. Her right hand stays enlarged; touch its palm to bring the finger sound forward. Drop the hovering ingredients and miniature Morphazoids into the pot for short solos. Glass adds ringing resonance; hair adds unstable harmonics. Open Parameters for the complete ingredient list and keyboard controls. The moon launches her looping broom and sends the whole brew through a wild delay. Ghostly Creaturazoid, Monstrozoid and Hiccup Head keep a quiet background beat as they fade through the mist. Drag any ghost up to speed their beat, or down to slow it. The mushrooms change colors and bend the lines. On the picture: H brings the fingers forward in the mix; M launches or rings the moon; B lands; W touches mushrooms. Hold 1–5 and use arrows to bend fingers. Q/E/R drop Gesticules, Rattlesnake and Throatazoid. Use [ and ] to select any ingredient, then Enter to drop it. Use - and + to change brightness. G speeds the ghost beat; Shift+G slows it. T/S/V play bats, stars and wind. Space starts or stops; Escape lands and releases.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="hand">Feature fingers</button><button type="button" data-world-action="moon">Fly to the moon</button><button type="button" data-world-action="mushrooms">Touch mushrooms</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
+      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Voice and fingers brew together. Presets change the whole spell and refill the shelf. Click a real Morphazoid icon on a shelf: it chooses its spell, flies into the pot and plays a featured sound. Used icons stay gone until another preset is selected. The spoon height chooses five singing characters. Pull her nose to bend pitch and resonance; tug her hat for vocal texture. Touch her right palm to feature the finger instruments. Each spell pairs a Gesticules animation with its own instrumental sound. Click the broom or moon to fly: both arms and hands come along. Pull or push the snaking flight string to stretch the delay; drag the cloth in the wind to filter the entire brew. A larger black Quadruped cat crosses every thirty seconds of Play with real foot sounds and a preset-owned gait. The ghost portraits keep a quiet beat; drag them up or down to change tempo. Mushrooms change colors and bend the scene. On the picture: H features fingers; M flies; B lands; W touches mushrooms. Hold 1–5 and use arrows to bend fingers. Q/E/R add Gesticules, Rattlesnake and Throatazoid. [ and ] select a shelf icon; Enter sends it to the potion. G / Shift+G change ghost tempo; T/S/V play bats, stars and wind. Space starts or stops; Escape lands and releases. Parameters contains keyboard-accessible alternatives for the cloth, flight string, cat and hands.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="hand">Feature fingers</button><button type="button" data-world-action="broom">Ride the broom</button><button type="button" data-world-action="mushrooms">Touch mushrooms</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
     </aside>
   </main>
   <script type="module" src="nav.js"></script>

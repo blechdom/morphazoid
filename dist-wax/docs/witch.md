@@ -3,10 +3,10 @@
 Witches Brew leads Faves with an ensemble in one continuous night scene.
 Her cauldron voice and instrumental fingers play together. The scene starts
 moving with **Audio off**; enable Audio to hear it. Stir the potion, play her
-fingers, drop a floating miniature instrument into the pot, or take the whole
+fingers, click a miniature instrument on the shelf, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
 Presets and playback stay visible; **Parameters** starts closed and contains
-the native controls and a complete ingredient list for keyboard access. The 32
+the native controls and a complete ingredient list for keyboard access. The 50
 complete presets are the main way to change the spell: singing, fingers, ghost
 beat, flight, eight night palettes and crooked lines recall together. Preset
 changes keep Audio, Play and the live clocks running.
@@ -15,21 +15,22 @@ changes keep Audio, Play and the live clocks running.
 | --- | --- | --- |
 | Stir faster | Faster vortex and articulation | Faster invented syllables |
 | Lift or lower the spoon | Five glowing motes follow its height | Selects mutter, whisper, creak, cackle or singing |
-| Pull her nose / hat | Nose lengthens / hat stretches and tips | Changes vocal resonance / pitch and rasp |
+| Pull her nose / hat | Nose lengthens / hat stretches and tips | Nose bends pitch and nasal resonances; hat changes rasp |
 | Widen the circle | Wider whirlpool and open jaw | Broader vowel resonances |
 | Reverse | Vortex changes direction | The syllable path runs backward |
 | Release a gesture | Automatic motion resumes while Play is active | The ensemble continues; stopped manual gestures fade |
 | Click her right palm | Her long 3D hand stays enlarged at a 55° clockwise angle | Five instrumental voices come forward over quieter brewing |
-| Bend a fingertip | Its long finger curls and glows | Glass, reed, wire, metal or marimba pitch and brightness |
-| Drop a floating ingredient or miniature Morphazoid into the pot | The object falls into the potion and sends ripples through it | Its short solo comes forward while the ensemble continues underneath |
+| Bend a fingertip | Its long finger curls and glows | Changes its selected instrumental source’s pitch and brightness |
+| Click a shelf icon | Its spell changes the scene and the icon flies into the pot | Its source-derived solo comes forward over the ongoing ensemble |
 | Lift or lower the glowing ember | The ember rises and glows brighter | Brightens the finger instruments and night accents |
-| Click the moon | She takes off on a rollercoaster broom ride | One launch cackle; flight bends the whole mix through delay |
-| Steer the broom | The ride rises, falls and sweeps across the sky | Delay and stereo movement follow the flight |
+| Click the parked broom or moon | She takes off on a rollercoaster broom ride | One launch cackle; flight bends the whole mix through delay |
+| Steer the broom | The witch, both arms and both hands fly together | Delay and stereo movement follow the flight |
+| Pull or push the snaking flight string | The continuous trail stretches and coils | Changes delay length, feedback and moving read heads |
+| Pull the cloth in the wind | The woven patch shifts | Fabric Filter resonances and notches process the entire mix |
 | Touch the moon, bats, star or wind spirit | The touched creature responds | Selects a singing character and adds its accent |
 | Lift or lower a background ghost | The three spectral visitors pulse and drift at the new tempo | Speeds up or slows down their shared, quiet beat |
 | Stir during flight | The pot stays within reach | The same voice and fingers continue through the delay |
 | Click a mushroom | Colors change and the picture ripples | Playback continues unchanged |
-| Add glass / hair | Potion changes | Ringing resonances / unstable harmonics |
 | Stop | The performance and ghost beat pause | Voice, fingers, ghosts, solos and flight effects release |
 
 The spoon rises and falls automatically through muttering, whisper, creak,
@@ -43,40 +44,34 @@ Backward means reversing the authored syllable trajectory, not reversing a
 recorded waveform. Pitch is continuous; there is no scale quantization.
 
 Both hands use Gesticules’ actual weighted 3D hand model, elongated and colored
-with teal, violet and jewel-toned claws. Her left ladle hand is flipped and
-enlarged, with the spoon anchored inside its actual projected palm. Its sleeve
-passes behind her face. During flight this hand becomes smaller and follows
-her body while the spoon bowl keeps circling the pot. Her right hand stays fully extended through
-brewing, flight, presets and Reset. Their finger-roll and claw-pulse animations reuse
-Gesticules choreography with offset timing. The reaching hand uses its five-voice
-synthesis engine: thumb glass, index reed, middle wire, ring metal and little
-finger marimba. Each bend changes its own pitch and tone. The fingers play
-alongside the cauldron throughout the performance, including during flight.
-Hold several fingertips or number keys together. Holding a digit takes over its
-bend while the others keep moving.
-Moving a finger also re-excites the struck metal and marimba sounds. Brightness
-shapes the instrument mix. Cauldron character and ingredients do not color the
-hand's instrumental voices. Touching the right palm brings the fingers forward in the mix and
-quiets the continuing cauldron voice.
+with teal, violet and jewel-toned claws. The left hand keeps its prior screen
+angle while the actual wrist turns its palm inward. The spoon passes through
+its projected palm, and the sleeve stays behind her face. The right hand stays
+large while brewing. During flight both hands and their sleeves follow her body
+and become smaller; neither spell-casting arm stays pinned to the foreground.
 
-Fourteen floating ingredients hover around the forest: glass, tail, ear wax,
-eyeball, newt, hair, Roach Synth, Spider Synth, FM Drums, Rubix cube, Hiccup Head,
-Gesticules, Rattlesnake and Throatazoid. Drag one into the cauldron for a
-short featured phrase. Glass and hair also add ringing resonance and unstable
-harmonics to the ongoing singer. The ingredient reappears after its solo.
-Singing and fingers continue underneath, and drops remain available in flight.
-The eight miniature instruments use their actual catalogue icons. The six
-ordinary potion materials have their own drawings.
+Sixteen authored Gesticules animations include slow rolls and claws, spider
+walks, flicks, spirals, frantic orbits and fast finger swarms. Ten instrumental
+sound banks combine the actual glass, wire, bowed, metal, pulse, air, reed and
+marimba sources. Presets recall motion, rate, depth and sound together. Holding
+a digit takes over its bend while the others keep moving. Touching the right
+palm features the fingers over the quieter continuing singer.
 
-The Gesticules bite reuses its synthesis engine. Rattlesnake uses its Linear
-Drums marimba voice. Throatazoid follows its own Clear, Deep and Bright glottal
-spectra, pitches and throat resonances. Roach and Spider reuse their percussion,
-wire rasp and silk-string engines. FM Drums plays a short phrase from its factory
-voices; Rubix uses its Color Kit parameters, and Hiccup Head follows its authored
-physical vocal gestures. Each is a bounded synthesized excerpt that joins the
-mix when dropped. The ordinary materials remain original potion sounds.
-FM Drums replaces the invented Oculoid miniature; its former trigger ID remains
-compatible with saved controls.
+Eighteen actual catalogue icons occupy shelves behind the witch: Alien Larynx,
+Tongued Beasts, Digestazoid, Creaturazoid, Monstroid, Hybrinx, Roach Synth,
+Spider Synth, FM Drums, Rubix Cube Sequencer, Hiccup Head, Gesticules,
+Rattlesnake, Throatazoid, Blowhole, Syrinx, Throat Singer and Julie Saw.
+Clicking an icon recalls its complete spell and sends it into the cauldron for
+a short featured sound. These are bounded synthesized excerpts using the
+instruments’ source engines, factory voices or authored gesture parameters,
+not recordings or copies of their complete interfaces. Only their real icons
+are displayed. Older trigger IDs remain compatible.
+
+Used icons stay absent until an explicit preset, Next, dice or Reset refills
+the shelf. Successive shelf clicks preserve previously used icons. They preserve
+an active broom ride and keep Audio, Play and the live clocks running. Singing,
+finger spells and the cat join the same mix and delay. The Parameters list and
+keyboard selection provide alternatives to clicking each icon.
 
 Ghostly Creaturazoid, Monstrozoid (the catalogue's Monstroid) and Hiccup Head
 portraits visit the mist behind the witch. They fade through offset phrases of
@@ -89,11 +84,13 @@ shared Tap button are inside Parameters. Tempo changes preserve the beat's
 position; stirring and flight speed do not change it. Adjusting ghosts while
 stopped does not start the performance or arm Audio.
 
-Clicking the moon takes her into a continuous rollercoaster ride. With Audio
+Clicking the parked broom or moon takes her into a continuous rollercoaster ride. With Audio
 enabled, takeoff adds one short cackle; it does not repeat during ordinary
 flight. Clicking the moon again while flying plays a bell. The flight effect
-processes the combined voice, fingers, background ghosts and object solos through a changing
-stereo delay. Her rise, fall and sideways motion shape the sound. You can keep
+processes the combined voice, fingers, background ghosts, cat and object solos through a changing
+stereo delay. Her rise, fall and sideways motion shape the sound. Pull or push
+the continuous snake-like string to reshape its Candy Coil delay; the cloth
+in the wind applies a Fabric Filter lattice to the whole ensemble. You can keep
 singing, bending fingers and dropping objects while she flies; returning to
 the pot keeps the musical phrase going. The scenery adds instrumental accents.
 
@@ -103,32 +100,34 @@ base night palette and initial distortion; both also have hidden Parameters cont
 fingertips and other targets follow their visible positions. Palette changes
 preserve the current instrument, Audio and Play.
 
-Every thirty seconds of Play, a black Quadruped cat prowls across the lower
-scene for seven seconds, alternating direction between visits. Its articulated
-shape and gait come from Quadruped’s cat and cat-prowl score, with a small laser
-eye and glowing constellation seams. Stop freezes its paws and position; presets
-and Audio changes preserve its clock. The cat does not intercept playing gestures.
+Every thirty seconds of Play, a black Quadruped cat crosses the lower scene,
+alternating direction between visits. It is 25% larger and uses actual
+Quadruped anatomy, four authored gaits and contact sounds. Every preset has its
+own gait/pace combination; the default crossing lasts seven seconds, and the
+pace range gives crossings from 3.5 to 14 seconds. Live edits preserve travel
+and paw phase. Stop freezes the cat and releases its sounds. Audio changes
+preserve the clock; the cat does not intercept gestures.
 
 Audio starts off while Play is already active. Gestures and Play never arm
 Audio. Changing finger focus, steering, landing, mushroom changes and object drops
-preserve the current Play state. Clicking the moon starts the ride and Play;
+preserve the current Play state. Clicking the broom or moon starts the ride and Play;
 it keeps Audio off unless you explicitly arm it. Each held finger also plays
 independently while stopped. Releasing it returns to the animation during Play
 or fades its manual note while stopped. Presets retain Audio, output volume and
-Play. Reset returns to the original cauldron, releases the sound and clears the
-ingredients while retaining explicit Audio arming and output level.
+Play. Reset returns to the original cauldron, releases the sound and refills the
+shelf while retaining explicit Audio arming and output level.
 
 With the picture focused, **H** brings the fingers forward in the mix, **M** takes off or rings the
 moon bell while flying, **B** returns to brewing, and **W** cycles the mushrooms.
 **Escape** returns to the cauldron and stops Play. **Space** toggles Play.
-**Q/E/R** drop Gesticules, Rattlesnake and Throatazoid. **[ / ]** select any ingredient;
-**Enter** drops the selected ingredient. **− / +** darken or brighten the fingers and night accents.
+**Q/E/R** send Gesticules, Rattlesnake and Throatazoid from the shelf. **[ / ]** select an icon;
+**Enter** sends the selected icon into the potion. **− / +** darken or brighten the fingers and night accents.
 **G / Shift+G** speed up or slow down the ghost beat. **T/S/V** play bats, stars
 and wind in every activity. Arrows stir/open the voice
 or steer the broom. Hold **1–5** to play individual finger instruments; arrows
 bend the selected finger when its sound is featured. Native finger sliders also play
 while held or adjusted with keys. The controls inside Parameters provide
-alternatives for bending, steering, ingredients and scenery accents. Pointer
+alternatives for bending, steering, the shelf, cloth, flight string and scenery accents. Pointer
 cancellation and window blur release manual gestures. Hidden pages mute;
 navigation disposes audio and animation. Shared MIDI exposes control learning
 and transport; it does not turn note keys into an unrelated piano voice.
@@ -139,6 +138,14 @@ hand rendered into two independently posed views using one WebGL context, with
 bounded rendering and audio resources. The sky, potion, ironwork and hands carry
 contrasting violet, teal, pink and amber light. Sounds are procedural; no
 external service is required to play.
+
+The output uses fixed gain and a soft ceiling, preserving the differences
+between quiet and intense spells. FFmpeg loudness measurements of a 40-second
+default render at 75% output measured −14.75 LUFS integrated and −6.38 dBTP;
+the previous default at 40% measured −28.95 LUFS. Representative 24-second
+whisper, fast-finger and layered flight renders measured −17.12 to −10.12 LUFS
+at 75%. Their true peaks stayed below −1.47 dBTP even at 100% output. These are
+reference renders, not a guarantee that every preset has the same loudness.
 
 The hand model is **[Rigged hand](https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e)**
 by **[Elena FF](https://sketchfab.com/elenaferfor)**, licensed under

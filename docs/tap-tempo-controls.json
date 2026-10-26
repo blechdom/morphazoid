@@ -1,5 +1,7 @@
 {
   "confirmed": [
+    {"route": "witch", "selector": "#handRate", "mapping": {"unit": "multiplier", "referenceBpm": 62}, "note": "Authored Gesticules choreography beat at 62 BPM times the rate. Preserves Audio and Play.", "source": "src/pages/witch.html"},
+    {"route": "witch", "selector": "#catSpeed", "mapping": {"unit": "multiplier", "referenceBpm": 180}, "note": "One sixteen-frame Quadruped gait cycle at 48 frames per second times the cat pace. Preserves visit progress, Audio and Play.", "source": "src/pages/witch.html"},
     {"route": "witch", "selector": "#ghostTempo", "mapping": {"unit": "bpm"}, "note": "Quiet ghost accompaniment in beats per minute. Audio and Play stay independent.", "source": "src/pages/witch.html"},
     {"route": "witch", "selector": "#speed", "mapping": {"unit": "powerHz", "floor": 0, "span": 1.909859317102744, "exponent": 1}, "note": "Tap one complete cauldron turn. Audio and Play stay independent.", "source": "src/pages/witch.html"},
     {"route": "witch", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 0.15915494309189535, "span": 0.7957747154594768, "exponent": 1}, "note": "Tap one flight delay modulation cycle: Hz=(1+speed*5)/(2π). Audio and Play stay independent.", "source": "src/pages/witch.html"},

@@ -1,3 +1,4 @@
+import { createWitchCatClock, snapshotWitchCatClock } from './witch-cat-model.js';
 import { unlockAudioContext } from '../../audio.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_TAU } from './witch-model.js';
@@ -9,9 +10,9 @@ export class WitchAudio {
     this.runtime = runtime; this.context = null; this.node = null; this.master = null;
     this.controls = normalizeWitchControls(); this.audible = false; this.disposed = false;
     this.starting = null; this.generation = 0; this.releaseOutput = null;
-    this.pendingPhase = null;
+    this.pendingPhase = null; this.phaseGeneration = 0;
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
-      handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
+      catClock: createWitchCatClock(), catTime: 0, catLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
       spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.onError = null;
   }
@@ -51,12 +52,16 @@ export class WitchAudio {
     if (generation !== this.generation || this.disposed || context.state === 'closed') return;
     const node = new this.runtime.AudioWorkletNode(context, 'witch-voice', {
       numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
+      processorOptions: { phaseGeneration: this.phaseGeneration },
     });
     const master = context.createGain(); master.gain.value = 0;
     node.connect(master); this.node = node; this.master = master;
     this.releaseOutput = connectAudioOutput(context, master, { runtime: this.runtime });
     node.port.onmessage = ({ data }) => {
       if (this.node !== node || data?.type !== 'visual') return;
+      // A pre-seek packet may already be queued on the main thread. Keep the
+      // synchronous clock snapshot until the worklet acknowledges this seek.
+      if ((data.phaseGeneration ?? 0) !== this.phaseGeneration) return;
       const { type: _type, ...visual } = data; this.visual = visual;
     };
     node.onprocessorerror = () => {
@@ -83,8 +88,8 @@ export class WitchAudio {
    * spoonHeight joins its visible position; flightPhase keeps the broom and delay
    * at their current point through silent speed changes; ghostPhase is the
    * independent background beat count, preserved through tempo changes. */
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase) {
-    const message = { type: 'phase', phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock) {
+    const message = { type: 'phase', phaseGeneration: ++this.phaseGeneration, phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
       speed: witchClamp(speed) };
     if (Number.isFinite(handTime)) {
       message.handTime = witchClamp(handTime, 0, 1e9); this.visual.handTime = message.handTime;
@@ -95,6 +100,7 @@ export class WitchAudio {
       this.visual.flightPhase = message.flightPhase;
     }
     if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }
+    if (catClock && typeof catClock === 'object') { message.catClock = snapshotWitchCatClock(catClock); this.visual.catClock = message.catClock; this.visual.catTime = message.catClock.time; }
     this.visual.phase = message.phase; this.visual.speed = message.speed;
     if (this.node) this.post(message); else this.pendingPhase = message;
   }

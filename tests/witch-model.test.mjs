@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeWitchControls, evaluateWitchHandPose, witchSpoonHeight, witchVoiceAtHeight, createStirState, updateStir, releaseStir, advanceStir, sampleChant, WITCH_TAU, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
+import { WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
+import { HAND_MOTIONS, VOICE_SOURCES, handMotionPeriod } from '../src/instruments/gesticulating-hand/hand-model.js';
 
 test('witch controls reject malformed values without changing the safe startup', () => {
   const defaults = normalizeWitchControls();
@@ -61,6 +63,33 @@ test('manual fingers hold their own bend while neighbours keep gesticulating; re
   assert.deepEqual(ordinary.fingers, reduced.fingers);
   assert.deepEqual(reduced.wrist, { flex: 0, side: 0, twist: 0 });
   assert.notDeepEqual(ordinary.wrist, reduced.wrist);
+});
+
+test('authored fast hand animations remain finite, distinct and responsive to their own rate and sound',()=>{
+  const configurations=new Set();
+  for(const [index,motion] of WITCH_HAND_MOTIONS.entries()) {
+    assert.ok(HAND_MOTIONS.some(item=>item.id===motion));
+    const state=normalizeWitchControls({handMotion:motion,handRate:6,handDepth:1,handSound:WITCH_HAND_SOUNDS[index%WITCH_HAND_SOUNDS.length].id});
+    const config=witchHandConfig(state);
+    assert.ok(config.voices.every(voice=>VOICE_SOURCES.includes(voice.source)));
+    configurations.add(JSON.stringify(config));
+    const poses=Array.from({length:20},(_,i)=>evaluateWitchHandPose(state,i*.017));
+    assert.ok(poses.every(pose=>pose.fingers.every(finger=>Object.values(finger).every(Number.isFinite))));
+    assert.ok(new Set(poses.map(pose=>JSON.stringify(pose.fingers))).size>10,motion);
+  }
+  assert.equal(configurations.size,WITCH_HAND_MOTIONS.length);
+  for(const motion of WITCH_HAND_MOTIONS)for(const rate of [.25,.5,1,4,5,6]) {
+    const normal=handMotionPeriod(witchHandConfig({handMotion:motion,handRate:1}).motion);
+    const changed=handMotionPeriod(witchHandConfig({handMotion:motion,handRate:rate}).motion);
+    assert.ok(Math.abs(normal/changed-rate)<1e-10,'the native choreography preserves the full selected rate');
+  }
+  const distance=(a,b)=>a.fingers.reduce((sum,finger,i)=>sum+Math.abs(finger.pip-b.fingers[i].pip),0);
+  const travel=rate=>Array.from({length:60},(_,i)=>distance(evaluateWitchHandPose({handRate:rate},i/60),evaluateWitchHandPose({handRate:rate},(i+1)/60))).reduce((a,b)=>a+b,0);
+  assert.ok(travel(5)>travel(.5)*3,'fast animation has substantially more finger motion');
+  const bounded=normalizeWitchControls({handRate:999,handDepth:-2,handSound:'invented',catSpeed:100,catGait:'invented',fabricX:-1,fabricY:2,trailPull:Infinity,trailTwist:NaN});
+  assert.equal(bounded.handRate,6);assert.equal(bounded.handDepth,0);assert.equal(bounded.handSound,'glass-and-wire');
+  assert.equal(bounded.catSpeed,2);assert.equal(bounded.catGait,'cat-prowl');assert.equal(bounded.fabricX,0);assert.equal(bounded.fabricY,1);
+  assert.equal(bounded.trailPull,.5);assert.equal(bounded.trailTwist,.5);
 });
 
 test('stir angle wraps, speed responds, and a reversal is immediate', () => {

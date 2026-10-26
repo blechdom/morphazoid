@@ -2291,6 +2291,8 @@ copy+require	src/instruments/witch/witch-presets.js
 copy+require	src/instruments/witch/witch-renderer.js
 copy+require	src/instruments/witch/witch-hand.js
 copy+require	src/instruments/witch/witch-cat.js
+copy+require	src/instruments/witch/witch-cat-model.js
+copy+require	src/instruments/witch/witch-cat-audio.js
 copy+require	src/instruments/witch/witch.css
 copy+require	assets/instruments/witch.webp
 copy+require	docs/witch.md

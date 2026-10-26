@@ -105,7 +105,11 @@ export function createWitchHand({onStatus = () => {}} = {}) {
   }
   function update(state,handIndex,pose) {
     const slot=handSlot(handIndex),palette=skinPalettes[handIndex];
-    rig.setPose(pose);
+    // Turn the ladle hand around its own three-dimensional wrist axis. This
+    // exposes the opposite palm without flipping its screen-space heading.
+    const wristTwist=pose.wrist.twist+(handIndex===1?180:0);
+    rig.setPose(handIndex===1?{...pose,wrist:{...pose.wrist,twist:wristTwist}}:pose);
+    slot.wristTwist=wristTwist;
     skinColor.value.copy(palette[0]); skinAccent.value.copy(palette[1]);
     for (let index = 0; index < claws.length; index++) {
       const level = clamp(state.handFingerLevels?.[handIndex]?.[index]??state.fingerLevels?.[index]);
@@ -144,7 +148,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     handIndex=handIndex===1?1:0;
     const slot=handSlot(handIndex); slot.state=state;
     if (!loaded || disposed || lost || !renderer) return slot.surface;
-    const width=handIndex===1?320:state.handReach>.1?RENDER_WIDTH:360;
+    const width=handIndex===1?320:state.handReach>.1&&clamp(state.flightLift)<.7?RENDER_WIDTH:360;
     const height=Math.round(width*HEIGHT/WIDTH),now=performance.now();
     // Small figures do not need full-stage textures. Keep the backing WebGL
     // buffer fixed and render at most 20 fps; only reaching changes resolution.
@@ -185,7 +189,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       author:'Elena FF', title:'Rigged hand', license:'CC BY-SA 4.0',
       vertices,triangles,deformBones:rig?.deformMap.size??0,
       runtimeAdapted:true,claws:claws.length,
-      modelInstances:hands.length,webglContexts:renderer?1:0,
+      modelInstances:hands.length,webglContexts:renderer?1:0,wristTwists:hands.map(slot=>slot.wristTwist??0),
     };
   }
   function dispose() {

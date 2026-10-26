@@ -1,7 +1,8 @@
 import { WitchAudio } from './witch-audio.js';
-import { WITCH_VOICES, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
+import { WITCH_VOICES, WITCH_SHELF, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
 import { createWitchHand } from './witch-hand.js';
 import { getWitchCatFrame } from './witch-cat.js';
+import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock } from './witch-cat-model.js';
 import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -18,11 +19,16 @@ let config = normalizeWitchPreset(WITCH_DEFAULTS);
 let playing = true, audioOn = false, starting = false, disposed = false, request = 0;
 let selectedIngredient = -1;
 let performanceTime=0,lastPerformanceTick=performance.now();
+const catClock=createWitchCatClock(0,config);
 let selectedFinger = 1, frame = 0, lastPaint=0, last = performance.now(), silentPhase = 0, silentSpeed = 0;
 let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionTime = 0, silentHandTime = 0, silentFlightPhase = 0, silentGhostPhase = 0;
 const ghostFrames=Array.from({length:3},()=>({}));
 const fingerPointers = new Map(), fingerKeys = new Set(), sliderKeys = new Set(), sliderPointers = new Map(), arrowKeys = new Set();
-const instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
+let instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
+for(const [id,items] of [['handMotion',WITCH_HAND_MOTIONS.map(id=>({id,label:id.replaceAll('-',' ')}))],['handSound',WITCH_HAND_SOUNDS],['catGait',WITCH_CAT_GAITS.map(id=>({id,label:id.replaceAll('-',' ')}))]]) {
+  for(const item of items) {const option=document.createElement('option');option.value=item.id;option.textContent=item.label;$(id).append(option);}
+}
+for(const item of WITCH_SHELF) {const button=document.createElement('button');button.type='button';button.dataset.drop=item.id;button.textContent=item.name;$('potionShelfControls').append(button);}
 let width = 1000, height = 720, presets;
 const world={handReach:1,handOpen:false,flightLift:0,trip:0};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
@@ -46,7 +52,8 @@ function fingerMask() {
   return mask;
 }
 function advancePerformanceTime(now=performance.now()) {
-  if(playing) performanceTime+=Math.max(0,now-lastPerformanceTick)/1000;
+  if(audioMotionReady&&audio.node&&audio.visual.catClock) {performanceTime=audio.visual.catClock.time;Object.assign(catClock,audio.visual.catClock);}
+  else {if(playing)performanceTime+=Math.max(0,now-lastPerformanceTick)/1000;advanceWitchCatClock(catClock,performanceTime,config);}
   lastPerformanceTick=now;
 }
 function setPlaying(value) { advancePerformanceTime();playing=value; }
@@ -64,6 +71,12 @@ function sync() {
   $('audioButton').disabled = starting;
   canvas.dataset.scene=config.scene;canvas.dataset.trip=String(world.trip);
   $('voice').value = config.voice; $('spoonAuto').checked=config.spoonAuto;
+  for(const key of ['handMotion','handSound','catGait'])$(key).value=config[key];
+  for(const key of ['handRate','catSpeed']) {$(key).value=config[key];$(`${key}Out`).value=`${config[key].toFixed(2)}×`;}
+  for(const key of ['handDepth','fabricX','fabricY','trailPull','trailTwist']) {$(key).value=config[key];$(`${key}Out`).value=`${Math.round(config[key]*100)}%`;}
+  const handBank=WITCH_HAND_SOUNDS.find(bank=>bank.id===config.handSound)||WITCH_HAND_SOUNDS[0];
+  instrumentLabels=handBank.sources.map((source,i)=>`${['Thumb','Index','Middle','Ring','Little'][i]} · ${source}`);
+  for(const button of document.querySelectorAll('[data-drop]'))button.disabled=objects.some(object=>object.id===button.dataset.drop&&object.dropped);
   $('palette').value=config.palette; $('lineBend').value=config.trip; $('lineBendOut').value=['Still','A ripple','Bent','Wonkywonk'][config.trip];
   $('ghostTempo').value=config.ghostTempo; $('ghostTempoOut').value=`${Math.round(config.ghostTempo)} BPM`;
   for (const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) { $(key).value=config[key]; $(`${key}Out`).value=`${Math.round(config[key]*100)}%`; }
@@ -82,7 +95,6 @@ function sync() {
 function stopGesture() {
   const held=pointer;
   if(held?.type==='stir') ladleOffset=held.ladleAngle-(audioMotionReady&&audio.node?audio.visual.phase:silentPhase);
-  if(held?.type==='object') returnObject(held.object);
   pointer=null; keyboardGate=false;
   const captured=[...fingerPointers.keys()]; fingerPointers.clear(); fingerKeys.clear(); sliderKeys.clear(); sliderPointers.clear(); arrowKeys.clear();
   for(const id of captured) if(canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
@@ -95,9 +107,9 @@ function worldAction(action) {
     if(config.scene==='flight') { stopGesture();world.handOpen=!world.handOpen;sync();send(); }
     else setScene(world.handOpen?'brew':'fingers');
   }
-  else if(action==='moon') {
+  else if(action==='moon'||action==='broom') {
     if(config.scene!=='flight') { setScene('flight'); setPlaying(true); send();sync();trigger('launch'); }
-    else trigger('moon');
+    else if(action==='moon')trigger('moon');
   } else if(action==='mushrooms') {
     config.trip=(config.trip+1)%4; world.trip=config.trip; sync();
     $('gestureReadout').value=world.trip?'Wonkywonk wonk.':'The forest settles.';
@@ -114,13 +126,27 @@ function returnObject(object) {
   const home=WITCH_LAYOUT.objects.find(item=>item.id===object.id);
   Object.assign(object,{x:home.x,y:home.y,dragging:false,dropAge:0});
 }
+function refillShelf() {
+  for(const object of objects) {object.dropped=false;returnObject(object);}
+  selectedIngredient=-1;
+}
+function applySpell(snapshot,{refill=true,preserveFlight=false}={}) {
+  advancePerformanceTime();
+  const flying=preserveFlight&&config.scene==='flight';
+  stopGesture();config=normalizeWitchPreset(snapshot);
+  if(flying)config.scene='flight';
+  world.trip=config.trip;world.handOpen=config.scene==='fingers';
+  if(refill)refillShelf();
+  send();sync();
+}
 function dropObject(id) {
   const object=objects.find(item=>item.id===id);
-  if(!object || object.dropped) return;
+  if(!object || object.dropped)return;
   const origin=getWitchObjectPosition(object,visualState());
+  const spell=WITCH_PRESETS.find(preset=>preset.id===object.presetId);
+  if(spell)applySpell(spell.snapshot,{refill:false,preserveFlight:true});
   Object.assign(object,{x:origin.x,y:origin.y,dragging:false,dropped:true,dropAge:0});
-  if(id==='glass' || id==='hair') { config[id]=clamp(config[id]+.25); send(); sync(); }
-  trigger(object.kind); $('gestureReadout').value=`${object.name} takes a solo.`;
+  trigger(object.kind);sync();$('gestureReadout').value=`${object.name} joins the brew. Choose a preset to refill the shelf.`;
 }
 function setSpoonHeight(value) {
   config.spoonHeight=clamp(value);config.voice=witchVoiceAtHeight(config.spoonHeight);
@@ -133,7 +159,7 @@ async function toggleAudio() {
     const hadNode=Boolean(audio.node);
     await audio.start();
     if(disposed || generation!==request) return;
-    if(!hadNode) audio.syncPhase(silentPhase,silentSpeed,silentHandTime,undefined,silentFlightPhase,silentGhostPhase);
+    if(!hadNode) {advancePerformanceTime();audio.syncPhase(silentPhase,silentSpeed,silentHandTime,undefined,silentFlightPhase,silentGhostPhase,snapshotWitchCatClock(catClock));}
     audioMotionReady=true;
     audioOn=true; send(); audio.setAudible(!document.hidden);
   } catch(error) { audioOn=false; $('liveStatus').textContent=`Sound could not start: ${error.message}. Try Audio again.`; }
@@ -141,7 +167,7 @@ async function toggleAudio() {
 }
 listen($('audioButton'),'click',toggleAudio);
 listen($('playButton'),'click',() => { stopGesture(); setPlaying(!playing); send(); sync(); });
-listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); performanceTime=0; config=normalizeWitchPreset(WITCH_DEFAULTS); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
+listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); performanceTime=0; config=normalizeWitchPreset(WITCH_DEFAULTS); Object.assign(catClock,createWitchCatClock(0,config)); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock)); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
 listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/5; send(); sync(); });
 for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
@@ -150,6 +176,8 @@ listen($('palette'),'change',()=>{config.palette=Math.round(clamp($('palette').v
 listen($('lineBend'),'input',()=>{config.trip=Math.round(clamp($('lineBend').value,0,3));world.trip=config.trip;sync();});
 listen($('spoonAuto'),'change',()=>{config.spoonAuto=$('spoonAuto').checked;send();sync();});
 for(const button of document.querySelectorAll('[data-drop]')) listen(button,'click',()=>dropObject(button.dataset.drop));
+for(const key of ['handMotion','handSound','catGait'])listen($(key),'change',()=>{advancePerformanceTime();config[key]=$(key).value;send();sync();});
+for(const key of ['handRate','handDepth','catSpeed','fabricX','fabricY','trailPull','trailTwist'])listen($(key),'input',()=>{advancePerformanceTime();config[key]=Number($(key).value);send();sync();});
 listen($('flightSpeed'),'input',()=>{ config.speed=Number($('flightSpeed').value); send(); sync(); });
 for(let i=0;i<5;i++) {
   const slider=$(`finger${i}`);
@@ -189,24 +217,20 @@ function visualState() {
   const fingerLevels=audioOn&&v?.fingerLevels?v.fingerLevels:Array.from({length:5},(_,i)=>mask&(1<<i)?1:0);
   const ghostPhase=v?.ghostPhase??silentGhostPhase;
   ghostFrames.forEach((out,i)=>witchGhostFrame(ghostPhase,i,out));
-  return { ...config, ...world, performanceTime, handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
+  return { ...config, ...world, performanceTime, catFrame:catClock, handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
 }
 listen(canvas,'pointerdown',e => {
   if(pointer || e.button!==0) return;
   const raw=canonical(e), hit=hitTestWitch(raw.x,raw.y,visualState()),p=canonical(e,true);
   if(!hit) return;
   canvas.focus({preventScroll:true});
-  if(['hand','moon','mushrooms'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
+  if(['hand','moon','broom','mushrooms'].includes(hit.type)) { worldAction(hit.type);e.preventDefault(); return; }
   if(['bat','spark','gust'].includes(hit.type)) { trigger(hit.type); return; }
   if(hit.type==='ghost') {
     pointer={id:e.pointerId,type:'ghost',index:hit.index,start:p,ghostTempo:config.ghostTempo};
     canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
   }
-  if(hit.type==='object') {
-    const object=objects.find(item=>item.id===hit.id);if(!object || object.dropped)return;
-    const origin=getWitchObjectPosition(object,visualState());Object.assign(object,{x:origin.x,y:origin.y,dragging:true});
-    pointer={id:e.pointerId,type:'object',object,offset:{x:p.x-origin.x,y:p.y-origin.y}};canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
-  }
+  if(hit.type==='object') {dropObject(hit.id);e.preventDefault();return;}
   if(hit.type==='stir' && config.scene==='fingers') setScene('brew');
   if(hit.type==='finger') {
     selectedFinger=hit.index; fingerPointers.set(e.pointerId,{index:hit.index,start:p,transform:handTransform(visualState()),value:config.fingers[hit.index]});
@@ -215,7 +239,7 @@ listen(canvas,'pointerdown',e => {
   keyboardGate=false;
   const visual=visualState(), start=stirLocation(p), pot=WITCH_LAYOUT.cauldron;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,tone:config.tone,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
   if(hit.type==='stir') { config.speed=.05; if(!onHandle) config.radius=pointer.radius; }
@@ -234,12 +258,13 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({broom:'Take flight',fabric:'Pull the cloth to filter the brew',trail:'Pull or push the string to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
     return;
   }
   const p=canonical(e,true), now=performance.now();
-  if(pointer.type==='object') { pointer.object.x=p.x-pointer.offset.x;pointer.object.y=p.y-pointer.offset.y;e.preventDefault();return; }
-  if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
+  if(pointer.type==='fabric') {config.fabricX=clamp(pointer.fabricX+(p.x-pointer.start.x)/120);config.fabricY=clamp(pointer.fabricY+(pointer.start.y-p.y)/120);}
+  else if(pointer.type==='trail') {config.trailPull=clamp(pointer.trailPull+(p.x-pointer.start.x)/180);config.trailTwist=clamp(pointer.trailTwist+(pointer.start.y-p.y)/150);}
+  else if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
   else if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
   else if(pointer.type==='tone') { config.tone=clamp(pointer.tone+(pointer.start.y-p.y)/130); }
   else if(pointer.type==='nose' || pointer.type==='hat') {
@@ -261,11 +286,6 @@ function releasePointer(e) {
     pointer=null;
     if(canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
     send();sync();return;
-  }
-  if(pointer?.id===e.pointerId && pointer.type==='object') {
-    const object=pointer.object,pot=WITCH_LAYOUT.cauldron;
-    if(e.type==='pointerup' && ((object.x-pot.x)/(pot.rx+15))**2+((object.y-pot.y)/(pot.ry+50))**2<1) dropObject(object.id);
-    else returnObject(object);
   }
   if(fingerPointers.delete(e.pointerId)) { if(canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); send(); sync(); }
   if(pointer?.id===e.pointerId) { stopGesture(); sync(); }
@@ -335,7 +355,7 @@ function draw(now) {
   if(event) { event.age+=dt; if(event.age>3.5) event=null; }
   const ease=reducedMotion.matches?1:1-Math.exp(-dt/ .18);
   for(const [key,target] of [['flightLift',config.scene==='flight'?1:0]]) { world[key]+=(target-world[key])*ease;if(Math.abs(target-world[key])<.001)world[key]=target; }
-  for(const object of objects) if(object.dropped) { object.dropAge+=dt;if(object.dropAge>3.6){object.dropped=false;returnObject(object);} }
+  for(const object of objects)if(object.dropped)object.dropAge=Math.min(10,object.dropAge+dt);
   const state=visualState();
   if(handReady) {
     handSurfaces=[hand.render(state,0),hand.render(state,1)]; handSurface=handSurfaces[0];
@@ -374,7 +394,7 @@ listen(window,'pagehide',e => {
   if(e.persisted) { pageSuspended=true;stopGesture(); audio.setAudible(false); cancelAnimationFrame(frame);frame=0; return; }
   if(disposed) return; disposed=true; ++request; clearInterval(clock); cancelAnimationFrame(frame); observer.disconnect(); abort.abort(); presets?.destroy(); hand.dispose();audio.dispose();delete window.witchInstrument;
 });
-presets=registerHeaderPresets({id:'witch',presets:WITCH_PRESETS,capture:()=>structuredClone(config),apply:snapshot=>{stopGesture();config=normalizeWitchPreset(snapshot);world.trip=config.trip;world.handOpen=config.scene==='fingers';send();sync();},randomize:randomizeWitchPreset});
+presets=registerHeaderPresets({id:'witch',presets:WITCH_PRESETS,capture:()=>structuredClone(config),apply:snapshot=>applySpell(snapshot),randomize:randomizeWitchPreset});
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
   const state=visualState();
   return {config:structuredClone(config),playing,audioOn,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
