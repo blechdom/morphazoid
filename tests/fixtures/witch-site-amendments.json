@@ -85,7 +85,7 @@
       "replacements": [
         {
           "before": "export const TAP_TEMPO_TARGETS = [\n",
-          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"witch.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"title\": \"Tap one complete cauldron turn\"},\n  {\"route\": \"witch.html\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"resetAfter\": 15000, \"title\": \"Tap one flight delay cycle\"},\n"
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"witch.html\", \"selector\": \"#ghostTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap the ghosts’ background beat\"},\n  {\"route\": \"witch.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"title\": \"Tap one complete cauldron turn\"},\n  {\"route\": \"witch.html\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"resetAfter\": 15000, \"title\": \"Tap one flight delay cycle\"},\n"
         }
       ]
     },
@@ -95,7 +95,7 @@
       "replacements": [
         {
           "before": "  \"confirmed\": [\n",
-          "after": "  \"confirmed\": [\n    {\"route\": \"witch\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"note\": \"Tap one complete cauldron turn. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"note\": \"Tap one flight delay modulation cycle: Hz=(1+speed*5)/(2π). Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n"
+          "after": "  \"confirmed\": [\n    {\"route\": \"witch\", \"selector\": \"#ghostTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"note\": \"Quiet ghost accompaniment in beats per minute. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0, \"span\": 1.909859317102744, \"exponent\": 1}, \"note\": \"Tap one complete cauldron turn. Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n    {\"route\": \"witch\", \"selector\": \"#flightSpeed\", \"mapping\": {\"unit\": \"powerHz\", \"floor\": 0.15915494309189535, \"span\": 0.7957747154594768, \"exponent\": 1}, \"note\": \"Tap one flight delay modulation cycle: Hz=(1+speed*5)/(2π). Audio and Play stay independent.\", \"source\": \"src/pages/witch.html\"},\n"
         }
       ]
     },
@@ -105,7 +105,7 @@
       "replacements": [
         {
           "before": "| [Wobblini]",
-          "after": "| [Witches Brew](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (flight delay cycle) |\n| [Wobblini]"
+          "after": "| [Witches Brew](../witch.html) | `#speed` (cauldron turn), `#flightSpeed` (flight delay cycle), `#ghostTempo` (background ghost beat) |\n| [Wobblini]"
         }
       ]
     }

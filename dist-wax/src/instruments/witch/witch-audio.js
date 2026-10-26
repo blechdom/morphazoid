@@ -11,7 +11,7 @@ export class WitchAudio {
     this.starting = null; this.generation = 0; this.releaseOutput = null;
     this.pendingPhase = null;
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
-      handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
+      handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
       spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.onError = null;
   }
@@ -81,8 +81,9 @@ export class WitchAudio {
    * This does not arm audio or restart the vocal phrase. Vortex phase is radians;
    * optional handTime is seconds of the independent Gesticules choreography;
    * spoonHeight joins its visible position; flightPhase keeps the broom and delay
-   * at their current point through silent speed changes. */
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase) {
+   * at their current point through silent speed changes; ghostPhase is the
+   * independent background beat count, preserved through tempo changes. */
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase) {
     const message = { type: 'phase', phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
       speed: witchClamp(speed) };
     if (Number.isFinite(handTime)) {
@@ -93,6 +94,7 @@ export class WitchAudio {
       message.flightPhase = witchClamp(flightPhase, 0, 1e12, message.handTime * (1 + this.controls.speed * 5) / 1.4);
       this.visual.flightPhase = message.flightPhase;
     }
+    if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }
     this.visual.phase = message.phase; this.visual.speed = message.speed;
     if (this.node) this.post(message); else this.pendingPhase = message;
   }

@@ -1,6 +1,7 @@
 // Explicit owner units; labels alone cannot describe the speed curve.
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
+  {"route": "witch.html", "selector": "#ghostTempo", "mapping": {"unit": "bpm"}, "title": "Tap the ghosts’ background beat"},
   {"route": "witch.html", "selector": "#speed", "mapping": {"unit": "powerHz", "floor": 0, "span": 1.909859317102744, "exponent": 1}, "title": "Tap one complete cauldron turn"},
   {"route": "witch.html", "selector": "#flightSpeed", "mapping": {"unit": "powerHz", "floor": 0.15915494309189535, "span": 0.7957747154594768, "exponent": 1}, "resetAfter": 15000, "title": "Tap one flight delay cycle"},
   {"route": "graphonic-calculator.html", "selector": "#sweepTempo", "mapping": {"unit": "bpm"}, "title": "Tap one complete sweep"},

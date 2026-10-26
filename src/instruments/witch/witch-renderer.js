@@ -14,7 +14,11 @@ export const WITCH_LAYOUT = Object.freeze({
   moon: Object.freeze({ x: 800, y: 164, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{ x: 162, y: 639, r: 48 }, { x: 846, y: 655, r: 42 }]),
-  ghosts: Object.freeze([{ x: 160, y: 280, r: 45 }, { x: 854, y: 414, r: 44 }]),
+  ghosts: Object.freeze([
+    Object.freeze({id:'creaturazoid',x:160,y:280,r:45,size:115,color:'#a7ccc7'}),
+    Object.freeze({id:'monstroid',x:854,y:414,r:44,size:116,color:'#a5bcd3'}),
+    Object.freeze({id:'hiccup',x:620,y:180,r:43,size:102,color:'#c0b2ce'}),
+  ]),
   bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 868, y: 310, r: 28 }]),
   spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:84,y:365,r:30})]),
   objects: Object.freeze([
@@ -572,24 +576,95 @@ function bat(c, x, y, scale, time, index, active = false) {
   path(c,'M-4,5 L-2,11 L0,6 L3,10 L4,4 Z','#d7ceac');
   c.restore();
 }
-function ghost(c, x, y, scale, time, index, active = false) {
-  const bob = Math.sin(time * 1.4 + index * 2) * 8;
-  c.save(); c.translate(x, y + bob); c.scale(scale,scale); c.rotate(Math.sin(time + index) * .07);
-  glow(c,0,5,73,active ? '#b4d7cc33' : '#c1d9cf15');
-  const silk = c.createLinearGradient(-26,-37,29,69);
-  silk.addColorStop(0,'#bac6c8a9'); silk.addColorStop(.5,'#978db576'); silk.addColorStop(1,'#628d9d08');
-  c.globalAlpha*=.72+.28*Math.sin(time*.38+index*1.7)**2;
-  path(c, 'M-32,25 C-37,-13 -21,-52 -2,-48 C21,-51 33,-18 29,12 L40,44 L25,39 L43,83 L17,59 L13,91 L-2,67 L-13,96 L-17,57 L-42,78 L-30,45 L-48,48 Z', silk, '#c9d3c159', 1.2);
-  curve(c,[-25,-11,-31,21,-19,36,-25,47],'#e1e5cf69',1.2);
-  curve(c,[21,4,18,24,26,32,30,44],'#d1d9cc4d',1);
-  path(c,'M-23,-17 Q-11,-26 -4,-9 L-8,4 L-19,2 Z M5,-10 Q17,-29 24,-18 L19,3 L9,6 Z','#101827d9');
-  ellipse(c,1,24,8,18,'#151529d9','#c4b7d54a',.8,-.1);
-  path(c,'M-3,5 L1,-3 L5,6 Z','#283044a8');
-  for(const [dx,dy] of [[-17,5],[16,5],[-5,43],[8,44]])curve(c,[dx,dy,dx-7,dy+17,dx+7,dy+22,dx-4,dy+34],'#26233866',1.2);
-  if (active) {
-    for (let i = 0; i < 3; i++) ellipse(c,0,17+i*12,44+i*9,9+i*3,null,'#c7e4d182',1.2);
+/** Background performers share audio-clock phase, positions and picking. */
+export function getWitchGhostPosition(ghost, state = {}) {
+  const id=typeof ghost==='string'?ghost:ghost?.id;
+  const index=typeof ghost==='number'?Math.round(clamp(ghost,0,2)):
+    Math.max(0,WITCH_LAYOUT.ghosts.findIndex(entry=>entry.id===id));
+  const home=WITCH_LAYOUT.ghosts[index];
+  const phase=state.reducedMotion?0:(Number.isFinite(state.ghostPhase)?state.ghostPhase:0);
+  const presence=clamp(state.ghostPresence?.[index]??.35),pulse=clamp(state.ghostPulses?.[index]);
+  // A faint remnant remains reachable between phrases. Pulses breathe within
+  // the silhouette; neither picking nor playing brings a ghost to the front.
+  return {...home,index,x:home.x+Math.sin(phase*.17+index*2.1)*12,
+    y:home.y+Math.sin(phase*.23+index*1.7)*9,
+    presence,pulse,phase,alpha:.025+presence*(.17+pulse*.025),
+    rotation:Math.sin(phase*.13+index)*.055,scale:1};
+}
+
+const ghostSources=Object.freeze({
+  creaturazoid:new URL('../../../assets/instruments/creaturazoid.webp',import.meta.url).href,
+  monstroid:new URL('../../../assets/instruments/colony-syrinx.webp',import.meta.url).href,
+  hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
+});
+const ghostImages=new WeakMap();
+function ghostPortrait(c,ghost) {
+  const doc=c.canvas?.ownerDocument;
+  if(!doc)return null;
+  let portraits=ghostImages.get(doc);
+  if(!portraits) {portraits=new Map();ghostImages.set(doc,portraits);}
+  let portrait=portraits.get(ghost.id);
+  if(!portrait) {
+    const image=doc.createElement('img');image.decoding='async';image.src=ghostSources[ghost.id];
+    portrait={image,surface:null};portraits.set(ghost.id,portrait);
   }
-  c.restore();
+  if(!portrait.image.complete||!portrait.image.naturalWidth)return null;
+  if(!portrait.surface) {
+    // Three small, cached spectral portraits: retain each actual instrument's
+    // anatomy and internal detail without three live renderers or frame filters.
+    const surface=doc.createElement('canvas');surface.width=surface.height=160;
+    const ink=surface.getContext('2d');
+    ink.drawImage(portrait.image,0,0,160,160);
+    const pixels=ink.getImageData(0,0,160,160),rgba=pixels.data;
+    if(ghost.id!=='hiccup') {
+      // These two catalogue portraits have opaque black backgrounds. Remove
+      // only darkness connected to the image border, before tinting can lift
+      // it into a rectangular plate. Enclosed dark anatomy stays intact.
+      const seen=new Uint8Array(160*160),queue=new Uint16Array(160*160);
+      let start=0,end=0;
+      const add=index=>{
+        if(seen[index])return;seen[index]=1;
+        const p=index*4;
+        if(Math.max(rgba[p],rgba[p+1],rgba[p+2])<=36||rgba[p+3]===0)queue[end++]=index;
+      };
+      for(let i=0;i<160;i++) {add(i);add(159*160+i);add(i*160);add(i*160+159);}
+      while(start<end) {
+        const index=queue[start++],p=index*4,x=index%160,y=Math.floor(index/160);
+        const edge=clamp((Math.max(rgba[p],rgba[p+1],rgba[p+2])-3)/33);
+        rgba[p+3]*=edge*edge*(3-2*edge);
+        if(x>0)add(index-1);if(x<159)add(index+1);
+        if(y>0)add(index-160);if(y<159)add(index+160);
+      }
+    }
+    const tint=[1,3,5].map(offset=>parseInt(ghost.color.slice(offset,offset+2),16));
+    for(let p=0;p<rgba.length;p+=4) {
+      const gray=Math.min(255,(rgba[p]*.2126+rgba[p+1]*.7152+rgba[p+2]*.0722)*1.36+25.5);
+      for(let channel=0;channel<3;channel++)rgba[p+channel]=gray*.6+tint[channel]*.4;
+      const y=Math.floor(p/4/160)/159;
+      rgba[p+3]*=1-clamp((y-.52)/.48)*.93;
+    }
+    ink.putImageData(pixels,0,0);
+    portrait.surface=surface;
+  }
+  return portrait.surface;
+}
+function backgroundGhosts(c,state) {
+  for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
+    const ghost=getWitchGhostPosition(index,state),portrait=ghostPortrait(c,ghost);
+    c.save();c.translate(ghost.x,ghost.y);c.rotate(ghost.rotation);
+    c.globalAlpha*=ghost.alpha;
+    if(portrait) {
+      const height=ghost.size*(1+ghost.pulse*.012);
+      c.drawImage(portrait,-ghost.size/2,-height/2,ghost.size,height);
+    }
+    // Low wisps preserve the distant depth and a small beat trace, even while
+    // a portrait loads. No face or sheet-mask is substituted for a character.
+    for(let i=0;i<3;i++) {
+      const side=(i-1)*18,drift=Math.sin(ghost.phase*.17+i+index)*8;
+      curve(c,[side,ghost.size*.24,side-18+drift,ghost.size*.48,side+12,ghost.size*.56,side-9+drift,ghost.size*.7],ghost.color,.7+ghost.pulse*.8);
+    }
+    c.restore();
+  }
 }
 
 function broomWitch(c, state) {
@@ -683,10 +758,6 @@ function flightScene(c, state) {
       curve(c,[x,y,x+93,y-26,x+146,y+23,x+235,y-6],'#bbd5c3',1.5);
     }
     c.restore();
-  }
-  for (let i = 0; i < WITCH_LAYOUT.ghosts.length; i++) {
-    const g = WITCH_LAYOUT.ghosts[i];
-    ghost(c,g.x,g.y, i ? .88 : .9,time,i,state.event?.kind === 'ghost' && (state.event.age || 0) < 1.3);
   }
   if (state.flightLift > .001) broomWitch(c,state);
   for (let i = 0; i < WITCH_LAYOUT.bats.length; i++) {
@@ -931,6 +1002,7 @@ export function warpWitchPoint(point, state = {}, inverse = false) {
 function drawWorld(c, state) {
   c.clearRect(0,0,1000,720); c.lineCap='round'; c.lineJoin='round';
   background(c,state);
+  backgroundGhosts(c,state);
   brewScene(c,state);
   flightScene(c,state);
   reachingHand(c,state);
@@ -1011,10 +1083,16 @@ export function hitTestWitch(x, y, state = {}) {
 
   const pot=WITCH_LAYOUT.cauldron;
   if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
-  for(const type of ['ghost','bat']) {
-    for(const [index,g] of WITCH_LAYOUT[type==='ghost'?'ghosts':'bats'].entries()) {
-      if(Math.hypot(x-g.x,y-g.y)<Math.max(g.r,minRadius)) return {type,index};
+  let ghostHit=null,ghostDistance=Infinity;
+  for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
+    const ghost=getWitchGhostPosition(index,state),distance=Math.hypot(x-ghost.x,y-ghost.y);
+    if(distance<Math.max(ghost.r,minRadius)&&distance<ghostDistance) {
+      ghostHit={type:'ghost',index};ghostDistance=distance;
     }
+  }
+  if(ghostHit)return ghostHit;
+  for(const [index,bat] of WITCH_LAYOUT.bats.entries()) {
+    if(Math.hypot(x-bat.x,y-bat.y)<Math.max(bat.r,minRadius))return {type:'bat',index};
   }
   for(const spirit of WITCH_LAYOUT.spirits) if(Math.hypot(x-spirit.x,y-spirit.y)<Math.max(spirit.r,minRadius*.7))return {type:spirit.kind};
   if(nearestObject)return nearestObject;

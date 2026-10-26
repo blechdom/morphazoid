@@ -22,11 +22,12 @@ the native controls and a complete ingredient list for keyboard access.
 | Lift or lower the glowing ember | The ember rises and glows brighter | Brightens the finger instruments and night accents |
 | Click the moon | She takes off on a rollercoaster broom ride | One launch cackle; flight bends the whole mix through delay |
 | Steer the broom | The ride rises, falls and sweeps across the sky | Delay and stereo movement follow the flight |
-| Touch the moon, bats, ghosts, star or wind spirit | The touched creature responds | Selects a singing character and adds its accent |
+| Touch the moon, bats, star or wind spirit | The touched creature responds | Selects a singing character and adds its accent |
+| Lift or lower a background ghost | The three spectral visitors pulse and drift at the new tempo | Speeds up or slows down their shared, quiet beat |
 | Stir during flight | The pot stays within reach | The same voice and fingers continue through the delay |
 | Click a mushroom | Colors change and the picture ripples | Playback continues unchanged |
 | Add glass / hair | Potion changes | Ringing resonances / unstable harmonics |
-| Stop | The performance pauses | Voice, fingers, solos and flight effects release |
+| Stop | The performance and ghost beat pause | Voice, fingers, ghosts, solos and flight effects release |
 
 The spoon rises and falls automatically through muttering, whisper, creak,
 cackle and singing. Drag its handle vertically to take over its height. The
@@ -71,10 +72,21 @@ The ordinary materials and Oculoid eye resonance are original potion sounds;
 there is no standalone Oculoid implementation in this checkout to reuse.
 These are bounded excerpts and adaptations, not complete copies of each synth.
 
+Ghostly Creaturazoid, Monstrozoid (the catalogue's Monstroid) and Hiccup Head
+portraits visit the mist behind the witch. They fade through offset phrases of
+one shared beat and never become featured solos. Creaturazoid and Monstrozoid
+reuse their syrinx source; Hiccup Head adapts its authored vocal gestures.
+Their subdued percussion follows the same arrivals and pulses as the picture,
+and becomes quieter under ingredient solos. Drag any ghost upward for a faster
+beat or downward for a slower one, from 36 to 180 BPM. The tempo slider and
+shared Tap button are inside Parameters. Tempo changes preserve the beat's
+position; stirring and flight speed do not change it. Adjusting ghosts while
+stopped does not start the performance or arm Audio.
+
 Clicking the moon takes her into a continuous rollercoaster ride. With Audio
 enabled, takeoff adds one short cackle; it does not repeat during ordinary
 flight. Clicking the moon again while flying plays a bell. The flight effect
-processes the combined voice, fingers and object solos through a changing
+processes the combined voice, fingers, background ghosts and object solos through a changing
 stereo delay. Her rise, fall and sideways motion shape the sound. You can keep
 singing, bending fingers and dropping objects while she flies; returning to
 the pot keeps the musical phrase going. The scenery adds instrumental accents.
@@ -98,7 +110,8 @@ moon bell while flying, **B** returns to brewing, and **W** cycles the mushrooms
 **Escape** returns to the cauldron and stops Play. **Space** toggles Play.
 **Q/E/R** drop the hand, marimba and mouth. **[ / ]** select any ingredient;
 **Enter** drops the selected ingredient. **− / +** darken or brighten the fingers and night accents.
-**T/G/S/V** play bats, ghosts, stars and wind in every activity. Arrows stir/open the voice
+**G / Shift+G** speed up or slow down the ghost beat. **T/S/V** play bats, stars
+and wind in every activity. Arrows stir/open the voice
 or steer the broom. Hold **1–5** to play individual finger instruments; arrows
 bend the selected finger when its sound is featured. Native finger sliders also play
 while held or adjusted with keys. The controls inside Parameters provide

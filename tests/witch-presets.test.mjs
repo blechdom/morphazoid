@@ -8,6 +8,8 @@ test('every complete Witch scene survives recall without bringing transport or o
   for(const {snapshot} of WITCH_PRESETS) {
     assert.deepEqual(normalizeWitchPreset(snapshot),snapshot);
     assert.equal('volume' in snapshot,false);assert.equal('gate' in snapshot,false);assert.equal('playing' in snapshot,false);
+    assert.equal('ghostPhase' in snapshot,false);
+    assert.ok(snapshot.ghostTempo>=36&&snapshot.ghostTempo<=180);
     const recalled=normalizeWitchPreset(snapshot);recalled.fingers[0]=.123;
     assert.notEqual(recalled.fingers[0],snapshot.fingers[0]);
   }
@@ -25,4 +27,14 @@ test('randomization reaches every scene, character, direction and continuous mus
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }
   for(let i=0;i<5;i++) assert.ok(new Set(scenes.map(s=>s.fingers[i])).size>100,`finger ${i}`);
+  assert.ok(new Set(scenes.map(s=>s.ghostTempo)).size>40,'the ghost beat participates in full-state randomization');
+  assert.ok(scenes.every(s=>s.ghostTempo>=36&&s.ghostTempo<=180));
+});
+
+test('ghost beat tempo recalls old presets safely and clamps malformed or extreme input',()=>{
+  assert.equal(WITCH_DEFAULTS.ghostTempo,72);
+  for(const value of [undefined,NaN,Infinity,'broken']) assert.equal(normalizeWitchPreset({ghostTempo:value}).ghostTempo,72);
+  assert.equal(normalizeWitchPreset({ghostTempo:-100}).ghostTempo,36);
+  assert.equal(normalizeWitchPreset({ghostTempo:1000}).ghostTempo,180);
+  assert.equal(normalizeWitchPreset({ghostTempo:108}).ghostTempo,108);
 });

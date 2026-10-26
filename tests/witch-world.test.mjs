@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -92,7 +92,7 @@ test('ingredient touch halos preserve scenery targets and choose the nearest obj
   for(const time of [0,1,4,17,39]) {
     const state={time,handReach:1,hitRadius:80};
     for(const [point,type] of [[WITCH_LAYOUT.moon,'moon'],...WITCH_LAYOUT.mushrooms.map(point=>[point,'mushrooms']),
-      ...WITCH_LAYOUT.ghosts.map(point=>[point,'ghost']),...WITCH_LAYOUT.bats.map(point=>[point,'bat'])]) {
+      ...WITCH_LAYOUT.ghosts.map(ghost=>[getWitchGhostPosition(ghost,state),'ghost']),...WITCH_LAYOUT.bats.map(point=>[point,'bat'])]) {
       assert.equal(hitTestWitch(point.x,point.y,state)?.type,type,`${type} at ${point.x},${point.y}`);
     }
   }
@@ -118,4 +118,102 @@ test('the tone firefly follows brightness and remains separate from the bat and 
       assert.equal(hitTestWitch(visible.x,visible.y,state)?.type,type);
     }
   }
+});
+
+
+test('three named ghost performers drift on the shared beat and stay quiet at every focus',()=>{
+  assert.deepEqual(WITCH_LAYOUT.ghosts.map(ghost=>ghost.id),['creaturazoid','monstroid','hiccup']);
+  const quiet={ghostPhase:12,ghostPresence:[0,0,0],ghostPulses:[0,0,0]};
+  const phrase={...quiet,ghostPresence:[1,.5,.8],ghostPulses:[1,1,1]};
+  for(let index=0;index<3;index++) {
+    const absent=getWitchGhostPosition(index,quiet),present=getWitchGhostPosition(index,phrase);
+    assert.equal(absent.alpha,.025,'quiet wisps remain available to drag between phrases');
+    assert.ok(present.alpha>absent.alpha&&present.alpha<=.22);
+    assert.equal(present.scale,1,'beat attacks cannot advance a ghost toward the viewer');
+    assert.deepEqual(getWitchGhostPosition(index,{...phrase,scene:'flight',flightLift:1,handReach:1,event:{kind:'ghost',age:0}}),present);
+    assert.deepEqual(getWitchGhostPosition(index,{...phrase,time:8391,motionTime:21}),present,'wall time cannot make an independent beat');
+    assert.notEqual(getWitchGhostPosition(index,{...phrase,ghostPhase:32}).x,present.x);
+    const frozen={...phrase,reducedMotion:true};
+    assert.deepEqual(getWitchGhostPosition(index,{...frozen,ghostPhase:1}),getWitchGhostPosition(index,{...frozen,ghostPhase:999}));
+  }
+});
+
+test('ghost tempo gestures use the visible drifting centers without swallowing ingredients',()=>{
+  for(const scene of ['brew','flight'])for(const ghostPhase of [0,4,17,39,120,1000])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++) {
+    const state={scene,handReach:1,flightLift:scene==='flight'?1:0,hitRadius,trip,time:ghostPhase*.5,warpTime:ghostPhase,ghostPhase};
+    for(let index=0;index<3;index++) {
+      const ghost=getWitchGhostPosition(index,state),point=warpWitchPoint(ghost,state);
+      const hit=hitTestWitch(point.x,point.y,state);
+      if(scene==='flight'&&['hat','nose','spoon','hand'].includes(hit?.type)) {
+        const targets=getWitchTargets(state),ladle=getWitchLadle(state);
+        const foreground=hit.type==='spoon'?{x:ladle.hx-8,y:ladle.hy-24,r:Math.max(27,hitRadius*.75)}:
+          hit.type==='hand'?{...transformHandPoint({x:590,y:415},state),r:Math.max(38,hitRadius)}:
+          {...targets[hit.type],r:Math.max(targets[hit.type].r,hitRadius*(hit.type==='hat'?.7:.65))};
+        assert.ok(Math.hypot(ghost.x-foreground.x,ghost.y-foreground.y)<foreground.r,'only a visibly overlapping foreground gesture can occlude a ghost');
+      } else assert.deepEqual(hit,{type:'ghost',index},`${ghost.id} at phase ${ghostPhase}`);
+    }
+    for(const [index,ingredient] of WITCH_LAYOUT.objects.entries()) {
+      const point=warpWitchPoint(getWitchObjectPosition(ingredient,state),state);
+      assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'object',id:ingredient.id,kind:ingredient.kind,index});
+    }
+  }
+});
+
+// Inspect actual draw calls, including the cached portrait canvases, to prove
+// depth rather than merely pinning source-code statement order.
+function captureWitchPaint() {
+  const canvases=[];
+  const document={createElement(tag) {
+    if(tag==='img')return {complete:true,naturalWidth:512,src:''};
+    const canvas={ownerDocument:document,width:0,height:0,cloneNode:()=>document.createElement('canvas')};
+    const calls=[],stack=[];
+    const context=new Proxy({canvas,calls,globalAlpha:1,save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
+      createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
+      fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha});},
+      drawImage(source,...args){calls.push({kind:'image',source,args,alpha:this.globalAlpha});},
+      getImageData(){
+        const data=new Uint8ClampedArray(160*160*4);
+        for(let p=0;p<data.length;p+=4)data[p+3]=255;
+        for(let y=40;y<120;y++)for(let x=40;x<120;x++)data.set([80,140,190,255],(y*160+x)*4);
+        data.set([0,0,0,255],(70*160+80)*4); // Enclosed dark anatomy.
+        return {data,width:160,height:160};
+      },
+      putImageData(pixels){calls.push({kind:'pixels',pixels});},
+    },{get(target,key){return key in target?target[key]:(()=>{});}});
+    canvas.getContext=()=>context;canvases.push(canvas);return canvas;
+  }};
+  const canvas=document.createElement('canvas');
+  return {context:canvas.getContext('2d'),canvases};
+}
+
+test('spectral instrument portraits always paint behind witch, pot, hands and solo ingredients',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    for(const scene of ['brew','flight']) {
+      const {context,canvases}=captureWitchPaint(),hand0={},hand1={};
+      renderWitch(context,1000,720,{scene,flightLift:scene==='flight'?1:0,handReach:1,
+        handSurface:hand0,handSurfaces:[hand0,hand1],ghostPresence:[1,1,1],ghostPulses:[1,1,1],ghostPhase:4});
+      const world=canvases[1].getContext('2d').calls;
+      const isGhost=call=>call.kind==='image'&&call.source?.getContext?.('2d').calls.some(entry=>
+        entry.kind==='image'&&/\/(creaturazoid|colony-syrinx|hiccup-head)\.webp$/.test(entry.source.src||''));
+      const portraits=world.map((call,index)=>({call,index})).filter(({call})=>isGhost(call));
+      assert.equal(portraits.length,3,'each original instrument portrait paints once');
+      for(const {call} of portraits.slice(0,2)) {
+        const pixels=call.source.getContext('2d').calls.find(entry=>entry.kind==='pixels').pixels.data;
+        assert.equal(pixels[3],0,'opaque black portrait corners become transparent before tinting');
+        assert.equal(pixels[(70*160+80)*4+3],255,'enclosed dark anatomy remains opaque');
+        assert.equal(pixels[(50*160+50)*4+3],255,'colored anatomy remains opaque');
+      }
+      for(const {call,index} of portraits) {
+        assert.ok(call.alpha<=.22&&call.alpha>0);
+        assert.ok(world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith('M412,520'))>index,'cauldron occludes ghosts');
+        assert.ok(world.findIndex(entry=>entry.kind==='image'&&entry.source===hand0)>index,'extended hand occludes ghosts');
+        assert.ok(world.findIndex(entry=>entry.kind==='image'&&entry.source===hand1)>index,'ladle/broom hand occludes ghosts');
+        assert.ok(world.findIndex(entry=>entry.kind==='image'&&/\/hiccup-head\.webp$/.test(entry.source.src||''))>index,'featured miniature stays in front');
+      }
+      const witchBody=world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith(scene==='flight'?'M-67,-32':'M398,360'));
+      assert.ok(witchBody>portraits.at(-1).index,'the same depth applies while flying');
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

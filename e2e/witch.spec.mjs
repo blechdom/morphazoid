@@ -9,6 +9,7 @@ async function open(page) {
 }
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
 const ingredientIds=['glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir'];
+const ghostIds=['creaturazoid','monstroid','hiccup'];
 async function parameters(page,open=true) {
   const panel=page.locator('#witchParameters');
   if(await panel.evaluate(el=>el.open)!==open) await panel.locator(':scope > summary').click();
@@ -25,11 +26,6 @@ async function selectScene(page,scene) {
     await expect.poll(async()=>(await state(page)).world.handReach).toBe(1);
   } else await expect.poll(async()=>(await state(page)).config.scene).toBe(scene);
 }
-async function clickStage(page,x,y) {
-  await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
-  const p=await point(page,x,y);
-  await page.mouse.click(p.x,p.y);
-}
 async function observeWorklet(page) {
   await page.addInitScript(()=>{
     window.witchTriggers=[];
@@ -43,7 +39,12 @@ async function observeWorklet(page) {
             if(message.type==='trigger') window.witchTriggers.push(message.kind);
             return post(message,...args);
           };
-          this.port.addEventListener('message',({data})=>{ if(data.type==='visual') window.witchVisual=data; });
+          this.port.addEventListener('message',({data})=>{
+            if(data.type==='visual') {
+              window.witchVisual=data;
+              window.witchGhostPeak=Math.max(window.witchGhostPeak??0,Math.abs(data.ghostLevel??0));
+            }
+          });
           this.port.start();
         }
       }
@@ -77,6 +78,28 @@ async function dropIngredient(page,id,touch=false) {
   } else { await page.mouse.move(to.x,to.y,{steps:7});await page.mouse.up(); }
   await expect.poll(async()=>(await state(page)).objects.find(item=>item.id===id).dropped).toBe(true);
 }
+async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
+  await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
+  const ghost=(await state(page)).ghosts.find(item=>item.id===id);
+  const rect=await page.locator('#witchCanvas').boundingBox(),from=stagePoint(rect,ghost.x,ghost.y),to=stagePoint(rect,ghost.x,ghost.y+dy);
+  const session=touch?await page.context().newCDPSession(page):null;
+  if(session) await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+  else { await page.mouse.move(from.x,from.y);await page.mouse.down(); }
+  if(session) {
+    for(let step=1;step<=5;step++) await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:from.x,y:from.y+(to.y-from.y)*step/5}]});
+    await session.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await session.detach();
+  } else {
+    await page.mouse.move(to.x,to.y,{steps:5});
+    if(cancel) await page.locator('#witchCanvas').dispatchEvent('pointercancel',{pointerId:1});
+    await page.mouse.up();
+  }
+}
+async function ghostRate(page,duration=450) {
+  return page.evaluate(ms=>new Promise(resolve=>{
+    const phase=window.witchInstrument.state.ghostPhase,time=performance.now();
+    setTimeout(()=>resolve((window.witchInstrument.state.ghostPhase-phase)*1000/(performance.now()-time)),ms);
+  }),duration);
+}
 
 test('parameters start tucked away while presets, transport and every ingredient remain reachable',async({page})=>{
   await open(page);
@@ -85,9 +108,12 @@ test('parameters start tucked away while presets, transport and every ingredient
   const sliders=page.locator('.witch-panel input[type="range"]');
   expect(await sliders.count()).toBeGreaterThan(0);
   for(const slider of await sliders.all()) await expect(slider).toBeHidden();
+  await expect(page.locator('#ghostTempo')).toBeHidden();
+  await expect(page.locator('.mz-tap-tempo[data-tap-control="#ghostTempo"]')).toBeHidden();
   expect((await state(page)).objects.map(object=>object.id)).toEqual(expect.arrayContaining(ingredientIds));
   await page.locator('#witchParameters > summary').focus();await page.keyboard.press('Enter');
   for(const slider of await sliders.all()) await expect(slider).toBeVisible();
+  await expect(page.locator('.mz-tap-tempo[data-tap-control="#ghostTempo"]')).toBeVisible();
   for(const id of ingredientIds) await expect(page.locator(`#witchParameters [data-drop="${id}"]`)).toBeVisible();
   await page.locator('[data-drop="roach"]').focus();await page.keyboard.press('Enter');
   expect((await state(page)).objects.find(item=>item.id==='roach').dropped).toBe(true);
@@ -184,7 +210,7 @@ test('spoon height selects all five singing characters and automatic motion rema
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 });
 
-test('nose, hat, ember and night creatures reshape the ensemble without leaving the shared scene',async({page})=>{
+test('nose, hat, ember and flight reshape the ensemble without leaving the shared scene',async({page})=>{
   await open(page);await page.locator('#playButton').click();
   for(const [kind,dx,dy] of [['nose',45,0],['hat',0,-45],['tone',0,-45]]) {
     const before=await state(page),target=before.targets[kind],from=await point(page,target.x,target.y);
@@ -200,8 +226,6 @@ test('nose, hat, ember and night creatures reshape the ensemble without leaving 
   await page.keyboard.press('-');expect((await state(page)).config.tone).toBeCloseTo(dimmer,5);
   expect(await page.locator('#witchParameters').evaluate(el=>el.open)).toBe(false);
   expect((await state(page)).audioOn).toBe(false);
-  await clickStage(page,160,280);
-  expect((await state(page)).config.voice).toBe('whisper');
   await selectScene(page,'flight');
   await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
   const target=(await state(page)).targets.nose;expect(target.x).toBeGreaterThan(0);expect(target.x).toBeLessThan(1000);
@@ -212,6 +236,95 @@ test('nose, hat, ember and night creatures reshape the ensemble without leaving 
   await page.locator('#witchCanvas').focus();await page.keyboard.press('h');
   expect((await state(page)).config.scene).toBe('flight');
   expect((await state(page)).world.handOpen).toBe(true);
+});
+
+test('three background ghosts share a faster or slower beat without taking the witch focus',async({page})=>{
+  await open(page);
+  const initial=await state(page);
+  expect(initial.ghosts.map(ghost=>ghost.id)).toEqual(ghostIds);
+  expect(initial.config.ghostTempo).toBe(72);
+  await expect.poll(async()=>(await state(page)).ghostPhase).toBeGreaterThan(initial.ghostPhase+.25);
+  await page.locator('#playButton').click();
+  const paused=await state(page);
+  for(const id of ghostIds) {
+    const before=await state(page);
+    await dragGhost(page,id,-45);
+    const faster=await state(page);
+    expect(faster.config.ghostTempo).toBeGreaterThan(before.config.ghostTempo+20);
+    expect(faster).toMatchObject({playing:false,audioOn:false,world:{handOpen:paused.world.handOpen}});
+    expect(faster.config).toMatchObject({scene:paused.config.scene,voice:paused.config.voice,spoonAuto:paused.config.spoonAuto});
+    await dragGhost(page,id,45,{cancel:true});
+    const cancelled=await state(page);
+    expect(cancelled.config.ghostTempo).toBeLessThan(faster.config.ghostTempo-20);
+    await page.mouse.move(20,20);
+    expect((await state(page)).config.ghostTempo).toBe(cancelled.config.ghostTempo);
+    expect((await state(page)).ghostPhase).toBeCloseTo(paused.ghostPhase,6);
+  }
+  await page.locator('#witchCanvas').focus();
+  // Adjusting the backing beat must not release a separately held finger spell.
+  for(const cancel of [false,true]) {
+    await page.keyboard.down('3');
+    expect((await state(page)).manualFingerMask&4).toBe(4);
+    await dragGhost(page,'creaturazoid',-20,{cancel});
+    expect((await state(page)).manualFingerMask&4).toBe(4);
+    expect((await state(page)).ghostPhase).toBeCloseTo(paused.ghostPhase,6);
+    await page.keyboard.up('3');
+    expect((await state(page)).manualFingerMask).toBe(0);
+  }
+  const slower=(await state(page)).config.ghostTempo;
+  await page.keyboard.press('g');expect((await state(page)).config.ghostTempo).toBeCloseTo(slower+6,5);
+  await page.keyboard.press('Shift+G');expect((await state(page)).config.ghostTempo).toBeCloseTo(slower,5);
+  await page.locator('#playButton').click();
+  await range(page,'ghostTempo',36);const slow=await ghostRate(page);
+  await range(page,'ghostTempo',180);const fast=await ghostRate(page);
+  expect(slow).toBeGreaterThan(.3);expect(slow).toBeLessThan(.9);
+  expect(fast).toBeGreaterThan(2);expect(fast).toBeLessThan(3.6);
+  expect(fast).toBeGreaterThan(slow*3);
+  expect((await state(page)).audioOn).toBe(false);
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+});
+
+test('ghost beat joins Audio without restarting, survives presets and Tap, and releases on Stop',async({page})=>{
+  test.setTimeout(45000);
+  await observeWorklet(page);await open(page);
+  await range(page,'ghostTempo',180);
+  await expect.poll(async()=>(await state(page)).ghostPhase).toBeGreaterThan(3);
+  const silent=await state(page);
+  await page.locator('#audioButton').click();
+  expect((await state(page)).ghostPhase).toBeGreaterThan(silent.ghostPhase-.1);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostLevel??0),{timeout:10000}).toBeGreaterThan(.00001);
+  const live=await state(page);
+  expect(live.audioOn).toBe(true);expect(live.playing).toBe(true);
+  for(const selector of ['.header-preset-next','.header-preset-random']) {
+    const before=await state(page);
+    await page.locator(selector).click();
+    const after=await state(page);
+    expect(after.ghostPhase).toBeGreaterThan(before.ghostPhase-.1);
+    expect(after).toMatchObject({playing:true,audioOn:true});
+    expect(after.config.ghostTempo).toBeGreaterThanOrEqual(36);expect(after.config.ghostTempo).toBeLessThanOrEqual(180);
+  }
+  await parameters(page);
+  const tap=page.locator('.mz-tap-tempo[data-tap-control="#ghostTempo"]');
+  const beforeTap=await state(page);
+  await tap.evaluate(button=>{button.reset();const now=performance.now();button.tap(now);button.tap(now+500);button.tap(now+1000);});
+  const tapped=await state(page);
+  expect(tapped.config.ghostTempo).toBeCloseTo(120,5);
+  expect(tapped.ghostPhase).toBeGreaterThanOrEqual(beforeTap.ghostPhase);
+  expect(tapped).toMatchObject({playing:true,audioOn:true});
+  await expect(page.locator('#ghostTempo')).toHaveValue('120');
+  await parameters(page,false);
+  await selectScene(page,'flight');
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.delayWet??0)).toBeGreaterThan(.1);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostLevel??0),{timeout:10000}).toBeGreaterThan(.00001);
+  const envelope=await sampleAudioEnvelope(page,{durationMs:500});
+  expect(envelope.summary.finite).toBe(true);expect(envelope.summary.clippedSamples).toBe(0);
+  expect(await page.evaluate(()=>window.witchGhostPeak)).toBeLessThanOrEqual(.028);
+  await page.locator('#playButton').click();
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostLevel??1),{timeout:6000}).toBeLessThan(.00001);
+  const stopped=(await state(page)).ghostPhase;
+  await page.waitForTimeout(250);
+  expect((await state(page)).ghostPhase).toBeCloseTo(stopped,5);
+  await waitForStableAudioState(page,false,{timeout:12000,stableMs:300});
 });
 
 test('every potion ingredient drops from the picture for a solo while voice, fingers and flight continue',async({page})=>{
@@ -295,6 +408,10 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       }
       await dropIngredient(page,'oculoid',label!=='desktop');
       expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).audioOn).toBe(false);
+      const beforeGhost=await state(page);
+      await dragGhost(page,'monstroid',-40,{touch:label!=='desktop'});
+      expect((await state(page)).config.ghostTempo).toBeGreaterThan(beforeGhost.config.ghostTempo+20);
+      expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).world.handOpen).toBe(beforeGhost.world.handOpen);
       if(label!=='desktop') for(const selector of ['#audioButton','#playButton']) {
         const rect=await page.locator(selector).boundingBox();expect(rect.width).toBeGreaterThanOrEqual(48);expect(rect.height).toBeGreaterThanOrEqual(48);
       }

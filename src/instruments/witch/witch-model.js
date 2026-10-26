@@ -15,6 +15,7 @@ export const WITCH_DROP_EFFECTS = Object.freeze([
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
+  ghostTempo: 72, ghostGate: false,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
@@ -30,6 +31,8 @@ export function normalizeWitchControls(value = {}) {
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
+  result.ghostGate = input.ghostGate === true;
+  result.ghostTempo = witchClamp(input.ghostTempo, 36, 180, WITCH_DEFAULTS.ghostTempo);
   result.spoonAuto = input.spoonAuto === true;
   result.mode = ['brew', 'fingers', 'flight'].includes(input.mode) ? input.mode : 'brew';
   result.handFocus = witchClamp(input.handFocus, 0, 1, result.mode === 'fingers' ? 1 : 0);
@@ -42,6 +45,28 @@ export function normalizeWitchControls(value = {}) {
 
 export const witchSpoonHeight = seconds => .5 + .48 * Math.sin(witchClamp(seconds, 0, 1e9) * .62);
 export const witchVoiceAtHeight = height => WITCH_VOICES[Math.min(4, Math.floor(witchClamp(height) * 5))];
+
+const GHOST_BEATS = Object.freeze([
+  Object.freeze([1, 0, 0, .48, 1, 0, .6, 0]),
+  Object.freeze([0, .65, 1, 0, 0, .55, 1, 0]),
+  Object.freeze([0, 0, 0, 1, 0, .52, 0, 1]),
+]);
+const ghostSmooth = value => { const x = witchClamp(value); return x * x * (3 - 2 * x); };
+
+/** One audio-owned beat clock for the three distant visitors: Creaturazoid,
+ * Monstrozoid, Hiccup Head. Each has twelve visible beats in a twenty-four-beat
+ * mist cycle. Both the sound and drawing use these same staggered arrivals and
+ * half-beat accents; changing tempo changes the slope, never the position. */
+export function witchGhostFrame(phase = 0, index = 0, out = {}) {
+  const beats = witchClamp(phase, 0, 1e12), ghost = Math.round(witchClamp(index, 0, 2));
+  const visit = ((beats - ghost * 8) % 24 + 24) % 24;
+  out.presence = visit < 12 ? ghostSmooth(visit / 2) * ghostSmooth((12 - visit) / 2) : 0;
+  const subdivisions = beats * 2, step = Math.floor(subdivisions), fraction = subdivisions - step;
+  out.step = step; out.beatAge = fraction * .5;
+  out.pulse = out.presence * GHOST_BEATS[ghost][step % 8]
+    * ghostSmooth(fraction / .07) * Math.exp(-fraction * 5.8) * ghostSmooth((.9 - fraction) / .15) * 1.35;
+  return out;
+}
 
 /** The two hands use authored Gesticules choreography, with different timing
  * and a low starting curl that keeps the elongated fingers legible. */
