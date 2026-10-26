@@ -725,6 +725,7 @@ class PotionTasteDSP {
     this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
     this.fmDrums = new FmTasteDSP(rate);
     this.clips = witchBiteClips();
+    this.roachWings = this.clips['roach-wings'];
     this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
     this.alienBody = throatVoiceParameters(ALIEN_TASTE, 0, rate);
     this.sawBank = buildPhysicalModalBank('bowed-things', { presetId: 'musical-saw', baseFrequencyHz: bendToFrequency(JULIE_SAW_DEFAULTS),
@@ -808,7 +809,9 @@ class PotionTasteDSP {
         slot.nextEvent += .073 + .035 * (slot.event % 3);
       }
       const taps = this.roach.sample(noise, 0, 2);
-      sample = taps[0] * 1.2 + taps[2] * .58 + this.zing.sample(noise, active ? .14 : 0) * .74;
+      const { data, rate } = this.roachWings, position = t * rate, index = Math.floor(position), mix = position - index;
+      const flutter = index + 1 < data.length ? data[index] + (data[index + 1] - data[index]) * mix : 0;
+      sample = (taps[0] * 1.2 + taps[2] * .58 + this.zing.sample(noise, active ? .14 : 0) * .74) * .8 + flutter * .5;
     } else if (slot.kind === 'drop-spider') {
       if (active && t >= slot.nextEvent && slot.event < 8) {
         const index = slot.event++;

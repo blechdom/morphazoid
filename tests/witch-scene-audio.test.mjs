@@ -27,7 +27,7 @@ test('baked native instrument phrases form a bounded, shared source bank with di
     assert.ok(clip.data.every(value => Number.isFinite(value) && Math.abs(value) <= .65001));
     assert.equal(clip.data[0], 0); assert.equal(clip.data.at(-1), 0);
     assert.ok(rms(clip.data) > .04, `${kind}: authored dynamics retain usable source level`);
-    const dsp = playing({ gate: false }); assert.equal(dsp.trigger(kind), true);
+    const dsp = playing({ gate: false }); assert.equal(dsp.trigger(kind === 'roach-wings' ? 'drop-roach' : kind), true);
     const signal = render(dsp, .8); assert.ok(rms(signal) > .006, kind); signals.push(signal);
   }
   assert.ok(bytes < 3_000_000, 'finite mono excerpts stay within three MB decoded');

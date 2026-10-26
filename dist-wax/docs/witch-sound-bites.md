@@ -18,6 +18,7 @@ drop or audio render boundary.
 | `drop-marimba` | Rattlesnake (`linear-drums`), its frequency-dependent modal ratios, gains, damping and strike-noise parameters in a fixed scalar excerpt of 36 cascading strikes |
 | `drop-blech` | BLECH MIDI, its Accelerator equation generator, SpessaSynth renderer and bundled TimGM6mb Music Box program; 96 events over a five-second excerpt |
 | `drop-puggler` | Puggler's existing drum recordings, Oi recording, punk-character vocal DSP and a quiet native fuzz-guitar accent |
+| `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
 
@@ -27,6 +28,9 @@ Syrinx/Creaturazoid miniatures retain their actual source models and gesture
 frames. FM Drums uses eight reusable native-parameter hits in a faster rhythm;
 Rubix traverses its Color Kit 32 times. Older drop IDs remain accepted even when
 their icons are no longer on the shelf.
+
+The internal `roach-wings` clip follows the roach bite's clock, fades and release;
+it does not add another ingredient or a separately running instrument.
 
 The final bite gain is lower and the ongoing voice/fingers retain 72% of their
 backing gain during a drop. The output makeup and 0.84 sample ceiling are
@@ -49,6 +53,12 @@ by rhink; these recordings are CC0. Their full provenance and license are in
 [`assets/puggler/CC0-1.0.txt`](../assets/puggler/CC0-1.0.txt). The excerpt retains
 the actual recorded Oi articulation, processed through Puggler's original punk
 character effect.
+
+The roach layer uses nicotep's CC0 vivarium movement recording through Roach
+Synth's own grain player. Its provenance and license remain in
+[`assets/roach-synth/audio/CREDITS.md`](../assets/roach-synth/audio/CREDITS.md)
+and [`manifest.json`](../assets/roach-synth/audio/manifest.json). The recording
+supplies movement texture; the fluttering wing buzz is synthesized.
 
 BLECH's Music Box is rendered from the repository's TimGM6mb soundfont by Tim
 Brechbill and David Bolton. Its supplied copyright notice and GPL-2 license are

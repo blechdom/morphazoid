@@ -90,6 +90,32 @@ test('Throatazoid and FM Drums excerpts retain their actual authored source iden
   render(dsp, 5); assert.ok(rms(render(dsp, .1)) < 1e-6);
 });
 
+test('the roach bite layers three native wing-flutter trains over its feet and wire rasp', () => {
+  const clip = witchBiteClips()['roach-wings'];
+  assert.equal(clip.instrumentId, 'roach-synth'); assert.equal(clip.events, 3);
+  assert.equal(clip.frames, clip.rate * 2.4);
+  assert.match(WITCH_BITE_CLIPS['roach-wings'].source, /RoachBodyEngine.*Wing radio buzz.*vivarium rustle/);
+  const windowRms = (start, end) => rms(clip.data.subarray(start * clip.rate, end * clip.rate));
+  const active = [[.15, .55], [.95, 1.25], [1.75, 2.15]].map(([start, end]) => windowRms(start, end));
+  assert.ok(active.every(level => level > .08), 'each wing train has a usable level');
+  for (const [start, end] of [[.74, .81], [1.51, 1.6]]) {
+    assert.ok(windowRms(start, end) < Math.min(...active) * .05, 'flutter trains separate instead of becoming a continuous hiss');
+  }
+  for (const rate of [8000, 48000]) {
+    const full = new WitchDSP(rate), feet = new WitchDSP(rate);
+    feet.drops.tastes.roachWings = { ...clip, data: new Float32Array(clip.frames) };
+    for (const dsp of [full, feet]) { dsp.setEnabled(true); dsp.trigger('drop-roach'); }
+    const combined = render(full, 2.4), percussion = render(feet, 2.4);
+    const difference = rms(combined.map((value, index) => value - percussion[index]));
+    assert.ok(difference > rms(percussion) * .35, 'wings remain substantial beside the original percussion');
+    assert.ok(rms(percussion) > rms(combined) * .5, 'feet and wire retain their place in the layered bite');
+    assert.ok(combined.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+    render(full, 2); assert.ok(rms(render(full, .1)) < 1e-6);
+    full.trigger('drop-roach'); render(full, .3); full.releaseAccents(); render(full, 2);
+    assert.ok(rms(render(full, .1)) < 1e-6, 'Reset releases the flutter with the rest of the bite');
+  }
+});
+
 test('Puggler plays its finite punk drums and Oi excerpt from a shared source bank', () => {
   const dsp = new WitchDSP(24000), taste = dsp.drops.tastes.clips['drop-puggler'], data = taste.data;
   for (const rate of [8000, 48000]) assert.equal(new WitchDSP(rate).drops.tastes.clips['drop-puggler'], taste,
