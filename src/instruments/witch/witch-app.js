@@ -300,7 +300,9 @@ listen(canvas,'pointerdown',e => {
   if(hit.type==='object') {dropObject(hit.id);e.preventDefault();return;}
   if(hit.type==='stir' && config.scene==='fingers') setScene('brew');
   if(hit.type==='finger') {
-    selectedFinger=hit.index; fingerPointers.set(e.pointerId,{index:hit.index,start:p,transform:handTransform(visualState()),value:config.fingers[hit.index]});
+    const tip=initial.handTips?.[hit.index],palm=initial.handPalms?.[0];
+    const dx=tip&&palm?tip.x-palm.x:-.8,dy=tip&&palm?tip.y-palm.y:-.6,length=Math.hypot(dx,dy)||1;
+    selectedFinger=hit.index; fingerPointers.set(e.pointerId,{index:hit.index,start:p,transform:handTransform(initial),value:config.fingers[hit.index],outward:{x:dx/length,y:dy/length}});
     canvas.setPointerCapture(e.pointerId); send(); sync(); e.preventDefault(); return;
   }
   keyboardGate=false;
@@ -322,7 +324,10 @@ listen(canvas,'pointermove',e => {
   if(held) {
     const p=canonical(e,true),t=held.transform,dx=p.x-held.start.x,dy=p.y-held.start.y,det=t.a*t.d-t.b*t.c;
     const localX=(t.d*dx-t.c*dy)/det,localY=(t.a*dy-t.b*dx)/det;
-    config.fingers[held.index]=clamp(held.value+(held.index===0?-1:1)*localY/220+localX/600);
+    // Capture the thumb's direction away from the palm: pulling it outward
+    // opens it, even with the hand turned sideways or flying.
+    const bend=held.index===0?-(localX*held.outward.x+localY*held.outward.y)/170:localY/220+localX/600;
+    config.fingers[held.index]=clamp(held.value+bend);
     send(); sync(); e.preventDefault(); return;
   }
   if(!pointer || pointer.id!==e.pointerId) {

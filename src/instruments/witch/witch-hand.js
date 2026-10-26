@@ -81,7 +81,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
   const projected = new THREE.Vector3(), temporary = new THREE.Vector3();
   let renderer = null, rig = null, loaded = false, disposed = false, lost = false;
   let vertices = 0, triangles = 0, sourceRoot = null;
-  const claws = [], anchors = [];
+  const claws = [], anchors = [], manualThumb = [];
 
   function status(message) { if (!disposed) onStatus(message); }
   function project(object, index) {
@@ -108,7 +108,16 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     // Turn the ladle hand around its own three-dimensional wrist axis. This
     // exposes the opposite palm without flipping its screen-space heading.
     const wristTwist=pose.wrist.twist+(handIndex===1?180:0);
-    rig.setPose(handIndex===1?{...pose,wrist:{...pose.wrist,twist:wristTwist}}:pose);
+    const rigPose=handIndex===1?{...pose,wrist:{...pose.wrist,twist:wristTwist}}:pose;
+    const heldThumb=handIndex===0 && pose.source && (state.manualFingerMask & 1);
+    if(heldThumb) {
+      // The imported grasp also rotates the thumb's base. Preserve a held
+      // thumb's full extension while the other digits keep that choreography.
+      rig.setPose({...rigPose,source:null});
+      for(const joint of manualThumb)joint.rotation.copy(joint.bone.quaternion);
+    }
+    rig.setPose(rigPose);
+    if(heldThumb)for(const joint of manualThumb)joint.bone.quaternion.copy(joint.rotation);
     slot.wristTwist=wristTwist;
     skinColor.value.copy(palette[0]); skinAccent.value.copy(palette[1]);
     for (let index = 0; index < claws.length; index++) {
@@ -242,6 +251,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       });
       for (const object of imports) object.removeFromParent();
       rig=createHandRig(gltf,report); placement.add(rig.group);
+      for(const bone of rig.deformMap.values())if(bone.name.startsWith('thumb_'))manualThumb.push({bone,rotation:new THREE.Quaternion()});
       const geometry=clawGeometry();
       for (let index=0;index<5;index++) {
         const digit=rig.digits[index];

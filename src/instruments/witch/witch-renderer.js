@@ -757,8 +757,8 @@ function reachingHand(c,state) {
   if(clamp(state.handReach)>.5)for(const tip of getFingerTips(state)) {
     const level=clamp(state.fingerLevels?.[tip.index]),cue=1-clamp(state.flightLift)*.61;
     const color=['#ffc17e','#e5ef82','#75f0cb','#86c9ff','#ee9ee9'][tip.index];
-    ellipse(c,tip.x,tip.y,(13+level*9)*cue,(13+level*9)*cue,null,color,state.selectedFinger===tip.index?2:1);
-    if(level>.01)glow(c,tip.x,tip.y,(26+level*14)*cue,`${color}44`);
+    ellipse(c,tip.x,tip.y,(13+level*9)*cue,(13+level*9)*cue,null,`${color}55`,state.selectedFinger===tip.index?2:1);
+    if(level>.01)glow(c,tip.x,tip.y,(26+level*14)*cue,`${color}1a`);
   }
   c.restore();
 }

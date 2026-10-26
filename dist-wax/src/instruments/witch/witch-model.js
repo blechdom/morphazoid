@@ -124,7 +124,8 @@ export function witchHandConfig(state = {}, handIndex = 0) {
     tremor: { amount: 0 },
     pose: { fingers: Array.from({ length: 5 }, (_, index) => {
       const bend = witchClamp(state.fingers?.[index], 0, 1, .5);
-      return { mcp: bend * 38, pip: bend * (index ? 44 : 35), dip: bend * 30, spread: 0 };
+      return index ? { mcp: bend * 38, pip: bend * 44, dip: bend * 30, spread: 0 }
+        : { mcp: bend * 50 - 12, pip: bend * 24, dip: bend * 36 - 6, spread: -18 * (1 - bend) };
     }), wrist: { flex: 0, side: 0, twist: 0 } },
     sound: { rhythm: 'continuous', rootHz: bank.rootHz, pitchSpread: 1.25, brightness: witchClamp(state.tone, 0, 1, .5),
       roughness: bank.roughness, space: bank.space, rotationFx: 0, attack: bank.attack, release: bank.release },
@@ -138,7 +139,9 @@ export function applyWitchManualFingers(state, pose, handIndex = 0) {
   const mask = handIndex ? 0 : Math.round(witchClamp(state.manualFingerMask, 0, 31));
   for (let index = 0; index < 5; index++) if (mask & (1 << index)) {
     const bend = witchClamp(state.fingers?.[index], 0, 1, .5), f = pose.fingers[index];
-    f.mcp = bend * 70; f.pip = bend * (index ? 85 : 65); f.dip = bend * 60; f.spread = 0;
+    f.mcp = index ? bend * 70 : bend * 80 - 10;
+    f.pip = bend * (index ? 85 : 65); f.dip = index ? bend * 60 : bend * 65 - 5;
+    f.spread = index ? 0 : -18 * (1 - bend);
   }
   return pose;
 }
