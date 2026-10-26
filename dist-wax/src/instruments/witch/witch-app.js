@@ -6,7 +6,7 @@ import { getWitchVisitors, getWitchVisitorTargets } from './witch-visitors.js';
 import { createWitchHand } from './witch-hand.js';
 import { getWitchCatFrame, getWitchCatTargets } from './witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, witchCatMeowEnvelope } from './witch-cat-model.js';
-import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, getWitchHair, getWitchTree, getWitchWeb, getWitchSpellArm, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchTree, getWitchWeb, getWitchSpellArm, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset, WITCH_VISUAL_MODES } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -23,7 +23,7 @@ let playing = true, audioOn = false, starting = false, disposed = false, request
 let selectedIngredient = -1;
 let performanceTime=0,lastPerformanceTick=performance.now();
 const catClock=createWitchCatClock(0,config);
-let catMeowAt=-Infinity, eyeShockAt=-Infinity, spiderAt=-Infinity, webAt=-Infinity, webIndex=0;
+let catMeowAt=-Infinity, eyeShockAt=-Infinity, spiderAt=-Infinity, webAt=-Infinity, webIndex=0, fabricWindAt=-Infinity;
 let spellTransition=null,lastCatCaptured=false;
 const capturedAnimals={};
 const spider=createWitchSpider(document);
@@ -39,7 +39,7 @@ for(const [id,items] of [['handMotion',WITCH_HAND_MOTIONS.map(id=>({id,label:id.
 for(const item of WITCH_INGREDIENTS) {const button=document.createElement('button');button.type='button';button.dataset.drop=item.id;button.textContent=item.name;$('potionShelfControls').append(button);}
 for(const [value,label] of WITCH_VISUAL_MODES.entries()){const option=document.createElement('option');option.value=value;option.textContent=label;$('visualMode').append(option);}
 let width = 1000, height = 720, presets;
-const world={handReach:1,handOpen:false,flightLift:0,trip:0};
+const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let handReady=false,handSurface=null,handSurfaces=[],pageSuspended=false,audioMotionReady=false;
@@ -121,8 +121,12 @@ function worldAction(action) {
     if(config.scene!=='flight') { setScene('flight'); setPlaying(true); send();sync();trigger('launch'); }
     else setScene(world.handOpen?'fingers':'brew');
   } else if(action==='mushrooms') {
-    spellTransition=null;config.visualMode=(config.visualMode+1)%WITCH_VISUAL_MODES.length;config.trip=[0,1,2,3,1,2,2,3][config.visualMode];config.palette=(config.palette+1)%8;world.trip=config.trip;sync();
-    $('gestureReadout').value=world.trip?'Wonkywonk wonk.':'The forest settles.';
+    const current=Math.max(0,WITCH_PRESETS.findIndex(preset=>preset.id===(presets?.selectedId??presets?.lastPresetId)));
+    const next=WITCH_PRESETS[(current+1)%WITCH_PRESETS.length];
+    if(presets?.view)presets.view.select(next.id);else applySpell(next.snapshot);
+    $('gestureReadout').value=next.label;
+  } else if(action==='fabric') {
+    if(config.scene==='flight')windFabric();
   } else if(action==='mouth') {
     spellTransition=null;const current=visualState().activeVoice;config.voice=WITCH_VOICES[(WITCH_VOICES.indexOf(current)+1)%WITCH_VOICES.length];config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/WITCH_VOICES.length;send();sync();
   } else if(action==='eyes') {advancePerformanceTime();eyeShockAt=performance.now()/1000;audio.trigger('eye-shock');}
@@ -155,7 +159,7 @@ function applySpell(snapshot,{refill=true,preserveFlight=false}={}) {
   const flying=preserveFlight&&config.scene==='flight';
   stopGesture();config=normalizeWitchPreset(snapshot);
   if(flying)config.scene='flight';
-  world.trip=config.trip;world.handOpen=config.scene==='fingers';
+  world.trip=config.trip;world.handOpen=config.scene==='fingers';world.hatPullX=world.hatPullY=0;
   if(refill)refillShelf();
   send();sync();
 }
@@ -190,6 +194,10 @@ function captureAnimal(id) {
   if(id==='cat')catMeowAt=performance.now();
   send();audio.trigger(`drop-${id}`);$('gestureReadout').value=`${id==='cat'?'Meow! ':''}The ${id} dives into the potion.`;
 }
+function windFabric() {
+  if(config.scene!=='flight')return;
+  fabricWindAt=performance.now();audio.trigger('fabric-wind');
+}
 function pluckWeb(index) {
   advancePerformanceTime();webIndex=Math.round(clamp(index,0,6));webAt=performance.now()/1000;audio.trigger(`web-${webIndex}`);
 }
@@ -213,7 +221,7 @@ async function toggleAudio() {
 }
 listen($('audioButton'),'click',toggleAudio);
 listen($('playButton'),'click',() => { stopGesture(); setPlaying(!playing); send(); sync(); });
-listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); audio.releaseAccents(); performanceTime=0; catMeowAt=eyeShockAt=spiderAt=webAt=-Infinity;spellTransition=null;for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id]; config=normalizeWitchPreset(WITCH_DEFAULTS); Object.assign(catClock,createWitchCatClock(0,config)); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock)); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
+listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); audio.releaseAccents(); performanceTime=0; catMeowAt=eyeShockAt=spiderAt=webAt=fabricWindAt=-Infinity;world.hatPullX=world.hatPullY=0;spellTransition=null;for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id]; config=normalizeWitchPreset(WITCH_DEFAULTS); Object.assign(catClock,createWitchCatClock(0,config)); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock)); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
 listen($('voice'),'change',() => { spellTransition=null; config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/WITCH_VOICES.length; send(); sync(); });
 for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','hair','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
@@ -297,10 +305,12 @@ listen(canvas,'pointerdown',e => {
   keyboardGate=false;
   const visual=visualState(), start=stirLocation(p), pot=WITCH_LAYOUT.cauldron;
   const hair=hit.type==='hair'?getWitchHair(initial):null;
+  const hat=hit.type==='hat'?getWitchHat(initial):null;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:hair?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat)?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,tone:config.tone,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
+  if(hit.type==='fabric')windFabric();
   if(hit.type==='stir') { config.speed=.05; if(!onHandle) config.radius=pointer.radius; }
   if(hit.type==='finger') selectedFinger=pointer.index;
   if(hit.type==='flight') { config.flightX=clamp(p.x/1000,.12,.88); config.altitude=clamp(1-p.y/720); }
@@ -317,12 +327,15 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Reshape the branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Pull the cloth to filter the brew',trail:'Pull or push the string to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hair:'Pull her hair for a noisier spell',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Reshape the branches',spider:'Wake the spider',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Touch the mesh for wind; pull to filter it',trail:'Pull her flying hair to bend the delay',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Stretch the burned hat in any direction',hair:'Pull her hair for a noisier spell',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the whole spell'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
-  const p=canonical(e,true,pointer.type==='hair'?pointer.hairWarp:undefined), now=performance.now();
-  if(pointer.type==='fabric') {config.fabricX=clamp(pointer.fabricX+(p.x-pointer.start.x)/120);config.fabricY=clamp(pointer.fabricY+(pointer.start.y-p.y)/120);}
+  const p=canonical(e,true,['hair','hat'].includes(pointer.type)?pointer.hairWarp:undefined), now=performance.now();
+  if(pointer.type==='fabric') {
+    config.fabricX=clamp(pointer.fabricX+(p.x-pointer.start.x)/120);config.fabricY=clamp(pointer.fabricY+(pointer.start.y-p.y)/120);
+    if(now-fabricWindAt>100)windFabric();
+  }
   else if(pointer.type==='trail') {config.trailPull=clamp(pointer.trailPull+(p.x-pointer.start.x)/100);config.trailTwist=clamp(pointer.trailTwist+(pointer.start.y-p.y)/90);}
   else if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
   else if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
@@ -333,9 +346,12 @@ listen(canvas,'pointermove',e => {
     const dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
     config.hair=clamp(pointer.hair+(dx*pointer.hairAxis.x+dy*pointer.hairAxis.y)/Math.max(1,pointer.hairDistance));
   }
-  else if(pointer.type==='nose' || pointer.type==='hat') {
-    const key=pointer.type;config[key]=clamp(pointer[key]+(key==='nose'?(p.x-pointer.start.x):(pointer.start.y-p.y))/150);
-  }
+  else if(pointer.type==='hat') {
+    const t=pointer.hatTransform,dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;
+    const x=(Math.cos(t.rotation)*dx+Math.sin(t.rotation)*dy)/t.scale,y=(-Math.sin(t.rotation)*dx+Math.cos(t.rotation)*dy)/t.scale;
+    world.hatPullX=clamp(pointer.hatPullX+x,-185,185);world.hatPullY=clamp(pointer.hatPullY+y,-145,125);
+    config.hat=clamp(pointer.hat+(Math.abs(x)*.7-y)/180);
+  } else if(pointer.type==='nose') {config.nose=clamp(pointer.nose+(p.x-pointer.start.x)/150);}
   else if(pointer.type==='stir') {
     const current=stirLocation(p); let delta=current.angle-pointer.angle;
     if(delta>Math.PI) delta-=TAU; if(delta< -Math.PI) delta+=TAU;
@@ -370,7 +386,7 @@ listen(canvas,'keydown',e => {
   if(['-','_','+','='].includes(e.key)) { config.tone=clamp(config.tone+(['+','='].includes(e.key)?.05:-.05));send();sync();e.preventDefault();return; }
   const objectId={q:'gesticules',e:'marimba',r:'choir'}[e.key.toLowerCase()];
   if(objectId){if(!e.repeat)dropObject(objectId);e.preventDefault();return;}
-  const action={h:'hand',m:'moon',b:'brew',w:'mushrooms',v:'mouth',x:'eyes',t:'tree',s:'spider'}[e.key.toLowerCase()];
+  const action={h:'hand',m:'moon',b:'brew',w:'mushrooms',f:'fabric',v:'mouth',x:'eyes',t:'tree',s:'spider'}[e.key.toLowerCase()];
   if(action) {if(!e.repeat) worldAction(action);e.preventDefault();return;}
   if(e.key.toLowerCase()==='g') { config.ghostTempo=clamp(config.ghostTempo+(e.shiftKey?-6:6),36,180);send();sync();e.preventDefault();return; }
   if(e.key.toLowerCase()==='p'){if(!e.repeat)pluckWeb((webIndex+1)%7);e.preventDefault();return;}
@@ -420,6 +436,11 @@ function draw(now) {
   }
   if(!(audioMotionReady&&audio.node) && playing) silentGhostPhase+=dt*config.ghostTempo/60;
   if(event) { event.age+=dt; if(event.age>3.5) event=null; }
+  if(pointer?.type!=='hat') {
+    const relax=reducedMotion.matches?0:Math.exp(-dt/.42);
+    world.hatPullX*=relax;world.hatPullY*=relax;
+    if(Math.abs(world.hatPullX)<.01)world.hatPullX=0;if(Math.abs(world.hatPullY)<.01)world.hatPullY=0;
+  }
   const ease=reducedMotion.matches?1:1-Math.exp(-dt/ .18);
   for(const [key,target] of [['flightLift',config.scene==='flight'?1:0]]) { world[key]+=(target-world[key])*ease;if(Math.abs(target-world[key])<.001)world[key]=target; }
   for(const object of objects)if(object.dropped)object.dropAge=Math.min(10,Math.max(0,performanceTime-(object.droppedAt??performanceTime)));

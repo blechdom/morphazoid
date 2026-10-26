@@ -11,18 +11,18 @@ stay visible; secondary controls live inside the closed **Parameters** section.
 | Stir faster, wider, or backward | The vortex and syllables follow speed, vowel opening and direction. |
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
-| Pull her nose or hat | Nose length and vocal pitch/resonance change; the hat changes vocal texture. Nose reach is doubled and participates in presets and dice. |
+| Pull her nose or hat | Nose length and vocal pitch/resonance change; the burned, shredded hat stretches in any direction and changes vocal texture, then sags back when released. Nose reach is doubled and participates in presets and dice. |
 | Pull her hair | Fuller tangles stretch into the wind, adding scratchy noise with a longer tail. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
-| Pull the fabric behind her | Moves the grounded brew through the Fabric Filter. Flight smoothly bypasses this filter. |
+| Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
 | Touch a branch | Reshapes the upright tree using the L-system instrument's branching geometry and colors. |
 | Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
 | Click the broom or moon | Toggles flight. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
-| Pull the sky noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
-| Click the right mushrooms | Cycles night air, ripples, crooked glass, wonky distortion, VHS, static, pixel breakup and angular hexes. |
+| Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
+| Click the giant right mushrooms | Chooses the next complete preset, including sounds, finger animation, scene and colors, and refills the instrument shelves. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
@@ -54,15 +54,16 @@ and original balance; new fields receive safe defaults.
 
 Most factory and ingredient spells keep the picture steady while the witch
 performs. Dice choose a steady picture 60% of the time, gentle warps 25%, and
-glitch modes 15%. Mushrooms still cycle through all eight looks. VHS, static,
+glitch modes 15%. The Parameters menu still offers all eight looks independently. VHS, static,
 pixel and angular shifts have half their earlier horizontal displacement;
 Pixel rot uses finer blocks so the scene stays readable.
 
-Flight keeps the moon, clouds and cauldron while the cupboard, tree, fabric,
+Flight keeps the moon, clouds and cauldron while the cupboard, tree,
 ghosts, mushrooms and animal visitors fade into the sky. The witch remains
 30% larger than her earlier flight form, and her spoon can still reach the pot.
-The physical broom is wood and bundled bristles; the screen-filling noodles are
-its playable delay trail. Clicking the moon or broom again lands her without
+The physical broom is wood and bundled bristles. Four screen-filling delay
+strands grow directly from her hair; the flying fabric uses Fabric Filter’s
+green columns and pink rows. Clicking the moon or broom again lands her without
 stopping her song. The ingredient list remains available in Parameters during
 flight.
 
@@ -75,7 +76,7 @@ Ghost portraits keep a quiet background beat while grounded, and can still be
 raised or lowered to adjust its tempo.
 
 With the picture focused: **H** features fingers, **M** toggles flight, **B** lands,
-**W** changes mushroom vision, **V** changes her phrase, **X** shocks her eyes,
+**W** chooses the next whole spell, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** reshapes branches, **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.

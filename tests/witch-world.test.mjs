@@ -15,13 +15,14 @@ function distanceToPolyline(point,points) {
 
 test('moon and pot remain playable in flight while grounded scenery fades away',()=>{
   assert.equal(WITCH_LAYOUT.mushrooms.length,1);
-  assert.equal(WITCH_LAYOUT.mushrooms[0].x,874);
+  assert.equal(WITCH_LAYOUT.mushrooms[0].x,844);
   for(const flightLift of [0,.5,1]) {
     const state={scene:flightLift?'flight':'brew',flightLift,handReach:0};
     assert.equal(hitTestWitch(800,164,state)?.type,'moon');
     assert.equal(hitTestWitch(600,540,state)?.type,'stir');
     const mushroom=WITCH_LAYOUT.mushrooms[0];
-    assert.equal(hitTestWitch(mushroom.x,mushroom.y,state)?.type,flightLift===1?'flight':'mushrooms');
+    if(flightLift===1)assert.notEqual(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
+    else assert.equal(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
   }
   assert.equal(hitTestWitch(388,450,{scene:'brew'})?.type,'hand');
   assert.equal(hitTestWitch(NaN,450),null);
@@ -125,7 +126,7 @@ test('shelf solos fly immediately while branch solos sing before travelling into
   }
 });
 
-test('parked broom, cloth and continuous flight string have direct gesture targets',()=>{
+test('parked broom, flying fabric and hair delay strands have direct gesture targets',()=>{
   const lowered=getWitchTargets({fabricY:0}).fabric,raised=getWitchTargets({fabricY:1}).fabric;
   assert.ok(raised.y<lowered.y,'an upward pull raises both the filter setting and visible cloth');
   for(const trip of [0,1,2,3])for(const warpTime of [0,.7,2.8]) {
@@ -133,15 +134,15 @@ test('parked broom, cloth and continuous flight string have direct gesture targe
     const broom=warpWitchPoint(getWitchTargets(state).broom,state);
     assert.deepEqual(hitTestWitch(broom.x,broom.y,state),{type:'broom'});
     for(const fabricX of [0,.5,1])for(const fabricY of [0,.5,1]) {
-      const current={...state,fabricX,fabricY},cloth=warpWitchPoint(getWitchTargets(current).fabric,current);
+      const current={...state,fabricX,fabricY,flightLift:1,scene:'flight'},cloth=warpWitchPoint(getWitchTargets(current).fabric,current);
       const hit=hitTestWitch(cloth.x,cloth.y,current);
-      if(hit?.type!=='fabric')assert.equal(hit?.type,'hair','only foreground locks occlude the cloth center');
+      assert.equal(hit?.type,'fabric');
+      assert.notEqual(hitTestWitch(cloth.x,cloth.y,{...current,flightLift:0})?.type,'fabric','fabric only exists in flight');
     }
     for(const flightPhase of [0,1,2,3,4,5,6,8,9]) {
       const current={...state,flightLift:1,scene:'flight',flightPhase},trail=getWitchTrail(current);
-      const end=trail.at(-1),broom=broomTransform(current);
-      assert.ok(Math.abs(end.x-(broom.x+(Math.cos(broom.rotation)*-265-Math.sin(broom.rotation)*126)*broom.scale))<1e-10);
-      assert.ok(Math.abs(end.y-(broom.y+(Math.sin(broom.rotation)*-265+Math.cos(broom.rotation)*126)*broom.scale))<1e-10);
+      const end=trail.at(-1),tip=getWitchHair(current).strands[10].points.at(-1);
+      assert.deepEqual(end,tip,'the delay strand grows directly from a visible hair tip');
       assert.ok(trail.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y)));
       const visible=warpWitchPoint(getWitchTargets(current).trail,current);
       assert.deepEqual(hitTestWitch(visible.x,visible.y,current),{type:'trail'});
@@ -410,7 +411,7 @@ test('visible hair locks remain pickable in brew and flight without replacing ex
     const points=[targets.nose,targets.hat,{x:ladle.hx-8,y:ladle.hy-24},WITCH_LAYOUT.moon,...WITCH_LAYOUT.mushrooms,...WITCH_LAYOUT.objects];
     for(const target of points) {
       const p=warpWitchPoint(target,state),before=hitTestWitch(p.x,p.y,previous),after=hitTestWitch(p.x,p.y,state);
-      if(before?.type!=='hair')assert.deepEqual(after,before,'hair cannot take an established object or performer target');
+      if(before&&!['hair','trail','flight','fabric'].includes(before.type))assert.deepEqual(after,before,'hair cannot take an established object or performer target');
     }
   }
   const state={hair:.5,handTime:2};
@@ -543,7 +544,7 @@ test('the bent spell arm meets the wrist along the actual hand axis during takeo
 test('face controls, web plucks and spider remain connected through every visual mode',()=>{
   for(let visualMode=0;visualMode<8;visualMode++)for(const eyeShock of [0,1]) {
     const state={visualMode,eyeShock,warpTime:3.5},targets=getWitchTargets(state);
-    for(const type of ['nose','mouth','eyes','tree','web','spider','fabric']) {
+    for(const type of ['nose','mouth','eyes','tree','web','spider']) {
       const point=warpWitchPoint(targets[type],state),hit=hitTestWitch(point.x,point.y,state);
       assert.equal(hit?.type,type,`${type} under mode ${visualMode}`);
       if(type==='web')assert.equal(hit.index,4);
@@ -604,7 +605,7 @@ test('full flight preserves broom and moon gestures and a bounded screen-wide no
       const target=type==='moon'?WITCH_LAYOUT.moon:getWitchTargets(state).broom,p=warpWitchPoint(target,state);
       assert.equal(hitTestWitch(p.x,p.y,state)?.type,type);
     }
-    for(const type of ['tree','web','spider','fabric']) {
+    for(const type of ['tree','web','spider']) {
       const p=warpWitchPoint(getWitchTargets(state)[type],state);
       assert.notEqual(hitTestWitch(p.x,p.y,state)?.type,type);
     }

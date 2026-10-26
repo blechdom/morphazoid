@@ -80,6 +80,52 @@ export class WitchSceneDSP {
   }
 }
 
+/** One refreshable wind puff. The brown/pink/white coloring is the scalar
+ * colored-noise branch of Fabric Filter's MoireDroneDSP; no fabric simulation
+ * or source instrument is constructed here. Its random stream is independent
+ * of the performers, and repeated pointer events extend one bounded voice. */
+export class WitchFabricWind {
+  constructor(rate) {
+    this.dt = 1 / rate; this.hold = 0; this.gain = 0; this.releasing = false;
+    this.left = this.right = 0; this.x = this.y = .5; this.phase = 0;
+    this.attack = 1 - Math.exp(-this.dt / .035);
+    this.release = 1 - Math.exp(-this.dt / .22);
+    this.cancelRelease = 1 - Math.exp(-this.dt / .025);
+    this.noiseStates = new Uint32Array([0x7f63a1, 0x531bb7, 0x349fc5]);
+    this.pink0 = new Float64Array(3); this.pink1 = new Float64Array(3); this.pink2 = new Float64Array(3);
+    this.brown = new Float64Array(3);
+  }
+  trigger() { this.hold = .16; this.releasing = false; }
+  cancel() { this.hold = 0; this.releasing = true; }
+  noise(stream, color) {
+    let state = this.noiseStates[stream]; state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+    this.noiseStates[stream] = state >>> 0;
+    const white = (state >>> 0) / 0x80000000 - 1;
+    this.pink0[stream] = .99765 * this.pink0[stream] + white * .099046;
+    this.pink1[stream] = .963 * this.pink1[stream] + white * .2965164;
+    this.pink2[stream] = .57 * this.pink2[stream] + white * 1.0526913;
+    const pink = (this.pink0[stream] + this.pink1[stream] + this.pink2[stream] + white * .1848) * .085;
+    this.brown[stream] = Math.max(-1, Math.min(1, (this.brown[stream] + white * .018) / 1.006));
+    const blend = color < -.5 ? (color + 1) * 2 : (color + .5) * 2;
+    return color < -.5 ? this.brown[stream] * 2.6 * (1 - blend) + pink * blend : pink * (1 - blend) + white * blend;
+  }
+  next(controls, enabled) {
+    if (!enabled) this.cancel();
+    this.hold = Math.max(0, this.hold - this.dt);
+    const active = enabled && this.hold > 0;
+    this.gain += ((active ? 1 : 0) - this.gain) * (active ? this.attack : this.releasing ? this.cancelRelease : this.release);
+    if (this.gain < 1e-7) { this.gain = 0; this.left = this.right = 0; return; }
+    this.x += (controls.fabricX - this.x) * this.attack; this.y += (controls.fabricY - this.y) * this.attack;
+    const color = -.85 + this.y * .75;
+    const common = this.noise(0, color) * .824621125;
+    const a = common + this.noise(1, color) * .565685425, b = common + this.noise(2, color) * .565685425;
+    this.phase = (this.phase + TAU * (.7 + this.x * 1.4) * this.dt) % TAU;
+    const gust = .84 + Math.sin(this.phase) * .16;
+    this.left = Math.tanh(a * 1.8) * .07 * this.gain * gust * (1.25 - this.x * .5);
+    this.right = Math.tanh(b * 1.8) * .07 * this.gain * gust * (.75 + this.x * .5);
+  }
+}
+
 /** A finite electrical tear after the complete mix, including existing flight
  * echoes and Fabric. One reusable capture buffer; no performer clock changes. */
 export class WitchEyeShock {

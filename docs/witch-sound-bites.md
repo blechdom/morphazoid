@@ -41,8 +41,10 @@ The web uses Spider Synth's actual string engine with seven closely spaced and
 inharmonic low ratios. The spider's groan is a finite two-mass source gesture.
 The eye effect is a finite, coalesced 1.5-second buffer tear/ring/filter gesture
 after the shared mix. It leaves every performer's clock and flight-delay memory
-intact. Fabric filters the grounded brew and smoothly bypasses during flight;
-its stored controls return on landing.
+intact. Fabric filters the flying mix and smoothly bypasses on landing. Touching
+the mesh refreshes one finite wind puff, using Fabric Filter’s brown/pink/white
+noise coloring. It enters the shared delay and filter; Stop, Reset, mute and
+landing release it. The fabric controls keep their values between flights.
 
 ## Source credits
 

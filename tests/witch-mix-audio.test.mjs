@@ -86,9 +86,9 @@ test('live authored hand motion and sound changes reach the actual Gesticules en
   assert.ok(difference(changed, render(reference, .4)) > .04);
 });
 
-test('wind filters both ongoing performers and featured objects, then decays cleanly after Audio off', () => {
+test('flight Fabric filters ongoing performers and featured objects, then decays cleanly after Audio off', () => {
   for (const kind of [null, 'drop-roach', 'drop-glass']) {
-    const dry = playing(), wind = playing({ fabricX: .03, fabricY: .94 });
+    const dry = playing({ mode: 'flight' }), wind = playing({ mode: 'flight', fabricX: .03, fabricY: .94 });
     if (kind) { dry.trigger(kind); wind.trigger(kind); }
     const a = render(dry, .8), b = render(wind, .8);
     assert.ok(difference(a, b) > .015, kind ?? 'ongoing ensemble');
@@ -165,12 +165,12 @@ test('meow enters the shared flight delay and Fabric filter without disturbing p
     dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(31)); return dsp;
   };
   const feet = make(), dry = make(), flight = make({ mode: 'flight', trailPull: .6, trailTwist: .6 });
-  const windy = make({ fabricX: .02, fabricY: .94 });
+  const windy = make({ mode: 'flight', trailPull: .6, trailTwist: .6, fabricX: .02, fabricY: .94 });
   dry.trigger('meow'); flight.trigger('meow'); windy.trigger('meow');
   const quiet = render(feet, .9), plain = render(dry, .9), delayed = render(flight, .9), filtered = render(windy, .9);
   assert.ok(difference(plain, quiet) > .04, 'clicked head is audible above its feet');
   assert.ok(difference(plain, delayed) > .01, 'flight processes the meow');
-  assert.ok(difference(plain, filtered) > .01, 'Fabric processes the meow');
+  assert.ok(difference(delayed, filtered) > .01, 'Fabric processes the meow during flight');
   assert.deepEqual(dry.cat.clock, feet.cat.clock); assert.deepEqual(flight.cat.clock, feet.cat.clock);
   assert.equal(dry.visual.handTime, feet.visual.handTime); assert.equal(dry.chantPhase, feet.chantPhase);
   for(const dsp of [dry, flight, windy]) {

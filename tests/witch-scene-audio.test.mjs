@@ -159,14 +159,32 @@ test('capturing the cat silences its walking voice while the independent diving 
   dsp.setControls({ ghostGate: false, gate: false }); render(dsp, .2); assert.equal(dsp.visual.catMeow, 0);
 });
 
-test('grounded Fabric filtering eases out during flight and returns on landing without restarting voices', () => {
+test('flight Fabric filters the ensemble and adds a bounded wind puff while the ground stays dry', () => {
   const dry = playing(), cloth = playing({ fabricX: .05, fabricY: .95 });
-  assert.ok(difference(render(dry, .4), render(cloth, .4)) > .02);
+  assert.deepEqual(render(dry, .4), render(cloth, .4), 'stored cloth displacement does not filter the grounded brew');
   dry.setControls({ mode: 'flight' }); cloth.setControls({ mode: 'flight' }); render(dry, 1); render(cloth, 1);
-  assert.ok(difference(render(dry, .2), render(cloth, .2)) < 1e-7, 'cloth has bypassed cleanly while the same flight mix continues');
+  assert.ok(difference(render(dry, .2), render(cloth, .2)) > .01, 'the cloth processes the shared flight mix');
   assert.equal(dry.chantPhase, cloth.chantPhase); assert.equal(dry.visual.handTime, cloth.visual.handTime);
-  dry.setControls({ mode: 'brew' }); cloth.setControls({ mode: 'brew' }); render(dry, .4); render(cloth, .4);
-  assert.ok(difference(render(dry, .2), render(cloth, .2)) > .02);
+  dry.setControls({ mode: 'brew' }); cloth.setControls({ mode: 'brew' }); render(dry, 1); render(cloth, 1);
+  assert.ok(difference(render(dry, .2), render(cloth, .2)) < 1e-7, 'landing smoothly restores the dry brew');
+  assert.equal(cloth.trigger('fabric-wind'), false, 'the grounded cloth cannot sound');
+  const unarmed = new WitchDSP(8000); unarmed.setControls({ mode: 'flight' });
+  assert.equal(unarmed.trigger('fabric-wind'), false);
+  const puff = playing({ mode: 'flight', gate: false }, 8000), same = playing({ mode: 'flight', gate: false }, 8000);
+  for (const dsp of [puff, same]) assert.equal(dsp.trigger('fabric-wind'), true);
+  const sound = render(puff, .6);
+  assert.deepEqual(sound, render(same, .6, 4800), 'wind uses the sample clock');
+  assert.ok(rms(sound) > .003 && sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  render(puff, 4); assert.equal(puff.visual.fabricWindEnvelope, 0, 'an unattended puff ends without a queued event');
+  const voice = puff.fabricWind;
+  for (const cancel of [dsp => dsp.setControls({ gate: false }), dsp => dsp.releaseAccents(),
+    dsp => dsp.setControls({ mode: 'brew' }), dsp => dsp.setEnabled(false)]) {
+    puff.setEnabled(true); puff.setControls({ mode: 'flight', gate: true });
+    for (let i = 0; i < 50; i++) puff.trigger('fabric-wind');
+    render(puff, .1); assert.equal(puff.fabricWind, voice, 'drag refreshes reuse one voice');
+    cancel(puff); render(puff, .4);
+    assert.ok(puff.visual.fabricWindEnvelope < 1e-6, 'Stop, Reset, landing and mute release the puff');
+  }
 });
 
 test('hair friction keeps a longer decaying texture after a pull while the singer retains its clock', () => {

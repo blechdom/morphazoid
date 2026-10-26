@@ -544,14 +544,12 @@ test('nose, hat, ember and flight reshape the ensemble without leaving the share
   expect((await state(page)).world.handOpen).toBe(true);
 });
 
-test('grounded fabric filters the brew and the broom toggles playable flight strings',async({page})=>{
+test('flying fabric catches wind and the broom toggles playable hair delay strands',async({page})=>{
   await open(page);
+  await clickWorld(page,'broom');
+  await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+  expect((await state(page)).config.scene).toBe('flight');
   for(const [targetName,xKey,yKey] of [['fabric','fabricX','fabricY'],['trail','trailPull','trailTwist']]) {
-    if(targetName==='trail') {
-      await clickWorld(page,'broom');
-      await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
-      expect((await state(page)).config.scene).toBe('flight');
-    }
     const before=await state(page),target=before.targets[targetName],from=await point(page,target.x,target.y);
     await page.mouse.move(from.x,from.y);await page.mouse.down();
     await page.mouse.move(from.x+35,from.y-32,{steps:5});
@@ -618,13 +616,15 @@ test('mouth, eyes, tree, spider and seven web strings respond over the continuou
   expect(errors).toEqual([]);
 });
 
-test('all eight mushroom pictures preserve native scene picking and continuous sound',async({page},testInfo)=>{
+test('mushrooms recall complete spells while preserving continuous sound',async({page},testInfo)=>{
   test.setTimeout(45000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await observeWorklet(page);await open(page);await page.locator('#audioButton').click();
   await clickWorld(page,'mouth');
   for(let mode=1;mode<=8;mode++) {
-    await clickWorld(page,'mushrooms');expect((await state(page)).config.visualMode).toBe(mode%8);
+    await clickWorld(page,'mushrooms');
+    const expected=await page.evaluate(async index=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS[index].snapshot,mode);
+    expect((await state(page)).config).toEqual(expected);
     const voice=(await state(page)).activeVoice;await clickWorld(page,'mouth');
     await expect.poll(async()=>(await state(page)).activeVoice).not.toBe(voice);
     if([4,5,6,7].includes(mode))await page.screenshot({path:testInfo.outputPath(`desktop-picture-${mode}.png`),fullPage:true});

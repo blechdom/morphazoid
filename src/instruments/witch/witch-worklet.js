@@ -24,7 +24,7 @@ import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
 import { witchCatMeowEnvelope } from './witch-cat-model.js';
-import { witchBiteClips, WitchSceneDSP, WitchEyeShock } from './witch-scene-audio.js';
+import { witchBiteClips, WitchSceneDSP, WitchEyeShock, WitchFabricWind } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -1077,7 +1077,7 @@ export class FlightMixDelay {
 }
 
 /** Four pairs from Fabric Filter's actual lattice/fabric mapping. The center
- * rests dry; wind displacement morphs the whole delayed mix through notches.
+ * rests dry; in flight, displacement morphs the whole delayed mix through notches.
  * Targets update only on control edits; fixed TPT states slew sample by sample. */
 export class WitchFabricFilter {
   constructor(rate) {
@@ -1129,7 +1129,8 @@ export class WitchDSP {
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
-    this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 1;
+    this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
+    this.fabricWind = new WitchFabricWind(this.rate);
     this.scene = new WitchSceneDSP(this.rate); this.shock = new WitchEyeShock(this.rate);
     this.ghosts = new WitchGhostDSP(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
@@ -1176,7 +1177,8 @@ export class WitchDSP {
     this.flight.setControls({ ...c, gate: false }); // flight is the shared delay; accents remain explicit.
     this.delay.controls = c;
     if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
-    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); }
+    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
+    if (previous.mode === 'flight' && c.mode !== 'flight') this.fabricWind.cancel();
     if (previous.ghostGate && !c.ghostGate) this.cat.release();
     if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
@@ -1196,15 +1198,19 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
-    if (!this.enabled) { this.cat.release(); this.scene.releaseAll(); this.shock.cancel(); }
+    if (!this.enabled) { this.cat.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
   }
   /** Cancel manual gestures without seeking or changing either transport. */
   releaseAccents() {
-    this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel();
+    this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel();
     this.cat.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
   }
   trigger(kind) {
     if (!this.enabled) return false;
+    if (kind === 'fabric-wind') {
+      if (this.controls.mode !== 'flight') return false;
+      this.fabricWind.trigger(); return true;
+    }
     if (kind === 'meow') return this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     if (kind === 'eye-shock') { this.shock.trigger(); return true; }
     if (this.scene.trigger(kind)) return true;
@@ -1242,6 +1248,7 @@ export class WitchDSP {
         this.ghosts.next(c, this.enabled);
         this.cat.next(c, this.enabled && c.ghostGate && !c.catCaptured, c.ghostGate);
         this.scene.next(this.enabled);
+        this.fabricWind.next(c, this.enabled && c.mode === 'flight');
         // The visitors stay below the singer/fingers even in very quiet
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
@@ -1250,11 +1257,11 @@ export class WitchDSP {
         // delay and Fabric filter as every other performer.
         const catL = (this.cat.left * .39 + this.cat.meowLeft * .9) * backing;
         const catR = (this.cat.right * .39 + this.cat.meowRight * .9) * backing;
-        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + this.scene.left + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + this.scene.right + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + this.scene.left + this.fabricWind.left + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + this.scene.right + this.fabricWind.right + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.delay.left, this.delay.right);
-        this.fabricMix += ((c.mode === 'flight' ? 0 : 1) - this.fabricMix) * this.fabric.smooth;
+        this.fabricMix += ((c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
         this.shock.next(this.delay.left + (this.fabric.left - this.delay.left) * this.fabricMix,
           this.delay.right + (this.fabric.right - this.delay.right) * this.fabricMix, this.enabled);
         // Fixed makeup preserves relative whispers and decays. This memoryless
@@ -1284,6 +1291,7 @@ export class WitchDSP {
     this.visual.catMeowLevel = this.cat.meowLevel;
     this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.visual.shockEnvelope = this.shock.envelope;
+    this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));
     for (let i = 0; i < 3; i++) {
