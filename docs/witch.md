@@ -5,6 +5,8 @@ Her cauldron voice and instrumental fingers play together. The scene starts
 moving with **Audio off**; enable Audio to hear it. Stir the potion, play her
 fingers, drop a floating miniature instrument into the pot, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
+Presets and playback stay visible; **Parameters** starts closed and contains
+the native controls and a complete ingredient list for keyboard access.
 
 | Gesture | Picture | Sound |
 | --- | --- | --- |
@@ -16,7 +18,8 @@ ensemble on a broom ride. **Stop** releases the sound and pauses the performance
 | Release a gesture | Automatic motion resumes while Play is active | The ensemble continues; stopped manual gestures fade |
 | Click her right palm | Her long 3D hand stays enlarged at a 55° clockwise angle | Five instrumental voices come forward over quieter brewing |
 | Bend a fingertip | Its long finger curls and glows | Glass, reed, wire, metal or marimba pitch and brightness |
-| Drop a miniature hand, marimba or choir mouth into the pot | The object falls into the potion | Its short solo comes forward while the ensemble continues underneath |
+| Drop a floating ingredient or miniature Morphazoid into the pot | The object falls into the potion and sends ripples through it | Its short solo comes forward while the ensemble continues underneath |
+| Lift or lower the glowing ember | The ember rises and glows brighter | Brightens the finger instruments and night accents |
 | Click the moon | She takes off on a rollercoaster broom ride | One launch cackle; flight bends the whole mix through delay |
 | Steer the broom | The ride rises, falls and sweeps across the sky | Delay and stereo movement follow the flight |
 | Touch the moon, bats, ghosts, star or wind spirit | The touched creature responds | Selects a singing character and adds its accent |
@@ -27,7 +30,7 @@ ensemble on a broom ride. **Stop** releases the sound and pauses the performance
 
 The spoon rises and falls automatically through muttering, whisper, creak,
 cackle and singing. Drag its handle vertically to take over its height. The
-checkbox beside the picture resumes automatic selection; choosing Character
+checkbox inside Parameters resumes automatic selection; choosing Character
 or the height slider holds a selection. Nose and hat pulls reshape the voice
 independently of the instrumental finger bends.
 These are procedural synthesis gestures using a voiced/noisy source and
@@ -50,14 +53,23 @@ shapes the instrument mix. Cauldron character and ingredients do not color the
 hand's instrumental voices. Touching the right palm brings the fingers forward in the mix and
 quiets the continuing cauldron voice.
 
-Three floating objects offer featured solos: the miniature Gesticules hand
-plays glass and wire, the marimba bars play a wooden mallet phrase, and the
-mouth sings a small choir phrase. Drop an object into the pot or use its control
-beside the picture. These reuse Gesticules synthesis: its marimba adapts Linear
-Drums' pitched archetype, and its choir uses the Hiccup Head/Throatazoid glottal
-source with vowel resonances. Each solo has a bounded duration; another drop
-can bring a different material forward. The voice and fingers keep playing
-underneath. Object drops remain available during flight.
+Fourteen floating ingredients hover around the forest: glass, tail, ear wax,
+eyeball, newt, hair, Roach Synth, Spider Synth, Oculoid, Rubix cube, Hiccup Head,
+Gesticules, marimba bars and a singing mouth. Drag one into the cauldron for a
+short featured phrase. Glass and hair also add ringing resonance and unstable
+harmonics to the ongoing singer. The ingredient reappears after its solo.
+Singing and fingers continue underneath, and drops remain available in flight.
+The small figures use original ingredient drawings and existing instrument
+thumbnails; they do not load the instruments' complete interfaces or 3D scenes.
+
+The hand, marimba and mouth reuse Gesticules synthesis. Its marimba adapts
+Linear Drums' pitched archetype, and its choir uses the Hiccup Head/Throatazoid
+glottal source with vowel resonances. The Roach taste reuses its percussion and
+zing sources; the Spider taste reuses its silk-string synthesis. Rubix and
+Hiccup Head use compact adaptations of their authored synthesis gestures.
+The ordinary materials and Oculoid eye resonance are original potion sounds;
+there is no standalone Oculoid implementation in this checkout to reuse.
+These are bounded excerpts and adaptations, not complete copies of each synth.
 
 Clicking the moon takes her into a continuous rollercoaster ride. With Audio
 enabled, takeoff adds one short cackle; it does not repeat during ordinary
@@ -83,11 +95,13 @@ ingredients while retaining explicit Audio arming and output level.
 
 With the picture focused, **H** brings the fingers forward in the mix, **M** takes off or rings the
 moon bell while flying, **B** returns to brewing, and **W** cycles the mushrooms.
-**Escape** returns to the cauldron and stops Play. **Space** toggles Play. **Q/E/R** drop the hand, marimba and mouth.
+**Escape** returns to the cauldron and stops Play. **Space** toggles Play.
+**Q/E/R** drop the hand, marimba and mouth. **[ / ]** select any ingredient;
+**Enter** drops the selected ingredient. **− / +** darken or brighten the fingers and night accents.
 **T/G/S/V** play bats, ghosts, stars and wind in every activity. Arrows stir/open the voice
 or steer the broom. Hold **1–5** to play individual finger instruments; arrows
 bend the selected finger when its sound is featured. Native finger sliders also play
-while held or adjusted with keys. The controls beside the picture provide
+while held or adjusted with keys. The controls inside Parameters provide
 alternatives for bending, steering, ingredients and scenery accents. Pointer
 cancellation and window blur release manual gestures. Hidden pages mute;
 navigation disposes audio and animation. Shared MIDI exposes control learning

@@ -356,14 +356,22 @@ test('hand focus ducks the voice; flight changes neither performer clock nor the
   assert.ok(Math.abs(interrupted.weights[0] - .18) < 1e-12, 'the hand may remain foreground during flight');
 });
 
-test('three dropped mini-instruments feature real materials, duck both performers, then return the mix', () => {
+test('all fourteen ingredients feature distinct short solos, duck both performers, then return the mix', () => {
   const sounds = [];
   for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = playing(), reference = playing(); render(dsp, .5); render(reference, .5);
     assert.ok(dsp.drops.hand instanceof HandDSP);
-    assert.equal(dsp.trigger(kind), true); sounds.push(render(dsp, .2)); render(reference, .2);
+    assert.equal(dsp.trigger(kind), true);
+    const sound = new Float32Array(RATE * .8);
+    let soloEnergy = 0, backingEnergy = 0;
+    for (let offset = 0; offset < sound.length; offset += 128) {
+      dsp.process(sound.subarray(offset, Math.min(offset + 128, sound.length)));
+      soloEnergy += dsp.visual.dropLevel ** 2;
+      backingEnergy += dsp.visual.brewLevel ** 2 + dsp.visual.handLevel ** 2;
+    }
+    sounds.push(sound); render(reference, .8);
     assert.equal(dsp.visual.dropKind, kind); assert.ok(dsp.visual.dropEnvelope > .95);
-    assert.ok(dsp.visual.dropLevel > dsp.visual.brewLevel + dsp.visual.handLevel, 'the dropped instrument takes the foreground');
+    assert.ok(soloEnergy > backingEnergy * 1.5, `${kind} takes the foreground over its phrase, including spaces between percussive hits`);
     assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001, 'the performers remain underneath');
     assert.ok(dsp.visual.brewLevel < reference.visual.brewLevel * .3);
     assert.equal(dsp.chantPhase, reference.chantPhase); assert.equal(dsp.visual.handTime, reference.visual.handTime);
@@ -371,15 +379,16 @@ test('three dropped mini-instruments feature real materials, duck both performer
     assert.ok(dsp.visual.dropEnvelope < 1e-6); assert.equal(dsp.visual.dropKind, '');
     assert.ok(difference(render(dsp, .2), render(reference, .2)) < 1e-6, 'the original mix returns without restarting it');
   }
-  for (let i = 1; i < sounds.length; i++) assert.ok(difference(sounds[0], sounds[i]) > .01);
+  for (let i = 1; i < sounds.length; i++) for (let j = 0; j < i; j++) assert.ok(difference(sounds[j], sounds[i]) > .01, `${WITCH_DROP_EFFECTS[j]} / ${WITCH_DROP_EFFECTS[i]}`);
 });
 
 test('all four layers coexist in flight; fixed solo slots and the complete mix release on Stop', () => {
   const dsp = playing({ mode: 'flight', handFocus: 1, speed: 1, altitude: 1 });
   render(dsp, .5);
-  for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % 3]), true);
+  for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]), true);
   for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .54);
-  assert.equal(dsp.drops.slots.length, 3); assert.equal(dsp.drops.hand.voices.length, 5);
+  assert.equal(dsp.drops.slots.length, 14); assert.equal(dsp.drops.hand.voices.length, 5);
+  assert.equal(dsp.drops.tastes.spider.voices.length, 24); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
   for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
   assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .68);
   dsp.setControls({ gate: false }); const handTime = dsp.visual.handTime;

@@ -15,6 +15,7 @@ const clamp = (v,min=0,max=1) => Math.max(min,Math.min(max,Number(v)||0));
 const TAU = Math.PI * 2;
 let config = normalizeWitchPreset(WITCH_DEFAULTS);
 let playing = true, audioOn = false, starting = false, disposed = false, request = 0;
+let selectedIngredient = -1;
 let selectedFinger = 1, frame = 0, lastPaint=0, last = performance.now(), silentPhase = 0, silentSpeed = 0;
 let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionTime = 0, silentHandTime = 0, silentFlightPhase = 0;
 const fingerPointers = new Map(), fingerKeys = new Set(), sliderKeys = new Set(), sliderPointers = new Map(), arrowKeys = new Set();
@@ -30,7 +31,7 @@ audio.onError=error => { audioMotionReady=false;audioOn=false; starting=false; $
 const sceneCopy = {
   brew: ['She brews her own voice.', 'Stir the pot. Touch her right hand, the moon, or the mushrooms.', 'Stir for me', 'stirring'],
   fingers: ['An instrument in every finger.', 'Pull her fingertips. Touch the pot to return, the moon to fly, or mushrooms for trouble.', 'Play the hand', 'hand'],
-  flight: ['Music for a midnight ride.', 'Drag the sky to fly. Bats and ghosts ring out. Touch the pot to land; mushrooms bend the night.', 'Take flight', 'flight'],
+  flight: ['Music for a midnight ride.', 'Drag the sky to fly. Bats and ghosts ring out. Stir the pot while flying; B lands. Mushrooms bend the night.', 'Take flight', 'flight'],
 };
 function fingerMask() {
   let mask=0;
@@ -106,7 +107,9 @@ function returnObject(object) {
 function dropObject(id) {
   const object=objects.find(item=>item.id===id);
   if(!object || object.dropped) return;
-  Object.assign(object,{dragging:false,dropped:true,dropAge:0});
+  const origin=getWitchObjectPosition(object,visualState());
+  Object.assign(object,{x:origin.x,y:origin.y,dragging:false,dropped:true,dropAge:0});
+  if(id==='glass' || id==='hair') { config[id]=clamp(config[id]+.25); send(); sync(); }
   trigger(object.kind); $('gestureReadout').value=`${object.name} takes a solo.`;
 }
 function setSpoonHeight(value) {
@@ -128,7 +131,7 @@ async function toggleAudio() {
 }
 listen($('audioButton'),'click',toggleAudio);
 listen($('playButton'),'click',() => { stopGesture(); playing=!playing; send(); sync(); });
-listen($('resetButton'),'click',() => { stopGesture(); playing=false; config=normalizeWitchPreset(WITCH_DEFAULTS); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; event=null; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
+listen($('resetButton'),'click',() => { stopGesture(); playing=false; config=normalizeWitchPreset(WITCH_DEFAULTS); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
 listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/5; send(); sync(); });
 for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
@@ -171,7 +174,7 @@ function visualState() {
   const spoonHeight=v?.spoonHeight??(config.spoonAuto && pointer?.type!=='spoon'?witchSpoonHeight(handTime):config.spoonHeight);
   const activeVoice=v?.activeVoice??(config.spoonAuto?witchVoiceAtHeight(spoonHeight):config.voice);
   const fingerLevels=audioOn&&v?.fingerLevels?v.fingerLevels:Array.from({length:5},(_,i)=>mask&(1<<i)?1:0);
-  return { ...config, ...world, flightPhase:v?.flightPhase??silentFlightPhase, objects, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
+  return { ...config, ...world, flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
 }
 listen(canvas,'pointerdown',e => {
   if(pointer || e.button!==0) return;
@@ -193,7 +196,7 @@ listen(canvas,'pointerdown',e => {
   keyboardGate=false;
   const visual=visualState(), start=stirLocation(p), pot=WITCH_LAYOUT.cauldron;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,tone:config.tone,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
   if(hit.type==='stir') { config.speed=.05; if(!onHandle) config.radius=pointer.radius; }
@@ -209,10 +212,16 @@ listen(canvas,'pointermove',e => {
     config.fingers[held.index]=clamp(held.value+(held.index===0?-1:1)*localY/220+localX/600);
     send(); sync(); e.preventDefault(); return;
   }
-  if(!pointer || pointer.id!==e.pointerId) { const p=canonical(e);canvas.style.cursor=hitTestWitch(p.x,p.y,visualState())?'grab':'default'; return; }
+  if(!pointer || pointer.id!==e.pointerId) {
+    const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
+    canvas.style.cursor=hit?'grab':'default';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({tone:'Lift the ember to brighten her finger spells',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Tug her hat',hand:'Feature her finger spells',moon:'Fly to the moon',mushrooms:'Change the colors'})[hit?.type]??'';
+    return;
+  }
   const p=canonical(e,true), now=performance.now();
   if(pointer.type==='object') { pointer.object.x=p.x-pointer.offset.x;pointer.object.y=p.y-pointer.offset.y;e.preventDefault();return; }
   if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
+  else if(pointer.type==='tone') { config.tone=clamp(pointer.tone+(pointer.start.y-p.y)/130); }
   else if(pointer.type==='nose' || pointer.type==='hat') {
     const key=pointer.type;config[key]=clamp(pointer[key]+(key==='nose'?(p.x-pointer.start.x):(pointer.start.y-p.y))/150);
   }
@@ -241,6 +250,13 @@ listen(canvas,'keydown',e => {
   if(e.altKey || e.ctrlKey || e.metaKey) return;
   if(e.key==='Escape') { setScene('brew'); playing=false; send(); sync(); e.preventDefault(); return; }
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
+  if(e.key==='[' || e.key===']') {
+    selectedIngredient=selectedIngredient<0?(e.key===']'?0:objects.length-1):(selectedIngredient+(e.key===']'?1:-1)+objects.length)%objects.length;
+    $('gestureReadout').value=`${objects[selectedIngredient].name}. Press Enter to drop into the potion.`;
+    e.preventDefault();return;
+  }
+  if(e.key==='Enter') { if(!e.repeat)dropObject(objects[Math.max(0,selectedIngredient)].id);e.preventDefault();return; }
+  if(['-','_','+','='].includes(e.key)) { config.tone=clamp(config.tone+(['+','='].includes(e.key)?.05:-.05));send();sync();e.preventDefault();return; }
   const objectId={q:'gesticules',e:'marimba',r:'choir'}[e.key.toLowerCase()];
   if(objectId){if(!e.repeat)dropObject(objectId);e.preventDefault();return;}
   const action={h:'hand',m:'moon',b:'brew',w:'mushrooms'}[e.key.toLowerCase()];
@@ -311,6 +327,7 @@ const clock=setInterval(() => {
     const v=visualState();
     if(config.spoonAuto && pointer?.type!=='spoon') { $('voice').value=v.activeVoice;$('spoonHeight').value=v.spoonHeight;$('spoonHeightOut').value=`${Math.round(v.spoonHeight*100)}%`; }
     if(event)return;
+    if(selectedIngredient>=0) { $('gestureReadout').value=`${objects[selectedIngredient].name}. Press Enter to drop into the potion.`;return; }
     $('gestureReadout').value=config.scene==='fingers'?(gate()?'Bend a finger to bend its sound.':'Her fingertips are listening.')
       :config.scene==='flight'?(v.speed>.025?`${Math.round(v.speed*100)}% flight · ${Math.round(config.altitude*100)}% height`:'The broom is waiting.')
         :v.speed>.025?`${config.direction<0?'Backward':'Forward'} · ${Math.round(v.speed*100)}% motion · ${Math.round(config.radius*100)}% open`:'The pot is listening.';
@@ -334,7 +351,7 @@ Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.f
   return {config:structuredClone(config),playing,audioOn,world:{...world},handReady,
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),rotation:handTransform(state,i).rotation})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
-    objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),ladle:getWitchLadle(state),
+    selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),ladle:getWitchLadle(state),
     handMetadata:hand.getMetadata?.()??hand.metadata??null};
 }})});
 sync(); send(); resize(); resumeDrawing();

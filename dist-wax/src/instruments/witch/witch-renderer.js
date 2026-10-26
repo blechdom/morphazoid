@@ -1,4 +1,5 @@
-// Original, deformable Canvas artwork. All gesture geometry is in this viewbox.
+// Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
+// and drawing use this same viewbox.
 const TAU = Math.PI * 2;
 const clamp = (n, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, Number.isFinite(n) ? n : lo));
 const paths = new Map();
@@ -15,11 +16,22 @@ export const WITCH_LAYOUT = Object.freeze({
   mushrooms: Object.freeze([{ x: 162, y: 639, r: 48 }, { x: 846, y: 655, r: 42 }]),
   ghosts: Object.freeze([{ x: 160, y: 280, r: 45 }, { x: 854, y: 414, r: 44 }]),
   bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 868, y: 310, r: 28 }]),
-  spirits:Object.freeze([Object.freeze({kind:'spark',x:666,y:88,r:25}),Object.freeze({kind:'gust',x:84,y:365,r:30})]),
+  spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:84,y:365,r:30})]),
   objects: Object.freeze([
-    Object.freeze({id:'gesticules',kind:'drop-gesticules',name:'Gesticules',x:122,y:500,r:32}),
-    Object.freeze({id:'marimba',kind:'drop-marimba',name:'Linear Drums',x:272,y:555,r:34}),
-    Object.freeze({id:'choir',kind:'drop-choir',name:'Throatazoid',x:888,y:525,r:34}),
+    Object.freeze({id:'glass',kind:'drop-glass',name:'Glass',x:76,y:135,r:29,color:'#a1def0'}),
+    Object.freeze({id:'tail',kind:'drop-tail',name:'Tail',x:218,y:218,r:30,color:'#dda5c2'}),
+    Object.freeze({id:'earwax',kind:'drop-earwax',name:'Ear wax',x:75,y:247,r:27,color:'#d9ab58'}),
+    Object.freeze({id:'eyeball',kind:'drop-eyeball',name:'Eyeball',x:211,y:393,r:29,color:'#d9a9bf'}),
+    Object.freeze({id:'newt',kind:'drop-newt',name:'Newt',x:79,y:464,r:32,color:'#a7cc69'}),
+    Object.freeze({id:'hair',kind:'drop-hair',name:'Hair',x:223,y:511,r:31,color:'#af9ed8'}),
+    Object.freeze({id:'roach',kind:'drop-roach',name:'Roach Synth',x:73,y:568,r:34,color:'#c99b65'}),
+    Object.freeze({id:'spider',kind:'drop-spider',name:'Spider Synth',x:265,y:637,r:35,color:'#d3cb81'}),
+    Object.freeze({id:'oculoid',kind:'drop-oculoid',name:'Oculoid',x:930,y:119,r:33,color:'#a5dfb6'}),
+    Object.freeze({id:'rubix',kind:'drop-rubix',name:'Rubix',x:927,y:240,r:34,color:'#c7a5ec'}),
+    Object.freeze({id:'hiccup',kind:'drop-hiccup',name:'Hiccup Head',x:925,y:360,r:32,color:'#e8a2cf'}),
+    Object.freeze({id:'gesticules',kind:'drop-gesticules',name:'Gesticules',x:923,y:477,r:33,color:'#79e0c8'}),
+    Object.freeze({id:'marimba',kind:'drop-marimba',name:'Linear Drums',x:925,y:586,r:34,color:'#e8b075'}),
+    Object.freeze({id:'choir',kind:'drop-choir',name:'Throatazoid',x:62,y:659,r:33,color:'#e698c8'}),
   ]),
 });
 
@@ -467,7 +479,8 @@ export function getWitchTargets(state = {}) {
     y:origin.y+(Math.sin(rotation)*x+Math.cos(rotation)*y)*scale,r:r*scale});
   const shape=hatShape(state),hx=-10,hy=-111*shape.stretch;
   return {nose:point(87+(clamp(state.nose??.5)-.5)*40,57,20),
-    hat:point(Math.cos(shape.tilt)*hx-Math.sin(shape.tilt)*hy,Math.sin(shape.tilt)*hx+Math.cos(shape.tilt)*hy,66*Math.max(1,shape.stretch))};
+    hat:point(Math.cos(shape.tilt)*hx-Math.sin(shape.tilt)*hy,Math.sin(shape.tilt)*hx+Math.cos(shape.tilt)*hy,66*Math.max(1,shape.stretch)),
+    tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32}};
 }
 
 // Each model has its own projected pose. Display and picking share this affine
@@ -713,19 +726,148 @@ export function getWitchObjectPosition(object, state = {}) {
     alpha:live.dragging?1:.68+.3*Math.sin(time*.37+index)**2,
     rotation:live.dragging?0:Math.sin(time*.43+index)*.13,r:home.r};
 }
+
+// Reuse the instruments' existing transparent portraits as tiny visual tastes;
+// no extra WebGL scene, model, or instrument controller is instantiated here.
+const miniatureSources=Object.freeze({
+  roach:new URL('../../../assets/instruments/roach-synth.webp',import.meta.url).href,
+  spider:new URL('../../../assets/instruments/spider-synth.webp',import.meta.url).href,
+  rubix:new URL('../../../assets/instruments/rubix.webp',import.meta.url).href,
+  hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
+});
+const miniatureImages=new WeakMap();
+function drawInstrumentMiniature(c,id) {
+  const source=miniatureSources[id],doc=c.canvas?.ownerDocument;
+  if(!source||!doc)return false;
+  let images=miniatureImages.get(doc);
+  if(!images) { images=new Map();miniatureImages.set(doc,images); }
+  let image=images.get(id);
+  if(!image) {image=doc.createElement('img');image.decoding='async';image.src=source;images.set(id,image);}
+  if(!image.complete||!image.naturalWidth)return false;
+  const size=id==='spider'?86:id==='hiccup'?67:75;
+  c.drawImage(image,-size/2,-size/2,size,size);
+  return true;
+}
+
+function potionEye(c,orbital=false) {
+  if(orbital) {
+    ellipse(c,0,0,37,13,null,'#7ed7c3',1.4,-.45);
+    ellipse(c,0,0,16,35,null,'#d49ee8',1.2,.58);
+    star(c,-29,14,4,'#e7d7a5');
+  } else {
+    curve(c,[-17,12,-28,35,-3,27,-14,43],'#af738d',3);
+    curve(c,[-17,12,-22,30,-7,28,-14,43],'#e5adbb',.8);
+  }
+  ellipse(c,0,0,25,24,'#d7cbbb','#5e4b62',1.6);
+  for(let i=0;i<5;i++) {
+    const angle=i*TAU/5;
+    const x=Math.cos(angle),y=Math.sin(angle);
+    curve(c,[x*24,y*23,x*16-y*3,y*18+x*5,x*16+y*4,y*13-x*2,x*10,y*10],'#aa7380',.9);
+  }
+  ellipse(c,5,-2,14,16,orbital?'#68baa0':'#b39c53','#385d65',1.2);
+  for(let i=0;i<12;i++) {
+    const a=i*TAU/12;
+    line(c,[[5+Math.cos(a)*8,-2+Math.sin(a)*9],[5+Math.cos(a)*13,-2+Math.sin(a)*15]],orbital?'#c9eb9c':'#8d6957',.7);
+  }
+  ellipse(c,6,-2,orbital?4:6,10,'#161c28');ellipse(c,10,-8,3,3,'#faf2d2');
+}
+
+function potionMaterial(c,id) {
+  if(id==='glass') {
+    path(c,'M-27,17 L-13,-32 L4,-16 L-3,28 Z','#7fc5db44','#bce9ed',1.5);
+    path(c,'M3,29 L10,-25 L30,-36 L23,18 Z','#ad9eec55','#c5b6eb',1.5);
+    path(c,'M-7,0 L12,-9 L19,25 Z','#c0f4db4d','#d5f2cf',1.3);
+    line(c,[[-16,0],[-12,-23]],'#f7efd6',1.5);line(c,[[12,-16],[24,-28]],'#f7efd6',1.5);
+  } else if(id==='tail') {
+    path(c,'M-26,-24 C-5,-19 22,-6 18,15 C15,36 -13,40 -20,24 C-27,8 -7,0 0,13 C-11,7 -17,20 -8,23 C1,28 11,18 5,8 C-3,-3 -21,-2 -33,-9 Z','#b87994','#dfb4ad',1.6);
+    for(let i=0;i<5;i++)line(c,[[-25+i*6,-16+i*2],[-28+i*7,-9+i*2]],'#753e62',1.1);
+    path(c,'M-34,-10 L-41,-18 L-31,-15 L-33,-26 L-23,-20 L-19,-31 L-18,-20 Z','#6e4b6d','#d5a8b7',.8);
+  } else if(id==='earwax') {
+    path(c,'M-27,13 Q-32,-7 -17,-12 Q-16,-31 3,-24 Q17,-29 21,-12 Q34,-5 24,11 Q25,31 7,28 Q-2,34 -12,24 Q-25,29 -27,13 Z','#ad772c','#e1bd6e',1.6);
+    ellipse(c,-8,-5,12,10,'#d4a043');ellipse(c,13,10,8,7,'#956327');
+    curve(c,[-11,13,4,23,13,-2,4,-8],'#efd285',2);
+    for(const [x,y] of [[-22,12],[14,-13],[3,23]])line(c,[[x,y],[x-3,y-8]],'#453735',1);
+  } else if(id==='eyeball'||id==='oculoid') {
+    potionEye(c,id==='oculoid');
+  } else if(id==='newt') {
+    for(const [x,y,sign] of [[-10,-9,-1],[9,1,1],[-12,13,-1],[7,22,1]]) {
+      line(c,[[x,y],[x+sign*15,y-6],[x+sign*24,y+1]],'#9eae67',3);
+      for(let i=0;i<3;i++)line(c,[[x+sign*24,y+1],[x+sign*(27+i*3),y-4+i*4]],'#aebd7a',1.1);
+    }
+    path(c,'M-9,-18 Q-16,-39 0,-40 Q16,-37 11,-18 Q18,0 7,23 C5,37 27,33 29,46 C19,37 -5,48 -8,25 Q-22,1 -9,-18 Z','#638963','#bfd18a',1.4);
+    for(let i=0;i<5;i++)ellipse(c,-3+Math.sin(i)*4,-15+i*8,3,3,'#d0a769');
+    ellipse(c,-8,-30,3,4,'#edcb81');ellipse(c,8,-30,3,4,'#edcb81');
+    ellipse(c,-8,-30,1,3,'#222730');ellipse(c,8,-30,1,3,'#222730');
+  } else if(id==='hair') {
+    for(let i=0;i<13;i++) {
+      const x=-23+i*3.8;
+      curve(c,[x,-31,x-23+Math.sin(i)*11,-3,x+28,10,x-12+Math.sin(i)*10,32+(i%4)*3],['#8d7396','#c0b0b0','#716e9b'][i%3],i%3===0?1.7:1);
+    }
+    line(c,[[-22,-28],[18,-29]],'#a3bfa1',2.4);
+  } else if(id==='roach'||id==='spider') {
+    // Detailed portraits load asynchronously; these silhouettes keep pickup
+    // visible even during a slow or failed asset request.
+    const spider=id==='spider',legs=spider?4:3;
+    for(let i=0;i<legs;i++)for(const side of [-1,1]) {
+      line(c,[[side*8,-16+i*11],[side*(25+i*2),-27+i*15],[side*(37-i*3),-17+i*18]],spider?'#d1b97b':'#b78350',2.4);
+    }
+    ellipse(c,0,8,spider?14:13,spider?19:29,spider?'#b6a352':'#755038','#d2ae69',1.4);
+    ellipse(c,0,-16,9,11,spider?'#b9b6a0':'#9e7345','#dab886',1);
+    if(spider)for(let i=0;i<4;i++)curve(c,[-12,-1+i*8,-4,4+i*7,3,-4+i*8,13,1+i*8],'#3c3b35',2.2);
+    else {line(c,[[0,-12],[0,35]],'#d7a56b',1);for(const side of [-1,1])curve(c,[side*3,-24,side*14,-39,side*27,-46,side*37,-38],'#bd9457',1.2);}
+  } else if(id==='rubix') {
+    for(const [ox,oy,sx,sy,colors] of [[-27,-9,1,.5,['#93cd89','#d6dcb1','#b3bcda']],[0,5,1,-.5,['#cc7697','#cf8b6e','#9995d0']]]) {
+      for(let row=0;row<3;row++)for(let column=0;column<3;column++) {
+        const x=ox+column*9,y=oy+row*11+column*sy*9;
+        path(c,`M${x},${y} l${sx*8},${sy*8} v10 l${-sx*8},${-sy*8} Z`,colors[(row+column)%3],'#1a2230',1.1);
+      }
+    }
+    path(c,'M-27,-9 L0,-24 L27,-10 L0,5 Z','#e3dfb8','#1a2230',1.3);
+    for(let i=1;i<3;i++) {line(c,[[-27+i*9,-9-i*5],[i*9,5-i*5]],'#26333a',1.3);line(c,[[-27+i*9,-9+i*4.6],[i*9,-24+i*4.6]],'#26333a',1.3);}
+  } else if(id==='hiccup') {
+    c.save();c.beginPath();c.ellipse(0,0,26,33,0,0,TAU);c.clip();
+    for(let row=0;row<8;row++)for(let column=0;column<7;column++) {c.fillStyle=(row+column)%2?'#ddd9bd':'#28232c';c.fillRect(-28+column*8,-33+row*9,8,9);}
+    c.restore();ellipse(c,0,0,26,33,null,'#b089dd',1.7);
+    for(const x of [-10,10]) {ellipse(c,x,-12,9,10,'#d6dfab','#ad83d1',1.4);ellipse(c,x+2,-11,3.5,4.5,'#83b5df');ellipse(c,x+2,-11,1.5,2.5,'#202431');}
+    ellipse(c,0,2,6,7,'#d47249','#b68abf',1.3);ellipse(c,0,19,17,8,'#24252e','#6c9e79',1.5);
+    for(let i=0;i<5;i++)line(c,[[-10+i*5,12],[-10+i*5,17]],'#ebe0c2',2.2);
+  }
+}
+
+function toneFirefly(c,state) {
+  const tone=clamp(state.tone??.5),target=getWitchTargets(state).tone;
+  const time=state.reducedMotion?0:(state.time||0),flutter=Math.sin(time*18)*3;
+  // A fading ember trail exposes the direction of its brightness gesture.
+  for(let i=0;i<7;i++) {
+    const y=235-i*130/6;
+    ellipse(c,695+Math.sin(i*1.9)*6,y,1.1,1.1,i/6<tone?'#dceeb277':'#a8a1c72c');
+  }
+  c.save();c.translate(target.x,target.y);
+  glow(c,0,0,43+tone*24,tone>.5?'#cffbc044':'#eab06a30');
+  for(const side of [-1,1]) {
+    path(c,`M${side*3},-3 Q${side*37},${-30-flutter} ${side*26},-5 Q${side*20},9 ${side*3},5 Z`,'#9ea7ce58','#c6b5e8a3',1);
+    curve(c,[side*4,-2,side*14,-10,side*18,-13,side*27,-13-flutter],'#cdd5b59c',.8);
+    line(c,[[side*3,-8],[side*9,-18],[side*14,-19]],'#ccbd95',1);
+  }
+  ellipse(c,0,5,5+tone*2,10+tone*3,tone>.5?'#e5f5a5':'#ce924a','#f0e2b0',1.2);
+  ellipse(c,0,-7,5,5,'#5d6b67','#ccbd95',1);
+  line(c,[[-4,5],[4,5]],'#536b62',1);line(c,[[-4,10],[4,10]],'#536b62',1);
+  c.restore();
+}
+
 function ingredientObjects(c,state) {
-  const colors=['#79e0c8','#e8b075','#e698c8'];
-  for(const [index,home] of WITCH_LAYOUT.objects.entries()) {
+  for(const home of WITCH_LAYOUT.objects) {
+    const color=home.color;
     const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
     if(object.dropped) {
       const age=Math.max(0,object.dropAge||0),envelope=Math.max(0,1-age/3.6);
       if(envelope>0) {
         c.save();c.globalAlpha=envelope;
-        glow(c,600,511,155,`${colors[index]}33`);
-        ellipse(c,600,520,47+age*25,12+age*7,null,`${colors[index]}ad`,2);
+        glow(c,600,511,155,`${color}33`);
+        ellipse(c,600,520,47+age*25,12+age*7,null,`${color}ad`,2);
         for(let i=0;i<4;i++) {
           const a=age*2.4+i*TAU/4;
-          curve(c,[600+Math.cos(a)*40,510,590+Math.cos(a)*80,465-age*16,620+Math.sin(a)*72,446-age*19,600+Math.cos(a+.7)*90,414-age*22],`${colors[index]}77`,1.2);
+          curve(c,[600+Math.cos(a)*40,510,590+Math.cos(a)*80,465-age*16,620+Math.sin(a)*72,446-age*19,600+Math.cos(a+.7)*90,414-age*22],`${color}77`,1.2);
         }
         c.restore();
       }
@@ -733,9 +875,12 @@ function ingredientObjects(c,state) {
     if(object.alpha<=0)continue;
     c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.globalAlpha=object.alpha;
     // The objects appear through torn mist rather than enclosed cartoon badges.
-    glow(c,0,8,55,`${colors[index]}19`);
-    for(let i=0;i<3;i++)curve(c,[-43,15+i*6,-12,34+i*5,31,-12+i*4,44,7+i*8],`${colors[index]}30`,1.3+i*.7);
-    if(home.id==='gesticules') {
+    glow(c,0,8,55,`${color}19`);
+    for(let i=0;i<3;i++)curve(c,[-43,15+i*6,-12,34+i*5,31,-12+i*4,44,7+i*8],`${color}30`,1.3+i*.7);
+    if(state.selectedIngredient===home.id)ellipse(c,0,2,home.r+10,home.r+13,null,`${color}aa`,1.2);
+    if(drawInstrumentMiniature(c,home.id)) {
+      // Shared portrait drawn above; all its movement is the ingredient's.
+    } else if(home.id==='gesticules') {
       path(c,'M-17,24 L-21,2 L-30,-13 L-26,-22 L-14,-7 L-16,-40 L-10,-47 L-5,-10 L0,-49 L6,-52 L7,-10 L15,-41 L21,-44 L17,-5 L26,-28 L32,-29 L27,11 L15,31 Z','#397f79','#a1e6cb',1.3);
       path(c,'M-16,23 Q-10,6 15,2 L21,14 L14,31 Z','#8b5d9b99');
       line(c,[[-11,-43],[-13,-51]],'#e9b1a1',1.7);line(c,[[3,-48],[4,-57]],'#dce99b',1.7);line(c,[[19,-40],[24,-48]],'#a1c8f0',1.7);
@@ -748,12 +893,12 @@ function ingredientObjects(c,state) {
         ellipse(c,0,-length/2+6,1.2,1.2,'#34262d');c.restore();
       }
       line(c,[[-19,35],[17,-28]],'#d6bea1',3);ellipse(c,20,-32,6,6,'#a8688e','#d9a9bd',1);
-    } else {
+    } else if(home.id==='choir') {
       path(c,'M-22,-28 Q-6,-44 13,-26 L14,-10 L29,-1 L17,7 L26,14 L10,25 L7,39 L-13,34 L-15,12 Q-29,-4 -22,-28 Z','#8c6488','#d5abb5',1.4);
       path(c,'M-9,-5 Q6,-15 18,5 L3,12 Q-5,9 -3,27 L-11,27 Q-18,7 -9,-5 Z','#2a2338','#e6bb94',1.4);
       ellipse(c,5,-19,2.6,3.5,'#302238');
-      for(let i=0;i<4;i++)curve(c,[27+i*4,-8,36+i*4,-1,36+i*4,6,27+i*4,12],`${colors[index]}aa`,1);
-    }
+      for(let i=0;i<4;i++)curve(c,[27+i*4,-8,36+i*4,-1,36+i*4,6,27+i*4,12],`${color}aa`,1);
+    } else potionMaterial(c,home.id);
     if(object.dragging) {c.font='11px monospace';c.textAlign='center';c.fillStyle='#eee3da';c.fillText(home.name,0,58);}
     c.restore();
   }
@@ -789,6 +934,7 @@ function drawWorld(c, state) {
   brewScene(c,state);
   flightScene(c,state);
   reachingHand(c,state);
+  toneFirefly(c,state);
   ingredientObjects(c,state);
   hauntedMist(c,state);
   if (state.trip) {
@@ -829,6 +975,19 @@ export function hitTestWitch(x, y, state = {}) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
   const minRadius=Math.max(46,state.hitRadius||0);
+  let nearestObject=null,objectDistance=Infinity,objectRadius=0;
+  for(const [index,home] of WITCH_LAYOUT.objects.entries()) {
+    const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
+    const distance=Math.hypot(x-object.x,y-object.y);
+    if(!object.dropped&&distance<Math.max(home.r+8,minRadius)&&distance<objectDistance) {
+      nearestObject={type:'object',id:home.id,kind:home.kind,index};objectDistance=distance;objectRadius=home.r+8;
+    }
+  }
+  // Ingredients draw above the hands. Their visible centers win, while the
+  // extra touch halo cannot swallow a nearby moon, ghost, spoon or fingertip.
+  if(nearestObject&&objectDistance<objectRadius)return nearestObject;
+  const targets=getWitchTargets(state);
+  if(Math.hypot(x-targets.tone.x,y-targets.tone.y)<Math.max(targets.tone.r,Math.min(50,minRadius*.7)))return {type:'tone'};
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {
@@ -840,13 +999,8 @@ export function hitTestWitch(x, y, state = {}) {
     const hit=state.pickHand?.(local.x,local.y,minRadius/t.scale);
     if(hit) return hit;
   }
-  for(const [index,home] of WITCH_LAYOUT.objects.entries()) {
-    const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
-    if(!object.dropped && Math.hypot(x-object.x,y-object.y)<Math.max(home.r,minRadius)) return {type:'object',id:home.id,kind:home.kind,index};
-  }
   const ladle=getWitchLadle(state);
   if(Math.hypot(x-(ladle.hx-8),y-(ladle.hy-24))<Math.max(27,minRadius*.75))return {type:'spoon'};
-  const targets=getWitchTargets(state);
   if(Math.hypot(x-targets.nose.x,y-targets.nose.y)<Math.max(targets.nose.r,minRadius*.65))return {type:'nose'};
   if(Math.hypot(x-targets.hat.x,y-targets.hat.y)<Math.max(targets.hat.r,minRadius*.7))return {type:'hat'};
   const moon=WITCH_LAYOUT.moon;
@@ -863,6 +1017,7 @@ export function hitTestWitch(x, y, state = {}) {
     }
   }
   for(const spirit of WITCH_LAYOUT.spirits) if(Math.hypot(x-spirit.x,y-spirit.y)<Math.max(spirit.r,minRadius*.7))return {type:spirit.kind};
+  if(nearestObject)return nearestObject;
   if(state.scene==='flight') return {type:'flight'};
   if(Math.hypot(x-ladle.hx,y-ladle.hy)<Math.max(35,minRadius*.8)) return {type:'spoon'};
   return null;

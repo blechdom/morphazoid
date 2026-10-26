@@ -8,7 +8,10 @@ export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'gho
 export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
 export const WITCH_LAUNCH_DURATION = 1.86;
 export const WITCH_FINGER_SOURCES = Object.freeze(['glass', 'reed', 'wire', 'metal', 'marimba']);
-export const WITCH_DROP_EFFECTS = Object.freeze(['drop-gesticules', 'drop-marimba', 'drop-choir']);
+export const WITCH_DROP_EFFECTS = Object.freeze([
+  'gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair',
+  'roach', 'spider', 'oculoid', 'rubix', 'hiccup',
+].map(id => `drop-${id}`));
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',

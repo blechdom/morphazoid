@@ -1,6 +1,10 @@
 import { normalizeWitchControls, sampleChant, witchClamp, witchHandConfig, applyWitchManualFingers, witchSpoonHeight, witchVoiceAtHeight, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_DROP_EFFECTS, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
+import { RoachPercussion } from '../roach-synth/roach-synth-percussion.js';
+import { RoachZing } from '../roach-synth/roach-synth-textures.js';
+import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
+import { hiccupHeadGestureFrame, physicalVoiceParameters } from '../hiccup-head/hiccup-head.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -427,13 +431,182 @@ class WitchHandDSP extends HandDSP {
   }
 }
 
-/** Three bounded miniature solos share five existing Gesticules voice engines:
- * glass/wire/metal, Linear Drums' marimba, and the Throatazoid-derived choir. */
+// Short Color Kit voices follow Rubix's red/green/yellow/blue/white/orange
+// assignments (rubix.js), shortened envelopes (rubix-percussion.js), and the
+// FM Drum carrier/modulator trajectories. This small scalar rendering omits
+// Rubix's sequencer, native-node filters, and optional synthesis banks.
+const RUBIX_TASTE_KIT = Object.freeze([
+  [48, .30, 1, 4.8, 2.6, .02, 'sine'],
+  [176, .16, 1.82, 6.4, 1.1, .68, 'sine'],
+  [4820, .05, 1.414, 9.2, 0, .74, 'square'],
+  [563, .15, 1.48, 3.4, 0, .03, 'square'],
+  [784, .22, 2.76, 6.8, 0, .01, 'sine'],
+  [329, .20, 4.2, 10.6, 5.2, .02, 'sine'],
+].map(Object.freeze));
+const SPIDER_TASTE_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .28, decay: 1.2,
+  texture: .3, slide: .18, coupling: 0, pluckRegister: 5, pluckSpread: 1,
+  pluckAttack: .006, pluckHold: .015, pluckRelease: .75 });
+const SPIDER_TASTE_RATIOS = Object.freeze([1, 1.437, .83, 2.13, 1.19, 1.73, .94, 2.41]);
+// Sample the real Hiccup Head gesture model once on module load. The miniature
+// keeps its pressure, catch, aspiration and rear-tongue release trajectory;
+// three formants replace the full physical tube for this deliberately small taste.
+const HICCUP_TASTE_PLAN = physicalVoiceParameters('hiccup');
+const HICCUP_TASTE_FRAMES = Object.freeze(Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame('hiccup', index / 128)));
+
+/** Fixed resources for the new potion ingredients. Roach shares its actual
+ * contact percussion and wire rasp; Spider shares its actual silk waveguides.
+ * The ordinary materials and Oculoid eye resonance are original Witch sounds.
+ * Oculoid currently has no standalone engine in this repository. */
+class PotionTasteDSP {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate;
+    this.roach = new RoachPercussion(rate, true); this.zing = new RoachZing(rate);
+    this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
+    this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
+    this.left = 0; this.right = 0;
+    this.attack = 1 - Math.exp(-1 / (rate * .012)); this.release = 1 - Math.exp(-1 / (rate * .07));
+  }
+  createSlot(kind) {
+    const slot = { kind, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
+      phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
+      eventAge: 0, kit: RUBIX_TASTE_KIT[0], control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
+      formants: [new Resonator(this.rate), new Resonator(this.rate), new Resonator(this.rate)] };
+    for (let i = 0; i < 3; i++) slot.formants[i].tune(HICCUP_TASTE_PLAN.formantFrequenciesHz[i], HICCUP_TASTE_PLAN.formantBandwidthsHz[i]);
+    return slot;
+  }
+  trigger(slot) {
+    slot.tailL = slot.lastL; slot.tailR = slot.lastR;
+    slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.eventAge = 0; slot.control = 0;
+  }
+  releaseAll() { this.roach.releaseAll(); this.spider.release(); }
+  finish(slot, left, right) {
+    const blend = Math.min(1, slot.age / (this.rate * .008));
+    const outgoing = 1 - blend * blend * (3 - 2 * blend);
+    this.left = slot.lastL = left * (1 - outgoing) + slot.tailL * outgoing;
+    this.right = slot.lastR = right * (1 - outgoing) + slot.tailR * outgoing;
+  }
+  sample(slot, active) {
+    slot.gain += ((active ? 1 : 0) - slot.gain) * (active ? this.attack : this.release);
+    this.left = this.right = 0;
+    if (slot.gain < 1e-8) return;
+    const t = slot.age++ * this.dt;
+    let x = slot.random; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; slot.random = x | 0;
+    const noise = (x >>> 0) / 2147483648 - 1;
+    let sample = 0, frequency = 0;
+    const fade = Math.min(1, Math.max(0, (2.4 - t) / .23));
+    if (slot.kind === 'drop-roach') {
+      if (active && t >= slot.nextEvent && t < 2.1) {
+        this.roach.strike(.64 + .2 * Math.sin(slot.event * 1.7), slot.event % 6);
+        this.zing.excite(.35); slot.event++;
+        slot.nextEvent += .073 + .035 * (slot.event % 3);
+      }
+      const taps = this.roach.sample(noise, 0, 2);
+      sample = taps[0] * 1.2 + taps[2] * .58 + this.zing.sample(noise, active ? .14 : 0) * .74;
+    } else if (slot.kind === 'drop-spider') {
+      if (active && t >= slot.nextEvent && slot.event < 8) {
+        const index = slot.event++;
+        this.spider.pluck(175 * SPIDER_TASTE_RATIOS[index], .84, Math.sin(index * 2.3) * .7,
+          SPIDER_TASTE_SOUND, 6, index, index % 3 === 2 ? 2 : 0, .22 + (index % 3) * .19,
+          null, 1, true, 0, -1, true);
+        slot.nextEvent += .21 + (index % 3) * .055;
+      }
+      this.spider.sample(this.spiderLevels, .73, SPIDER_TASTE_SOUND);
+      this.finish(slot, this.spider.left * slot.gain * 3.7, this.spider.right * slot.gain * 3.7);
+      return;
+    } else if (slot.kind === 'drop-rubix') {
+      if (active && t >= slot.nextEvent && slot.event < 9) {
+        slot.kit = RUBIX_TASTE_KIT[slot.event++ % 6]; slot.eventAge = 0;
+        slot.nextEvent += .24 + (slot.event % 2) * .04;
+      }
+      const [base, decay, ratio, index, bend, hiss, shape] = slot.kit;
+      const age = slot.eventAge++ * this.dt;
+      const envelope = Math.min(1, age / .002) * Math.exp(-6.9078 * age / decay);
+      slot.phase2 = (slot.phase2 + Math.min(this.rate * .32, base * ratio) * this.dt) % 1;
+      const modulation = shape === 'sine' && base === 784 ? Math.sin(slot.phase2 * TAU) : 1 - 4 * Math.abs(slot.phase2 - .5);
+      const carrierHz = base * Math.max(.15, 1 + bend) ** Math.max(0, 1 - age / Math.max(.018, decay * .42));
+      frequency = witchClamp(carrierHz + base * index * Math.exp(-12 * age / Math.max(.025, decay)) * modulation, -this.rate * .35, this.rate * .35);
+      slot.phase = ((slot.phase + frequency * this.dt) % 1 + 1) % 1;
+      const step = Math.max(.00001, Math.abs(frequency) * this.dt);
+      const carrier = shape === 'square' ? (slot.phase < .5 ? 1 : -1) + polyBlep(slot.phase, step) - polyBlep((slot.phase + .5) % 1, step) : Math.sin(slot.phase * TAU);
+      slot.low += .2 * (noise - slot.low);
+      sample = (carrier * (1 - hiss * .45) + (noise - slot.low) * hiss) * envelope * .5;
+    } else if (slot.kind === 'drop-hiccup') {
+      const local = t % .54, progress = Math.min(1, local / HICCUP_TASTE_PLAN.durationSeconds);
+      const position = progress * 128, index = Math.min(127, Math.floor(position)), mix = position - index;
+      const a = HICCUP_TASTE_FRAMES[index], b = HICCUP_TASTE_FRAMES[index + 1];
+      const pressure = a.pressureDrive + (b.pressureDrive - a.pressureDrive) * mix;
+      const catchAmount = a.diaphragmCatch + (b.diaphragmCatch - a.diaphragmCatch) * mix;
+      const voicing = a.voicing + (b.voicing - a.voicing) * mix;
+      const air = a.aspiration + (b.aspiration - a.aspiration) * mix;
+      const turbulence = a.turbulence + (b.turbulence - a.turbulence) * mix;
+      frequency = HICCUP_TASTE_PLAN.glottalFrequencyHz * (1 + catchAmount * .76);
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      const source = (2 * slot.phase - 1 - polyBlep(slot.phase, frequency * this.dt)) * voicing * pressure
+        + noise * (air * .14 + turbulence * .22);
+      sample = slot.formants[0].next(source) * 3.1 + slot.formants[1].next(source) * 2.4 + slot.formants[2].next(source) * 1.2;
+      sample += Math.sin(slot.phase * TAU) * pressure * voicing * .14;
+      sample *= 1.45;
+    } else if (slot.kind === 'drop-glass') {
+      const age = t % .71;
+      frequency = 724 + 39 * Math.floor(t / .71);
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      slot.phase2 = (slot.phase2 + frequency * 2.756 * this.dt) % 1;
+      slot.phase3 = (slot.phase3 + Math.min(this.rate * .4, frequency * 5.404) * this.dt) % 1;
+      sample = (Math.sin(slot.phase * TAU) + Math.sin(slot.phase2 * TAU) * .5 + Math.sin(slot.phase3 * TAU) * .19)
+        * Math.exp(-age * 5) * Math.min(1, age / .004) * .29;
+    } else if (slot.kind === 'drop-tail') {
+      const age = t % .57, sweep = Math.exp(-age * 11);
+      frequency = 52 + 320 * sweep;
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      sample = (Math.sin(TAU * slot.phase + Math.sin(slot.phase * TAU * 2) * sweep * 2.1) + noise * sweep * .2)
+        * Math.exp(-age * 6) * Math.min(1, age / .008) * .34;
+    } else if (slot.kind === 'drop-earwax') {
+      const age = t % .67, pressure = Math.sin(Math.PI * Math.min(1, age / .56)) ** 2;
+      frequency = 63 + pressure * 165;
+      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * .713 * this.dt) % 1;
+      const squelch = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * (1 + pressure * 7));
+      slot.low += (.025 + pressure * .12) * (squelch - slot.low);
+      sample = slot.low * pressure * .72;
+    } else if (slot.kind === 'drop-eyeball') {
+      const age = t % .41, pop = Math.exp(-age * 16);
+      frequency = 107 + 480 * pop;
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      slot.phase2 = (slot.phase2 + frequency * 1.37 * this.dt) % 1;
+      sample = (Math.sin(slot.phase * TAU) + Math.sin(slot.phase2 * TAU) * pop * .5 + noise * pop * .12)
+        * Math.exp(-age * 9) * Math.min(1, age / .004) * .4;
+    } else if (slot.kind === 'drop-newt') {
+      const age = t % .33, curl = Math.sin(Math.PI * Math.min(1, age / .28));
+      frequency = 260 + curl * 680 + 90 * Math.sin(t * 4.9);
+      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * .27 * this.dt) % 1;
+      sample = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * 1.9) * curl ** 2 * .27;
+    } else if (slot.kind === 'drop-hair') {
+      frequency = 117 + Math.sin(t * 7.3) * 24 + Math.sin(t * 19) * 8;
+      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + frequency * 1.437 * this.dt) % 1;
+      slot.phase3 = (slot.phase3 + frequency * 3.173 * this.dt) % 1;
+      slot.low += .06 * (noise - slot.low);
+      sample = (Math.sin(slot.phase * TAU) * .19 + Math.sin(slot.phase2 * TAU) * .12 + Math.sin(slot.phase3 * TAU) * .07
+        + (noise - slot.low) * .09) * (.55 + .45 * Math.sin(t * 23) ** 2);
+    } else if (slot.kind === 'drop-oculoid') {
+      frequency = 231 + 81 * Math.sin(t * 3.2);
+      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + (61 + t * 30) * this.dt) % 1;
+      const pupil = .2 + .8 * Math.sin(t * 8.7) ** 2;
+      sample = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * 3.3) * pupil * .32;
+    }
+    sample *= slot.gain * fade;
+    const pan = slot.kind === 'drop-oculoid' ? Math.sin(t * 5.3) * .8 : Math.sin(t * 2.7) * .22;
+    this.finish(slot, sample * Math.cos((pan + 1) * Math.PI / 4), sample * Math.sin((pan + 1) * Math.PI / 4));
+  }
+}
+
+/** Fourteen fixed ingredient slots share a five-voice Gesticules engine and
+ * bounded miniature components. A retrigger reuses the same slot and clocks;
+ * every phrase finishes, leaving the continuing singer and fingers audible. */
 class DroppedInstrumentDSP {
   constructor(rate) {
     this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
-    this.hand = new HandDSP(rate); this.solo = 0; this.kind = ''; this.levels = new Float32Array(128);
-    this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ kind, mask: [19, 4, 8][i], until: -1 }));
+    this.hand = new HandDSP(rate); this.tastes = new PotionTasteDSP(rate);
+    this.solo = 0; this.kind = ''; this.levels = new Float32Array(128);
+    this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ ...this.tastes.createSlot(kind), mask: [19, 4, 8][i] || 0 }));
     this.hand.setConfig({
       motion: { id: 'flourish', tempo: 90, amount: .48 }, tremor: { amount: 0 },
       pose: { fingers: [.12, .28, .18, .38, .22].map(bend => ({ mcp: bend * 50, pip: bend * 60, dip: bend * 40, spread: 0 })) },
@@ -448,11 +621,12 @@ class DroppedInstrumentDSP {
     this.enabled = enabled === true; this.hand.setEnabled(this.enabled);
     if (!this.enabled) this.releaseAll();
   }
-  releaseAll() { for (const slot of this.slots) slot.until = -1; }
+  releaseAll() { for (const slot of this.slots) slot.until = -1; this.tastes.releaseAll(); }
   trigger(kind) {
     const slot = this.slots.find(slot => slot.kind === kind);
     if (!this.enabled || !slot) return false;
     slot.until = this.clock + Math.round(this.rate * 2.4); this.kind = kind; this.dormant = false;
+    this.tastes.trigger(slot);
     for (let i = 0; i < 5; i++) if (slot.mask & (1 << i)) this.hand.auditionFinger(i, .08, this.clock / this.rate);
     return true;
   }
@@ -460,16 +634,20 @@ class DroppedInstrumentDSP {
     if (this.dormant) { left.fill(0); right.fill(0); this.levels.fill(0); this.clock += left.length; return; }
     let offset = 0;
     while (offset < left.length) {
-      let mask = 0, boundary = Infinity;
+      let mask = 0, active = false, boundary = Infinity;
       for (const slot of this.slots) if (slot.until > this.clock) {
-        mask |= slot.mask; boundary = Math.min(boundary, slot.until);
+        mask |= slot.mask; active = true; boundary = Math.min(boundary, slot.until);
       }
       this.hand.setHeldFingers(mask);
       const count = Math.min(left.length - offset, boundary - this.clock);
       this.hand.process(offset === 0 && count === left.length ? left : left.subarray(offset, offset + count),
         offset === 0 && count === right.length ? right : right.subarray(offset, offset + count), this.clock / this.rate);
-      const active = this.enabled && mask !== 0;
+      active = this.enabled && active;
       for (let i = offset; i < offset + count; i++) {
+        for (const slot of this.slots) if (!slot.mask && (slot.until > this.clock || slot.gain > 1e-8)) {
+          this.tastes.sample(slot, this.enabled && slot.until > this.clock);
+          left[i] += this.tastes.left; right[i] += this.tastes.right;
+        }
         this.solo += ((active ? 1 : 0) - this.solo) * (active ? this.attack : this.release);
         this.levels[i] = this.solo; this.clock++;
       }

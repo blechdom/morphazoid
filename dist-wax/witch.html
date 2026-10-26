@@ -57,6 +57,8 @@
         <button id="resetButton" class="witch-reset" type="button" data-reset-all data-reset-in-place>Reset</button>
       </div>
       <p id="liveStatus" role="status"></p>
+      <details class="witch-parameters" id="witchParameters">
+        <summary>Parameters</summary>
       <section class="witch-control-section" aria-labelledby="voiceHeading">
         <h2 id="voiceHeading">Her voice</h2>
         <label class="witch-select" id="voiceControl" for="voice"><span>Character</span><select id="voice"><option value="mutter">Under her breath</option><option value="whisper">Whisper</option><option value="creak">Old wood creak</option><option value="cackle">Wicked cackle</option><option value="sing">Moonlit singing</option></select></label>
@@ -87,15 +89,24 @@
         <div class="witch-effects"><button type="button" data-effect="moon">Moon bell</button><button type="button" data-effect="bat">Bat ticks</button><button type="button" data-effect="ghost">Ghost chimes</button><button type="button" data-effect="spark">Star pluck</button><button type="button" data-effect="gust">Wind rush</button></div>
       </section>
       <section class="witch-control-section" aria-labelledby="soloHeading">
-        <h2 id="soloHeading">Drop a little instrument</h2>
-        <div class="witch-effects"><button type="button" data-drop="gesticules">Gesticules</button><button type="button" data-drop="marimba">Marimba bars</button><button type="button" data-drop="choir">Singing mouth</button></div>
+        <h2 id="soloHeading">Add to the potion</h2>
+        <div class="witch-effects witch-potion-list">
+          <button type="button" data-drop="glass">Glass</button><button type="button" data-drop="tail">Tail</button>
+          <button type="button" data-drop="earwax">Ear wax</button><button type="button" data-drop="eyeball">Eyeball</button>
+          <button type="button" data-drop="newt">Newt</button><button type="button" data-drop="hair">Hair</button>
+          <button type="button" data-drop="roach">Roach Synth</button><button type="button" data-drop="spider">Spider Synth</button>
+          <button type="button" data-drop="oculoid">Oculoid</button><button type="button" data-drop="rubix">Rubix cube</button>
+          <button type="button" data-drop="hiccup">Hiccup Head</button><button type="button" data-drop="gesticules">Gesticules</button>
+          <button type="button" data-drop="marimba">Marimba bars</button><button type="button" data-drop="choir">Singing mouth</button>
+        </div>
       </section>
       <section class="witch-control-section" id="ingredientControls" aria-labelledby="ingredientHeading">
         <h2 id="ingredientHeading">A pinch of trouble</h2>
         <div class="witch-ingredients"><button id="glassButton" type="button" aria-label="Add glass resonance">◇ Glass <output id="glassOut">0%</output></button><button id="hairButton" type="button" aria-label="Add tangled hair harmonics">〰 Hair <output id="hairOut">0%</output></button></div>
         <button id="clearIngredients" class="witch-quiet" type="button">Empty the potion</button>
       </section>
-      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Voice and fingers brew together. Drag the spoon upward or downward through five singing characters; its automatic motion chooses them too. Pull her nose or hat to change her singing. Her right hand stays enlarged; touch its palm to bring the finger sound forward. Drop the hovering little instruments into the pot for solos. The moon launches her looping broom and sends the whole brew through a wild delay. The mushrooms change colors and bend the lines. On the picture: H brings the fingers forward in the mix; M launches or rings the moon; B lands; W touches mushrooms. Hold 1–5 and use arrows to bend fingers. Q/E/R drop the three little instruments. T/G/S/V play night spirits. Space starts or stops; Escape lands and releases.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="hand">Feature fingers</button><button type="button" data-world-action="moon">Fly to the moon</button><button type="button" data-world-action="mushrooms">Touch mushrooms</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
+      </details>
+      <details class="witch-help"><summary>Playing notes</summary><p id="keyboardHelp">Enable Audio to listen. Voice and fingers brew together. Drag the spoon upward or downward through five singing characters; its automatic motion chooses them too. Pull her nose or hat to change her singing. Lift the glowing ember to brighten her finger spells and night accents. Her right hand stays enlarged; touch its palm to bring the finger sound forward. Drop the hovering ingredients and miniature Morphazoids into the pot for short solos. Glass adds ringing resonance; hair adds unstable harmonics. Open Parameters for the complete ingredient list and keyboard controls. The moon launches her looping broom and sends the whole brew through a wild delay. The mushrooms change colors and bend the lines. On the picture: H brings the fingers forward in the mix; M launches or rings the moon; B lands; W touches mushrooms. Hold 1–5 and use arrows to bend fingers. Q/E/R drop the hand, marimba and singing mouth. Use [ and ] to select any ingredient, then Enter to drop it. Use - and + to change brightness. T/G/S/V play night spirits. Space starts or stops; Escape lands and releases.</p><div class="witch-effects" aria-label="Picture actions"><button type="button" data-world-action="hand">Feature fingers</button><button type="button" data-world-action="moon">Fly to the moon</button><button type="button" data-world-action="mushrooms">Touch mushrooms</button><button type="button" data-world-action="brew">Return to pot</button></div><a href="docs/witch.md">About the instrument</a></details>
     </aside>
   </main>
   <script type="module" src="nav.js"></script>

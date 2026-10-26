@@ -56,3 +56,9 @@
 
 .witch-panel #liveStatus { font-size: 11px; color: #e8b58e; }
 .witch-panel #liveStatus:empty { display: none; }
+
+.witch-parameters { margin-top: 18px; }
+.witch-parameters > summary { padding: 12px 0; color: #c6b4ce; font-size: 12px; cursor: pointer; }
+.witch-parameters > summary:focus-visible, .witch-help > summary:focus-visible { outline: 2px solid var(--witch-lime); outline-offset: 3px; }
+.witch-parameters[open] > summary { border-bottom: 1px solid #302b39; }
+.witch-potion-list button { padding: 7px 4px; }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchObjectPosition, getWitchTargets, handTransform, transformHandPoint, warpWitchPoint, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -71,5 +71,51 @@ test('spoon and nose remain separate drag targets throughout automatic stirring'
     const ladle=getWitchLadle(state),nose=getWitchTargets(state).nose;
     assert.equal(hitTestWitch(ladle.hx-8,ladle.hy-24,state)?.type,'spoon');
     assert.equal(hitTestWitch(nose.x,nose.y,state)?.type,'nose');
+  }
+});
+
+test('every floating ingredient stays pickable through mist, flight and mushroom warping',()=>{
+  assert.deepEqual(WITCH_LAYOUT.objects.map(object=>object.id),[
+    'glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir',
+  ]);
+  for(const scene of ['brew','flight'])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++)for(const time of [0,1,4,17,39]) {
+    const state={scene,handReach:1,flightLift:scene==='flight'?1:0,hitRadius,trip,time,warpTime:time};
+    for(const [index,object] of WITCH_LAYOUT.objects.entries()) {
+      const visible=getWitchObjectPosition(object,state),point=warpWitchPoint(visible,state);
+      assert.ok(point.x>15&&point.x<985&&point.y>75&&point.y<705,`${object.id} remains inside the scene`);
+      assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'object',id:object.id,kind:object.kind,index});
+    }
+  }
+});
+
+test('ingredient touch halos preserve scenery targets and choose the nearest object',()=>{
+  for(const time of [0,1,4,17,39]) {
+    const state={time,handReach:1,hitRadius:80};
+    for(const [point,type] of [[WITCH_LAYOUT.moon,'moon'],...WITCH_LAYOUT.mushrooms.map(point=>[point,'mushrooms']),
+      ...WITCH_LAYOUT.ghosts.map(point=>[point,'ghost']),...WITCH_LAYOUT.bats.map(point=>[point,'bat'])]) {
+      assert.equal(hitTestWitch(point.x,point.y,state)?.type,type,`${type} at ${point.x},${point.y}`);
+    }
+  }
+  const objects=WITCH_LAYOUT.objects.map(object=>({...object,dropped:true}));
+  objects[0]={...objects[0],x:140,y:100,dragging:true,dropped:false};
+  objects[1]={...objects[1],x:200,y:100,dragging:true,dropped:false};
+  const state={objects,hitRadius:80};
+  assert.equal(hitTestWitch(193,100,state)?.id,'tail');
+  assert.equal(hitTestWitch(148,100,state)?.id,'glass');
+  assert.equal(hitTestWitch(200,156,state)?.id,'tail');
+  objects[1].dropped=true;
+  assert.equal(hitTestWitch(193,100,state)?.id,'glass');
+});
+
+test('the tone firefly follows brightness and remains separate from the bat and spark',()=>{
+  for(const tone of [0,.25,.5,.75,1])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++) {
+    const state={tone,trip,warpTime:1.4,hitRadius},target=getWitchTargets(state).tone;
+    assert.equal(target.y,235-tone*130);
+    const point=warpWitchPoint(target,state);
+    assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'tone'});
+    for(const [point,type] of [[WITCH_LAYOUT.bats[0],'bat'],[WITCH_LAYOUT.spirits[0],'spark']]) {
+      const visible=warpWitchPoint(point,state);
+      assert.equal(hitTestWitch(visible.x,visible.y,state)?.type,type);
+    }
   }
 });
