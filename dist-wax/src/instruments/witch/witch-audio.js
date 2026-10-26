@@ -110,7 +110,7 @@ export class WitchAudio {
    * at their current point through silent speed changes; ghostPhase is the
    * independent background beat count, preserved through tempo changes.
    * flybyTime counts only elapsed Play time in flight. */
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime) {
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime, capturedAnimals = {}) {
     const message = { type: 'phase', phaseGeneration: ++this.phaseGeneration, phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
       speed: witchClamp(speed) };
     if (Number.isFinite(handTime)) {
@@ -124,6 +124,12 @@ export class WitchAudio {
     if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }
     if (Number.isFinite(flybyTime)) { message.flybyTime = witchClamp(flybyTime,0,1e12);this.visual.flybyTime = message.flybyTime;this.visual.flybyLevel = 0; }
     if (catClock && typeof catClock === 'object') { message.catClock = snapshotWitchCatClock(catClock); this.visual.catClock = message.catClock; this.visual.catTime = message.catClock.time; this.visual.catMeow = 0; this.visual.catMeowLevel = 0; }
+    // A rebuilt worklet joins the visible visit without reviving captured feet
+    // or replaying an animal's earlier dive sound.
+    message.visitorCaptures = {};
+    for (const id of ['mouse', 'lizard']) if (Number.isFinite(capturedAnimals?.[id]?.startedAt)) {
+      message.visitorCaptures[id] = capturedAnimals[id].startedAt;
+    }
     this.visual.phase = message.phase; this.visual.speed = message.speed;
     if (this.node) this.post(message); else this.pendingPhase = message;
   }

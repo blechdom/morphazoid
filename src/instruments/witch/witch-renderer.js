@@ -1,6 +1,6 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
-import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
+import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby } from './witch-scene-model.js';
 import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
@@ -16,7 +16,8 @@ const INGREDIENTS=WITCH_INGREDIENTS;
 // The same generation colors used by L-system Delay and its Rust renderer.
 const TREE_COLORS=['#fff3d6','#55d9ff','#5fe8c4','#7db4ff','#c79bff','#ff826f','#e8c46b'];
 const treeIconIds=new Set(WITCH_TREE_OBJECTS.map(item=>item.id));
-const miniatureSize=id=>(id==='blech'?1.5:1)*(treeIconIds.has(id)?1.35:1);
+const topIconIds=new Set(WITCH_CUPBOARD_TOP.map(item=>item.id));
+const miniatureSize=id=>topIconIds.has(id)?.8:(id==='blech'?1.5:1)*(treeIconIds.has(id)?1.35:1);
 
 export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
@@ -35,10 +36,10 @@ export const WITCH_LAYOUT = Object.freeze({
   objects:Object.freeze(INGREDIENTS.map((entry,index)=>{
     const shelfIndex=WITCH_SHELF.findIndex(item=>item.id===entry.id);
     const treeIndex=WITCH_TREE_OBJECTS.findIndex(item=>item.id===entry.id);
-    const topIndex=INGREDIENTS.filter(item=>item.location==='cupboard-top').findIndex(item=>item.id===entry.id);
+    const topIndex=WITCH_CUPBOARD_TOP.findIndex(item=>item.id===entry.id);
     return Object.freeze({...entry,
-      x:entry.location==='web'?910:topIndex>=0?[77,154,231][topIndex]:shelfIndex>=0?[77,154,231][shelfIndex%3]:[768,900,842][treeIndex],
-      y:entry.location==='web'?140:topIndex>=0?120:shelfIndex>=0?191+Math.floor(shelfIndex/3)*81:[300,370,465][treeIndex],
+      x:entry.location==='web'?910:topIndex>=0?58+48*topIndex:shelfIndex>=0?[77,154,231][shelfIndex%3]:[768,900,842][treeIndex],
+      y:entry.location==='web'?140:topIndex>=0?147-27*miniatureSize(entry.id):shelfIndex>=0?191+Math.floor(shelfIndex/3)*81:[300,370,465][treeIndex],
       r:entry.location==='web'?56:28*miniatureSize(entry.id),color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
     });
   })),

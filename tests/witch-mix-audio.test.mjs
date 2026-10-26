@@ -5,6 +5,7 @@ import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
 import { WITCH_DROP_EFFECTS, WITCH_HAND_SOUNDS, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
 import { handEffectiveTempo } from '../src/instruments/gesticulating-hand/hand-model.js';
+import { WITCH_PRESETS } from '../src/instruments/witch/witch-presets.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 const difference = (a, b) => rms(a.map((value, index) => value - b[index]));
@@ -120,6 +121,22 @@ function echoRender(controls, seconds = 8) {
   }
   return { delay, data };
 }
+
+test('taking flight preserves ensemble level before and after compact or wide echoes fill', () => {
+  for (const id of ['small-spell', 'candy-coil']) {
+    const snapshot = WITCH_PRESETS.find(preset => preset.id === id).snapshot;
+    const ground = playing({ ...snapshot, mode: 'brew' }, 8000);
+    const flight = playing({ ...snapshot, mode: 'flight' }, 8000);
+    const a = render(ground, 4.5), b = render(flight, 4.5);
+    for (const [start, end, tolerance] of [[.5, 1, 1.5], [3, 4.5, 2.5]]) {
+      const delta = 20 * Math.log10(rms(b.subarray(start * 8000, end * 8000)) / rms(a.subarray(start * 8000, end * 8000)));
+      assert.ok(Math.abs(delta) < tolerance, `${id}: flight level changes ${delta.toFixed(2)} dB`);
+    }
+    assert.equal(ground.chantPhase, flight.chantPhase);
+    assert.equal(ground.visual.handTime, flight.visual.handTime);
+    assert.ok(b.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  }
+});
 
 test('independent Candy feedback keeps older echoes and space widens their history without changing flight time', () => {
   const low = echoRender({ trailFeedback: .05 }), high = echoRender({ trailFeedback: 1 });

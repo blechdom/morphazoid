@@ -499,7 +499,7 @@ test('all four layers coexist in flight; fixed solo slots and the complete mix r
   for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]), true);
   for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .840001);
   assert.equal(dsp.drops.slots.length, WITCH_DROP_EFFECTS.length); assert.equal(dsp.drops.hand.voices.length, 5);
-  assert.equal(dsp.drops.tastes.spider.voices.length, 24); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
+  assert.equal(dsp.drops.tastes.clips['drop-spider'].instrumentId, 'spider-synth'); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
   for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
   assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .8);
   dsp.setControls({ gate: false }); const handTime = dsp.visual.handTime;
@@ -623,6 +623,18 @@ test('audio boundary creates only on start, stays muted until explicitly armed, 
   await assert.rejects(audio.start(), /disposed/);
 });
 
+test('an unarmed audio handoff snapshots visitor captures without replaying their dive', () => {
+  const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
+  const captured = { mouse: { startedAt: 18.2 }, lizard: { startedAt: NaN }, cat: { startedAt: 31 } };
+  audio.syncPhase(0, 0, 19, undefined, 0, 0, createWitchCatClock(19), 0, captured);
+  assert.deepEqual(audio.pendingPhase.visitorCaptures, { mouse: 18.2 });
+  captured.mouse.startedAt = 70;
+  assert.equal(audio.pendingPhase.visitorCaptures.mouse, 18.2, 'the phase message owns its snapshot');
+  assert.equal(calls.contexts, 0); assert.deepEqual(calls.messages, []);
+  audio.syncPhase(0, 0, 0, undefined, 0, 0, createWitchCatClock(0), 0);
+  assert.deepEqual(audio.pendingPhase.visitorCaptures, {}, 'reset clears the captured visit');
+});
+
 test('performance presence fades independently, reverses continuously and never creates or enables audio', async () => {
   const { runtime, calls } = fakeRuntime(), audio = new WitchAudio(runtime);
   audio.setPresence(0, 0);
@@ -716,7 +728,7 @@ test('the real worklet acknowledges seeks promptly and rejects earlier generatio
     const node = new Processor({ processorOptions: { phaseGeneration: 7 } });
     const outputs = [[new Float32Array(128), new Float32Array(128)]];
     node.process([], outputs); assert.equal(packets.at(-1).phaseGeneration, 7);
-    const phase = { type: 'phase', phase: 0, speed: 0, handTime: 31, ghostPhase: 37, catClock: createWitchCatClock(31) };
+    const phase = { type: 'phase', phase: 0, speed: 0, handTime: 31, ghostPhase: 37, catClock: createWitchCatClock(31), visitorCaptures: { mouse: 18.2 } };
     node.port.onmessage({ data: { ...phase, phaseGeneration: 6 } });
     assert.equal(node.dsp.cat.time, 0);
     node.port.onmessage({ data: { ...phase, phaseGeneration: 8 } });
@@ -725,10 +737,12 @@ test('the real worklet acknowledges seeks promptly and rejects earlier generatio
     assert.equal(packets.at(-1).catClock.time, 31);
     assert.equal(packets.at(-1).handTime, 31);
     assert.equal(packets.at(-1).ghostPhase, 37);
+    assert.equal(node.dsp.visitors.visitors.find(visitor => visitor.id === 'mouse').capturedVisit, 0);
     node.port.onmessage({ data: { ...phase, handTime: 0, ghostPhase: 0, catClock: createWitchCatClock(0) } });
     globalThis.currentTime = .002; node.process([], outputs);
     assert.equal(packets.at(-1).phaseGeneration, 8, 'untagged direct phase callers keep the current generation');
     assert.equal(packets.at(-1).catClock.time, 0);
+    assert.ok(node.dsp.visitors.visitors.every(visitor => visitor.capturedVisit === -1), 'rewinding rejects future captures');
   } finally {
     for (const [key, descriptor] of previous) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];

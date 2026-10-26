@@ -3,7 +3,6 @@ import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
 import { RoachPercussion } from '../roach-synth/roach-synth-percussion.js';
 import { RoachZing } from '../roach-synth/roach-synth-textures.js';
-import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { hiccupHeadGestureFrame, physicalVoiceParameters } from '../hiccup-head/hiccup-head.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../fm-drums/fm-drums.js';
@@ -25,6 +24,7 @@ import { throatSingingState, ventricularFoldSupercycle, dualFocusTargets } from 
 import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
+import { WitchVisitorDSP } from './witch-visitors-audio.js';
 import { witchCatMeowEnvelope } from './witch-cat-model.js';
 import { witchBiteClips, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
@@ -489,10 +489,6 @@ class WitchHandDSP extends HandDSP {
   }
 }
 
-const SPIDER_TASTE_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .28, decay: 1.2,
-  texture: .3, slide: .18, coupling: 0, pluckRegister: 5, pluckSpread: 1,
-  pluckAttack: .006, pluckHold: .015, pluckRelease: .75 });
-const SPIDER_TASTE_RATIOS = Object.freeze([1, 1.437, .83, 2.13, 1.19, 1.73, .94, 2.41]);
 // The former Oculoid slot retains its trigger ID for saved controls, but now
 // contains an actual FM Drums excerpt and uses that instrument's catalogue icon.
 const FM_TASTE_VOICES = Object.freeze([0, 2, 7, 10, 11, 14, 6, 9].map(index => DEFAULT_FM_DRUM_VOICES[index]));
@@ -707,7 +703,7 @@ class WitchGhostDSP {
         source = voice.formants[0].next(excitation) * 3.1 + voice.formants[1].next(excitation) * 2.4 + voice.formants[2].next(excitation) * 1.2;
       }
       voice.low += .17 * (source - voice.low);
-      const sample = Math.tanh(voice.low * (index === 2 ? 9 : 6)) * voice.envelope;
+      const sample = Math.tanh(voice.low * (index === 2 ? 9 : 6)) * voice.envelope * (index === 0 ? 1.65 : 1);
       left += sample * GHOST_PAN_LEFT[index];
       right += sample * GHOST_PAN_RIGHT[index];
     }
@@ -717,7 +713,7 @@ class WitchGhostDSP {
 }
 
 /** Fixed resources for the new potion ingredients. Roach shares its actual
- * contact percussion and wire rasp; Spider shares its actual silk waveguides.
+ * contact percussion and wire rasp; Spider uses its bundled speech excerpt.
  * Throatazoid uses its own glottal spectrum and authored vowel resonances; the
  * legacy Oculoid slot is now the actual FM Drums factory-kit excerpt. The
  * remaining shelf objects reuse compact excerpts from their named instruments. */
@@ -732,10 +728,15 @@ const BLOWHOLE_TASTE = createBlowholeState('humpback-two-voice-phrase');
 const BLOWHOLE_TASTE_FRAMES = Array.from({ length: 129 }, (_, i) => createBlowholeVoicePlan(BLOWHOLE_TASTE, i / 128));
 // Fixed per-instrument trims retain phrase dynamics while putting very
 // different native source gains in the same short-bite neighborhood.
-const TASTE_LEVELS = Object.freeze({ 'drop-choir': .45, 'drop-glass': .8, 'drop-tail': .075,
-  'drop-earwax': .26, 'drop-eyeball': .3, 'drop-newt': .13, 'drop-hair': .07,
-  'drop-roach': .75, 'drop-spider': .44, 'drop-oculoid': 1.1, 'drop-rubix': 1,
-  'drop-hiccup': .33, 'drop-blowhole': .5, 'drop-syrinx': .4, 'drop-throat-singing': .22, 'drop-julie-saw': .42, 'drop-puggler': .75 });
+const TASTE_LEVELS = Object.freeze({ 'drop-choir': .5, 'drop-glass': 1.1, 'drop-tail': .075,
+  'drop-earwax': .33, 'drop-eyeball': .3, 'drop-newt': .13, 'drop-hair': .08,
+  'drop-roach': .8, 'drop-spider': .9, 'drop-oculoid': .88, 'drop-rubix': .9,
+  'drop-hiccup': .5, 'drop-blowhole': .55, 'drop-syrinx': .6, 'drop-throat-singing': .25, 'drop-julie-saw': .48, 'drop-puggler': .72,
+  'drop-hyper-rubix': 1.7, 'drop-marimba': .64, 'drop-synthesaurus': .65,
+  'drop-jaw-harp': .85, 'drop-harmonicazoid': .62, 'drop-dentaphone': .62,
+  'drop-blech': .78, 'drop-monstroid': .7, 'drop-candy-coil': .9,
+  'drop-cat': .85, 'drop-quadruped': .85, 'drop-mouse': .95, 'drop-lizard': .85,
+  'drop-chiptune': .62, 'drop-acid-303': .8 });
 const TASTE_FORMANT_KEYS = ['f1', 'f2', 'f3'];
 const DIGEST_TASTE_PROFILES = [DIGESTAZOID_EVENT_PROFILES.MB, DIGESTAZOID_EVENT_PROFILES.BURP, DIGESTAZOID_EVENT_PROFILES.HS];
 const DIGEST_TASTE_STARTS = [0, 1.45, 1.8];
@@ -790,7 +791,6 @@ class PotionTasteDSP {
     this.rate = rate; this.dt = 1 / rate;
     this.roach = new RoachPercussion(rate, true); this.zing = new RoachZing(rate);
     this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
-    this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
     this.fmDrums = new FmTasteDSP(rate); this.hyperRubix = new HyperRubixTasteDSP(rate);
     this.clips = witchBiteClips();
     this.roachWings = this.clips['roach-wings'];
@@ -802,9 +802,10 @@ class PotionTasteDSP {
     this.attack = 1 - Math.exp(-1 / (rate * .012)); this.release = 1 - Math.exp(-1 / (rate * .07));
   }
   createSlot(kind) {
+    const clip = this.clips[kind] ?? null;
     const slot = { kind, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
-      duration: ['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(kind) ? 5 : 2.4,
-      clip: this.clips[kind] ?? null,
+      duration: Math.max(['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(kind) ? 5 : 2.4, clip ? clip.frames / clip.rate : 0),
+      clip,
       phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
       control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
       formants: Array.from({ length: kind === 'drop-choir' ? 4 : 3 }, () => new Resonator(this.rate)),
@@ -820,7 +821,7 @@ class PotionTasteDSP {
     if (slot.kind === 'drop-oculoid') this.fmDrums.reset();
     if (slot.kind === 'drop-hyper-rubix') this.hyperRubix.reset();
   }
-  releaseAll() { this.roach.releaseAll(); this.spider.release(); }
+  releaseAll() { this.roach.releaseAll(); }
   finish(slot, left, right) {
     left *= TASTE_LEVELS[slot.kind] ?? 1; right *= TASTE_LEVELS[slot.kind] ?? 1;
     const blend = Math.min(1, slot.age / (this.rate * .008));
@@ -881,17 +882,6 @@ class PotionTasteDSP {
       const { data, rate } = this.roachWings, position = t * rate, index = Math.floor(position), mix = position - index;
       const flutter = index + 1 < data.length ? data[index] + (data[index + 1] - data[index]) * mix : 0;
       sample = (taps[0] * 1.2 + taps[2] * .58 + this.zing.sample(noise, active ? .14 : 0) * .74) * .8 + flutter * .5;
-    } else if (slot.kind === 'drop-spider') {
-      if (active && t >= slot.nextEvent && slot.event < 8) {
-        const index = slot.event++;
-        this.spider.pluck(175 * SPIDER_TASTE_RATIOS[index], .84, Math.sin(index * 2.3) * .7,
-          SPIDER_TASTE_SOUND, 6, index, index % 3 === 2 ? 2 : 0, .22 + (index % 3) * .19,
-          null, 1, true, 0, -1, true);
-        slot.nextEvent += .21 + (index % 3) * .055;
-      }
-      this.spider.sample(this.spiderLevels, .73, SPIDER_TASTE_SOUND);
-      this.finish(slot, this.spider.left * slot.gain * 3.7, this.spider.right * slot.gain * 3.7);
-      return;
     } else if (slot.kind === 'drop-hyper-rubix') {
       const score = this.hyperRubix.score;
       if (active && slot.event < score.length && t >= score[slot.event].at) this.hyperRubix.strike(score[slot.event++]);
@@ -1148,8 +1138,11 @@ export class FlightMixDelay {
     this.master += ((enabled ? 1 : 0) - this.master) * this.fade;
     this.wetLeft = Math.tanh(echoL / .54) * .54 * this.wet * this.master;
     this.wetRight = Math.tanh(echoR / .54) * .54 * this.wet * this.master;
-    this.left = left * (1 - this.wet) * this.master + this.wetLeft;
-    this.right = right * (1 - this.wet) * this.master + this.wetRight;
+    // Keep the ensemble present while the long coil fills. A send-style echo
+    // avoids losing almost all direct sound at the widest noodle setting.
+    const direct = 1 - this.wet * .1;
+    this.left = left * direct * this.master + this.wetLeft;
+    this.right = right * direct * this.master + this.wetRight;
     if (enabled && running) this.cleared = false;
     else if (!this.cleared && ((!enabled && this.master < 1e-7) || (!running && this.wet < 1e-7))) {
       for (const buffer of this.buffers) buffer.fill(0);
@@ -1227,6 +1220,7 @@ export class WitchDSP {
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
     this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
+    this.visitors = new WitchVisitorDSP(this.rate);
     this.fabricWind = new WitchFabricWind(this.rate);
     this.blechFlyby = new WitchBlechFlyby(this.rate);
     this.scene = new WitchSceneDSP(this.rate); this.shock = new WitchEyeShock(this.rate);
@@ -1242,11 +1236,12 @@ export class WitchDSP {
   get chantPhase() { return this.brew.chantPhase; }
   get effectCounter() { return this.flight.noteCount; }
   get effects() { return this.brew.effects; }
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime) {
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime, visitorCaptures) {
     this.brew.syncPhase(phase, speed);
     if (Number.isFinite(flybyTime)) { this.blechFlyby.syncTime(flybyTime); this.visual.flybyTime = this.blechFlyby.time; this.visual.flybyLevel = 0; }
     if (catClock && typeof catClock === 'object') {
       this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time;
+      this.visitors.syncTime(this.cat.time, visitorCaptures);
       this.visual.catMeow = 0; this.visual.catMeowLevel = 0;
     }
     this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed;
@@ -1284,7 +1279,7 @@ export class WitchDSP {
     }
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
-    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); this.scene.tree.release(); }
+    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); }
     if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
@@ -1303,12 +1298,12 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
-    if (!this.enabled) { this.cat.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); }
+    if (!this.enabled) { this.cat.release(); this.visitors.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); }
   }
   /** Cancel manual gestures without seeking or changing either transport. */
   releaseAccents() {
     this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release();
-    this.cat.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
+    this.cat.release(); this.visitors.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
   }
   trigger(kind) {
     if (!this.enabled) return false;
@@ -1319,7 +1314,10 @@ export class WitchDSP {
     } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
     else if (this.scene.trigger(kind)) accepted = true;
-    else if (WITCH_DROP_EFFECTS.includes(kind)) accepted = this.drops.trigger(kind);
+    else if (WITCH_DROP_EFFECTS.includes(kind)) {
+      accepted = this.drops.trigger(kind);
+      if (accepted && (kind === 'drop-mouse' || kind === 'drop-lizard')) this.visitors.capture(kind.slice(5));
+    }
     else if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) accepted = this.flight.trigger(kind);
     else accepted = this.brew.trigger(kind);
     if (accepted) this.delay.resume();
@@ -1354,6 +1352,7 @@ export class WitchDSP {
         this.backingEnergy += ((bedL * bedL + bedR * bedR) * .5 - this.backingEnergy) * this.backingFollow;
         this.ghosts.next(c, this.enabled);
         this.cat.next(c, this.enabled && c.ghostGate && !c.catCaptured, c.ghostGate);
+        this.visitors.next(this.cat.time, this.enabled && c.ghostGate && c.mode !== 'flight');
         this.scene.next(this.enabled);
         this.fabricWind.next(c, this.enabled && c.mode === 'flight');
         this.blechFlyby.next(c, this.enabled);
@@ -1363,10 +1362,11 @@ export class WitchDSP {
         const ghostL = this.ghosts.left * ghostCeiling * backing, ghostR = this.ghosts.right * ghostCeiling * backing;
         // The clicked head is featured above its feet, through the same flight
         // delay and Fabric filter as every other performer.
-        const catL = (this.cat.left * .39 + this.cat.meowLeft * .9) * backing;
-        const catR = (this.cat.right * .39 + this.cat.meowRight * .9) * backing;
-        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + this.scene.left + this.fabricWind.left + this.blechFlyby.left + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + this.scene.right + this.fabricWind.right + this.blechFlyby.right + b[5][i] * .85) / .54) * .54;
+        const catL = (this.cat.left * .85 + this.cat.meowLeft * .9) * backing;
+        const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing;
+        const visitorL = this.visitors.left * backing, visitorR = this.visitors.right * backing;
+        const dryL = Math.tanh((bedL * backing + ghostL + catL + visitorL + dropL + this.scene.left + this.fabricWind.left + this.blechFlyby.left + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + catR + visitorR + dropR + this.scene.right + this.fabricWind.right + this.blechFlyby.right + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.delay.left, this.delay.right);
         this.fabricMix += ((c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
@@ -1448,7 +1448,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
           // seeks are ordered, and an older one cannot rewind a newer node.
           if (generation === undefined || (Number.isSafeInteger(generation) && generation >= this.phaseGeneration)) {
             if (generation !== undefined) this.phaseGeneration = generation;
-            this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase, data.catClock, data.flybyTime);
+            this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase, data.catClock, data.flybyTime, data.visitorCaptures);
             this.nextTelemetry = 0;
           }
         }

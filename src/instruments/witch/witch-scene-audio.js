@@ -92,6 +92,94 @@ const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .58, decay: 2.2,
   texture: .94, slide: .9, coupling: .08, pluckRegister: -3, pluckSpread: .86,
   pluckAttack: .055, pluckHold: .14, pluckRelease: 1.45 });
 
+const CHARM_BELLS = Object.freeze([
+  [0, 1175, -.55], [.049, 988, .1], [.103, 784, .5],
+  [.174, 1047, -.3], [.248, 1319, .3], [.331, 1568, -.05],
+]);
+const MUSHROOM_GLOBS = Object.freeze([
+  [0, 104, 246, .065, .43, -.25], [.115, 139, -64, .13, .48, .3],
+  [.338, 88, 298, .08, .52, -.4], [.617, 164, -73, .12, .46, .4],
+  [.832, 102, 168, .07, .43, 0],
+]);
+
+/** Two original picture accents: inharmonic struck bells and liquid pitch
+ * glides with a little filtered air. Each gesture reuses one finite voice;
+ * repeated clicks coalesce behind an 8 ms fade, never stack or cut a waveform.
+ * These are authored synth gestures, not samples of another instrument. */
+export class WitchPictureAccents {
+  constructor(rate) {
+    this.dt = 1 / rate; this.nyquist = rate * .45; this.left = this.right = 0;
+    this.airSlew = 1 - Math.exp(-TAU * 620 / rate);
+    this.slots = Array.from({ length: 2 }, (_, index) => ({ age: -1, gain: 0, pending: false,
+      releasing: false, duration: index === 0 ? 1.65 : 1.3, random: 0x5ab367, air: 0 }));
+  }
+  trigger(kind) {
+    const index = kind === 'dice-charm' ? 0 : kind === 'mushroom-gloop' ? 1 : -1;
+    if (index < 0) return false;
+    const slot = this.slots[index];
+    if (slot.age >= 0) { slot.pending = true; slot.releasing = true; }
+    else this.start(slot);
+    return true;
+  }
+  start(slot) {
+    slot.age = 0; slot.gain = 0; slot.pending = false; slot.releasing = false;
+    slot.random = 0x5ab367; slot.air = 0;
+  }
+  release() { for (const slot of this.slots) { slot.pending = false; slot.releasing = true; } }
+  next(enabled) {
+    this.left = this.right = 0;
+    if (!enabled) this.release();
+    for (let index = 0; index < this.slots.length; index++) {
+      const slot = this.slots[index];
+      if (slot.age < 0) continue;
+      if (slot.releasing) {
+        slot.gain = Math.max(0, slot.gain - this.dt / (slot.pending ? .008 : .025));
+        if (slot.gain === 0) {
+          if (slot.pending && enabled) this.start(slot);
+          else { slot.age = -1; continue; }
+        }
+      } else slot.gain = Math.min(1, slot.gain + this.dt / .006);
+      let left = 0, right = 0;
+      if (index === 0) {
+        for (const [onset, frequency, pan] of CHARM_BELLS) {
+          const t = slot.age - onset;
+          if (t < 0 || t > 1.3) continue;
+          const envelope = Math.min(1, t / .003, (1.3 - t) / .12) * Math.exp(-t * 3.4);
+          // The upper, non-integer modes ring briefly, leaving a clear bell tail.
+          const phase = TAU * frequency * t;
+          let bell = Math.sin(phase);
+          if (frequency * 2.756 < this.nyquist) bell += Math.sin(phase * 2.756) * .4 * Math.exp(-t * 7);
+          if (frequency * 4.137 < this.nyquist) bell += Math.sin(phase * 4.137) * .17 * Math.exp(-t * 13);
+          const sample = bell * envelope * .072;
+          left += sample * Math.sqrt((1 - pan) * .5); right += sample * Math.sqrt((1 + pan) * .5);
+        }
+      } else {
+        let noise = slot.random; noise ^= noise << 13; noise ^= noise >>> 17; noise ^= noise << 5;
+        slot.random = noise >>> 0;
+        slot.air += ((slot.random / 0x80000000 - 1) - slot.air) * this.airSlew;
+        for (const [onset, frequency, sweep, glide, duration, pan] of MUSHROOM_GLOBS) {
+          const t = slot.age - onset;
+          if (t < 0 || t > duration) continue;
+          const envelope = Math.min(1, t / .009, (duration - t) / .07) * Math.exp(-t * 4.2);
+          const phase = TAU * (frequency * t + sweep * glide * (1 - Math.exp(-t / glide)));
+          const wobble = Math.sin(TAU * t * 23) * .32 * Math.exp(-t * 9);
+          const glob = Math.sin(phase + wobble) + Math.sin(phase * 1.92 + .7) * .34
+            + Math.sin(phase * 3.13) * .14 + slot.air * .19 * Math.exp(-t * 11);
+          const sample = Math.tanh(glob * 1.15) * envelope * .145;
+          left += sample * Math.sqrt((1 - pan) * .5); right += sample * Math.sqrt((1 + pan) * .5);
+        }
+      }
+      this.left += Math.tanh(left / .22) * .22 * slot.gain;
+      this.right += Math.tanh(right / .22) * .22 * slot.gain;
+      slot.age += this.dt;
+      if (slot.age >= slot.duration) {
+        if (slot.pending && enabled) this.start(slot);
+        else { slot.age = -1; slot.gain = 0; }
+      }
+    }
+  }
+}
+
 /** One native L-System phrase reader. Repeated clicks coalesce behind a short
  * fade before restarting; they never stack voices or abruptly seek live PCM.
  * Branch edits bend the existing cursor rate and pan through a 40 ms slew. */
@@ -144,6 +232,7 @@ export class WitchSceneDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate; this.left = this.right = 0;
     this.tree = new WitchTreePhrase(rate);
+    this.pictureAccents = new WitchPictureAccents(rate);
     this.web = new SpiderStrings(rate); this.levels = new Float64Array(8).fill(1);
     this.active = 0; this.gain = 0; this.groanAge = 2; this.groan = 0; this.low = 0;
     this.webControl = 0; this.webLowL = this.webLowR = 0;
@@ -156,6 +245,7 @@ export class WitchSceneDSP {
     } });
   }
   trigger(kind) {
+    if (this.pictureAccents.trigger(kind)) return true;
     if (kind === 'tree-l-system') { this.tree.trigger(); return true; }
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
@@ -168,7 +258,7 @@ export class WitchSceneDSP {
     }
     return false;
   }
-  releaseAll() { this.active = 0; this.web.release(); this.groanReleasing = true; this.tree.release(); }
+  releaseAll() { this.active = 0; this.web.release(); this.groanReleasing = true; this.tree.release(); this.pictureAccents.release(); }
   next(enabled) {
     this.active = Math.max(0, this.active - this.dt);
     const active = enabled && this.active > 0;
@@ -196,8 +286,9 @@ export class WitchSceneDSP {
       this.groan = Math.tanh(this.low * 3) * Math.sin(Math.PI * t / 1.6) * .11 * this.groanRelease;
     }
     this.tree.next(enabled);
-    this.left = (this.webLowL * 1.05 + this.groan) * this.gain + this.tree.left;
-    this.right = (this.webLowR * 1.05 + this.groan * .8) * this.gain + this.tree.right;
+    this.pictureAccents.next(enabled);
+    this.left = (this.webLowL * 1.05 + this.groan) * this.gain + this.tree.left + this.pictureAccents.left;
+    this.right = (this.webLowR * 1.05 + this.groan * .8) * this.gain + this.tree.right + this.pictureAccents.right;
     if (this.gain < 1e-9) this.groanAge = 2;
   }
 }

@@ -36,7 +36,7 @@
         },
         {
           "before": "",
-          "after": "copy+require\tsrc/instruments/witch/witch-visitors.js\ncopy+require\tsrc/instruments/witch/witch-visitors-model.js\n"
+          "after": "copy+require\tsrc/instruments/witch/witch-visitors.js\ncopy+require\tsrc/instruments/witch/witch-visitors-model.js\ncopy+require\tsrc/instruments/witch/witch-visitors-audio.js\n"
         },
         {
           "before": "",

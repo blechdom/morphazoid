@@ -5,6 +5,9 @@ export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', st
 const voices = WITCH_VOICES;
 // Most spells keep the picture steady; glitches belong to a few authored scenes.
 const ingredientVisualModes = Object.freeze({ hair:2, roach:1, rubix:6, hiccup:1, marimba:1, puggler:7, fractal:3, blech:5 });
+// Append new chip spells so the earlier ordinal-authored ingredient scenes stay intact.
+const chipIngredients=new Set(['chiptune','acid-303']);
+const presetIngredients=WITCH_INGREDIENTS.toSorted((a,b)=>Number(chipIngredients.has(a.id))-Number(chipIngredients.has(b.id)));
 const visualTrip = [0,1,2,3,1,2,2,3];
 function randomVisualMode(value) {
   if(value<.6)return 0;
@@ -69,7 +72,7 @@ export const WITCH_PRESETS = [
   scene('falling-stars', 'Catch the falling stars', { flightSpeed:.45, scene:'flight', voice:'sing', palette:5, ghostTempo:90, speed:.56, altitude:.76, flightX:.43, glass:.82, radius:.86, tone:.76, fingers:[.91,.67,.24,.42,.78], hat:.46 }),
   scene('night-knots', 'Tie the night in knots', { scene:'fingers', voice:'chatter', spellBalance:.3, palette:7, trip:3, direction:-1, ghostTempo:120, speed:.68, radius:.44, hair:.66, tone:.56, fingers:[.16,.92,.75,.39,.84], nose:.62, hat:.83 }),
   scene('last-spell', 'One last spell before dawn', { stirAuto:false, spoonAuto:false, voice:'sing', palette:0, ghostTempo:36, speed:.14, radius:1, glass:.18, tone:.32, nose:.46, hat:.28, fingers:[.58,.37,.16,.28,.69] }),
-  ...WITCH_INGREDIENTS.map((item,index)=>scene(item.presetId,`${item.name} in the brew`,{
+  ...presetIngredients.map((item,index)=>scene(item.presetId,`${item.name} in the brew`,{
     scene:index%3===0?'fingers':'brew', voice:voices[index%voices.length],
     palette:(index*3+1)%8, visualMode:ingredientVisualModes[item.id]??0,
     speed:[.27,.64,.88,.4,.16,.73][index%6], radius:[.91,.26,.6,.44,.78][index%5],
@@ -85,6 +88,8 @@ export const WITCH_PRESETS = [
     ...(item.id==='puggler'?{handMotion:'frantic-orbit',handSound:'iron-claws',palette:6,ghostTempo:156}:{}),
     ...(item.id==='candy-coil'?{trailFeedback:.94,trailSpace:1,trailPull:.85,trailTwist:.54,flightSpeed:.55}:{}),
     ...(item.id==='hyper-rubix'?{handMotion:'polyrhythmic-tangle',handSound:'bone-glass',handRate:4.4,palette:5,ghostTempo:118}:{}),
+    ...(item.id==='chiptune'?{catSpeed:1.68}:{}),
+    ...(item.id==='acid-303'?{catSpeed:1.31}:{}),
   })),
 ];
 const unit = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;

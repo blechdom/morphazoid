@@ -2314,6 +2314,7 @@ copy+require	src/instruments/witch/witch-spider.js
 copy+require	src/instruments/witch/witch-hand.js
 copy+require	src/instruments/witch/witch-visitors.js
 copy+require	src/instruments/witch/witch-visitors-model.js
+copy+require	src/instruments/witch/witch-visitors-audio.js
 copy+require	src/instruments/witch/witch-cat.js
 copy+require	src/instruments/witch/witch-cat-model.js
 copy+require	src/instruments/witch/witch-cat-audio.js

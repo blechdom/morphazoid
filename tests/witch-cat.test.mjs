@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { drawWitchCat, getWitchCatFrame, getWitchCatTargets, hitTestWitchCat, WITCH_CAT_SCALE } from '../src/instruments/witch/witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS, witchCatMeowEnvelope } from '../src/instruments/witch/witch-cat-model.js';
-import { hitTestWitch, warpWitchPoint } from '../src/instruments/witch/witch-renderer.js';
+import { hitTestWitch, warpWitchPoint, WITCH_LAYOUT } from '../src/instruments/witch/witch-renderer.js';
 
 test('the Quadruped cat visits for seven seconds every thirty seconds of the owner clock',()=>{
   for(const time of [0,29.999,37,59.999,67,89.999]) assert.equal(getWitchCatFrame({performanceTime:time}).active,false,`${time}`);
@@ -101,8 +101,11 @@ test('click targets follow both directions and every gait through mushroom disto
     for(const target of Object.values(targets)) {
       assert.equal(hitTestWitchCat(target.x,target.y,state),true);
       const visible=warpWitchPoint(target,state);
-      assert.deepEqual(hitTestWitch(visible.x,visible.y,state),{type:'cat'});
-      assert.deepEqual(hitTestWitch(visible.x,visible.y,{...state,playing:false}),{type:'cat'},'paused cat still shields objects behind it');
+      // The die is drawn after the visitors, so its visible face takes input
+      // where a passing cat is behind it. Everywhere else the cat wins.
+      const die=WITCH_LAYOUT.die,front=Math.hypot(target.x-die.x,target.y-die.y)<die.r+7?'dice':'cat';
+      assert.deepEqual(hitTestWitch(visible.x,visible.y,state),{type:front});
+      assert.deepEqual(hitTestWitch(visible.x,visible.y,{...state,playing:false}),{type:front},'pause preserves the visible stacking order');
     }
     assert.equal(hitTestWitchCat(targets.body.x,targets.body.y-120,state),false);
   }

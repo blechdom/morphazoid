@@ -4,7 +4,6 @@ import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { WITCH_DROP_EFFECTS } from '../src/instruments/witch/witch-model.js';
 import { RoachPercussion } from '../src/instruments/roach-synth/roach-synth-percussion.js';
 import { RoachZing } from '../src/instruments/roach-synth/roach-synth-textures.js';
-import { SpiderStrings } from '../src/instruments/spider-synth/spider-synth-string.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../src/instruments/fm-drums/fm-drums.js';
 import { HYPER_RUBIX_TECHNO_VOICES } from '../src/instruments/hyper-rubix/hyper-rubix.js';
 import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../src/families/tract/throatazoid.js';
@@ -20,7 +19,7 @@ function render(dsp, seconds, block = 128) {
 
 test('every potion ingredient speaks alone without transport and finishes at low and normal sample rates', () => {
   assert.deepEqual(WITCH_DROP_EFFECTS.map(kind => kind.slice(5)).sort(),
-    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'hyper-rubix', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard', 'quadruped', 'monstroid', 'candy-coil'].sort());
+    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'hyper-rubix', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard', 'quadruped', 'monstroid', 'candy-coil', 'chiptune', 'acid-303'].sort());
   for (const rate of [8000, 48000]) for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = new WitchDSP(rate); dsp.setEnabled(true);
     assert.equal(dsp.controls.gate, false); assert.equal(dsp.trigger(kind), true);
@@ -42,12 +41,12 @@ test('the complete miniature palette shares exact sample-clock timing and bounde
   assert.deepEqual(render(a, 1), render(b, 1, 24000));
   assert.ok(a.drops.tastes.roach instanceof RoachPercussion);
   assert.ok(a.drops.tastes.zing instanceof RoachZing);
-  assert.ok(a.drops.tastes.spider instanceof SpiderStrings);
+  assert.equal(a.drops.tastes.clips['drop-spider'].instrumentId, 'spider-synth');
   assert.equal(a.drops.tastes.fmDrums.voices.length, 8);
-  const slots = a.drops.slots.slice(), strings = a.drops.tastes.spider.voices.slice(), fmHits = a.drops.tastes.fmDrums.voices.slice();
+  const slots = a.drops.slots.slice(), speech = a.drops.tastes.clips['drop-spider'], fmHits = a.drops.tastes.fmDrums.voices.slice();
   for (let i = 0; i < 250; i++) a.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]);
   assert.ok(a.drops.slots.every((slot, index) => slot === slots[index]));
-  assert.ok(a.drops.tastes.spider.voices.every((voice, index) => voice === strings[index]));
+  assert.equal(a.drops.tastes.clips['drop-spider'], speech);
   assert.ok(a.drops.tastes.fmDrums.voices.every((voice, index) => voice === fmHits[index]));
   a.setEnabled(false); render(a, 2);
   assert.ok(rms(render(a, .1)) < 1e-6);
@@ -122,7 +121,7 @@ test('Puggler plays its finite punk drums and Oi excerpt from a shared source ba
   for (const rate of [8000, 48000]) assert.equal(new WitchDSP(rate).drops.tastes.clips['drop-puggler'], taste,
     'every output rate resamples the same source excerpt');
   assert.equal(taste.rate, 22050); assert.equal(data.length, Math.ceil(2.4 * taste.rate));
-  assert.match(WITCH_BITE_CLIPS['drop-puggler'].source, /CC0 drums.*Oi/);
+  assert.match(WITCH_BITE_CLIPS['drop-puggler'].source, /punk fuzz-guitar riff, CC0 drum kit.*Oi.*224 BPM/);
   assert.ok(data.every(value => Number.isFinite(value) && Math.abs(value) <= .680001));
   assert.equal(data[0], 0); assert.equal(data.at(-1), 0);
   assert.ok(rms(data.subarray(0, taste.rate / 2)) > .04);

@@ -1,11 +1,12 @@
 # Witches Brew sound bites
 
 The cauldron plays bounded excerpts. It does not start an interactive copy of
-each instrument. `scripts/build-witch-bites.mjs` and its native-effects follow-up render excerpts offline
+each instrument. `scripts/build-witch-bites.mjs` and its native-effects and
+character-bites follow-ups render excerpts offline
 into `src/instruments/witch/witch-bite-clips.js`: mono PCM16 at 22,050 Hz, decoded
 once when the audio worklet loads. Output sample rates use interpolation. The
-decoded bank uses 3,616,200 bytes (under 4 MB) and is shared by Witch engines in the same realm.
-The three added 2.4-second native clips account for 635,040 bytes; the Quadruped
+decoded bank uses 4,251,240 bytes (under 4.5 MB) and is shared by Witch engines in the same realm.
+The Chiptune, SIMD303 and spider speech clips add 635,040 bytes; the Quadruped
 cupboard gesture aliases the existing cat clip and adds no PCM storage.
 No network request, source-engine construction, or PCM allocation occurs at a
 drop or audio render boundary.
@@ -21,9 +22,12 @@ drop or audio render boundary.
 | `drop-hyper-rubix` | Hyper Rubix (4D), its native eight-cell Hyper Kit parameter mapper and a bounded scalar rendition of its kick, sub, clap, snare, hats, W-axis stab and rim envelopes in a fast cell traversal |
 | `drop-blech` | BLECH MIDI's actual bundled **Black Lattice · Ordered Storm** demo (`assets/midiphoria/midi/black-lattice.mid`), 32–36.5 seconds plus release; 1,260 note attacks through its native SpessaSynth/TimGM6mb renderer, retaining the score's pitches, velocities, gates, channels, programs and pan |
 | `drop-rubix` | Rubix 3D's actual `RubixSimd303Processor`, bundled SIMD WASM and Color circuit Acid bank; a scrambled 3×3 cube's three visible faces play the native snake sequence at 252 BPM, with 111 attacks |
+| `drop-chiptune` | SIMD Chiptune's native WASM processor and Source Tracker pattern, baked by its own `createWebGpuChiptunePattern` mapper; 192 BPM with shorter echoes and reduced noise/drum mix |
+| `drop-acid-303` | SIMD303's native WASM processor, Silver Squelch factory voice, sequence and step expression; the clock runs at 12.8 steps per second |
 | `drop-monstroid` | Monstroid's full native `ColonySyrinxPressureProcessor`, Many-mouth rough call (`air-many-mouth-freak`) |
 | `drop-candy-coil` | Native `MorphazoidBarberDelayProcessor`, Frozen Bog factory preset: 12 heads, eight-second history range and 0.9 feedback, fed by the native Rubix Acid excerpt; a 2.4-second section after six seconds of history |
-| `drop-puggler` | Puggler's existing drum recordings, Oi recording, punk-character vocal DSP and a quiet native fuzz-guitar accent |
+| `drop-puggler` | Puggler's actual drum recordings, Oi recording and punk-character vocal DSP, plus its native string-model fuzz-guitar voices; two bars at 224 BPM with choked eighth-note riffs, sixteenth-note drums and two Oi shouts |
+| `drop-spider` | Spider Synth's Silk buzz/croak speech character, rendered by the bundled Voicesaurus eSpeak NG engine and `SpiderSpeechPlayer`; “Nooooo! Bad witch!” with the first word slowed, while the accusation retains native consonant timing |
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat`, `drop-quadruped` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow; the cupboard icon shares that PCM |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
@@ -47,15 +51,18 @@ consume an ingredient, duck the singer, or change the preset. It joins the
 shared flight delay/Fabric path. Hush, Reset and Audio off cancel it; no
 muted click is queued. `treeEnvelope`, `treeLevel` and `treeProgress` follow its audio clock.
 
-The final bite gain is lower and the ongoing voice/fingers retain 72% of their
-backing gain during a drop. The output makeup and 0.84 sample ceiling are
-unchanged. The source clips have fixed individual trims; they do not normalize
-or raise quiet parts during playback.
+The ongoing voice/fingers retain 72% of their backing gain during a featured
+drop. Fixed per-source trims balance the different native levels, with the
+Puggler riff and Chiptune held back from the featured vocal objects. The output
+makeup and 0.84 sample ceiling remain fixed. Sources do not normalize or raise
+quiet parts during playback.
 
 The web uses Spider Synth's actual string engine with seven closely spaced and
 inharmonic low ratios. Its slower noisy attack, damping, dispersion, smooth
 tension strain and lowpass trim make the strands quieter, lower and creakier.
-The spider's groan is a finite two-mass source gesture.
+Dropping the spider plays its complete spoken protest, without triggering web
+plucks or the older two-mass groan. Its 2.4-second clip has silence after the
+spoken ending, leaving room before the ingredient reader's release envelope.
 The eye effect is a finite, coalesced 1.5-second buffer tear/ring/filter gesture
 after the shared mix. It leaves every performer's clock and flight-delay memory
 intact. Fabric filters the flying mix and smoothly bypasses on landing. Touching
@@ -71,8 +78,11 @@ fractionally active heads over a fixed 10.5-second stereo history. Noodle time,
 twist, feedback and space have separate controls. Centered twist emphasizes
 steady dub echoes; larger twists sweep pitch and direction. Space expands the
 cloud into older audio, while feedback adds dark cross-channel repeats through
-lowpass, DC removal and bounded saturation. Flight motion retains its independent
-clock. Stop and Audio off finitely release/clear history so a later start cannot
+lowpass, DC removal and bounded saturation. The direct mix retains at least
+90% of its gain as the delay turns up, so takeoff does not replace the ongoing
+performance with quieter echoes. This preserves a consistent level basis;
+individual presets and gestures still change the sound. Flight motion retains
+its independent clock. Stop and Audio off finitely release/clear history so a later start cannot
 revive a stopped phrase. The native factory example is **Frozen Bog**; the source
 instrument has no factory preset literally named “Forever”.
 
@@ -85,6 +95,25 @@ by rhink; these recordings are CC0. Their full provenance and license are in
 [`assets/puggler/CC0-1.0.txt`](../assets/puggler/CC0-1.0.txt). The excerpt retains
 the actual recorded Oi articulation, processed through Puggler's original punk
 character effect.
+
+Chiptune and SIMD303 use their committed engines and parameter/sequence
+mappers. Their authoring sources are
+[`processor.js`](../src/instruments/simd-chiptune/processor.js),
+[`webgpu-chiptune.js`](../src/instruments/webgpu-chiptune/webgpu-chiptune.js),
+[`simd-303-processor.js`](../src/simd-303-processor.js) and the
+[`Silver Squelch preset`](../src/simd-303-presets.js). SIMD Chiptune's original
+shader ancestry and credits remain documented with the instrument in
+[`simd-chiptune.md`](simd-chiptune.md).
+
+The spider protest is original fictional dialogue rendered offline with the
+actual [`Spider Synth speech preset`](../src/instruments/spider-synth/spider-synth-speech.js)
+and [`native text renderer`](../src/families/speech/native-text.js). The source
+words are “No!” and “Bad witch!”; slowing only the first word creates the long
+protest. It is synthetic speech, with no actor recording or runtime speech
+service. The bundled eSpeak NG/Echogarden engine's upstream sources, GPL-3.0-or-later
+license and component notices remain in
+[`vendor/espeak-ng/README.md`](../vendor/espeak-ng/README.md) and
+[`COPYING`](../vendor/espeak-ng/COPYING).
 
 The roach layer uses nicotep's CC0 vivarium movement recording through Roach
 Synth's own grain player. Its provenance and license remain in
@@ -109,9 +138,12 @@ excerpt. The repository's existing SpessaSynth vendor notices remain applicable
 to that offline rendering tool.
 
 Rebuild with `node scripts/build-witch-bites.mjs`; a full run automatically follows
-with `scripts/build-witch-native-effects.mjs` in a fresh process so it retains
-the actual MIDI, Rubix Acid, Monstroid and Candy Coil sources. Run that follow-up
-directly to reauthor only those four excerpts while preserving the other bytes.
+with `scripts/build-witch-native-effects.mjs` and
+`scripts/build-witch-character-bites.mjs`, each in a fresh process. The first
+reauthors the actual MIDI, Rubix Acid, Monstroid and Candy Coil excerpts. The
+second reauthors Puggler, SIMD Chiptune, SIMD303 and the spider protest. Run
+`node scripts/build-witch-character-bites.mjs` to update only those four clips;
+both follow-ups preserve every other existing PCM byte.
 Append `--tree-only` to the base script to rebuild only the tree phrase. This is a source-asset authoring
 command, separate from normal site/WAX builds. Mechanical audio tests cover
 finite output, differences between excerpts, phrase lifetime, repeated triggers,

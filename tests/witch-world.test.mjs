@@ -586,19 +586,31 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
   try {
     const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,{});
     const world=canvases[1].getContext('2d').calls;
+    const cupboardTop=[];
     for(const [index,object] of WITCH_LAYOUT.objects.entries()) {
       if(object.location==='web')continue; // the web owns the native spider model at rest
       const image=world.find(call=>call.kind==='image'&&call.args.length===8&&portraitUrl(call)?.endsWith('/'+object.imageHref));
       assert.ok(image,object.id);
       const [sx,sy,sw,sh,dx,dy,dw,dh]=image.args;
       assert.deepEqual([sx,sy,sw,sh],[40,40,80,80],'transparent margins are cropped using the cached alpha bounds');
-      const size=(object.id==='blech'?1.5:1)*(object.location==='tree'?1.35:1);
+      const size=object.r/28;
       assert.equal(dy+dh,27*size,'the visible bottom, not the source rectangle, sits on the support');
       assert.ok(dw<=56*size+1e-10&&dh<=54*size+1e-10&&dx===-dw/2);
       const position=getWitchObjectPosition(object,{});
       if(index<18)assert.equal(position.y+dy+dh,WITCH_LAYOUT.shelves[0].rows[Math.floor(index/3)]);
-      else if(object.location==='cupboard-top')assert.equal(position.y+dy+dh,147);
+      else if(object.location==='cupboard-top') {
+        assert.equal(position.y+dy+dh,147);
+        const left=position.x+dx,right=left+dw,y=position.y+dy+dh/2;
+        cupboardTop.push({left,right});
+        for(const x of [left+2,position.x,right-2])assert.equal(hitTestWitch(x,y,{hitRadius:80})?.id,object.id,'visible top portraits keep distinct touch targets');
+      }
       else assert.ok(getWitchTree({}).segments.some(({a,b})=>distanceToPolyline({x:position.x,y:position.y+27*size},[a,b])<1e-10),'tree icons sit on actual turtle branches');
+    }
+    assert.equal(cupboardTop.length,5);
+    const shelf=WITCH_LAYOUT.shelves[0];
+    for(const [index,portrait] of cupboardTop.entries()) {
+      assert.ok(portrait.left>=shelf.x&&portrait.right<=shelf.x+shelf.w,'all five portraits fit on the cupboard top');
+      if(index)assert.ok(portrait.left>cupboardTop[index-1].right,'the five visible portraits do not overlap');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

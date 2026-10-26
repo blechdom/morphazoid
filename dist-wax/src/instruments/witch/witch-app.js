@@ -141,9 +141,11 @@ function worldAction(action) {
     const current=Math.max(0,WITCH_PRESETS.findIndex(preset=>preset.id===(presets?.selectedId??presets?.lastPresetId)));
     const next=WITCH_PRESETS[(current+1)%WITCH_PRESETS.length];
     if(presets?.view)presets.view.select(next.id);else applySpell(next.snapshot);
+    cue('mushroom-gloop');
     $('gestureReadout').value=next.label;
   } else if(action==='dice') {
     if(presets?.view)presets.view.randomize();else applySpell(randomizeWitchPreset(config));
+    cue('dice-charm');
     diceRolledAt=performanceTime;$('gestureReadout').value='Twenty sides, a whole new spell.';
   } else if(action==='fabric') {
     if(config.scene==='flight') {
@@ -198,7 +200,7 @@ function dropObject(id) {
     spellTransition={from:structuredClone(config),to:target,start:performanceTime+(object.phraseDuration||0),duration:object.flightDuration||1.5,mix:0};
   }
   Object.assign(object,{x:origin.x,y:origin.y,dragging:false,dropped:true,dropAge:0,droppedAt:performanceTime});
-  if(id==='spider') {spiderAt=performanceTime;cue('spider-groan');}
+  if(id==='spider')spiderAt=performanceTime;
   trigger(object.kind);sync();$('gestureReadout').value=`${object.name} joins the brew. Touch the mushrooms or moon to refill the ingredients.`;
 }
 function advanceSpell() {
@@ -236,7 +238,7 @@ async function startAudio() {
     const hadNode=Boolean(audio.node);
     await audio.start();
     if(disposed||generation!==request)return;
-    if(!hadNode) {advancePerformanceTime();audio.syncPhase(silentPhase,silentSpeed,silentHandTime,undefined,silentFlightPhase,silentGhostPhase,snapshotWitchCatClock(catClock),silentFlybyTime);}
+    if(!hadNode) {advancePerformanceTime();audio.syncPhase(silentPhase,silentSpeed,silentHandTime,undefined,silentFlightPhase,silentGhostPhase,snapshotWitchCatClock(catClock),silentFlybyTime,capturedAnimals);}
     audioMotionReady=true;audioOn=true;send();audio.setAudible(!document.hidden);
     audio.setPresence(playing?1:0,playing?.85:0);
     if(playing)for(const kind of pendingAccents.splice(0))audio.trigger(kind);

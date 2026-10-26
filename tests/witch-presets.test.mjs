@@ -89,7 +89,7 @@ test('every shelf miniature is an actual catalogue icon and selects its own comp
   assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,WITCH_SHELF.length);
   const sounds=new Set();
   assert.equal(WITCH_SHELF.length,18);assert.equal(WITCH_TREE_OBJECTS.length,3);
-  assert.equal(WITCH_CUPBOARD_TOP.length,3);assert.equal(WITCH_WEB_OBJECTS.length,1);
+  assert.equal(WITCH_CUPBOARD_TOP.length,5);assert.equal(WITCH_WEB_OBJECTS.length,1);
   assert.equal(WITCH_INGREDIENTS.filter(item=>item.instrumentId==='hybrinx').length,1);
   assert.deepEqual(WITCH_TREE_OBJECTS.map(item=>item.instrumentId),['blech-midi','syrinx','creaturazoid']);
   assert.equal(WITCH_INGREDIENTS.filter(item=>item.instrumentId==='throatazoid').length,1);

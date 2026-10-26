@@ -88,7 +88,7 @@ test('baked native instrument phrases form a bounded, shared source bank with di
     if (!unique.has(clip)) signals.push(signal);
     unique.add(clip);
   }
-  assert.ok(bytes < 4_000_000, 'three new 2.4-second native excerpts fit a four MB decoded budget; the cat alias adds no bytes');
+  assert.ok(bytes < 4_500_000, 'the native chip, acid and speech excerpts fit a 4.5 MB decoded budget; the cat alias adds no bytes');
   for (let i = 0; i < signals.length; i++) for (let j = 0; j < i; j++) assert.ok(difference(signals[i], signals[j]) > .015);
 });
 
@@ -101,6 +101,20 @@ test('tree instruments keep playing through the perch phrase and dive while norm
   }
   const ordinary = playing({ gate: false }); ordinary.trigger('drop-fractal'); render(ordinary, 4);
   assert.ok(rms(render(ordinary, .1)) < 1e-6);
+});
+
+test('the falling spider speaks through its native clip while the web stays silent', () => {
+  const dsp = playing({ gate: false }, 8000);
+  const clip = witchBiteClips()['drop-spider'];
+  assert.equal(clip.instrumentId, 'spider-synth');
+  assert.equal(WITCH_BITE_CLIPS['drop-spider'].text, 'Nooooo! Bad witch!');
+  assert.equal(dsp.trigger('drop-spider'), true);
+  assert.ok(rms(render(dsp, 1.18)) > .02, 'the stretched protest is present');
+  assert.ok(rms(render(dsp, 1.1)) > .02, 'the accusation remains audible after the protest');
+  assert.equal(dsp.scene.groan, 0);
+  assert.ok(dsp.scene.web.voices.every(voice => voice.remaining <= 0));
+  render(dsp, 2);
+  assert.ok(rms(render(dsp, .1)) < 1e-7, 'speech releases without an endless web tail');
 });
 
 test('tree click plays the native L-System phrase through the scene mix with bounded retriggers and release', () => {

@@ -25,18 +25,19 @@ Brightness remains on the **+ / −** keys.
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to send an elastic ripple through the cloth and the ensemble. The witch, moon, pot, mushrooms and hair noodles keep priority. Grounded sound bypasses the fabric. |
 | Click or drag a branch | Click to play its native L-system sound bite, with a pulse travelling through the branches. Mushrooms and the die choose new tree settings. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
-| Touch the spider or web | The actual Spider Synth groans and dives into the potion, returning with the other ingredients. Seven quieter web strings creak in a menacing scale. |
+| Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
-| Click the giant right mushrooms | Chooses the next complete settings preset and refills the ingredients, preserving whether she is flying or stirring. |
-| Click the twenty-sided die | Randomizes every musical and visual setting using the full-state randomizer. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
+| Click the giant right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
+| Click the twenty-sided die | A ringing charm accompanies full-state randomization of every musical and visual setting. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
 Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
 Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
-and Dentaphone. Quadruped, Monstroid and Candy Coil sit on the cupboard top.
+and Dentaphone. Five real instrument icons sit on the cupboard top: Quadruped,
+Monstroid, Candy Coil Delay, SIMD Chiptune and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
 The full-height tree uses the L-system Delay instrument's seven generation colors,
@@ -54,8 +55,9 @@ describe the modifications. Its placement in this web is artistic.
 
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
 and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnake
-notes, and Puggler's punk drums and Oi. These bites sit within the ongoing mix;
-they do not instantiate each instrument's complete interface. See
+notes, SIMD chip and acid phrases, and Puggler’s fast punk guitar, drums and Oi.
+Roach Synth combines its percussion with fluttering wings. These bites sit within
+the ongoing mix; they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.
 Consumed icons return when you click the mushrooms, moon or floor die, recall
 a preset with W, or reset with Backspace. Successive ingredient clicks preserve
@@ -67,7 +69,7 @@ The witch's two hands use Gesticules' weighted 3D hand model, sixteen authored
 animations and ten instrumental source banks. Voice and fingers retain separate
 clocks. Presets choose their balance, motion, speed, sound, vocal anatomy,
 ghost beat, flight-path settings, color, distortion, tree shape, branch spread and curl. Presets,
-ingredient transitions and either die preserve the live flight/stirring mode;
+ingredient transitions and the floor die preserve the live flight/stirring mode;
 only the performer launches or lands her. Each preset has its own flight speed,
 independent of stirring: **Bells beneath the full moon** and **Skimming the low fog**
 drift slowly, while **Down the candy coil** and **A broom through the blood moon**
@@ -100,19 +102,23 @@ five-second phrase through the same delay and fabric. They leave the shelf intac
 The physical broom is wood and bundled bristles. Four screen-filling delay
 strands grow directly from her hair; the flying fabric uses Fabric Filter’s
 green columns and pink rows. Clicking the moon or broom again lands her without
-stopping her song. Keyboard ingredient shortcuts remain available during flight.
+stopping her song. Flight processing keeps the ensemble at a comparable level
+to stirring while adding the shared delay and fabric. Keyboard ingredient shortcuts
+remain available during flight.
 
 The black cat is 20% larger than its preceding appearance and keeps its
-Quadruped gait and contact sounds. It crosses every thirty seconds of Play;
-a skeletal mouse and a lizard make staggered visits using their own Quadruped anatomy.
+Quadruped gait with louder foot contacts. It crosses every thirty seconds of Play;
+a skeletal mouse and a lizard make staggered visits using their own Quadruped anatomy
+and native foot-contact sounds, synchronized to their visible steps.
 The mouse uses Quadruped's actual Skeleton skin, with articulated ribs, skull,
 legs and tail bones.
 The lizard crawls upside down across the top edge. The mouse follows the left
 edge and bottom, reversing direction on alternate visits to climb up or down.
 Capturing a visitor hides it for the rest of that visit. It can return on a later
 visit. Stop freezes the visitor clock; changing presets does not restart it.
-Ghost portraits keep a quiet background beat while grounded, and can still be
-raised or lowered to adjust its tempo.
+Ghost portraits keep a background beat while grounded, with a more present
+Creaturazoid voice that remains behind the singer and fingers. They can still be
+raised or lowered to adjust the beat’s tempo.
 The larger Hiccup Head ghost retains the bloody red Zombie Zoid skin. Its
 transparent portrait at `assets/witch/hiccup-head-bloody.webp` is captured from
 Hiccup Head's native `drawFace` renderer with `wild-ink` selected and beat zero

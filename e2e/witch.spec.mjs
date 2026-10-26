@@ -14,7 +14,7 @@ async function open(page) {
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
 const shelfIds=['glass','hyper-rubix','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
 const treeIds=['blech','syrinx','eyeball'];
-const topIds=['quadruped','monstroid','candy-coil'];
+const topIds=['quadruped','monstroid','candy-coil','chiptune','acid-303'];
 const ingredientIds=[...shelfIds,...treeIds,...topIds,'spider'];
 const ghostIds=['creaturazoid','monstroid','hiccup'];
 async function selectScene(page,scene) {
@@ -30,7 +30,7 @@ async function selectScene(page,scene) {
 }
 async function observeWorklet(page) {
   await page.addInitScript(()=>{
-    window.witchTriggers=[];window.witchGainRamps=[];
+    window.witchTriggers=[];window.witchGainRamps=[];window.witchDropEvidence={};
     const ramp=AudioParam.prototype.linearRampToValueAtTime;
     AudioParam.prototype.linearRampToValueAtTime=function(value,time) {
       window.witchGainRamps.push({value,time});return ramp.call(this,value,time);
@@ -42,12 +42,18 @@ async function observeWorklet(page) {
         if(name==='witch-voice') {
           const post=this.port.postMessage.bind(this.port);
           this.port.postMessage=(message,...args)=>{
-            if(message.type==='trigger') window.witchTriggers.push(message.kind);
+            if(message.type==='trigger') {
+              window.witchTriggers.push(message.kind);
+              if(message.kind.startsWith('drop-'))delete window.witchDropEvidence[message.kind];
+            }
             return post(message,...args);
           };
           this.port.addEventListener('message',({data})=>{
             if(data.type==='visual') {
               window.witchVisual=data;
+              if(data.dropKind&&data.dropLevel>.0001&&data.brewLevel>.0001&&data.handLevel>.0001) {
+                window.witchDropEvidence[data.dropKind]={kind:data.dropKind,solo:true,voice:true,fingers:true};
+              }
               window.witchGhostPeak=Math.max(window.witchGhostPeak??0,Math.abs(data.ghostLevel??0));
               if(data.catClock?.active&&!window.witchCatFirstActive)window.witchCatFirstActive=data.catClock;
               window.witchCatPeak=Math.max(window.witchCatPeak??0,Math.abs(data.catLevel??0));
@@ -101,9 +107,9 @@ async function clickIngredient(page,id,touch=false) {
 }
 async function expectIngredientSolo(page,id) {
   await expect.poll(()=>page.evaluate(kind=>{
-    const visual=window.witchVisual;
-    return {triggered:window.witchTriggers.includes(kind),kind:visual?.dropKind,
-      solo:visual?.dropLevel>.0001,voice:visual?.brewLevel>.0001,fingers:visual?.handLevel>.0001};
+    // Keep actual simultaneous worklet evidence: a short solo can finish while
+    // a traced input/snapshot call is still returning to the test runner.
+    return {triggered:window.witchTriggers.includes(kind),...window.witchDropEvidence[kind]};
   },`drop-${id}`)).toEqual({triggered:true,kind:`drop-${id}`,solo:true,voice:true,fingers:true});
 }
 async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
@@ -539,6 +545,7 @@ test('presets, mushrooms and ingredient spells preserve the chosen ground or fli
       expect((await state(page)).performanceTime).toBeGreaterThanOrEqual(before.performanceTime);
     }
     const beforeMushroom=await state(page);await clickWorld(page,'mushrooms');
+    await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('mushroom-gloop'))).toBe(true);
     expect((await state(page)).config.scene).toBe(scene);
     expect(settings((await state(page)).config)).not.toEqual(settings(beforeMushroom.config));
     expect((await state(page)).objects.every(object=>!object.dropped)).toBe(true);
@@ -558,7 +565,7 @@ test('presets, mushrooms and ingredient spells preserve the chosen ground or fli
 });
 
 test('the floor D20 and D randomize complete settings without changing flight or output',async({page})=>{
-  await open(page);await wake(page);
+  await observeWorklet(page);await open(page);await wake(page);
   await page.locator('#outputLevel').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
   const output=await page.locator('#outputLevel').inputValue();
   const spells=await bank(page);
@@ -569,6 +576,7 @@ test('the floor D20 and D randomize complete settings without changing flight or
       const before=await state(page);
       if(action==='picture')await clickWorld(page,'die');
       else await key(page,'d');
+      await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('dice-charm'))).toBe(true);
       const current=await state(page);
       for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','treeSpread','treeCurl','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
       expect(current.config.fingers).not.toEqual(before.config.fingers);
@@ -654,9 +662,10 @@ test('mouth, tree, spider, web, eyes and ghost gestures play over the running en
   await expect.poll(async()=>(await state(page)).treeLevel).toBeGreaterThan(.0001);
   await clickWorld(page,'spider');
   const spiderTriggers=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>['spider-groan','drop-spider'].includes(kind)));
-  await expect.poll(spiderTriggers).toEqual(['spider-groan','drop-spider']);
+  await expect.poll(spiderTriggers).toEqual(['drop-spider']);
+  expect(await page.evaluate(()=>window.witchTriggers.some(kind=>kind.startsWith('web-')))).toBe(false);
   expect((await state(page)).spiderCaptured).toBe(true);expect((await state(page)).objects.find(object=>object.id==='spider').dropped).toBe(true);
-  await key(page,'s');expect(await spiderTriggers()).toEqual(['spider-groan','drop-spider']);
+  await key(page,'s');expect(await spiderTriggers()).toEqual(['drop-spider']);
   await preset(page,'small-spell');expect((await state(page)).spiderCaptured).toBe(false);
   expect((await state(page)).objects.find(object=>object.id==='spider').dropped).toBe(false);
   for(let index=0;index<7;index++){await clickWorld(page,'web',{index});await expect.poll(()=>page.evaluate(index=>window.witchTriggers.includes(`web-${index}`),index)).toBe(true);}
@@ -718,12 +727,14 @@ test('broom and moon alone toggle flight while the fabric and hair noodles bend 
 });
 
 test('representative shelf icons solo, interpolate settings and stay consumed until a refill',async({page})=>{
+  test.setTimeout(60000);
   await observeWorklet(page);await open(page);await wake(page);const spells=await bank(page);
   let count=0;
-  for(const id of ['puggler','roach','rubix']) {
+  for(const id of ['puggler','roach','rubix','chiptune','acid-303','eyeball']) {
     const origin=(await state(page)).objects.find(object=>object.id===id);await clickIngredient(page,id);await expectIngredientSolo(page,id);
     expect((await state(page)).spellTransition).toBeTruthy();
-    await expect.poll(async()=>(await state(page)).spellTransition,{timeout:5000}).toBeNull();
+    const phraseAndDive=(origin.phraseDuration||0)+(origin.flightDuration||1.5);
+    await expect.poll(async()=>(await state(page)).spellTransition,{timeout:phraseAndDive*1000+3000}).toBeNull();
     expect((await state(page)).config).toEqual({...spells.find(spell=>spell.id===origin.presetId).snapshot,scene:'brew'});
     await expect.poll(async()=>(await state(page)).objects.find(object=>object.id===id).alpha).toBe(0);
     expect((await state(page)).objects.filter(object=>object.dropped)).toHaveLength(++count);
@@ -750,7 +761,8 @@ test('a tree phrase stays perched before its dive, and hush freezes the pending 
 });
 
 test('real visitor routes and native captures work while a slow Audio startup catches up',async({page})=>{
-  await observeWorklet(page);await page.clock.install();
+  await observeWorklet(page);await page.clock.install({time:new Date('2026-10-26T12:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-10-26T12:00:01Z'));
   // Chromium's worklet fetch can bypass page routing. Hold the actual module
   // promise so the native fallback clock is deterministically under test.
   await page.addInitScript(()=>{

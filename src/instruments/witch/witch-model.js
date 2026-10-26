@@ -47,6 +47,7 @@ export const WITCH_TREE_OBJECTS = Object.freeze([
 export const WITCH_CUPBOARD_TOP = Object.freeze([
   ['quadruped','quadruped','Quadruped'], ['monstroid','monstroid','Monstroid','colony-syrinx'],
   ['candy-coil','candy-coil-delay','Candy Coil Delay'],
+  ['chiptune','simd-chiptune','SIMD Chiptune'], ['acid-303','simd-303','SIMD 303'],
 ].map(entry=>miniature(entry,'cupboard-top')));
 export const WITCH_WEB_OBJECTS = Object.freeze([
   miniature(['spider','spider-synth','Spider Synth'],'web'),
@@ -57,7 +58,7 @@ export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
   // Old sound IDs stay valid for existing saved/test integrations.
   ...['tail','newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
 ])]);
-export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system',...Array.from({length:7},(_,i)=>`web-${i}`)]);
+export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system','dice-charm','mushroom-gloop',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
