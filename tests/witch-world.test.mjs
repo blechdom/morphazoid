@@ -428,7 +428,9 @@ test('the triggered bloody portrait paints original opaque art above the complet
       assert.equal(world.filter(call=>portraitUrl(call)?.endsWith('/hiccup-head-bloody.webp')).length,0,'no distant Hiccup duplicate remains');
       assert.equal(world.filter(call=>call.args?.length===4&&/\/(creaturazoid|colony-syrinx)\.webp$/.test(portraitUrl(call)||'')).length,scene==='brew'?2:0);
       assert.ok(world.some(call=>call.kind==='image'&&call.source===hand0)&&world.some(call=>call.kind==='image'&&call.source===hand1));
-      assert.ok(world.some(call=>call.kind==='text'&&call.value==='20'),'the foreground layer is after the floor die too');
+      const charmShadow=world.findIndex(call=>call.kind==='fill'&&call.color==='#080d19a8'&&call.ellipse?.x===WITCH_LAYOUT.die.x);
+      assert.ok(charmShadow>=0&&world.slice(charmShadow+1).some(call=>call.kind==='stroke'&&call.color==='#cb8fff'),
+        'the floor Shapes cage paints before the foreground scare layer');
       const overlay=context.calls.at(-1),geometry=getWitchGhostScare(state,1440,834);
       assert.ok(overlay.source.src.endsWith('/hiccup-head-bloody.webp'),'the decoded original image bypasses the tinted, bottom-faded 160px cache');
       assert.equal(overlay.alpha,1);
@@ -498,8 +500,8 @@ test('the ladle sleeve stays behind both faces and all instrument minis use thei
         assert.equal(pixels[3],0,'black square backgrounds are cut away');
         assert.equal(pixels[(70*160+80)*4+3],255,'enclosed dark details remain');
       }
-      assert.deepEqual(world.filter(call=>call.kind==='text').map(call=>call.value),['20','20','7','13','4'],
-        'only the D20 face engravings add text; shelf names stay absent in brew and flight');
+      assert.deepEqual(world.filter(call=>call.kind==='text'),[],
+        'the native Shapes charm and shelf instruments have no text in brew or flight');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

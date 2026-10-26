@@ -9,9 +9,9 @@ voice; bending her fingers wakes only the hand sounds. Each stays active, so
 you can bring the two parts back separately. The same gestures work from the
 initial quiet scene. Plucking the web starts only its own sound, leaving the
 voice, fingers and automatic background sounds asleep. The mushrooms and floor
-die restore the complete preset performance.
+SHAPES charm restore the complete preset performance.
 In flight, hair pulls reshape the shared delay while the ensemble keeps playing. The full-width picture contains the controls: mushrooms cycle presets,
-the floor die randomizes settings, and grounded hair pulling hushes the scene. There is no preset
+the floor SHAPES charm randomizes settings, and grounded hair pulling hushes the scene. There is no preset
 menu, playback/reset overlay, help button or parameter sidebar.
 The cauldron sits over flickering flames, charred logs and rising embers.
 Brightness remains on the **+ / −** keys.
@@ -21,9 +21,9 @@ Brightness remains on the **+ / −** keys.
 | Stir faster, wider, or backward | The vortex and syllables follow speed, vowel opening and direction. |
 | Tap her left, spoon-holding hand (or O) | Cycles slow, medium and fast stirring, then reverses and cycles those speeds in the other direction. Resumes automatic stirring and wakes only the voice if the scene was quiet. Works on the ground and in flight. |
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
-| Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or dice roll; moon refills do not restore it. Dragging does not count as a click. |
+| Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or shape click; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
-| Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and dice. |
+| Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and randomization. |
 | Pull her hair | Longer two-dimensional tugs stretch and curl the tangles. On the ground, a firm backward pull fades the complete mix over 3.2 seconds before resting; manual stirring fades in only her voice, while bending a finger wakes only the hand sounds. Bringing in one leaves the other asleep until its own gesture. In flight, pulling and circling change delay time, pitch travel, echo history and feedback, with no hush. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Tap the bloody face in the mist (or J) | Hiccup Head becomes solid and rushes forward with a scream, fills the picture, then vanishes. It stays out of the mist for six seconds afterward. Dragging the face still changes the ghost beat; a cancelled drag never triggers the scare. |
@@ -37,8 +37,15 @@ Brightness remains on the **+ / −** keys.
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
-| Click the twenty-sided die | A ringing charm accompanies full-state randomization of every musical and visual setting. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
+| Click the SHAPES charm | A native SHAPES form morphs into the next 3D/4D form and plays a short geometry-derived sound while randomizing every musical and visual setting. Refills ingredients and preserves flight/stirring and output level. The charm stays beside the pot in both modes; rapid clicks smoothly retarget it. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. On the third successful cat capture, it emerges as a sparkling Quadruped unicorn and gallops away. |
+
+The floor charm alternates native SHAPES forms: tesseract, cube, hyperpyramid,
+octahedron, Klein bottle, prism, star hyperprism and torus. Each click morphs
+over 0.9 seconds and plays a 1.4-second plane or hyperplane scan through the
+selected form, using SHAPES' geometry-to-pitch and FM/PM synthesis mappings.
+Its sound joins the ensemble's flight delay. Reduced motion uses a stationary
+crossfade between forms.
 
 The left cupboard has six shelves with three real instrument icons on each:
 Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
@@ -73,7 +80,7 @@ flying visitors.
 Roach Synth combines its percussion with fluttering wings. These bites sit within
 the ongoing mix; they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.
-Consumed icons return when you click the mushrooms, moon or floor die, recall
+Consumed icons return when you click the mushrooms, moon or floor SHAPES charm, recall
 a preset with W, or reset with Backspace. Successive ingredient clicks preserve
 previously used icons. A new
 click can redirect an ongoing preset transition; direct musical gestures take
@@ -83,7 +90,7 @@ The witch's two hands use Gesticules' weighted 3D hand model, sixteen authored
 animations and ten instrumental source banks. Voice and fingers retain separate
 clocks. Presets choose their balance, motion, speed, sound, vocal anatomy,
 ghost beat, flight-path settings, color, distortion, tree shape, branch spread and curl. Presets,
-ingredient transitions and the floor die preserve the live flight/stirring mode;
+ingredient transitions and the floor SHAPES charm preserve the live flight/stirring mode;
 only the performer launches or lands her. Each preset has its own flight speed,
 independent of stirring: **Bells beneath the full moon** and **Skimming the low fog**
 drift slowly, while **Down the candy coil** and **A broom through the blood moon**
@@ -98,11 +105,11 @@ the ladle coasts to rest when released. **At her fingertips**, **Five crooked
 little instruments**, and **Bells from a drowned room** hold still fingers that
 you can bend and leave in place. Singing and the ensemble continue in either
 case, on the ground or in flight. Most presets retain both automatic motions;
-each die roll has a small independent chance of choosing either manual setting.
+each shape click has a small independent chance of choosing either manual setting.
 
 Most factory and ingredient spells keep the picture steady while the witch
 performs. Dice choose a steady picture 60% of the time, gentle warps 25%, and
-glitch modes 15%. All eight looks remain available through presets and the die. VHS, static,
+glitch modes 15%. All eight looks remain available through presets and the shape charm. VHS, static,
 pixel and angular shifts have half their earlier horizontal displacement;
 Pixel rot uses finer blocks so the scene stays readable.
 
@@ -151,7 +158,7 @@ Regenerate the portrait with `scripts/render-witch-hiccup-ghost.mjs`, pointing
 `MORPHAZOID_QA_BASE_URL` at a running source preview.
 
 With the picture focused: **A** cycles hand animations, **O** changes stirring pace/direction, **H** features fingers, **M** toggles flight, **B** lands,
-**W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
+**W** chooses the next whole spell, **D** morphs the SHAPES charm and randomizes the spell, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** plays the tree; hold **T** with arrow keys to spread or curl branches. **S** wakes the spider and **P** plucks the next web string. **J** calls the bloody face forward with a scream.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.

@@ -30,7 +30,7 @@ async function selectScene(page,scene) {
 }
 async function observeWorklet(page) {
   await page.addInitScript(()=>{
-    window.witchTriggers=[];window.witchVariantTriggers=[];window.witchVariantEvidence=[];window.witchGainRamps=[];window.witchDropEvidence={};
+    window.witchTriggers=[];window.witchShapeEvidence={};window.witchVariantTriggers=[];window.witchVariantEvidence=[];window.witchGainRamps=[];window.witchDropEvidence={};
     const ramp=AudioParam.prototype.linearRampToValueAtTime;
     AudioParam.prototype.linearRampToValueAtTime=function(value,time) {
       window.witchGainRamps.push({value,time});return ramp.call(this,value,time);
@@ -55,6 +55,7 @@ async function observeWorklet(page) {
           this.port.addEventListener('message',({data})=>{
             if(data.type==='visual') {
               window.witchVisual=data;
+              if(data.shapeCharmLevel>.0001)window.witchShapeEvidence[data.shapeCharmForm]=true;
               if(data.dropKind&&data.dropLevel>.0001)window.witchVariantEvidence.push({kind:data.dropKind,variant:data.dropVariant});
               if(data.dropKind&&data.dropLevel>.0001&&data.brewLevel>.0001&&data.handLevel>.0001) {
                 window.witchDropEvidence[data.dropKind]={kind:data.dropKind,solo:true,voice:true,fingers:true};
@@ -590,8 +591,15 @@ test('presets, mushrooms and ingredient spells preserve the chosen ground or fli
   expect((await state(page)).config.scene).toBe('brew');
 });
 
-test('the floor D20 and D randomize complete settings without changing flight or output',async({page})=>{
-  await observeWorklet(page);await open(page);await wake(page);
+test('the SHAPES floor charm morphs and sounds while randomizing settings in brew and flight',async({page},testInfo)=>{
+  test.setTimeout(45000);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await observeWorklet(page);await open(page);
+  expect((await state(page)).shapeCharm).toMatchObject({id:'tesseract',dimension:'4d',progress:1,morphing:false});
+  await clickWorld(page,'die');
+  await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>window.witchShapeEvidence.cube===true)).toBe(true);
   await page.locator('#outputLevel').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
   const output=await page.locator('#outputLevel').inputValue();
   const spells=await bank(page);
@@ -602,8 +610,11 @@ test('the floor D20 and D randomize complete settings without changing flight or
       const before=await state(page);
       if(action==='picture')await clickWorld(page,'die');
       else await key(page,'d');
-      await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('dice-charm'))).toBe(true);
+      await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('shape-charm'))).toBe(true);
       const current=await state(page);
+      expect(current.shapeCharm.id).not.toBe(before.shapeCharm.id);
+      expect(current.shapeCharm.dimension).not.toBe(before.shapeCharm.dimension);
+      await expect.poll(()=>page.evaluate(id=>window.witchShapeEvidence[id]===true,current.shapeCharm.id)).toBe(true);
       for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','treeSpread','treeCurl','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
       expect(current.config.fingers).not.toEqual(before.config.fingers);
       expect(spells.some(spell=>JSON.stringify(settings(spell.snapshot))===JSON.stringify(settings(current.config)))).toBe(false);
@@ -614,6 +625,20 @@ test('the floor D20 and D randomize complete settings without changing flight or
       expect(await page.evaluate(async()=>(await import('/src/site/header-presets.js')).captureHeaderPresetState().selectedId)).toBeNull();
     }
   }
+  const before=(await state(page)).shapeCharm.form;
+  for(let i=0;i<3;i++)await key(page,'d');
+  expect((await state(page)).shapeCharm.form).toBe((before+3)%8);
+  await expect.poll(async()=>(await state(page)).shapeCharm.progress).toBe(1);
+  await page.screenshot({path:testInfo.outputPath('shape-charm-flight.png')});
+  await key(page,'Escape');
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.shapeCharmActive)).toBe(false);
+  await key(page,'Backspace');
+  expect((await state(page)).shapeCharm).toMatchObject({id:'tesseract',progress:1});
+  await page.setViewportSize({width:390,height:844});
+  await clickWorld(page,'die',{touch:true});
+  expect((await state(page)).shapeCharm.id).toBe('cube');
+  await audible(page);
+  expect(errors).toEqual([]);
 });
 
 test('manual presets wait for stirring or finger bends while the ensemble keeps playing',async({page})=>{
@@ -691,7 +716,7 @@ test('stirring and fingers wake only their own part, including during a hair fad
   await key(page,'w');expect((await state(page)).parts).toEqual({brew:true,hand:true});
 });
 
-test('web plucks wake alone and the dice and mushrooms restore the preset performance',async({page})=>{
+test('web plucks wake alone and the shape charm and mushrooms restore the preset performance',async({page})=>{
   test.setTimeout(45000);await observeWorklet(page);await open(page);
   await clickWorld(page,'web',{index:6});
   await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
@@ -702,7 +727,7 @@ test('web plucks wake alone and the dice and mushrooms restore the preset perfor
   expect(await page.evaluate(()=>['brewLevel','handLevel','ghostLevel','catLevel','flybyLevel'].every(key=>window.witchVisual[key]<.000001))).toBe(true);
   await clickWorld(page,'die');
   expect(await state(page)).toMatchObject({parts:{brew:true,hand:true},backingAwake:true});
-  expect(await page.evaluate(()=>window.witchTriggers.includes('dice-charm'))).toBe(true);
+  expect(await page.evaluate(()=>window.witchTriggers.includes('shape-charm'))).toBe(true);
   await preset(page,'small-spell');await audible(page);
   await dragHair(page,.85);
   await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);

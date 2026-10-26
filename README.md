@@ -23,7 +23,8 @@ make a sample collage.
 Click the picture to fade in her singing cauldron and Gesticules hands; pull
 her hair back to hush and freeze the scene until the next click. Shelf and
 tree instruments add sound bites as they dive into the pot. Mushrooms recall
-whole spells; the floor's 20-sided die randomizes the settings. Presets keep
+whole spells; the floor's SHAPES charm morphs between native 3D/4D forms, plays
+its geometry-derived sound and randomizes the settings. Presets keep
 your chosen flight or stirring mode. The moon or broom toggles flight through
 her playable hair delay trail. Pluck the web and catch passing animals.
 [Gestures and sound](docs/witch.md).

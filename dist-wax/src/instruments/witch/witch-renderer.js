@@ -1,5 +1,6 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
+import { drawWitchShapeCharm } from './witch-shape.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
 import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
@@ -526,32 +527,6 @@ function mushrooms(c, x, y, scale = 1) {
     ellipse(c,-6,-11,3,2,'#d3b9b0'); ellipse(c,9,-14,3.8,2.5,'#d3b9b0'); ellipse(c,16,-5,2,2,'#d3b9b0');
     c.restore();
   }
-  c.restore();
-}
-
-function spellDie(c,state) {
-  const {x,y,r}=WITCH_LAYOUT.die,roll=state.reducedMotion?0:clamp(state.diceRoll);
-  const hop=Math.sin(roll*Math.PI)*12;
-  ellipse(c,x,y+r+4,32-hop*.45,7-hop*.15,'#080d19a8');
-  c.save();c.translate(x,y-hop);c.rotate(-.12+Math.sin(roll*TAU*2)*roll*.32);
-  c.scale(r/39,r/39);
-  // An icosahedron's ten facing triangles, with an engraved central face.
-  const points=[[0,-39],[34,-20],[34,20],[0,39],[-34,20],[-34,-20],[0,-22],[23,15],[-23,15]];
-  const faces=[[[0,1,6],'#a48c8d'],[[1,2,7],'#545272'],[[2,3,7],'#253c48'],
-    [[3,4,8],'#32444c'],[[4,5,8],'#518677'],[[5,0,6],'#8fb8a0'],
-    [[5,6,8],'#548572'],[[1,7,6],'#74628f'],[[3,8,7],'#4b354f'],[[6,7,8],'#314959']];
-  for(const [vertices,color] of faces) {
-    c.beginPath();vertices.forEach((index,i)=>i?c.lineTo(...points[index]):c.moveTo(...points[index]));c.closePath();
-    c.fillStyle=color;c.fill();c.strokeStyle='#151a2b';c.lineWidth=1.2;c.stroke();
-  }
-  line(c,[points[4],points[5],points[0],points[1]],'#b7ccaf',1.35);
-  line(c,[points[8],points[6],points[7]],'#a6b99d',1);
-  c.textAlign='center';c.textBaseline='middle';c.font='bold 19px Georgia, serif';
-  c.fillStyle='#0c1c28';c.fillText('20',.7,4.7);c.fillStyle='#e5dca7';c.fillText('20',0,4);
-  c.font='9px Georgia, serif';c.fillStyle='#d9c6ab';
-  c.save();c.translate(-23,-10);c.rotate(-Math.PI/3);c.fillText('7',0,0);c.restore();
-  c.save();c.translate(23,-9);c.rotate(Math.PI/3);c.fillText('13',0,0);c.restore();
-  c.save();c.translate(0,27);c.rotate(Math.PI);c.fillText('4',0,0);c.restore();
   c.restore();
 }
 
@@ -1356,7 +1331,7 @@ function drawWorld(c,state) {
   if(ground>0) {
     c.save();c.globalAlpha*=ground;hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
-  spellDie(c,state);
+  drawWitchShapeCharm(c,state,WITCH_LAYOUT.die);
 }
 /** Face, hat and hair only, with a transparent background for the catalogue. */
 export function renderWitchFaceIcon(ctx,size=512) {

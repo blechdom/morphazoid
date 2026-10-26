@@ -2322,6 +2322,9 @@ copy+require	src/instruments/witch/witch-cat.js
 copy+require	src/instruments/witch/witch-cat-model.js
 copy+require	src/instruments/witch/witch-cat-audio.js
 copy+require	src/instruments/witch/witch-unicorn-audio.js
+copy+require	src/instruments/witch/witch-shape-model.js
+copy+require	src/instruments/witch/witch-shape.js
+copy+require	src/instruments/witch/witch-shape-audio.js
 copy+require	src/instruments/witch/witch.css
 copy+require	assets/instruments/witch.webp
 copy+require	assets/witch/hiccup-head-bloody.webp
