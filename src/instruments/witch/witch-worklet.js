@@ -21,12 +21,12 @@ import { ALIEN_LARYNX_FULL_PRESETS } from '../alien-larynx/full-presets.js';
 import { DIGESTAZOID_EVENT_PROFILES } from '../digestazoid/digestazoid.js';
 import { createBlowholeState, createBlowholeVoicePlan } from '../blowhole/blowhole.js';
 import { throatSingingState, ventricularFoldSupercycle, dualFocusTargets } from '../throat-singing/throat-singing.js';
-import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
+import { JULIE_SAW_DEFAULTS, applyJulieSawPreset, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
 import { WitchVisitorDSP } from './witch-visitors-audio.js';
 import { witchCatMeowEnvelope } from './witch-cat-model.js';
-import { witchBiteClips, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
+import { witchBiteClips, witchBiteVariants, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -492,7 +492,14 @@ class WitchHandDSP extends HandDSP {
 // The former Oculoid slot retains its trigger ID for saved controls, but now
 // contains an actual FM Drums excerpt and uses that instrument's catalogue icon.
 const FM_TASTE_VOICES = Object.freeze([0, 2, 7, 10, 11, 14, 6, 9].map(index => DEFAULT_FM_DRUM_VOICES[index]));
-const FM_TASTE_RHYTHM = Object.freeze([0, 2, 6, 2, 1, 2, 7, 2, 0, 2, 6, 3, 1, 2, 4, 5]);
+const FM_TASTE_KITS = Object.freeze([FM_TASTE_VOICES,
+  [1, 3, 4, 8, 12, 13, 15, 5].map(index => DEFAULT_FM_DRUM_VOICES[index]),
+  [0, 5, 7, 9, 11, 12, 14, 15].map(index => DEFAULT_FM_DRUM_VOICES[index])]);
+const FM_TASTE_RHYTHMS = Object.freeze([
+  [0, 2, 6, 2, 1, 2, 7, 2, 0, 2, 6, 3, 1, 2, 4, 5],
+  [0, 7, 7, 3, 1, 4, 2, 4, 0, 6, 5, 6, 1, 3, 7, 3],
+  [0, 5, 3, 6, 2, 7, 4, 1, 0, 4, 6, 2, 7, 3, 5, 1],
+]);
 const THROAT_TASTE_PROFILES = Object.freeze(['clear', 'deep', 'bright'].map(id => {
   const state = voicePresetState(id);
   return Object.freeze({ id, state, spectrum: glottalHarmonics(state.exciterTenseness, 48, 1024) });
@@ -502,6 +509,15 @@ const THROAT_TASTE_PROFILES = Object.freeze(['clear', 'deep', 'bright'].map(id =
 // three formants replace the full physical tube for this deliberately small taste.
 const HICCUP_TASTE_PLAN = physicalVoiceParameters('hiccup');
 const HICCUP_TASTE_FRAMES = Object.freeze(Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame('hiccup', index / 128)));
+const THROAT_TASTE_ORDERS = Object.freeze([[0, 1, 2], [1, 0, 1], [2, 2, 0]]);
+const CREATURE_TASTE_REPEATS = Object.freeze([.69, 1.4, .93]);
+const FM_TASTE_TIMING = Object.freeze([[27, 6, .066, .088], [36, 4, .045, .063], [42, 3, .03, .055]]);
+const SAW_TASTE_BENDS = Object.freeze([[.32, .32, 1.3], [.12, .19, .8], [.25, .51, 4.6]]);
+const HICCUP_TASTES = Object.freeze(['hiccup', 'growl', 'braap'].map((id, variant) => ({
+  plan: variant ? physicalVoiceParameters(id) : HICCUP_TASTE_PLAN,
+  frames: variant ? Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame(id, index / 128)) : HICCUP_TASTE_FRAMES,
+  interval: [.54, .78, .34][variant],
+})));
 const GHOST_PAN_LEFT = Object.freeze([-.58, .48, .1].map(pan => Math.cos((pan + 1) * Math.PI / 4)));
 const GHOST_PAN_RIGHT = Object.freeze([-.58, .48, .1].map(pan => Math.sin((pan + 1) * Math.PI / 4)));
 
@@ -560,13 +576,13 @@ class FmTasteDSP {
 // geometry mapper supplies pitch/filter/pan; the components below follow
 // HyperRubixAudio.strikeSticker's Hyper Kit ratios and exponential envelopes.
 // Only this score and twelve reusable scalar voices replace the native graph.
-const HYPER_RUBIX_TASTE_SCORE = (() => {
+const HYPER_RUBIX_TASTE_SCORES = Object.freeze([0, 1, 2].map(variant => {
   let at = 0;
-  return Object.freeze(Array.from({ length: 24 }, (_, index) => {
-    const cell = HYPER_RUBIX_CELL_ORDER[[0,5,1,7,2,4,3,6][index % 8]];
-    const boundary = hyperRubixBoundaryCell(cell), plane = boundary.tangentPlanes[Math.floor(index / 8)];
+  return Object.freeze(Array.from({ length: [24, 32, 36][variant] }, (_, index) => {
+    const cell = HYPER_RUBIX_CELL_ORDER[[[0,5,1,7,2,4,3,6], [6,0,4,2,7,3,1,5], [3,7,2,6,1,5,0,4]][variant][index % 8]];
+    const boundary = hyperRubixBoundaryCell(cell), plane = boundary.tangentPlanes[(Math.floor(index / 8) + variant) % boundary.tangentPlanes.length];
     const parameters = hyperRubixTechnoVoiceParameters({ cell, plane, quarterTurns: index % 3 ? 1 : -1 }, {
-      angle: index / 24, depth: .5, disorder: .15, shapeInfluence: HYPER_RUBIX_PRESET_DEFAULTS.shapeInfluence,
+      angle: index / 24 + variant * .27, depth: [.5, .82, .19][variant], disorder: [.15, .6, .9][variant], shapeInfluence: HYPER_RUBIX_PRESET_DEFAULTS.shapeInfluence,
       position: { [boundary.axis]: boundary.sign },
     });
     const pitch = parameters.pitchHz, duration = witchClamp(parameters.decaySeconds * .78, .018, .38);
@@ -583,13 +599,13 @@ const HYPER_RUBIX_TASTE_SCORE = (() => {
     else if (family === 'rim') for (const [i, ratio] of [1, 1.64].entries()) add('sine', pitch * ratio, pitch * ratio * .96, .12 / (1 + i * .34), Math.min(duration, .09 - i * .012), i * .0015);
     else for (const [i, ratio] of [1, 1.37, 2.03].entries()) add(i === 1 ? 'square' : 'triangle', pitch * ratio * (1 + parameters.drive * .08), pitch * ratio * .91, .095 * drive / (1 + i * .32), duration * (1 - i * .08), i * .002);
     const event = Object.freeze({ at, parameters, components: Object.freeze(components) });
-    at += hyperRubixStepDurationSeconds(168, 4, .08, index);
+    at += hyperRubixStepDurationSeconds([168, 232, 276][variant], 4, [.08, .21, 0][variant], index);
     return event;
   }));
-})();
+}));
 class HyperRubixTasteDSP {
   constructor(rate) {
-    this.rate = rate; this.dt = 1 / rate; this.index = 0; this.score = HYPER_RUBIX_TASTE_SCORE;
+    this.rate = rate; this.dt = 1 / rate; this.index = 0; this.score = HYPER_RUBIX_TASTE_SCORES[0];
     this.left = this.right = 0;
     this.voices = Array.from({ length: 12 }, () => ({ component: null, age: 10, phase: 0, hz: 0, step: 1, random: 0x6b82f1,
       x1: 0, x2: 0, y1: 0, y2: 0, b0: 0, b1: 0, b2: 0, a1: 0, a2: 0, panL: 0, panR: 0 }));
@@ -719,8 +735,10 @@ class WitchGhostDSP {
  * remaining shelf objects reuse compact excerpts from their named instruments. */
 // Each miniature keeps its instrument's authored source/gesture data. Only
 // fixed source voices and three resonators are retained, never complete UIs.
-const ALIEN_TASTE = ALIEN_LARYNX_FULL_PRESETS.find(preset => preset.id === 'double-fold').snapshot;
-const ALIEN_SPECTRUM = glottalHarmonics(ALIEN_TASTE.exciterTenseness, 48, 1024);
+const ALIEN_TASTES = Object.freeze(['double-fold', 'giant-tract', 'ring-wormhole'].map(id => {
+  const state = ALIEN_LARYNX_FULL_PRESETS.find(preset => preset.id === id).snapshot;
+  return { state, spectrum: glottalHarmonics(state.exciterTenseness, 48, 1024) };
+}));
 const THROAT_SINGER_TASTE = throatSingingState('open-drone');
 const THROAT_SINGER_SPECTRUM = ventricularFoldSupercycle(THROAT_SINGER_TASTE);
 const TONGUE_TASTE = TONGUED_BEASTS_FULL_PRESETS.find(preset => preset.id === 'wolf-rolled-howl').snapshot;
@@ -738,12 +756,20 @@ const TASTE_LEVELS = Object.freeze({ 'drop-choir': .5, 'drop-glass': 1.1, 'drop-
   'drop-cat': .85, 'drop-quadruped': .85, 'drop-mouse': .95, 'drop-lizard': .85,
   'drop-chiptune': .62, 'drop-acid-303': .8 });
 const TASTE_FORMANT_KEYS = ['f1', 'f2', 'f3'];
-const DIGEST_TASTE_PROFILES = [DIGESTAZOID_EVENT_PROFILES.MB, DIGESTAZOID_EVENT_PROFILES.BURP, DIGESTAZOID_EVENT_PROFILES.HS];
-const DIGEST_TASTE_STARTS = [0, 1.45, 1.8];
+const DIGEST_TASTES = Object.freeze([
+  { ids: ['MB', 'BURP', 'HS'], starts: [0, 1.45, 1.8] },
+  { ids: ['CRS', 'QUICK_FART', 'WHOOPEE', 'SB'], starts: [0, .65, 1, 1.8] },
+  { ids: ['HEART', 'BURP', 'CRS', 'QUICK_FART'], starts: [0, .45, 1.1, 1.9] },
+].map(({ ids, starts }) => ({ profiles: ids.map(id => DIGESTAZOID_EVENT_PROFILES[id]), starts })));
+const ROACH_TASTES = Object.freeze([
+  { contact: [141, .64, .52, 1.3, .4], wire: [141, .7, .6, .3], rhythm: [.108, .143, .073], wings: 1 },
+  { contact: [89, .88, .27, .7, .82], wire: [89, .38, .91, .65], rhythm: [.045, .045, .16, .06], wings: 1.16 },
+  { contact: [237, .35, .89, 1.8, .18], wire: [237, .93, .32, .12], rhythm: [.065, .11, .038, .038, .17], wings: .84 },
+]);
 const SINGER_FOCUS_FRAMES = Array.from({ length: 129 }, (_, i) => dualFocusTargets(THROAT_SINGER_TASTE, THROAT_SINGER_TASTE.trueFoldHz * (6 + 5 * Math.sin(Math.PI * i / 128))));
-const SAW_TASTE_STATE = { ...JULIE_SAW_DEFAULTS };
+const SAW_TASTE_STATES = Object.freeze([JULIE_SAW_DEFAULTS, applyJulieSawPreset('low-fog'), applyJulieSawPreset('rough-rosin')]);
 const SOURCE_TASTE_KEYS = ['frequencyHz', 'pressure', 'tension', 'adduction', 'breath', 'sourceScale', 'asymmetry', 'sourceBalance', 'roughness', 'pulseRateHz', 'coupling', 'feedback', 'outputGain'];
-const SOURCE_TASTE_FRAMES = Object.fromEntries(['drop-tail', 'drop-eyeball', 'drop-newt', 'drop-hair', 'drop-syrinx'].map(kind => {
+const SOURCE_TASTE_VARIANTS = Object.fromEntries(['drop-tail', 'drop-eyeball', 'drop-newt', 'drop-hair', 'drop-syrinx'].map(kind => [kind, [0, 1, 2].map(variant => {
   const frames = Array.from({ length: 129 }, (_, i) => {
     const phase = i / 128;
     let host, tongue = null;
@@ -751,13 +777,13 @@ const SOURCE_TASTE_FRAMES = Object.fromEntries(['drop-tail', 'drop-eyeball', 'dr
       const motion = sampleTongueMotionPreset(TONGUE_TASTE.motion, phase * 2.4, TONGUE_TASTE.tongue);
       host = { ...interpolateGesture(TONGUE_TASTE.state.callId, phase, TONGUE_TASTE.state), ...motion.host, active: true };
       tongue = motion.tongue;
-    } else if (kind === 'drop-eyeball') host = resolveCreaturazoidEventState('caw', { phase, velocity: .9 });
+    } else if (kind === 'drop-eyeball') host = resolveCreaturazoidEventState(['caw', 'growl', 'harsh'][variant], { phase, velocity: .9 });
     else if (kind === 'drop-hair') {
-      const base = animalState('hyena');
+      const base = animalState(['hyena', 'alligator', 'wolf'][variant]);
       const performance = applyHybrinxTimelinePerformance(CALL_GESTURES[base.callId], base, {}, phase);
       host = performance.host; tongue = performance.tongue;
     } else if (kind === 'drop-syrinx') {
-      const base = animalState('songbird'); host = interpolateGesture(base.callId, phase, base);
+      const base = animalState(['songbird', 'raven', 'bullfrog'][variant]); host = interpolateGesture(base.callId, phase, base);
     } else host = interpolateGesture('lion-roar', phase, animalState('lion'));
     const source = { ...resolveSourceControls(host) };
     if (kind === 'drop-newt') Object.assign(source, {
@@ -772,8 +798,19 @@ const SOURCE_TASTE_FRAMES = Object.fromEntries(['drop-tail', 'drop-eyeball', 'dr
       f2: kind === 'drop-newt' ? 720 : guides?.frontQuarterWaveHz ?? quarter * 3,
       f3: kind === 'drop-newt' ? 1360 : quarter * 5 };
   });
-  return [kind, frames];
-}));
+  return frames;
+})]));
+const SOURCE_TASTE_FRAMES = Object.fromEntries(Object.entries(SOURCE_TASTE_VARIANTS).map(([kind, variants]) => [kind, variants[0]]));
+
+// Authored variants use fixed source trims, preserving the established base mix.
+const TASTE_VARIANT_TRIMS = Object.freeze({
+  'drop-blech': [.831, .831, .831], 'drop-rubix': [1, .755, .755],
+  'drop-candy-coil': [1, .73, .73],
+  'drop-glass': [1, .8, .25], 'drop-hair': [1, 1.7, .9],
+  'drop-oculoid': [1, .6, .63], 'drop-hiccup': [1, .31, .265],
+  'drop-syrinx': [1, .48, .36], 'drop-eyeball': [1, .32, .35],
+  'drop-fractal': [1, .68, .84], 'drop-spider': [1, .7, .69],
+});
 
 function spectrumSample(spectrum, phase, frequency, rate) {
   const c = Math.cos(TAU * phase), s = Math.sin(TAU * phase);
@@ -792,18 +829,21 @@ class PotionTasteDSP {
     this.roach = new RoachPercussion(rate, true); this.zing = new RoachZing(rate);
     this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
     this.fmDrums = new FmTasteDSP(rate); this.hyperRubix = new HyperRubixTasteDSP(rate);
-    this.clips = witchBiteClips();
+    this.clips = witchBiteClips(); this.variants = witchBiteVariants();
     this.roachWings = this.clips['roach-wings'];
     this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
-    this.alienBody = throatVoiceParameters(ALIEN_TASTE, 0, rate);
-    this.sawBank = buildPhysicalModalBank('bowed-things', { presetId: 'musical-saw', baseFrequencyHz: bendToFrequency(JULIE_SAW_DEFAULTS),
-      damping: .5, brightness: .5, energy: .58, stereoWidth: .3, bowPressure: .65, bowVelocity: .5, bowPosition: .4, rosin: .6, size: 1 }, { sampleRate: rate, maxModes: 8 });
+    this.alienProfiles = ALIEN_TASTES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
+    this.sawBanks = SAW_TASTE_STATES.map((state, variant) => buildPhysicalModalBank('bowed-things', {
+      presetId: 'musical-saw', baseFrequencyHz: bendToFrequency(state), damping: variant ? state.bladeDamping : .5,
+      brightness: variant ? state.brightness : .5, energy: .58, stereoWidth: .3,
+      bowPressure: variant ? state.bowPressure : .65, bowVelocity: variant ? state.bowSpeed : .5,
+      bowPosition: .4, rosin: variant ? state.rosin : .6, size: 1 }, { sampleRate: rate, maxModes: 8 }));
     this.left = 0; this.right = 0;
     this.attack = 1 - Math.exp(-1 / (rate * .012)); this.release = 1 - Math.exp(-1 / (rate * .07));
   }
   createSlot(kind) {
     const clip = this.clips[kind] ?? null;
-    const slot = { kind, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
+    const slot = { kind, variant: 0, nextVariant: 0, frames: SOURCE_TASTE_FRAMES[kind], sawState: { ...JULIE_SAW_DEFAULTS }, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
       duration: Math.max(['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(kind) ? 5 : 2.4, clip ? clip.frames / clip.rate : 0),
       clip,
       phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
@@ -816,6 +856,23 @@ class PotionTasteDSP {
     return slot;
   }
   trigger(slot) {
+    const variant = slot.variant;
+    slot.clip = this.variants[slot.kind]?.[variant] ?? this.clips[slot.kind] ?? null;
+    slot.duration = Math.max(['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(slot.kind) ? 5 : 2.4,
+      slot.clip ? slot.clip.frames / slot.clip.rate : 0);
+    if (slot.source) {
+      slot.frames = SOURCE_TASTE_VARIANTS[slot.kind][variant];
+      slot.source.setParameters(slot.frames[0]);
+    }
+    if (slot.kind === 'drop-roach') {
+      const taste = ROACH_TASTES[variant]; this.roach.configure(...taste.contact); this.zing.tune(...taste.wire);
+    }
+    if (slot.kind === 'drop-hiccup') {
+      const plan = HICCUP_TASTES[variant].plan;
+      for (let i = 0; i < 3; i++) slot.formants[i].tune(plan.formantFrequenciesHz[i], plan.formantBandwidthsHz[i]);
+    }
+    if (slot.kind === 'drop-julie-saw') Object.assign(slot.sawState, SAW_TASTE_STATES[variant]);
+    if (slot.kind === 'drop-hyper-rubix') this.hyperRubix.score = HYPER_RUBIX_TASTE_SCORES[variant];
     slot.tailL = slot.lastL; slot.tailR = slot.lastR;
     slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.control = 0;
     if (slot.kind === 'drop-oculoid') this.fmDrums.reset();
@@ -823,7 +880,8 @@ class PotionTasteDSP {
   }
   releaseAll() { this.roach.releaseAll(); }
   finish(slot, left, right) {
-    left *= TASTE_LEVELS[slot.kind] ?? 1; right *= TASTE_LEVELS[slot.kind] ?? 1;
+    const trim = (TASTE_LEVELS[slot.kind] ?? 1) * (TASTE_VARIANT_TRIMS[slot.kind]?.[slot.variant] ?? 1);
+    left *= trim; right *= trim;
     const blend = Math.min(1, slot.age / (this.rate * .008));
     const outgoing = 1 - blend * blend * (3 - 2 * blend);
     this.left = slot.lastL = left * (1 - outgoing) + slot.tailL * outgoing;
@@ -833,7 +891,7 @@ class PotionTasteDSP {
     slot.gain += ((active ? 1 : 0) - slot.gain) * (active ? this.attack : this.release);
     this.left = this.right = 0;
     if (slot.gain < 1e-8) return;
-    const t = slot.age++ * this.dt;
+    const t = slot.age++ * this.dt, variant = slot.variant;
     let x = slot.random; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; slot.random = x | 0;
     const noise = (x >>> 0) / 2147483648 - 1;
     let sample = 0, frequency = 0;
@@ -847,7 +905,8 @@ class PotionTasteDSP {
       // four-formant miniature replaces the complete multi-mouth tube network.
       const position = Math.min(2.999999, t / .8), index = Math.floor(position), blend = position - index;
       const mix = blend * blend * (3 - 2 * blend);
-      const a = this.throatProfiles[index], b = this.throatProfiles[(index + 1) % 3];
+      const order = THROAT_TASTE_ORDERS[variant];
+      const a = this.throatProfiles[order[index]], b = this.throatProfiles[order[(index + 1) % 3]];
       frequency = a.state.exciterPitch + (b.state.exciterPitch - a.state.exciterPitch) * mix;
       const vibrato = a.state.exciterVibrato + (b.state.exciterVibrato - a.state.exciterVibrato) * mix;
       frequency *= 1 + Math.sin(t * TAU * 4.63) * vibrato * .02;
@@ -875,11 +934,11 @@ class PotionTasteDSP {
     } else if (slot.kind === 'drop-roach') {
       if (active && t >= slot.nextEvent && t < 2.1) {
         this.roach.strike(.64 + .2 * Math.sin(slot.event * 1.7), slot.event % 6);
-        this.zing.excite(.35); slot.event++;
-        slot.nextEvent += .073 + .035 * (slot.event % 3);
+        this.zing.excite(variant === 0 ? .35 : variant === 1 ? .64 : .22);
+        const rhythm = ROACH_TASTES[variant].rhythm; slot.nextEvent += rhythm[slot.event++ % rhythm.length];
       }
       const taps = this.roach.sample(noise, 0, 2);
-      const { data, rate } = this.roachWings, position = t * rate, index = Math.floor(position), mix = position - index;
+      const { data, rate } = this.roachWings, position = t * rate * ROACH_TASTES[variant].wings, index = Math.floor(position), mix = position - index;
       const flutter = index + 1 < data.length ? data[index] + (data[index + 1] - data[index]) * mix : 0;
       sample = (taps[0] * 1.2 + taps[2] * .58 + this.zing.sample(noise, active ? .14 : 0) * .74) * .8 + flutter * .5;
     } else if (slot.kind === 'drop-hyper-rubix') {
@@ -889,15 +948,16 @@ class PotionTasteDSP {
       this.finish(slot, this.hyperRubix.left * slot.gain * fade, this.hyperRubix.right * slot.gain * fade);
       return;
     } else if (slot.kind === 'drop-hiccup') {
-      const local = t % .54, progress = Math.min(1, local / HICCUP_TASTE_PLAN.durationSeconds);
+      const { plan, frames, interval } = HICCUP_TASTES[variant];
+      const local = t % interval, progress = Math.min(1, local / plan.durationSeconds);
       const position = progress * 128, index = Math.min(127, Math.floor(position)), mix = position - index;
-      const a = HICCUP_TASTE_FRAMES[index], b = HICCUP_TASTE_FRAMES[index + 1];
+      const a = frames[index], b = frames[index + 1];
       const pressure = a.pressureDrive + (b.pressureDrive - a.pressureDrive) * mix;
       const catchAmount = a.diaphragmCatch + (b.diaphragmCatch - a.diaphragmCatch) * mix;
       const voicing = a.voicing + (b.voicing - a.voicing) * mix;
       const air = a.aspiration + (b.aspiration - a.aspiration) * mix;
       const turbulence = a.turbulence + (b.turbulence - a.turbulence) * mix;
-      frequency = HICCUP_TASTE_PLAN.glottalFrequencyHz * (1 + catchAmount * .76);
+      frequency = plan.glottalFrequencyHz * (1 + catchAmount * .76);
       slot.phase = (slot.phase + frequency * this.dt) % 1;
       const source = (2 * slot.phase - 1 - polyBlep(slot.phase, frequency * this.dt)) * voicing * pressure
         + noise * (air * .14 + turbulence * .22);
@@ -905,9 +965,10 @@ class PotionTasteDSP {
       sample += Math.sin(slot.phase * TAU) * pressure * voicing * .14;
       sample *= 1.45;
     } else if (slot.source) {
-      const local = slot.kind === 'drop-eyeball' ? (t % .69) / .69 : t / slot.duration;
+      const repeat = CREATURE_TASTE_REPEATS[variant];
+      const local = slot.kind === 'drop-eyeball' ? (t % repeat) / repeat : t / slot.duration;
       const position = Math.min(128, local * 128), index = Math.min(127, Math.floor(position)), mix = position - index;
-      const frames = SOURCE_TASTE_FRAMES[slot.kind], a = frames[index], b = frames[index + 1];
+      const frames = slot.frames, a = frames[index], b = frames[index + 1];
       if (slot.control-- <= 0) {
         for (const key of SOURCE_TASTE_KEYS) slot.source.target[key] = a[key] + (b[key] - a[key]) * mix;
         for (let i = 0; i < 3; i++) {
@@ -922,23 +983,24 @@ class PotionTasteDSP {
     } else if (slot.kind === 'drop-glass') {
       // Alien Larynx's Double Fold snapshot: actual LF coefficients and tract,
       // with its second fold, asymmetry, and bounded local feedback.
-      const larynx = ALIEN_TASTE.alien.larynx;
-      frequency = ALIEN_TASTE.exciterPitch * (1 + Math.sin(t * 5.7) * .04);
+      const { state, spectrum, body } = this.alienProfiles[variant], larynx = state.alien.larynx;
+      frequency = state.exciterPitch * (1 + Math.sin(t * 5.7) * .04);
       slot.phase = (slot.phase + frequency * this.dt) % 1;
       slot.phase2 = (slot.phase2 + frequency * .5 * this.dt) % 1;
-      const primary = spectrumSample(ALIEN_SPECTRUM, slot.phase, frequency, this.rate);
-      const fold = spectrumSample(ALIEN_SPECTRUM, slot.phase2, frequency * .5, this.rate);
+      const primary = spectrumSample(spectrum, slot.phase, frequency, this.rate);
+      const fold = spectrumSample(spectrum, slot.phase2, frequency * .5, this.rate);
       const source = Math.tanh(primary + fold * larynx.falseFoldMix + slot.low * larynx.feedback)
         * (1 + Math.sin(slot.phase2 * TAU) * larynx.asymmetry);
       if (slot.control-- <= 0) {
-        for (let i = 0; i < 3; i++) slot.formants[i].tune(this.alienBody.formants[i], this.alienBody.formants[i] / this.alienBody.resonance);
+        for (let i = 0; i < 3; i++) slot.formants[i].tune(body.formants[i], body.formants[i] / body.resonance);
         slot.control = 31;
       }
       sample = slot.formants[0].next(source) * 2.8 + slot.formants[1].next(source) * 1.8 + slot.formants[2].next(source) * .7;
       slot.low += .2 * (sample - slot.low); sample *= Math.min(1, t / .03);
     } else if (slot.kind === 'drop-earwax') {
-      const index = t < 1.45 ? 0 : t < 1.8 ? 1 : 2, profile = DIGEST_TASTE_PROFILES[index];
-      const age = Math.max(0, t - DIGEST_TASTE_STARTS[index]);
+      const { profiles, starts } = DIGEST_TASTES[variant];
+      let index = starts.length - 1; while (index > 0 && t < starts[index]) index--;
+      const profile = profiles[index], age = Math.max(0, t - starts[index]);
       const envelope = Math.min(1, age / profile.attackSeconds) * Math.exp(-age / profile.releaseSeconds);
       frequency = profile.peakFrequencyHz * (1 + .3 * Math.exp(-age * 18));
       slot.phase = (slot.phase + frequency * this.dt) % 1;
@@ -971,10 +1033,10 @@ class PotionTasteDSP {
       sample = source * .16 + slot.formants[0].next(source) * 1.6 + slot.formants[1].next(source) * 2.5 + slot.formants[2].next(source) * 2.2;
       sample *= Math.min(1, t / .045);
     } else if (slot.kind === 'drop-julie-saw') {
-      const state = JULIE_SAW_DEFAULTS, bank = this.sawBank, blade = julieSawBlade(state.bladeId);
+      const state = slot.sawState, bank = this.sawBanks[variant], blade = julieSawBlade(state.bladeId);
       // Continuous blade flex and the actual musical-saw modal ratios/T60s.
       // A short bow excites this fixed modal bank; no note quantization.
-      if (slot.control-- <= 0) { SAW_TASTE_STATE.bend = .32 + .32 * Math.sin(t * 1.3) ** 2; slot.frequency = bendToFrequency(SAW_TASTE_STATE); slot.control = 31; }
+      if (slot.control-- <= 0) { const bend = SAW_TASTE_BENDS[variant]; state.bend = bend[0] + bend[1] * Math.sin(t * bend[2]) ** 2; slot.frequency = bendToFrequency(state); slot.control = 31; }
       frequency = slot.frequency;
       const bow = Math.min(1, t / .16) * Math.min(1, (2.4 - t) / .3);
       for (let i = 0; i < bank.modeCount; i++) {
@@ -986,10 +1048,12 @@ class PotionTasteDSP {
       }
       sample = (sample * .54 + noise * state.edgeRasp * .018) * bow;
     } else if (slot.kind === 'drop-oculoid') {
-      if (active && t >= slot.nextEvent && slot.event < 27) {
-        this.fmDrums.strike(FM_TASTE_VOICES[FM_TASTE_RHYTHM[slot.event % FM_TASTE_RHYTHM.length]]);
-        if (slot.event % 6 === 0) this.fmDrums.strike(FM_TASTE_VOICES[2]);
-        slot.event++; slot.nextEvent += slot.event % 4 === 3 ? .066 : .088;
+      const timing = FM_TASTE_TIMING[variant];
+      if (active && t >= slot.nextEvent && slot.event < timing[0]) {
+        const kit = FM_TASTE_KITS[variant], rhythm = FM_TASTE_RHYTHMS[variant];
+        this.fmDrums.strike(kit[rhythm[slot.event % rhythm.length]]);
+        if (slot.event % timing[1] === 0) this.fmDrums.strike(kit[2]);
+        slot.event++; slot.nextEvent += slot.event % 4 === 3 ? timing[2] : timing[3];
       }
       sample = this.fmDrums.next();
     }
@@ -1006,15 +1070,16 @@ class DroppedInstrumentDSP {
   constructor(rate) {
     this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
     this.hand = new HandDSP(rate); this.tastes = new PotionTasteDSP(rate);
-    this.solo = 0; this.kind = ''; this.handMakeup = 1.4; this.handMakeupTarget = 1.4; this.levels = new Float32Array(128);
+    this.solo = 0; this.kind = ''; this.handTrim = this.handTrimTarget = 1; this.handMakeup = 1.4; this.handMakeupTarget = 1.4; this.levels = new Float32Array(128);
     this.slots = WITCH_DROP_EFFECTS.map(kind => ({ ...this.tastes.createSlot(kind), mask: kind === 'drop-gesticules' ? 19 : 0 }));
-    this.hand.setConfig({
-      motion: { id: 'flourish', tempo: 90, amount: .48 }, tremor: { amount: 0 },
+    this.handConfigs = [0, 1, 2].map(variant => ({
+      motion: { id: ['flourish', 'scatter', 'flick'][variant], tempo: [90, 176, 246][variant], amount: [.48, .82, .94][variant] }, tremor: { amount: [0, .3, .58][variant] },
       pose: { fingers: [.12, .28, .18, .38, .22].map(bend => ({ mcp: bend * 50, pip: bend * 60, dip: bend * 40, spread: 0 })) },
-      sound: { rhythm: 'continuous', rootHz: 137, pitchSpread: 1.6, brightness: .64, roughness: .12,
+      sound: { rhythm: 'continuous', rootHz: [137, 61, 169][variant], pitchSpread: [1.6, 1.1, 2][variant], brightness: [.64, .38, .83][variant], roughness: [.12, .78, .62][variant],
         attack: .012, release: .42, space: .16, rotationFx: 0 },
-      voices: ['glass', 'wire', 'marimba', 'choir', 'metal'].map(source => ({ source, level: .86 })),
-    });
+      voices: [['glass', 'wire', 'marimba', 'choir', 'metal'], ['bowed', 'wire', 'metal', 'bowed', 'reed'], ['marimba', 'pulse', 'metal', 'wire', 'glass']][variant].map(source => ({ source, level: .86 })),
+    }));
+    this.hand.setConfig(this.handConfigs[0]);
     this.hand.setSoundPlaying(false); this.hand.setTransport({ playing: true }); this.hand.reset();
     this.attack = 1 - Math.exp(-1 / (rate * .018)); this.release = 1 - Math.exp(-1 / (rate * .12));
   }
@@ -1023,11 +1088,18 @@ class DroppedInstrumentDSP {
     if (!this.enabled) this.releaseAll();
   }
   releaseAll() { for (const slot of this.slots) slot.until = -1; this.tastes.releaseAll(); }
-  trigger(kind) {
+  trigger(kind, variant) {
     const slot = this.slots.find(slot => slot.kind === kind);
     if (!this.enabled || !slot) return false;
-    slot.until = this.clock + Math.round(this.rate * slot.duration); this.kind = kind; this.dormant = false;
+    slot.variant = Number.isInteger(variant) && variant >= 0 && variant < 3 ? variant : slot.nextVariant;
+    slot.nextVariant = (slot.variant + 1) % 3;
     this.tastes.trigger(slot);
+    if (slot.mask) {
+      this.hand.setConfig(this.handConfigs[slot.variant]);
+      this.handTrimTarget = slot.variant === 0 ? 1 : slot.variant === 1 ? .6 : .66;
+    }
+    slot.until = this.clock + Math.round(this.rate * slot.duration);
+    this.kind = kind; this.variant = slot.variant; this.dormant = false;
     for (let i = 0; i < 5; i++) if (slot.mask & (1 << i)) this.hand.auditionFinger(i, .08, this.clock / this.rate);
     return true;
   }
@@ -1047,7 +1119,8 @@ class DroppedInstrumentDSP {
       active = this.enabled && active;
       for (let i = offset; i < offset + count; i++) {
         this.handMakeup += (this.handMakeupTarget - this.handMakeup) * this.attack;
-        left[i] *= this.handMakeup; right[i] *= this.handMakeup;
+        this.handTrim += (this.handTrimTarget - this.handTrim) * this.attack;
+        left[i] *= this.handMakeup * this.handTrim; right[i] *= this.handMakeup * this.handTrim;
         for (const slot of this.slots) if (!slot.mask && (slot.until > this.clock || slot.gain > 1e-8)) {
           this.tastes.sample(slot, this.enabled && slot.until > this.clock);
           left[i] += this.tastes.left; right[i] += this.tastes.right;
@@ -1227,7 +1300,7 @@ export class WitchDSP {
     this.ghosts = new WitchGhostDSP(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
-    this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
+    this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
       ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0, flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
@@ -1305,7 +1378,7 @@ export class WitchDSP {
     this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release();
     this.cat.release(); this.visitors.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
   }
-  trigger(kind) {
+  trigger(kind, variant) {
     if (!this.enabled) return false;
     let accepted;
     if (kind === 'fabric-wind') {
@@ -1315,7 +1388,7 @@ export class WitchDSP {
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
     else if (this.scene.trigger(kind)) accepted = true;
     else if (WITCH_DROP_EFFECTS.includes(kind)) {
-      accepted = this.drops.trigger(kind);
+      accepted = this.drops.trigger(kind, variant);
       if (accepted && (kind === 'drop-mouse' || kind === 'drop-lizard')) this.visitors.capture(kind.slice(5));
     }
     else if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) accepted = this.flight.trigger(kind);
@@ -1399,7 +1472,7 @@ export class WitchDSP {
       this.catDropSlot?.gain > .01 && this.catDropSlot.until > this.drops.clock
         ? witchCatMeowEnvelope(this.catDropSlot.age / this.rate) * this.catDropSlot.gain : 0);
     this.visual.catMeowLevel = this.cat.meowLevel;
-    this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
+    this.visual.dropVariant = this.drops.variant ?? 0; this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.visual.shockEnvelope = this.shock.envelope;
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.visual.flybyTime = this.blechFlyby.time;
@@ -1452,7 +1525,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
             this.nextTelemetry = 0;
           }
         }
-        if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind);
+        if (data.type === 'trigger' && Number.isFinite(data.at) && currentTime - data.at < .25) this.dsp.trigger(data.kind, data.variant);
         if (data.type === 'dispose') { this.alive = false; this.dsp.setEnabled(false); }
       };
     }

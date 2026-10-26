@@ -1,15 +1,26 @@
 # Witches Brew sound bites
 
 The cauldron plays bounded excerpts. It does not start an interactive copy of
-each instrument. `scripts/build-witch-bites.mjs` and its native-effects and
-character-bites follow-ups render excerpts offline
-into `src/instruments/witch/witch-bite-clips.js`: mono PCM16 at 22,050 Hz, decoded
-once when the audio worklet loads. Output sample rates use interpolation. The
-decoded bank uses 4,251,240 bytes (under 4.5 MB) and is shared by Witch engines in the same realm.
-The Chiptune, SIMD303 and spider speech clips add 635,040 bytes; the Quadruped
-cupboard gesture aliases the existing cat clip and adds no PCM storage.
-No network request, source-engine construction, or PCM allocation occurs at a
-drop or audio render boundary.
+each instrument. Each of the 27 visible Morphazoid icons cycles through three
+authored sounds on accepted clicks: 1 → 2 → 3 → 1. Each icon has its own counter;
+refills, presets, flight/stirring changes and rebuilding Audio preserve it for
+the page session. A consumed icon still waits for a refill. Muted or rejected
+triggers do not advance the cycle or queue a later sound.
+
+The offline generators render mono PCM16 at 22,050 Hz. The base and three
+variant banks decode once when the audio worklet loads and share 11,907,000
+bytes of Float32 storage. BLECH's obsolete base passage is not decoded; the
+cupboard Quadruped and walking cat share their three clips. Playback uses
+interpolation, fixed voice pools and fixed source trims. No network request,
+source-engine construction or PCM allocation occurs at a drop or render
+boundary. The live miniatures select precomputed native gesture/parameter
+banks and reuse their existing voices.
+
+Variant sources and exact generation details:
+
+- [BLECH, Rubix, Monstroid and Candy Coil](witch-native-variants.md)
+- [Puggler, Chiptune, SIMD303 and Spider](witch-character-variants.md)
+- [Fractal, Jaw Harp, Harmonicazoid, Synthesaurus, Dentaphone, Rattlesnake and Quadruped](witch-source-variants.md)
 
 | Trigger | Source used to author the excerpt |
 | --- | --- |
@@ -20,7 +31,7 @@ drop or audio render boundary.
 | `drop-dentaphone` | Dentaphone (`object-forge`), actual modal processor, Steel plates material and authored tooth brush route; frequencies follow a geometric progression |
 | `drop-marimba` | Rattlesnake (`linear-drums`), its frequency-dependent modal ratios, gains, damping and strike-noise parameters in a fixed scalar excerpt of 36 cascading strikes |
 | `drop-hyper-rubix` | Hyper Rubix (4D), its native eight-cell Hyper Kit parameter mapper and a bounded scalar rendition of its kick, sub, clap, snare, hats, W-axis stab and rim envelopes in a fast cell traversal |
-| `drop-blech` | BLECH MIDI's actual bundled **Black Lattice · Ordered Storm** demo (`assets/midiphoria/midi/black-lattice.mid`), 32–36.5 seconds plus release; 1,260 note attacks through its native SpessaSynth/TimGM6mb renderer, retaining the score's pitches, velocities, gates, channels, programs and pan |
+| `drop-blech` | Three dense bundled BLEEDING EDGE MONOTONE AUDIO MIDI passages: Lightstorm (4,274 attacks), Seven Red Suns (4,828), A Soul Of Steel (4,473); native SpessaSynth/TimGM6mb with original pitches, velocities, gates, channels, controllers and programs |
 | `drop-rubix` | Rubix 3D's actual `RubixSimd303Processor`, bundled SIMD WASM and Color circuit Acid bank; a scrambled 3×3 cube's three visible faces play the native snake sequence at 252 BPM, with 111 attacks |
 | `drop-chiptune` | SIMD Chiptune's native WASM processor and Source Tracker pattern, baked by its own `createWebGpuChiptunePattern` mapper; 192 BPM with shorter echoes and reduced noise/drum mix |
 | `drop-acid-303` | SIMD303's native WASM processor, Silver Squelch factory voice, sequence and step expression; the clock runs at 12.8 steps per second |
@@ -40,6 +51,30 @@ frames. FM Drums uses eight reusable native-parameter hits in a faster rhythm;
 Rubix uses the native Acid bank; Hyper Rubix adds a separate eight-voice
 Hyper Kit excerpt. Older drop IDs remain accepted even when
 their icons are no longer on the shelf.
+
+The twelve live ingredient miniatures also have three distinct plans based on
+native source data. These compact renderers retain their existing approximations;
+Alien Larynx, for example, reuses the voice spectrum and body resonances without
+running the full alien-scale or wormhole network:
+
+| Ingredient | Three source plans |
+| --- | --- |
+| Alien Larynx | Double Fold, Giant Tract, Ring Wormhole snapshots |
+| Hyper Rubix | Three different eight-cell traversals, geometry mappings and rhythms at 168/232/276 BPM |
+| Digestazoid | Three different native event sequences: MB/Burp/HS, CRS/Quick Fart/Whoopee/SB, Heart/Burp/CRS/Quick Fart |
+| Hybrinx | Hyena, Alligator and Wolf timeline gestures |
+| Roach | Three contact/wire configurations and irregular foot rhythms, all retaining fluttering wings |
+| FM Drums | Three factory-voice kits and different fast patterns |
+| Hiccup Head | Hiccup, Growl and Braap physical voice gestures |
+| Gesticules | Glass/wire flourish, rough bowed/wire scatter, fast marimba/pulse flick |
+| Throatazoid | Clear/Deep/Bright, Deep/Clear/Deep and Bright/Bright/Clear voice arrangements |
+| Julie Saw | Default tenor, Low Fog baritone and Rough Rosin carpenter blade |
+| Syrinx | Songbird, Raven and Bullfrog source gestures |
+| Creaturazoid | Caw, Growl and Harsh calls with distinct phrase timing |
+
+BLECH's flying visitors independently cycle the same three dense passages.
+Overlapping visitors keep their own selected clip; muted entrances are skipped.
+Changing a clip never replaces another visitor's still-playing phrase.
 
 The internal `roach-wings` clip follows the roach bite's clock, fades and release;
 it does not add another ingredient or a separately running instrument.
@@ -121,13 +156,11 @@ Synth's own grain player. Its provenance and license remain in
 and [`manifest.json`](../assets/roach-synth/audio/manifest.json). The recording
 supplies movement texture; the fluttering wing buzz is synthesized.
 
-BLECH's actual bundled MIDI demo is an original Morphazoid CC0 study; its
-provenance and exact score generator are in
-[`assets/midiphoria/experimental/SOURCE.md`](../assets/midiphoria/experimental/SOURCE.md)
-and [`generate.py`](../assets/midiphoria/experimental/generate.py). The excerpt
-preserves every attack in the selected passage and uses the native player's
-128-voice limit. GM programs, pan, volume and controllers follow the original
-eight-row setup from that generator.
+BLECH's three current passages are bundled creator AUDIO MIDI files by
+**BLEEDING EDGE MONOTONE**, supplied under CC0 1.0. Source hashes, passage times,
+credits and license records are linked in [native variant provenance](witch-native-variants.md).
+The renderer preserves every attack in the selected passages and uses the
+native player's 128-voice limit, including its normal voice stealing.
 
 The MIDI excerpt is rendered from the repository's TimGM6mb soundfont by Tim
 Brechbill and David Bolton. Its supplied copyright notice and GPL-2 license are
@@ -138,8 +171,9 @@ excerpt. The repository's existing SpessaSynth vendor notices remain applicable
 to that offline rendering tool.
 
 Rebuild with `node scripts/build-witch-bites.mjs`; a full run automatically follows
-with `scripts/build-witch-native-effects.mjs` and
-`scripts/build-witch-character-bites.mjs`, each in a fresh process. The first
+with the native-effects and character-bites generators, then
+`build-witch-native-variants.mjs`, `build-witch-character-variants.mjs` and
+`build-witch-source-variants.mjs`, each in a fresh process. The first
 reauthors the actual MIDI, Rubix Acid, Monstroid and Candy Coil excerpts. The
 second reauthors Puggler, SIMD Chiptune, SIMD303 and the spider protest. Run
 `node scripts/build-witch-character-bites.mjs` to update only those four clips;
@@ -150,7 +184,7 @@ finite output, differences between excerpts, phrase lifetime, repeated triggers,
 shared effects, clock continuity and Audio/Stop behavior. They do not establish
 human listening quality or physical controller feel.
 
-During flight, occasional BLECH MIDI flybys reuse the actual Black Lattice `drop-blech` PCM excerpt
-with stereo travel and a quiet fixed trim. Two dedicated readers feed the shared
+During flight, occasional BLECH MIDI flybys cycle the three dense `drop-blech`
+PCM excerpts with stereo travel and a quiet fixed trim. Two dedicated readers feed the shared
 delay and fabric without consuming or featuring a potion ingredient. Their
 flight-only clock pauses on landing or Release; muting consumes missed entrances.

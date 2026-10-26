@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
-import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
+import { witchBiteClips, witchBiteVariants, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
+import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-native-variants.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
@@ -29,12 +30,16 @@ test('BLECH flybys share a sparse icon and native-phrase clock with two bounded 
   assert.ok(Math.abs(first.x - repeated.x) < 1e-9); assert.notEqual(first.id, repeated.id);
   const flyby = new WitchBlechFlyby(8000), pool = flyby.slots.slice(), controls = { mode: 'flight', ghostGate: true };
   assert.equal(flyby.clip, witchBiteClips()['drop-blech'], 'the actual BLECH phrase is shared, not synthesized again');
-  const midi = readFileSync(new URL('../assets/midiphoria/midi/black-lattice.mid', import.meta.url));
-  const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
-  let attacks = 0;
-  for (let i = 0; i < score.total; i++) if (score.ends[i] > 32 && score.starts[i] < 36.5) attacks++;
-  assert.equal(flyby.clip.events, attacks, 'every event in the actual BLACK MIDI excerpt is retained');
-  assert.ok(attacks > 1000); assert.match(WITCH_BITE_CLIPS['drop-blech'].source, /black-lattice\.mid.*native SpessaSynth/);
+  for (const [index, clip] of WITCH_NATIVE_BITE_VARIANTS['drop-blech'].entries()) {
+    const midi = readFileSync(new URL(`../${clip.midiFile}`, import.meta.url));
+    const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
+    let attacks = 0;
+    for (let i = 0; i < score.total; i++) if (score.starts[i] >= clip.sourceStart && score.starts[i] < clip.sourceEnd) attacks++;
+    assert.equal(clip.events, attacks, 'every original attack in the dense passage is retained');
+    assert.equal(witchBiteVariants()['drop-blech'][index].events, attacks);
+    assert.ok(attacks > 4000); assert.match(clip.source, /BLEEDING EDGE MONOTONE.*native SpessaSynth/);
+    assert.equal(clip.license, 'CC0-1.0');
+  }
   let energy = 0, peak = 0, pairs = 0;
   for (let i = 0; i < 8000 * 27; i++) {
     flyby.next(controls, true); energy += flyby.left ** 2 + flyby.right ** 2;

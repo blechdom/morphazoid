@@ -2310,6 +2310,9 @@ copy+require	src/instruments/witch/witch-renderer.js
 copy+require	src/instruments/witch/witch-scene-model.js
 copy+require	src/instruments/witch/witch-scene-audio.js
 copy+require	src/instruments/witch/witch-bite-clips.js
+copy+require	src/instruments/witch/witch-bite-native-variants.js
+copy+require	src/instruments/witch/witch-bite-character-variants.js
+copy+require	src/instruments/witch/witch-bite-source-variants.js
 copy+require	src/instruments/witch/witch-spider.js
 copy+require	src/instruments/witch/witch-hand.js
 copy+require	src/instruments/witch/witch-visitors.js
@@ -2323,6 +2326,9 @@ copy+require	assets/instruments/witch.webp
 copy+require	assets/witch/hiccup-head-bloody.webp
 copy+require	docs/witch.md
 copy+require	docs/witch-sound-bites.md
+copy+require	docs/witch-native-variants.md
+copy+require	docs/witch-character-variants.md
+copy+require	docs/witch-source-variants.md
 
 # Compact shared mobile menubar
 copy+require	src/site/mobile-menubar.js

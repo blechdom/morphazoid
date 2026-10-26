@@ -56,6 +56,12 @@ describe the modifications. Its placement in this web is artistic.
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
 and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnake
 notes, SIMD chip and acid phrases, and Puggler’s fast punk guitar, drums and Oi.
+Every Morphazoid ingredient has three sounds, cycling on each accepted click.
+The next sound survives refills and preset changes; consumed icons still wait
+for the next refill. BLECH's tree and flying appearances use dense passages from
+Lightstorm, Seven Red Suns and A Soul Of Steel, with separate cycling for the
+flying visitors.
+
 Roach Synth combines its percussion with fluttering wings. These bites sit within
 the ongoing mix; they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.

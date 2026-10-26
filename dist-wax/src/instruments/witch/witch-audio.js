@@ -1,7 +1,7 @@
 import { createWitchCatClock, snapshotWitchCatClock } from './witch-cat-model.js';
 import { unlockAudioContext } from '../../audio.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_TAU } from './witch-model.js';
+import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_DROP_EFFECTS, WITCH_TAU } from './witch-model.js';
 
 /** Only start(), called directly by Audio or a genuine scene-wake gesture,
  * creates or resumes a context. Control updates never arm audio themselves. */
@@ -12,8 +12,9 @@ export class WitchAudio {
     this.controls = normalizeWitchControls(); this.audible = false; this.disposed = false;
     this.starting = null; this.generation = 0; this.releaseOutput = null;
     this.pendingPhase = null; this.phaseGeneration = 0;
+    this.nextDropVariants = Object.create(null);
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
-      catClock: createWitchCatClock(), catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
+      catClock: createWitchCatClock(), catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
       spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false, flybyTime: 0, flybyLevel: 0 };
     this.onError = null;
   }
@@ -142,7 +143,10 @@ export class WitchAudio {
   }
   trigger(kind) {
     if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
-    this.post({ type: 'trigger', kind, at: this.context.currentTime }); return true;
+    const variant = WITCH_DROP_EFFECTS.includes(kind) ? this.nextDropVariants[kind] ?? 0 : undefined;
+    this.post({ type: 'trigger', kind, variant, at: this.context.currentTime });
+    if (variant !== undefined) this.nextDropVariants[kind] = (variant + 1) % 3;
+    return true;
   }
   /** Release manual accents even when primary Play is already stopped. */
   releaseAccents() { this.post({ type: 'release-accents' }); }

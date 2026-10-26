@@ -1,47 +1,63 @@
 import { WITCH_BITE_CLIPS } from './witch-bite-clips.js';
+import { WITCH_NATIVE_BITE_VARIANTS } from './witch-bite-native-variants.js';
+import { WITCH_CHARACTER_BITE_VARIANTS } from './witch-bite-character-variants.js';
+import { WITCH_SOURCE_BITE_VARIANTS } from './witch-bite-source-variants.js';
 import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
 import { WITCH_BLECH_FLYBY_CYCLE, WITCH_BLECH_FLYBY_DURATION, WITCH_BLECH_FLYBY_EVENTS } from './witch-scene-model.js';
 
 const TAU = Math.PI * 2;
-let decodedClips;
+let decodedClips, decodedVariants;
+const rawVariants = { ...WITCH_NATIVE_BITE_VARIANTS, ...WITCH_CHARACTER_BITE_VARIANTS, ...WITCH_SOURCE_BITE_VARIANTS };
+const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const lookup = new Int16Array(128).fill(-1);
+for (let i = 0; i < alphabet.length; i++) lookup[alphabet.charCodeAt(i)] = i;
+function decodeClip(clip) {
+  const data = new Float32Array(clip.frames);
+  let bits = 0, accumulator = 0, low = -1, frame = 0;
+  for (let i = 0; i < clip.pcm.length; i++) {
+    const value = lookup[clip.pcm.charCodeAt(i)]; if (value < 0) continue;
+    accumulator = (accumulator << 6) | value; bits += 6;
+    if (bits >= 8) {
+      bits -= 8; const byte = (accumulator >>> bits) & 255;
+      if (low < 0) low = byte;
+      else { const sample = low | (byte << 8); data[frame++] = (sample >= 32768 ? sample - 65536 : sample) / 32768; low = -1; }
+    }
+  }
+  return Object.freeze({ data, rate: clip.rate, frames: clip.frames, instrumentId: clip.instrumentId, events: clip.events, label: clip.label, source: clip.source });
+}
 
 /** Fixed PCM bank, decoded once at Audio arm. No fetch, base64 browser globals,
  * source instrument, or allocation is needed at a trigger or render boundary. */
 export function witchBiteClips() {
   if (decodedClips) return decodedClips;
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const lookup = new Int16Array(128).fill(-1);
-  for (let i = 0; i < alphabet.length; i++) lookup[alphabet.charCodeAt(i)] = i;
-  decodedClips = Object.fromEntries(Object.entries(WITCH_BITE_CLIPS).map(([kind, clip]) => {
-    const data = new Float32Array(clip.frames);
-    let bits = 0, accumulator = 0, low = -1, frame = 0;
-    for (let i = 0; i < clip.pcm.length; i++) {
-      const value = lookup[clip.pcm.charCodeAt(i)]; if (value < 0) continue;
-      accumulator = (accumulator << 6) | value; bits += 6;
-      if (bits >= 8) {
-        bits -= 8; const byte = (accumulator >>> bits) & 255;
-        if (low < 0) low = byte;
-        else { const sample = low | (byte << 8); data[frame++] = (sample >= 32768 ? sample - 65536 : sample) / 32768; low = -1; }
-      }
-    }
-    return [kind, Object.freeze({ data, rate: clip.rate, frames: clip.frames, instrumentId: clip.instrumentId, events: clip.events })];
-  }));
+  decodedClips = Object.fromEntries(Object.entries(WITCH_BITE_CLIPS).map(([kind, clip]) => [kind, decodeClip(rawVariants[kind]?.[0] ?? clip)]));
   // The cupboard Quadruped is the same native cat call already used by the
   // walking animal; share its fixed PCM allocation rather than duplicate it.
   decodedClips['drop-quadruped'] = decodedClips['drop-cat'];
   return Object.freeze(decodedClips);
 }
 
+/** All three authored sounds share fixed decoded storage across Witch engines. */
+export function witchBiteVariants() {
+  if (decodedVariants) return decodedVariants;
+  const base = witchBiteClips();
+  decodedVariants = Object.fromEntries(Object.entries(rawVariants).map(([kind, variants]) =>
+    [kind, Object.freeze(variants.map((clip, index) => index === 0 || !clip ? base[kind] : decodeClip(clip)))]));
+  if (decodedVariants['drop-cat']) decodedVariants['drop-quadruped'] = decodedVariants['drop-cat'];
+  return Object.freeze(decodedVariants);
+}
+
 /** Two fixed PCM readers for sparse BLECH visitors. The shared clip is the
- * actual Black Lattice MIDI demo's dense 32–36.5-second passage, rendered with
+ * three extreme bundled BLACK MIDI demo passages, rendered with
  * BLECH's SoundFont engine, without using a potion slot or its solo ducking.
  * Muted events are consumed; a seek or resume never replays a stale entrance. */
 export class WitchBlechFlyby {
   constructor(rate) {
     this.dt = 1 / rate; this.time = 0; this.left = this.right = 0;
-    this.clip = witchBiteClips()['drop-blech'];
-    this.slots = Array.from({ length: 2 }, () => ({ age: -1, release: 1, releasing: false, direction: 1 }));
+    this.clips = witchBiteVariants()['drop-blech'] ?? [witchBiteClips()['drop-blech']];
+    this.clip = this.clips[0]; this.nextVariant = 0;
+    this.slots = Array.from({ length: 2 }, () => ({ age: -1, release: 1, releasing: false, direction: 1, clip: this.clip, variant: 0 }));
     this.nextEvent = 0; this.nextCycle = 0; this.nextAt = WITCH_BLECH_FLYBY_EVENTS[0].at;
   }
   syncTime(time) {
@@ -62,6 +78,8 @@ export class WitchBlechFlyby {
       if (enabled) {
         const slot = this.slots[this.nextEvent === 2 ? 1 : 0];
         slot.age = 0; slot.release = 1; slot.releasing = false;
+        slot.variant = this.nextVariant; slot.clip = this.clips[this.nextVariant % this.clips.length];
+        this.nextVariant = (this.nextVariant + 1) % 3;
         slot.direction = WITCH_BLECH_FLYBY_EVENTS[this.nextEvent].direction;
       }
       if (++this.nextEvent === WITCH_BLECH_FLYBY_EVENTS.length) { this.nextEvent = 0; this.nextCycle++; }
@@ -71,9 +89,9 @@ export class WitchBlechFlyby {
       if (slot.age < 0) continue;
       if (slot.releasing) slot.release = Math.max(0, slot.release - this.dt / .035);
       if (slot.release === 0 || slot.age >= WITCH_BLECH_FLYBY_DURATION) { slot.age = -1; continue; }
-      const position = slot.age * this.clip.rate, index = Math.floor(position), blend = position - index;
-      const source = index + 1 < this.clip.frames
-        ? this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend : 0;
+      const clip = slot.clip, position = slot.age * clip.rate, index = Math.floor(position), blend = position - index;
+      const source = index + 1 < clip.frames
+        ? clip.data[index] + (clip.data[index + 1] - clip.data[index]) * blend : 0;
       const envelope = Math.min(1, slot.age / .025, (WITCH_BLECH_FLYBY_DURATION - slot.age) / .08) * slot.release;
       const pan = slot.direction * (slot.age / WITCH_BLECH_FLYBY_DURATION * 2 - 1) * .9;
       const sample = source * .13 * envelope;

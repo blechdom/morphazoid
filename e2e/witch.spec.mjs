@@ -30,7 +30,7 @@ async function selectScene(page,scene) {
 }
 async function observeWorklet(page) {
   await page.addInitScript(()=>{
-    window.witchTriggers=[];window.witchGainRamps=[];window.witchDropEvidence={};
+    window.witchTriggers=[];window.witchVariantTriggers=[];window.witchVariantEvidence=[];window.witchGainRamps=[];window.witchDropEvidence={};
     const ramp=AudioParam.prototype.linearRampToValueAtTime;
     AudioParam.prototype.linearRampToValueAtTime=function(value,time) {
       window.witchGainRamps.push({value,time});return ramp.call(this,value,time);
@@ -44,13 +44,18 @@ async function observeWorklet(page) {
           this.port.postMessage=(message,...args)=>{
             if(message.type==='trigger') {
               window.witchTriggers.push(message.kind);
-              if(message.kind.startsWith('drop-'))delete window.witchDropEvidence[message.kind];
+              if(message.kind.startsWith('drop-'))window.witchVariantTriggers.push({kind:message.kind,variant:message.variant});
+              if(message.kind.startsWith('drop-')) {
+                delete window.witchDropEvidence[message.kind];
+                window.witchVariantEvidence=window.witchVariantEvidence.filter(item=>item.kind!==message.kind);
+              }
             }
             return post(message,...args);
           };
           this.port.addEventListener('message',({data})=>{
             if(data.type==='visual') {
               window.witchVisual=data;
+              if(data.dropKind&&data.dropLevel>.0001)window.witchVariantEvidence.push({kind:data.dropKind,variant:data.dropVariant});
               if(data.dropKind&&data.dropLevel>.0001&&data.brewLevel>.0001&&data.handLevel>.0001) {
                 window.witchDropEvidence[data.dropKind]={kind:data.dropKind,solo:true,voice:true,fingers:true};
               }
@@ -744,6 +749,20 @@ test('representative shelf icons solo, interpolate settings and stay consumed un
   expect((await state(page)).config.scene).toBe('flight');
   await key(page,']');expect((await state(page)).selectedIngredient).toBe(ingredientIds[0]);await key(page,'[');expect((await state(page)).selectedIngredient).toBe(ingredientIds.at(-1));
   await key(page,'Enter');expect((await state(page)).objects.find(object=>object.id===ingredientIds.at(-1)).dropped).toBe(true);
+});
+
+test('ingredient clicks cycle three sounds across refills without toggling flight',async({page})=>{
+  test.setTimeout(45000);
+  await observeWorklet(page);await open(page);await wake(page);
+  for(const variant of [0,1,2,0]) {
+    await clickIngredient(page,'rubix');
+    await expect.poll(()=>page.evaluate(()=>window.witchVariantTriggers.filter(item=>item.kind==='drop-rubix').at(-1)?.variant)).toBe(variant);
+    await expect.poll(()=>page.evaluate(variant=>window.witchVariantEvidence.some(item=>item.kind==='drop-rubix'&&item.variant===variant),variant)).toBe(true);
+    expect((await state(page)).config.scene).toBe('brew');
+    await clickWorld(page,'mushrooms');
+    expect((await state(page)).objects.find(item=>item.id==='rubix').dropped).toBe(false);
+  }
+  expect(await page.evaluate(()=>window.witchVariantTriggers.filter(item=>item.kind==='drop-rubix').map(item=>item.variant))).toEqual([0,1,2,0]);
 });
 
 test('a tree phrase stays perched before its dive, and hush freezes the pending transition',async({page})=>{
