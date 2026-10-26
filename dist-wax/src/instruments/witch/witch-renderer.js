@@ -850,7 +850,8 @@ export function getWitchTargets(state = {}) {
     const stride=Math.max(1,Math.floor(strand.points.length/40));
     return strand.points.filter((p,i)=>i%stride===0);
   }).sort((a,b)=>Math.hypot(a.x-145,a.y-270)-Math.hypot(b.x-145,b.y-270));
-  const targets={nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
+  const ladle=getWitchLadle(state);
+  const targets={nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),spoon:{x:ladle.gx,y:ladle.gy,r:27},
     die:{...WITCH_LAYOUT.die},
     hat:getWitchHat(state).target,
     fabric:witchFabricTarget(state),
@@ -1437,22 +1438,35 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
       nearestObject={type:'object',id:home.id,kind:home.kind,index};objectDistance=distance;objectRadius=home.r+8;
     }
   }
-  const targets=prepared?.targets||getWitchTargets(state);
+  const targets=prepared?.targets||getWitchTargets(state),ladle=getWitchLadle(state);
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {
       const d=Math.hypot(x-tip.x,y-tip.y);
       if(d<distance) {nearest={type:'finger',index:tip.index};distance=d;}
     }
-    if(nearest) return nearest;
+    if(nearest) {
+      // In flight the two hands sit close together. A fingertip's enlarged
+      // touch halo must not cover the center of the other hand's real palm.
+      const gripDistance=Math.hypot(x-ladle.gx,y-ladle.gy);
+      if(gripDistance<Math.max(27,minRadius*.75)&&distance>Math.max(10,gripDistance))return {type:'spoon'};
+      return nearest;
+    }
     const t=handTransform(state), local=transformHandPoint({x,y},state,0,true);
     const hit=state.pickHand?.(local.x,local.y,minRadius/t.scale);
     if(hit) return hit;
   }
   if(nearestObject&&objectDistance<objectRadius)return nearestObject;
-  const ladle=getWitchLadle(state);
   const faceHits=['nose','mouth','eyes','spoon'].map(type=>({type,distance:type==='spoon'?Math.hypot(x-ladle.gx,y-ladle.gy):Math.hypot(x-targets[type].x,y-targets[type].y),radius:type==='spoon'?Math.max(27,minRadius*.75):Math.max(targets[type].r,Math.min(27,minRadius*.38))})).filter(hit=>hit.distance<hit.radius).sort((a,b)=>a.distance/a.radius-b.distance/b.radius);
   if(faceHits.length)return {type:faceHits[0].type};
+  // The left hand's long fingers share its spoon gesture. The foreground
+  // spell-casting fingers above retain their own independent controls.
+  const spoonHand=handTransform(state,1);
+  for(const tip of getFingerTips(state,1)) {
+    const dx=tip.x-spoonHand.palm.x,dy=tip.y-spoonHand.palm.y;
+    const along=clamp(((x-spoonHand.palm.x)*dx+(y-spoonHand.palm.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+    if(Math.hypot(x-spoonHand.palm.x-dx*along,y-spoonHand.palm.y-dy*along)<Math.max(8,spoonHand.scale*17,minRadius*.2))return {type:'spoon'};
+  }
   if((state.hatClicks??0)<3&&Math.hypot(x-targets.hat.x,y-targets.hat.y)<targets.hat.r)return {type:'hat'};
   for(const panel of getWitchHat(state).panels) {
     let inside=false;

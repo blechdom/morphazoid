@@ -88,6 +88,10 @@ test('spoon and nose remain separate drag targets throughout automatic stirring'
     const ladle=getWitchLadle(state),nose=getWitchTargets(state).nose;
     assert.equal(hitTestWitch(ladle.hx-8,ladle.hy-24,state)?.type,'spoon');
     assert.equal(hitTestWitch(nose.x,nose.y,state)?.type,'nose');
+    const adjacent={...state,handReach:1},tip={x:ladle.gx+39,y:ladle.gy,index:1};
+    adjacent.handTips=[transformHandPoint(tip,adjacent,0,true)];
+    assert.equal(hitTestWitch(ladle.gx,ladle.gy,adjacent)?.type,'spoon','nearby finger touch halos leave the spoon palm playable');
+    assert.deepEqual(hitTestWitch(tip.x,tip.y,adjacent),{type:'finger',index:1},'the actual foreground fingertip keeps its control');
   }
 });
 

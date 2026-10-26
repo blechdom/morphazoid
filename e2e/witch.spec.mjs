@@ -717,14 +717,31 @@ test('web plucks wake alone and the dice and mushrooms restore the preset perfor
 });
 
 test('the ladle, fingers, nose and stretchable hat are native controls with clean cancellation',async({page})=>{
-  await observeWorklet(page);await open(page);await wake(page);
+  test.setTimeout(45000);
+  await observeWorklet(page);await open(page);
   await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  const quiet=await state(page),stirs=[];
+  for(let i=0;i<6;i++) {
+    await clickWorld(page,'spoon',{touch:i%2===1});
+    const current=await state(page);stirs.push([current.config.speed,current.config.direction]);
+    expect(current).toMatchObject({parts:{brew:true,hand:false},backingAwake:false,config:{stirAuto:true,voice:quiet.config.voice,spoonHeight:quiet.config.spoonHeight}});
+  }
+  expect(new Set(stirs.map(([speed])=>speed)).size).toBe(3);
+  expect(new Set(stirs.map(([,direction])=>direction)).size).toBe(2);
+  expect(new Set(stirs.map(pair=>pair.join(','))).size).toBe(6);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.0001);
+  const last=(await state(page)).config;
+  await dragWorld(page,'spoon',0,0,{cancel:true});
+  expect((await state(page)).config).toEqual(last);
+  await key(page,'o');expect((await state(page)).config.speed).not.toBe(last.speed);
+  await key(page,'Space');await wake(page);
   const initial=await state(page);await dragWorld(page,'nose',55,0);expect((await state(page)).config.nose).toBeGreaterThan(initial.config.nose+.2);
   const beforeHat=await state(page),hatPull=await dragWorld(page,'hat',40,-50);expect((await state(page)).config.hat).toBeGreaterThan(beforeHat.config.hat);
   expect(Math.abs(hatPull.held.world.hatPullX)).toBeGreaterThan(5);
   expect((await state(page)).world.hatClicks).toBe(0);
   const beforeSpoon=await state(page),spoonDy=beforeSpoon.spoonHeight>.5?55:-55,spoon=await dragWorld(page,'spoon',0,spoonDy);
   expect((await state(page)).config.spoonHeight).toBeCloseTo(Math.max(0,Math.min(1,spoon.grabbed.spoonHeight-spoonDy/180)),5);
+  expect([(await state(page)).config.speed,(await state(page)).config.direction]).toEqual([beforeSpoon.config.speed,beforeSpoon.config.direction]);
   // Capture the live fingertip on the input session: traced snapshots can
   // return after this fast animation has already moved away from the pointer.
   const fingerSession=await page.context().newCDPSession(page);
@@ -748,6 +765,9 @@ test('the ladle, fingers, nose and stretchable hat are native controls with clea
   await page.mouse.up();expect((await state(page)).config.direction).toBe(-1);
   const brightness=(await state(page)).config.tone;await key(page,'+');expect((await state(page)).config.tone).toBeGreaterThan(brightness);
   await key(page,'-');expect((await state(page)).config.tone).toBeCloseTo(brightness,5);
+  await key(page,'m');await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+  const inFlight=(await state(page)).config;await clickWorld(page,'spoon');
+  expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).config.speed).not.toBe(inFlight.speed);
   await audible(page);
 });
 

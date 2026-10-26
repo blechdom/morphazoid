@@ -141,6 +141,7 @@ function stopGesture() {
   if(held?.type==='fabric')releaseWitchFabricGesture(fabricGesture);
   if(held?.type==='trail')releaseWitchTrailGesture(trailGesture);
   if(held?.type==='tree')canvas.style.cursor='grab';
+  if(held?.type==='spoon'&&!held.spoonMoved)Object.assign(config,held.spoonSettings);
   if(held?.type==='stir') ladleOffset=held.ladleAngle-(audioMotionReady&&audio.node?audio.visual.phase:silentPhase);
   pointer=null; treeKeyboard=null; keyboardGate=false;
   const captured=[...fingerPointers.keys()]; fingerPointers.clear(); fingerKeys.clear(); arrowKeys.clear();
@@ -149,6 +150,14 @@ function stopGesture() {
   send();
 }
 function setScene(scene) { advancePerformanceTime();spellTransition=null;stopGesture(); config.scene=scene; if(scene!=='flight') {world.handOpen=scene==='fingers';releaseWitchTrailGesture(trailGesture,{cancel:true});} sync(); send(); }
+function cycleStirring() {
+  spellTransition=null;
+  const speeds=[.18,.48,.85],next=speeds.find(speed=>speed>config.speed+.025);
+  if(next===undefined)config.direction*=-1;
+  config.speed=next??speeds[0];config.stirAuto=true;
+  send();sync();
+  $('gestureReadout').value=`${['Slow','Medium','Fast'][speeds.indexOf(config.speed)]} ${config.direction>0?'clockwise':'counterclockwise'} stirring.`;
+}
 function worldAction(action) {
   if(action==='moon'||action==='mushrooms')refillShelf();
   if(action==='hand') {
@@ -383,7 +392,10 @@ listen(canvas,'pointerdown',e => {
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
   pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairTransform:hair?.transform,hairPullX:world.hairPullX,hairPullY:world.hairPullY,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat||hit.type==='fabric'||hit.type==='trail')?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,trailFeedback:config.trailFeedback,trailSpace:config.trailSpace,trailAnchor:hit.type==='trail'?getWitchHair(initial).tip:null,trailAngle:null,trailWinding:0,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
-  if(hit.type==='spoon') setSpoonHeight(visual.spoonHeight);
+  if(hit.type==='spoon') {
+    pointer.spoonSettings={voice:config.voice,spoonHeight:config.spoonHeight};pointer.spoonMoved=false;
+    setSpoonHeight(visual.spoonHeight);
+  }
   if(hit.type==='trail') {
     const rest=getWitchRestTrails(initial);beginWitchTrailGesture(trailGesture,rest,p,performance.now());
     pointer.trailAnchor=rest.find(strand=>strand.index===trailGesture.grab?.index)?.points.at(-1)??pointer.trailAnchor;
@@ -409,7 +421,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to shape the wind',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir for her voice or bend a finger for its spell',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to shape the wind',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Tap for stirring speed or direction; lift or lower to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir for her voice or bend a finger for its spell',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -442,7 +454,10 @@ listen(canvas,'pointermove',e => {
     config.trailSpace=witchTrailSpaceAtPoint(p,a);
   }
   else if(pointer.type==='ghost') { config.ghostTempo=clamp(pointer.ghostTempo+pointer.start.y-p.y,36,180); }
-  else if(pointer.type==='spoon') { setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180); }
+  else if(pointer.type==='spoon') {
+    if(Math.hypot(p.x-pointer.start.x,p.y-pointer.start.y)>7)pointer.spoonMoved=true;
+    if(pointer.spoonMoved)setSpoonHeight(pointer.spoonHeight+(pointer.start.y-p.y)/180);
+  }
   else if(pointer.type==='hair') {
     // The captured direction and warp keep moving broom/mushroom animation
     // from tugging the control underneath a stationary pointer.
@@ -480,6 +495,7 @@ listen(canvas,'pointermove',e => {
   send(); sync(); e.preventDefault();
 });
 function releasePointer(e) {
+  if(pointer?.id===e.pointerId&&pointer.type==='spoon'&&e.type==='pointerup'&&!pointer.spoonMoved)cycleStirring();
   if(pointer?.id===e.pointerId&&pointer.type==='hat'&&e.type==='pointerup'&&!pointer.hatMoved)clickHat();
   if(pointer?.id===e.pointerId && pointer.type==='fabric' && e.type!=='pointerup')releaseWitchFabricGesture(fabricGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='trail' && e.type!=='pointerup')releaseWitchTrailGesture(trailGesture,{cancel:true});
@@ -498,8 +514,8 @@ listen(canvas,'keydown',e => {
   if(e.key==='Backspace') {if(!e.repeat)resetPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
   if(e.key.toLowerCase()==='f'&&config.scene!=='flight') {e.preventDefault();return;}
-  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnlk]$/i.test(e.key))) {
-    const part=e.key.toLowerCase()==='p'?'web':e.key.toLowerCase()==='f'?'fabric':/^[1-5ah]$/i.test(e.key)?'hand':/^[bvk]$/i.test(e.key)?'brew':e.key.startsWith('Arrow')&&!treeKeyboard?(world.handOpen||fingerKeys.size?'hand':config.scene!=='flight'?'brew':null):null;
+  if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnlko]$/i.test(e.key))) {
+    const part=e.key.toLowerCase()==='p'?'web':e.key.toLowerCase()==='f'?'fabric':/^[1-5ah]$/i.test(e.key)?'hand':/^[bvko]$/i.test(e.key)?'brew':e.key.startsWith('Arrow')&&!treeKeyboard?(world.handOpen||fingerKeys.size?'hand':config.scene!=='flight'?'brew':null):null;
     wakePerformance(part);
   }
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
@@ -509,6 +525,7 @@ listen(canvas,'keydown',e => {
     e.preventDefault();return;
   }
   if(e.key==='Enter') { if(!e.repeat)dropObject(objects[Math.max(0,selectedIngredient)].id);e.preventDefault();return; }
+  if(e.key.toLowerCase()==='o') {if(!e.repeat)cycleStirring();e.preventDefault();return;}
   if(['-','_','+','='].includes(e.key)) { config.tone=clamp(config.tone+(['+','='].includes(e.key)?.05:-.05));send();sync();e.preventDefault();return; }
   const objectId={q:'gesticules',e:'marimba',r:'choir'}[e.key.toLowerCase()];
   if(objectId){if(!e.repeat)dropObject(objectId);e.preventDefault();return;}

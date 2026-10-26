@@ -19,6 +19,7 @@ Brightness remains on the **+ / −** keys.
 | Gesture | Picture and sound |
 | --- | --- |
 | Stir faster, wider, or backward | The vortex and syllables follow speed, vowel opening and direction. |
+| Tap her left, spoon-holding hand (or O) | Cycles slow, medium and fast stirring, then reverses and cycles those speeds in the other direction. Resumes automatic stirring and wakes only the voice if the scene was quiet. Works on the ground and in flight. |
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
 | Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or dice roll; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
@@ -141,7 +142,7 @@ usual catalogue portrait. See the [skin provenance](https://github.com/blechdom/
 Regenerate the portrait with `scripts/render-witch-hiccup-ghost.mjs`, pointing
 `MORPHAZOID_QA_BASE_URL` at a running source preview.
 
-With the picture focused: **A** cycles hand animations, **H** features fingers, **M** toggles flight, **B** lands,
+With the picture focused: **A** cycles hand animations, **O** changes stirring pace/direction, **H** features fingers, **M** toggles flight, **B** lands,
 **W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** plays the tree; hold **T** with arrow keys to spread or curl branches. **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
