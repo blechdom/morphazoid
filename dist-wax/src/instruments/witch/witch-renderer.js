@@ -712,9 +712,18 @@ function reachingHand(c,state) {
   const nx=Math.cos(hand.rotation),ny=Math.sin(hand.rotation),ew=width*1.25;
   c.save();const fill=c.createLinearGradient(s.x,s.y,w.x,w.y);
   fill.addColorStop(0,'#542a5c');fill.addColorStop(.6,'#484064');fill.addColorStop(1,'#275a65');
-  path(c,`M${s.x-width},${s.y} Q${e.x-width*2},${e.y-20} ${e.x-ew*nx},${e.y-ew*ny} L${w.x-cuff*nx},${w.y-cuff*ny} Q${w.x},${w.y+14} ${w.x+cuff*nx},${w.y+cuff*ny} L${e.x+ew*nx},${e.y+ew*ny} Q${e.x+width*2},${e.y+12} ${s.x+width},${s.y-10} Z`,fill,INK,3);
-  curve(c,[s.x,s.y,e.x-12,e.y-20,e.x-10,e.y+12,e.x,e.y],'#b981b8',1.3);
-  line(c,[[e.x-ew*nx,e.y-ew*ny],[e.x+ew*nx,e.y+ew*ny]],'#9f7e9d',1.7);
+  // Overlapping, consistently wound sleeve sections fill as one solid shape.
+  // Filling after the outline hides internal edges at the rounded elbow.
+  const upperLength=Math.max(1,Math.hypot(e.x-s.x,e.y-s.y));
+  c.beginPath();
+  const addSection=(a,b,x,y,aw,bw)=>{
+    c.moveTo(a.x+x*aw,a.y+y*aw);c.lineTo(a.x-x*aw,a.y-y*aw);
+    c.lineTo(b.x-x*bw,b.y-y*bw);c.lineTo(b.x+x*bw,b.y+y*bw);c.closePath();
+  };
+  addSection(s,e,-(e.y-s.y)/upperLength,(e.x-s.x)/upperLength,width,ew);
+  addSection(e,w,nx,ny,ew,cuff);
+  c.moveTo(e.x+ew,e.y);c.arc(e.x,e.y,ew,0,TAU);c.closePath();
+  c.strokeStyle=INK;c.lineWidth=3;c.stroke();c.fillStyle=fill;c.fill();
   line(c,[[w.x-cuff*nx,w.y-cuff*ny],[w.x+cuff*nx,w.y+cuff*ny]],'#ddac87',2);
   drawHandModel(c,state,0);
   if(clamp(state.handReach)>.5)for(const tip of getFingerTips(state)) {
