@@ -8,7 +8,7 @@ test.afterEach(async({page})=>{expect(pageErrors.get(page)??[]).toEqual([]);});
 async function open(page) {
   const errors=[];pageErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/witch.html');
-  await expect(page.locator('.instrument-preset-controls')).toBeVisible();
+  await expect(page.locator('#witchCanvas')).toBeVisible();
   await page.waitForFunction(()=>Boolean(window.witchInstrument?.state));
 }
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
@@ -115,8 +115,7 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
     const mushroom=WITCH_LAYOUT.mushrooms[0];
     let target=key==='moon'?WITCH_LAYOUT.moon:key==='mushrooms'?{x:mushroom.x+34*mushroom.scale,y:mushroom.y+5*mushroom.scale}
       :key==='web'?current.web.targets[index]:current.targets[key];
-    // Upper radial strings continue below the preset overlay. Keep the same
-    // note sector, but touch an exposed point farther down that same strand.
+    // Touch the same note sector farther down the upper radial strings.
     if(key==='web'&&[4,5].includes(index))target={
       x:current.web.center.x+(target.x-current.web.center.x)*.6,
       y:current.web.center.y+(target.y-current.web.center.y)*.6,
@@ -124,6 +123,13 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
     const visual={...current.config,eyeShock:current.eyeShock,
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
     let targets=[target];
+    if(key==='moon') {
+      const moon=WITCH_LAYOUT.moon,scale=Math.min(rect.width/1000,rect.height/720);
+      const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects};
+      targets=[target,...Array.from({length:12},(_,i)=>({x:moon.x+Math.cos(i*Math.PI/6)*moon.r*.7,y:moon.y+Math.sin(i*Math.PI/6)*moon.r*.7}))].filter(p=>{
+        const q=warpWitchPoint(p,visual);return hitTestWitch(q.x,q.y,hitState)?.type==='moon';
+      });
+    }
     if(key==='tree') {
       const canvas=document.querySelector('#witchCanvas'),scale=Math.min(rect.width/1000,rect.height/720),seen=new Set();
       const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects,spiderCaptured:current.spiderCaptured};
@@ -392,9 +398,21 @@ async function wake(page,{touch=false}={}) {
   expect((await state(page))).toMatchObject({quiet:false,playing:true,presence:1});
 }
 async function preset(page,id) {
-  const summary=page.locator('.header-preset-controls summary');
-  if(!(await page.locator('.header-preset-picker').evaluate(element=>element.open)))await summary.click();
-  await page.locator(`button[data-preset-id="${id}"]`).click();
+  // Use the picture's native next-spell shortcut; there is no preset menu.
+  const spells=await bank(page),current=await state(page);
+  const target=spells.findIndex(spell=>spell.id===id);
+  expect(target).toBeGreaterThanOrEqual(0);
+  const start=spells.findIndex(spell=>spell.id===current.presetId);
+  const steps=(target-start+spells.length)%spells.length||spells.length;
+  await page.locator('#witchCanvas').focus();
+  const session=await page.context().newCDPSession(page);
+  try {
+    for(let i=0;i<steps;i++) {
+      await session.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
+      await session.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
+    }
+  } finally {await session.detach();}
+  expect((await state(page)).config).toEqual({...spells[target].snapshot,scene:current.config.scene});
 }
 async function bank(page) {return page.evaluate(async()=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS);}
 async function assertFrozen(page) {
@@ -472,7 +490,7 @@ test('loads quiet and frozen with two model hands, real ingredients and no param
   expect((await readAudioStatus(page)).connectionCount).toBe(0);await assertFrozen(page);
   await expect(page.locator('.witch-panel,#witchParameters,.witch-scene-caption,.witch-understage')).toHaveCount(0);
   await expect(page.locator('.witch-shell input[type=range],.witch-shell select')).toHaveCount(0);
-  for(const selector of ['.instrument-preset-controls','#playButton','#resetButton','.witch-help summary'])await expect(page.locator(selector)).toBeVisible();
+  await expect(page.locator('[data-instrument-preset-host],.instrument-preset-controls,#playButton,#resetButton,.witch-help')).toHaveCount(0);
   const initial=await state(page);expect(initial.objects.map(object=>object.id)).toEqual(ingredientIds);
   expect(initial.handMetadata).toMatchObject({triangles:28994,deformBones:22,modelInstances:2,webglContexts:1});
   expect(initial.hands.map(hand=>hand.tips.length)).toEqual([5,5]);
@@ -503,7 +521,7 @@ test('a genuine picture click arms Audio and fades both voices in; synthetic inp
   expect(await page.evaluate(()=>window.witchGainRamps.some(ramp=>ramp.value===1))).toBe(true);
   await expect(page.locator('#outputLevel')).toHaveValue('0.75');
   const live=await state(page);await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(live.performanceTime+.15);
-  await page.locator('#playButton').click();expect(await state(page)).toMatchObject({playing:false,audioOn:true,quiet:true,presence:0});
+  await key(page,'Space');expect(await state(page)).toMatchObject({playing:false,audioOn:true,quiet:true,presence:0});
   await assertFrozen(page);await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
   expect(await page.evaluate(()=>window.witchGainRamps.some(ramp=>ramp.value===0))).toBe(true);
   await wake(page);await audible(page);
@@ -539,18 +557,17 @@ test('presets, mushrooms and ingredient spells preserve the chosen ground or fli
   expect((await state(page)).config.scene).toBe('brew');
 });
 
-test('the floor D20, header dice and D randomize complete settings without changing flight or output',async({page})=>{
+test('the floor D20 and D randomize complete settings without changing flight or output',async({page})=>{
   await open(page);await wake(page);
   await page.locator('#outputLevel').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
   const output=await page.locator('#outputLevel').inputValue();
   const spells=await bank(page);
   for(const scene of ['brew','flight']) {
     await selectScene(page,scene);
-    for(const action of ['picture','header','keyboard']) {
+    for(const action of ['picture','keyboard']) {
       await key(page,'q');expect((await state(page)).objects.some(object=>object.dropped)).toBe(true);
       const before=await state(page);
       if(action==='picture')await clickWorld(page,'die');
-      else if(action==='header')await page.locator('.header-preset-random').click();
       else await key(page,'d');
       const current=await state(page);
       for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','treeSpread','treeCurl','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
@@ -560,7 +577,7 @@ test('the floor D20, header dice and D randomize complete settings without chang
       expect(current.objects.every(object=>!object.dropped)).toBe(true);
       expect(current.performanceTime).toBeGreaterThanOrEqual(before.performanceTime);
       await expect(page.locator('#outputLevel')).toHaveValue(output);
-      await expect(page.locator('.header-preset-picker .instrument-picker-current')).toContainText('Custom');
+      expect(await page.evaluate(async()=>(await import('/src/site/header-presets.js')).captureHeaderPresetState().selectedId)).toBeNull();
     }
   }
 });
@@ -695,7 +712,7 @@ test('broom and moon alone toggle flight while the fabric and hair noodles bend 
   expect((await state(page)).catTargets).toBeNull();expect((await state(page)).visitorTargets).toEqual({});
   await dragWorld(page,'fabric',100,-65,{holdMs:120});
   expect((await state(page)).fabricGesture.audio.fabricPull).toBeGreaterThan(0);
-  await page.locator('#resetButton').click();expect(await state(page)).toMatchObject({quiet:true,config:{scene:'flight'},fabricGesture:still,trailGesture:{held:false,active:false,strands:[]}});
+  await key(page,'Backspace');expect(await state(page)).toMatchObject({quiet:true,config:{scene:'flight'},fabricGesture:still,trailGesture:{held:false,active:false,strands:[]}});
   await clickWorld(page,'moon');await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);
   expect((await state(page)).config.scene).toBe('brew');
 });
@@ -766,7 +783,7 @@ test('real visitor routes and native captures work while a slow Audio startup ca
     await key(page,'c');await key(page,'n');await key(page,'l');expect((await state(page)).capturedAnimals).toEqual(captured);
     await page.evaluate(()=>window.releaseWitchModule());await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
     await expect.poll(()=>page.evaluate(()=>window.witchTriggers.filter(kind=>['drop-cat','drop-mouse','drop-lizard'].includes(kind)))).toEqual(['drop-mouse','drop-cat','drop-lizard']);
-    await page.locator('#resetButton').click();expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,capturedAnimals:{}});
+    await key(page,'Backspace');expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,capturedAnimals:{}});
   } finally {await page.evaluate(()=>window.releaseWitchModule?.());}
 });
 
@@ -774,7 +791,7 @@ test('Space, reset and page lifecycle release gestures without losing the chosen
   await observeWorklet(page);await open(page);await wake(page);await selectScene(page,'flight');
   await key(page,'x');await expect.poll(async()=>(await state(page)).eyeShock).toBeGreaterThan(.1);
   await key(page,'Space');await assertFrozen(page);expect((await state(page)).config.scene).toBe('flight');
-  await page.locator('#resetButton').click();expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,eyeShock:0,config:{scene:'flight'}});
+  await key(page,'Backspace');expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,eyeShock:0,config:{scene:'flight'}});
   await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
   await wake(page);await page.locator('#witchCanvas').focus();await page.keyboard.down('2');expect((await state(page)).manualFingerMask&2).toBe(2);
   await page.evaluate(()=>window.dispatchEvent(new Event('blur')));expect((await state(page)).manualFingerMask).toBe(0);await page.keyboard.up('2');
@@ -829,8 +846,8 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       const canvasBox=await page.locator('#witchCanvas').boundingBox();expect(canvasBox.width).toBe(width);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
       await expect(page.locator('.witch-panel,#witchParameters')).toHaveCount(0);
-      for(const selector of ['.instrument-preset-controls','#playButton','#resetButton','.witch-help summary'])await expect(page.locator(selector)).toBeInViewport();
-      if(touch)for(const selector of ['#audioButton','#playButton','#resetButton','.witch-help summary']){const rect=await page.locator(selector).boundingBox();expect(rect.width).toBeGreaterThanOrEqual(48);expect(rect.height).toBeGreaterThanOrEqual(48);}
+      await expect(page.locator('[data-instrument-preset-host],.instrument-preset-controls,#playButton,#resetButton,.witch-help')).toHaveCount(0);
+      if(touch){const rect=await page.locator('#audioButton').boundingBox();expect(rect.width).toBeGreaterThanOrEqual(48);expect(rect.height).toBeGreaterThanOrEqual(48);}
       for(const scene of ['brew','flight']) {
         await selectScene(page,scene);if(scene==='flight')await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
         const before=await state(page);expectHairInScene(before);
@@ -848,8 +865,8 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
         // changing flight or reaching through a removed parameter panel.
         await preset(page,'small-spell');expect((await state(page)).config.scene).toBe(scene);
       }
-      await page.locator('.witch-help summary').click();await expect(page.locator('#keyboardHelp')).toBeVisible();
-      const help=await page.locator('.witch-help-content').boundingBox();expect(help.x).toBeGreaterThanOrEqual(0);expect(help.x+help.width).toBeLessThanOrEqual(width+1);
+      await expect(page.locator('#witchCanvas')).toHaveAttribute('aria-describedby','gestureHint keyboardHelp');
+      await expect(page.locator('#keyboardHelp')).toContainText('Backspace resets the brew.');
       const a11y=await new AxeBuilder({page}).include('.witch-shell').analyze();expect(a11y.violations.filter(v=>['serious','critical'].includes(v.impact))).toEqual([]);
     });
   });

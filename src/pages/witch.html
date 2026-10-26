@@ -25,26 +25,8 @@
       <div class="witch-viewport" id="witchViewport">
         <h1>witches brew</h1>
         <canvas id="witchCanvas" tabindex="0" aria-label="Witch and cauldron. Click the picture to wake the brew; drag the ladle in circles to shape her voice." aria-describedby="gestureHint keyboardHelp">An interactive witch, cauldron, instrument cupboard and haunted tree. Use the picture or its keyboard shortcuts to play.</canvas>
-        <div class="witch-presets" data-instrument-preset-host aria-label="Witches Brew presets"></div>
-        <div class="witch-scene-tools">
-          <div class="witch-player" role="group" aria-label="Performance controls">
-            <button id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Wake the brew" title="Wake or hush the brew · Space"><span id="playGlyph" aria-hidden="true">▶</span><span id="playLabel" class="witch-accessible-copy">Wake the brew</span></button>
-            <button id="resetButton" class="witch-reset" type="button" data-reset-all data-reset-in-place aria-label="Reset the brew" title="Reset the brew"><span aria-hidden="true">↺</span></button>
-          </div>
-          <details class="witch-help">
-            <summary aria-label="Playing notes and keyboard shortcuts" title="Playing notes and keyboard shortcuts"><span aria-hidden="true">?</span></summary>
-            <div class="witch-help-content">
-              <p>The night starts still and quiet. Click the picture to fade into the brew. Pull her hair back to hush the sound and hold everything still; your next click wakes it again, on the ground or in flight.</p>
-              <p>Stir the ladle to shape her singing. Spoon height chooses the voice; click her mouth for another phrase. Pull her nose for pitch and resonance, stretch her burned hat for vocal texture, or bend her spell-casting fingers. Click her forearm sleeve to cycle the hand animations. Click her eyes for an orange electrical hex.</p>
-              <p>Click an instrument on the cupboard or tree to hear its sound bite and fade into new settings as it dives into the cauldron. The giant mushrooms choose another whole preset. The twenty-sided die beside the pot randomizes all the settings. Mushrooms, moon, presets and the die refill the ingredients. Settings never launch or land the witch: only you choose when she flies.</p>
-              <p>Click the moon or leaning broom to fly; click either again to land. Pull the noodles growing from her hair for large delay bends. Touch and pull the green-and-pink fabric behind the moon to catch and filter the wind. The mushrooms and die stay within reach in flight.</p>
-              <p>Click branches to send L-system sound through the tree. Mushrooms and the die choose new tree settings; drag outward to spread them, or up and down to curl them asymmetrically. Touch the spider for a groan, and its web for low plucks. Catch the cat, ceiling lizard or wall-crawling mouse to add them to the potion.</p>
-              <p id="keyboardHelp">On the picture: Space wakes or hushes; D rolls the die; A cycles hand animations; H features fingers; M toggles flight; B lands; W chooses the next spell; F catches wind; V changes her phrase; X shocks her eyes; T plays the tree; hold T with arrows to spread or curl branches; S wakes the spider; P plucks the web; C/N/L catch cat/mouse/lizard. Hold 1–5 and use arrows to bend fingers. Q/E/R add Gesticules, Rattlesnake and Throatazoid. [ and ] select an ingredient; Enter sends it to the pot. G / Shift+G change ghost tempo. Escape hushes the spell.</p>
-              <a href="docs/witch.md">About the instrument</a>
-            </div>
-          </details>
-        </div>
         <div class="witch-accessible-copy">
+          <p id="keyboardHelp">On the picture: Space wakes or hushes; D rolls the die; A cycles hand animations; H features fingers; M toggles flight; B lands; W chooses the next spell; F catches wind; V changes her phrase; X shocks her eyes; T plays the tree; hold T with arrows to spread or curl branches; S wakes the spider; P plucks the web; C/N/L catch cat/mouse/lizard. Hold 1–5 and use arrows to bend fingers. Q/E/R add Gesticules, Rattlesnake and Throatazoid. [ and ] select an ingredient; Enter sends it to the pot. G / Shift+G change ghost tempo. Escape hushes the spell. Backspace resets the brew.</p>
           <span id="sceneLabel">The witch is resting.</span>
           <output id="gestureReadout">Click the picture to wake the brew.</output>
           <p id="gestureHint">Click the picture to fade in. Stir the ladle to chant. Pull her hair back to hush and hold still until the next click.</p>

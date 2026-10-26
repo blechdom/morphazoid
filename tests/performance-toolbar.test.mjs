@@ -13,10 +13,15 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { pageSourcePath } from "../src/pages/manifest.js";
 const read = file => readFile(new URL(`../${file.endsWith(".html") ? pageSourcePath(file) : file}`, import.meta.url), "utf8");
 
-test("every implemented full-preset owner declares exactly one explicit preset host", async () => {
+test("every implemented full-preset owner declares its explicit preset placement", async () => {
   const rollout = JSON.parse(await read("docs/preset-rollout-status.json"));
   for (const entry of rollout.entries.filter(entry => entry.status.startsWith("implemented-"))) {
     const html = await read(entry.href);
+    if (entry.id === "witch") {
+      // Owner-requested picture controls keep the preset controller detached.
+      assert.doesNotMatch(html, /data-instrument-preset-host|class="witch-presets"/);
+      continue;
+    }
     assert.equal((html.match(/data-instrument-preset-host/g) ?? []).length, 1, entry.id);
     assert.match(html, entry.id === "shapes" ? /<header class="shapes-panel-header" data-instrument-preset-host/
       : entry.id === "l-systems" ? /<header class="l-systems-panel-header">\s*<div id="mainPresets" data-instrument-preset-host/ // Sticky scene row before the mode tabs; responsive placement is browser-tested.
@@ -24,7 +29,6 @@ test("every implemented full-preset owner declares exactly one explicit preset h
       : entry.id === "voicesaurus" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div class="native-voice-modes"[^>]*>[\s\S]*?<\/div>\s*<div data-instrument-preset-host/ // Owner-requested Speak/Sing selector above the presets it scopes.
       : entry.id === "spelling-synthesizer" ? /<aside[^>]*data-cooking-panel[^>]*>\s*<div data-instrument-preset-host/ // Shared speech family's first-row mount; sticky placement is browser-tested.
       : entry.id === "synthesis" ? /<div id="performancePresetHost" data-instrument-preset-host/ // Complete instrument presets precede the independent axes.
-      : entry.id === "witch" ? /<div class="witch-presets" data-instrument-preset-host/ // Promoted Witches Brew keeps its sole preset host in the scene header.
       : entry.id === "oculoid" ? /<aside class="oc-panel"[^>]*>\s*<section class="oc-block oc-presets"[^>]*data-instrument-preset-host/ // Eye presets occupy the first rail row above Motion.
       : /<aside[^>]+data-instrument-preset-host/, entry.id);
   }

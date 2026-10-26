@@ -19,7 +19,7 @@ test('moon, pot, mushrooms and die remain playable in flight while grounded scen
   assert.equal(WITCH_LAYOUT.mushrooms[0].x,844);
   for(const flightLift of [0,.5,1]) {
     const state={scene:flightLift?'flight':'brew',flightLift,handReach:0};
-    assert.equal(hitTestWitch(800,164,state)?.type,'moon');
+    assert.equal(hitTestWitch(WITCH_LAYOUT.moon.x,WITCH_LAYOUT.moon.y,state)?.type,'moon');
     assert.equal(hitTestWitch(600,540,state)?.type,'stir');
     const mushroom=WITCH_LAYOUT.mushrooms[0];
     assert.equal(hitTestWitch(mushroom.x+34*mushroom.scale,mushroom.y+5*mushroom.scale,state)?.type,'mushrooms');
@@ -289,7 +289,7 @@ test('flying fabric paints behind the scene and both long hair locks carry Candy
     const world=canvases[1].getContext('2d').calls;
     const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
     assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
-    const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===800&&call.ellipse?.y===164&&call.ellipse?.rx===78);
+    const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r);
     const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
     assert.ok(grid.at(-1).index<moon&&grid.at(-1).index<body,'moon and flying witch occlude the background cloth');
     const red=world.filter(call=>call.kind==='stroke'&&call.color==='#dc2f3f');
@@ -750,10 +750,17 @@ test('full flight preserves controls and two separate bounded striped hair trail
       assert.deepEqual(trail.points.at(-1),hair.strands[trail.index].points.at(-1),'each delay strand stays joined to its own visible hair lock');
       assert.equal(trail.color,'#fff7ea');assert.equal(trail.stripe,'#dc2f3f');
     }
-    for(const type of ['broom','moon','dice']) {
-      const target=type==='moon'?WITCH_LAYOUT.moon:getWitchTargets(state)[type==='dice'?'die':'broom'],p=warpWitchPoint(target,state);
+    for(const type of ['broom','dice']) {
+      const target=getWitchTargets(state)[type==='dice'?'die':'broom'],p=warpWitchPoint(target,state);
       assert.equal(hitTestWitch(p.x,p.y,state)?.type,type);
     }
+    // The flying hat may cross the left-shifted moon; its exposed rim stays playable.
+    const moon=WITCH_LAYOUT.moon;
+    const exposed=Array.from({length:12},(_,i)=>{
+      const angle=i*Math.PI/6,p=warpWitchPoint({x:moon.x+Math.cos(angle)*moon.r*.7,y:moon.y+Math.sin(angle)*moon.r*.7},state);
+      return hitTestWitch(p.x,p.y,state)?.type==='moon';
+    }).filter(Boolean).length;
+    assert.ok(exposed>=6,'at least half the moon remains directly clickable');
     for(const type of ['tree','web','spider']) {
       const p=warpWitchPoint(getWitchTargets(state)[type],state);
       assert.notEqual(hitTestWitch(p.x,p.y,state)?.type,type);

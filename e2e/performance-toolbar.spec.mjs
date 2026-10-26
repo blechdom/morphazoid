@@ -9,22 +9,31 @@ const presetPages = rollout.entries.filter(entry => entry.status.startsWith("imp
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test.describe(`${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport, hasTouch: viewport.width < 900 });
-    for (const entry of presetPages) test(`${entry.id}: header order and first-row presets remain reachable`, async ({ page, baseURL }) => {
+    for (const entry of presetPages) test(`${entry.id}: header order and ${entry.id === "witch" ? "graphic preset ownership" : "first-row presets remain reachable"}`, async ({ page, baseURL }) => {
       const diagnostics = watchPageDiagnostics(page, { baseURL });
       await page.goto(entry.href); await settlePage(page);
-      await expect(page.locator(".header-preset-controls")).toBeVisible();
+      const graphicPresets = entry.id === "witch";
+      if (graphicPresets) {
+        // Witches Brew deliberately keeps its shared preset backend detached:
+        // mushrooms and the floor die are the performer's controls.
+        await expect.poll(() => page.evaluate(async () => {
+          const state = (await import("/src/site/header-presets.js")).captureHeaderPresetState();
+          return state?.instrumentId === "witch" && state.presetCount >= 12 && Object.keys(state.snapshot).length > 0;
+        })).toBe(true);
+        await expect(page.locator("[data-instrument-preset-host], .instrument-preset-controls, .header-preset-picker, .header-preset-next, .header-preset-random")).toHaveCount(0);
+      } else await expect(page.locator(".header-preset-controls")).toBeVisible();
       const mobile = viewport.width < 900;
       const layout = await page.evaluate(mobile => {
         const header = document.querySelector(".masthead"), host = document.querySelector("[data-instrument-preset-host]");
         const presets = document.querySelector(".header-preset-controls"), io = header.querySelector(".header-io-controls");
         let presetRow = presets;
-        while (presetRow.parentElement !== host && presetRow.parentElement?.matches(".mz-input-preset-row, .preset-row")) {
+        while (presetRow && presetRow.parentElement !== host && presetRow.parentElement?.matches(".mz-input-preset-row, .preset-row")) {
           presetRow = presetRow.parentElement;
         }
         const nodes = [header.querySelector(".wordmark"), header.querySelector(".instrument-picker-trigger"),
           ...(mobile ? [] : [header.querySelector(".instrument-picker-next")]),
           io.querySelector(":scope > .header-output-meter-shell"), io.querySelector(".audio-strip .mz-range-knob, .header-actions .mz-range-knob"), io.querySelector(".audio-button"), io.querySelector(".header-settings-trigger")];
-        return { first: host.firstElementChild === presetRow, inHeader: header.contains(presets),
+        return { first: Boolean(host && host.firstElementChild === presetRow), inHeader: header.contains(presets),
           ioOrder: [...io.children].filter(node => !node.classList.contains("mz-audio-input-strip")).map(node => node.classList.contains("header-output-meter-shell") ? "meters" : node.classList.contains("audio-strip") || node.querySelector(":scope > .audio-strip") ? "audio" : node.classList.contains("header-settings-menu") ? "settings" : node.className),
           boxes: nodes.map(node => node.getBoundingClientRect().toJSON()),
           width: document.documentElement.scrollWidth, audio: io.querySelector(".audio-button").getAttribute("aria-pressed"),
@@ -32,7 +41,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         };
       }, mobile);
       await expect(page.locator(".tabs .instrument-picker-next")).toBeVisible({ visible: !mobile });
-      expect(layout.first).toBe(true); expect(layout.inHeader).toBe(false);
+      expect(layout.first).toBe(!graphicPresets); expect(layout.inHeader).toBe(false);
       expect(layout.ioOrder).toEqual(["output-recording-control", "meters", "audio", "settings"]);
       expect(layout.nativeRange).toBe("range"); expect(layout.audio).toBe("false");
       expect(layout.width).toBeLessThanOrEqual(viewport.width + 1);
@@ -47,6 +56,10 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       }
       await expect(page.locator(".header-settings-panel .midi-toggle")).toHaveCount(1);
       await expect(page.locator(".midi-toggle")).not.toBeVisible();
+      if (graphicPresets) {
+        expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
+        return;
+      }
       await page.locator(".header-preset-picker > summary").scrollIntoViewIfNeeded();
       await page.locator(".header-preset-picker > summary").click();
       const popup = await page.locator("#header-preset-panel").boundingBox();

@@ -2,11 +2,12 @@
 
 Witches Brew is one continuous animated instrument. Her cauldron voice and
 Gesticules fingers keep playing together, with different foreground balances in
-the presets. The scene starts still and silent. A real click in the picture or its preset
-controls arms Audio and fades in the performance. Pull her hair firmly backward
+the presets. The scene starts still and silent. A real click in the picture
+arms Audio and fades in the performance. Pull her hair firmly backward
 to fade out and hold the scene still until the next click. This works on the
-ground and in flight. Presets and compact playback controls sit over the full-width
-picture; the parameter sidebar is gone.
+ground and in flight. The full-width picture contains the controls: mushrooms cycle presets, the floor
+die randomizes settings, and hair pulling hushes the scene. There is no preset
+menu, playback/reset overlay, help button or parameter sidebar.
 The cauldron sits over flickering flames, charred logs and rising embers.
 Brightness remains on the **+ / −** keys.
 
@@ -28,7 +29,7 @@ Brightness remains on the **+ / −** keys.
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the giant right mushrooms | Chooses the next complete settings preset and refills the ingredients, preserving whether she is flying or stirring. |
-| Click the twenty-sided die | Randomizes every musical and visual setting using the same full randomizer as the preset dice. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
+| Click the twenty-sided die | Randomizes every musical and visual setting using the full-state randomizer. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
@@ -51,8 +52,9 @@ and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnak
 notes, and Puggler's punk drums and Oi. These bites sit within the ongoing mix;
 they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.
-Consumed icons return when you click the mushrooms or moon, or choose another
-preset, Next, dice or Reset. Successive ingredient clicks preserve previously used icons. A new
+Consumed icons return when you click the mushrooms, moon or floor die, recall
+a preset with W, or reset with Backspace. Successive ingredient clicks preserve
+previously used icons. A new
 click can redirect an ongoing preset transition; direct musical gestures take
 over from the transition without resetting the audio clocks or output level.
 
@@ -121,8 +123,8 @@ With the picture focused: **A** cycles hand animations, **H** features fingers, 
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.
 **[ / ]** select an ingredient and **Enter** sends it into the pot.
-**G / Shift+G** adjusts the ghost tempo. **Space** wakes/hushes; **Escape**
-hushes and releases. The **?** control opens Playing notes and keyboard shortcuts.
+**G / Shift+G** adjusts the ghost tempo. **Backspace** resets the brew;
+**Space** wakes/hushes; **Escape** hushes and releases.
 
 The singer uses a fictional voiced/noisy source with vowel-like resonances;
 backward means traversing the authored syllable path in reverse. It is not

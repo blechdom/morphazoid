@@ -22,7 +22,7 @@ export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   die: Object.freeze({ x: 344, y: 657, r: 38 }),
-  moon: Object.freeze({ x: 800, y: 164, r: 78 }),
+  moon: Object.freeze({ x: 720, y: 164, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:105,scale:2.58}]),
   ghosts: Object.freeze([

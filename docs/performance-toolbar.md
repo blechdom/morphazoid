@@ -45,6 +45,10 @@ to the sidebar on desktop. No preset or transport state is recalled on resize.
 Voicesaurus places its **Speak / Sing** selector immediately above the preset
 row, as requested by the owner, so the mode is clear before choosing its presets.
 Focused sound, sequence, skin, material and other sub-presets stay in place.
+Witches Brew has an owner-requested picture-only exception: mushrooms cycle
+complete presets and the floor die randomizes settings, with no visible preset
+row. Its shared preset controller uses a detached host to preserve complete-state
+recall, randomization and diagnostics.
 Mic pages place their shared input strip before the desktop output meters. On
 phones and short landscape layouts, the same strip moves into Settings →
 Instrument controls. Existing native controls retain their values and events.

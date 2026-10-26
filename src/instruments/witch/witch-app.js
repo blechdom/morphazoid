@@ -96,15 +96,10 @@ function gate() { return playing || Boolean(pointer && pointer.type!=='ghost') |
 function stirring() { return pointer?.type==='stir' || (keyboardGate && !world.handOpen && !fingerKeys.size && config.scene!=='flight'); }
 function send() { const cat=getWitchCatFrame({ ...config,performanceTime,catFrame:catClock,capturedAnimals }); lastCatCaptured=Boolean(cat.captured);audio.update({ ...config,...fabricGesture.audio,catCaptured:lastCatCaptured, mode:config.scene, gate:gate(), stirring:stirring(), ghostGate:playing, fingerMask:playing?0:fingerMask(), manualFingerMask:fingerMask(), handFocus:world.handOpen?1:0, spoonAuto:config.spoonAuto && pointer?.type!=='spoon', volume:Number($('outputLevel').value) }); }
 function sync() {
-  const [caption,hint,,action] = sceneCopy[config.scene];
+  const [caption,hint] = sceneCopy[config.scene];
   $('sceneLabel').textContent=caption;
   const manualHint=[!config.stirAuto?'Turn the ladle to stir; release to let it rest.':'',!config.handAuto?'Her fingers wait for you to bend them.':''].filter(Boolean).join(' ');
   $('gestureHint').textContent=playing?[hint,manualHint].filter(Boolean).join(' '):'Touch the picture to wake the spell. Pull her hair back to hush it again.';
-  $('playLabel').textContent=playing?'Hush':'Wake';
-  $('playGlyph').textContent=playing?'Ⅱ':'▶';
-  $('playButton').setAttribute('aria-pressed',String(playing));
-  $('playButton').setAttribute('aria-label',`${playing?'Hush':'Wake'} ${action}`);
-  $('playButton').title=playing?'Hush the spell':'Wake the spell';
   $('audioButton').setAttribute('aria-pressed',String(audioOn));
   $('audioState').textContent=starting?'starting':audioOn?'on':'off';
   $('audioButton').disabled=starting;
@@ -253,8 +248,7 @@ listen($('audioButton'),'click',()=>{
   if(audioOn) {hushPerformance();audioOn=false;audio.setAudible(false);sync();}
   else wakePerformance();
 });
-listen($('playButton'),'click',()=>{if(playing)hushPerformance();else wakePerformance();});
-listen($('resetButton'),'click',()=>{
+function resetPerformance() {
   const scene=config.scene;
   hushPerformance();performanceTime=0;fabricTick=trailTick=0;quietVisual=null;
   releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});
@@ -266,12 +260,12 @@ listen($('resetButton'),'click',()=>{
   audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock),0);
   event=null;world.trip=0;world.handOpen=scene==='fingers';refillShelf();send();sync();
   $('gestureReadout').value='The pot is listening.';
-});
+}
 listen($('outputLevel'),'input',()=>{$('outputLevelOut').value=`${Math.round(Number($('outputLevel').value)*100)}%`;send();});
-// The owner explicitly makes a real picture/preset gesture the Audio opt-in.
+// The owner explicitly makes a real picture gesture the Audio opt-in.
 // Pointerup after a hair pull must not immediately wake the spell again.
 const wakeFromPicture=e=>{
-  if(!e.isTrusted||(e.type==='pointerdown'&&e.button!==0)||e.target.closest('#playButton,#resetButton'))return;
+  if(!e.isTrusted||(e.type==='pointerdown'&&e.button!==0))return;
   if(e.type==='click'&&e.detail!==0)return;
   wakePerformance();
 };
@@ -441,6 +435,7 @@ listen(canvas,'pointerup',releasePointer); listen(canvas,'pointercancel',release
 listen(canvas,'keydown',e => {
   if(e.altKey || e.ctrlKey || e.metaKey) return;
   if(e.key==='Escape') {hushPerformance();e.preventDefault();return;}
+  if(e.key==='Backspace') {if(!e.repeat)resetPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
   if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnl]$/i.test(e.key)))wakePerformance();
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
@@ -571,10 +566,11 @@ listen(window,'pagehide',e => {
   if(e.persisted) { pageSuspended=true;stopGesture(); audio.setAudible(false); cancelAnimationFrame(frame);frame=0; return; }
   if(disposed) return; disposed=true; ++request; clearInterval(clock); cancelAnimationFrame(frame); observer.disconnect(); abort.abort(); presets?.destroy(); hand.dispose();spider.dispose();audio.dispose();delete window.witchInstrument;
 });
-presets=registerHeaderPresets({id:'witch',presets:WITCH_SETTING_PRESETS,capture:()=>witchPresetSettings(config),apply:snapshot=>applySpell(snapshot),randomize:(previous,random)=>witchPresetSettings(randomizeWitchPreset(previous,random))});
+// Keep shared preset transactions for the picture without mounting a menu.
+presets=registerHeaderPresets({id:'witch',host:document.createElement('div'),presets:WITCH_SETTING_PRESETS,capture:()=>witchPresetSettings(config),apply:snapshot=>applySpell(snapshot),randomize:(previous,random)=>witchPresetSettings(randomizeWitchPreset(previous,random))});
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
   const state=visualState(),catTargets=getWitchCatTargets(state),hair=getWitchHair(state);
-  return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime),flybyLevel:audio.visual.flybyLevel??0,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),playing,audioOn,starting,quiet:!playing,presence:audio.presence,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
+  return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime),flybyLevel:audio.visual.flybyLevel??0,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,quiet:!playing,presence:audio.presence,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),

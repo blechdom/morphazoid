@@ -72,16 +72,18 @@ route when modules fail or JavaScript is unavailable.
 ## Witches Brew picture wake
 
 The owner requested an explicit exception for Witches Brew: it loads still and
-silent, and a real picture or preset gesture wakes playback, arms Audio within
-that user gesture, and fades in the ensemble. Its visible Wake/Space action does
+silent, and a real picture gesture wakes playback, arms Audio within
+that user gesture, and fades in the ensemble. Its Space shortcut does
 the same. Programmatic scene events and passive preset registration never arm
-Audio. Pulling the hair backward or using Hush fades the performance to silence
+Audio. Pulling the hair backward or pressing Space fades the performance to silence
 and freezes its visible clocks until the next gesture. Audio and output level
 remain separate from that performance fade.
 
 The live flight/stirring mode is also outside the settings preset contract.
-Presets, ingredient transitions, mushrooms, and both randomizers preserve it;
+Presets, ingredient transitions, mushrooms, and the floor die/D shortcut preserve it;
 moon/broom gestures and explicit flight keyboard actions control it.
+The owner requested no preset, playback, reset or help overlay. The picture and
+keyboard retain these actions; Backspace resets and hushes the brew.
 
 ## Explicit preset motion on Shape
 
