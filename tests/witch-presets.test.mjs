@@ -29,6 +29,8 @@ test('randomization reaches every scene, character, direction and continuous mus
   assert.equal(new Set(scenes.map(s=>s.palette)).size,8);
   assert.equal(new Set(scenes.map(s=>s.trip)).size,4);
   assert.equal(new Set(scenes.map(s=>s.visualMode)).size,8);
+  assert.ok(scenes.filter(s=>s.visualMode===0).length>scenes.length*.5,'dice favor a steady picture');
+  assert.ok(scenes.filter(s=>s.visualMode>=4).length<scenes.length*.25,'glitch scenes remain occasional');
   assert.equal(new Set(scenes.map(s=>s.treeShape)).size,6);
   for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
@@ -91,6 +93,11 @@ test('the scene bank offers distinct complete spells across colors, distortion a
   assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>JSON.stringify(snapshot))).size,WITCH_PRESETS.length);
   assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>snapshot.palette)).size,8);
   assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>snapshot.trip)).size,4);
+  assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>snapshot.visualMode)).size,8);
+  for(const bank of [WITCH_PRESETS,WITCH_PRESETS.filter(preset=>WITCH_INGREDIENTS.some(item=>item.presetId===preset.id))]) {
+    assert.ok(bank.filter(({snapshot})=>snapshot.visualMode===0).length>bank.length*.5,'factory and ingredient spells mostly keep the picture steady');
+    assert.ok(bank.filter(({snapshot})=>snapshot.visualMode>=4).length<bank.length*.2,'wild factory and ingredient spells are occasional');
+  }
   for(const scene of ['brew','fingers','flight']) assert.ok(WITCH_PRESETS.filter(({snapshot})=>snapshot.scene===scene).length>=6);
   assert.equal(normalizeWitchPreset({}).palette,0);
   assert.equal(normalizeWitchPreset({trip:100,palette:-10}).trip,3);

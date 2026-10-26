@@ -49,6 +49,12 @@ ghost beat, flight, color, distortion and tree shape. The hidden **Voice ↔ fin
 control provides a manual mix. Older saved presets retain their chosen voice
 and original balance; new fields receive safe defaults.
 
+Most factory and ingredient spells keep the picture steady while the witch
+performs. Dice choose a steady picture 60% of the time, gentle warps 25%, and
+glitch modes 15%. Mushrooms still cycle through all eight looks. VHS, static,
+pixel and angular shifts have half their earlier horizontal displacement;
+Pixel rot uses finer blocks so the scene stays readable.
+
 Flight keeps the moon, clouds and cauldron while the cupboard, tree, fabric,
 ghosts, mushrooms and animal visitors fade into the sky. The witch remains
 30% larger than her earlier flight form, and her spoon can still reach the pot.

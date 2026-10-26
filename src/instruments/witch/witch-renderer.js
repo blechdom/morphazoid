@@ -960,6 +960,7 @@ export function witchWarpX(y,state={}) {
   if(mode===5)offset=Math.sin(Math.floor(y/5)*12.73+Math.floor(time*14)*3.31)*16;
   if(mode===6)offset=Math.sin(Math.floor(y/24)*2.1+Math.floor(time*5)*.73)*18;
   if(mode===7)offset=((Math.floor(y/16)+Math.floor(time*11))%3-1)*17+Math.sin(y*.041+time*8)*7;
+  if(mode>=4)offset*=.5;
   return offset+shock*((Math.floor(y/12)+Math.floor(time*9))%3-1)*12;
 }
 export function warpWitchPoint(point,state={},inverse=false) {
@@ -1006,8 +1007,8 @@ export function renderWitch(ctx, width, height, state = {}) {
   const deform=mode>0||clamp(state.eyeShock)>0;
   world.color.filter=`hue-rotate(${hue}deg) saturate(${mode?1.6:1.25})`;world.color.drawImage(world.surface,0,0);
   if(mode===6) {
-    if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=125;world.pixel.height=90;world.pixelInk=world.pixel.getContext('2d');}
-    world.pixelInk.drawImage(world.colored,0,0,125,90);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,1000,720);world.color.imageSmoothingEnabled=true;
+    if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=250;world.pixel.height=180;world.pixelInk=world.pixel.getContext('2d');}
+    world.pixelInk.drawImage(world.colored,0,0,250,180);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,1000,720);world.color.imageSmoothingEnabled=true;
   }
   if(deform)for(let y=0;y<720;y+=4)ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
   else ctx.drawImage(palette||blend<1?world.colored:world.surface,0,0);
