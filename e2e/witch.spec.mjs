@@ -795,6 +795,50 @@ test('the hat starts intact, breaks on click two and falls on click three until 
   await key(page,'q');expect((await state(page)).hatStage).toBe('intact');
 });
 
+test('the bloody background face rushes forward with its own scream, vanishes and cancels cleanly',async({page},testInfo)=>{
+  test.setTimeout(45000);await page.emulateMedia({reducedMotion:'no-preference'});await observeWorklet(page);await open(page);
+  await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  const cues=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='ghost-scream').length);
+  await dragGhost(page,'hiccup',0,{cancel:true});expect(await cues()).toBe(0);
+  const before=(await state(page)).config.ghostTempo;
+  await dragGhost(page,'hiccup',-24);
+  expect((await state(page)).config.ghostTempo).toBeGreaterThan(before+15);expect(await cues()).toBe(0);
+  // This tap also checks first-use Audio loading, before there is a worklet.
+  await page.route('**/witch-worklet.js',async route=>{
+    await new Promise(resolve=>setTimeout(resolve,2200));await route.continue();
+  });
+  await page.reload();await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  await dragGhost(page,'hiccup',0,{touch:true});
+  await expect.poll(cues).toBe(1);
+  expect(await state(page)).toMatchObject({parts:{brew:false,hand:false},backingAwake:false,ghostScareHidden:true});
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamEnvelope??0)).toBeGreaterThan(.1);
+  await expect.poll(async()=>{
+    const face=(await state(page)).ghostScare;
+    return Boolean(face&&face.width>=1000&&face.height>=720&&face.alpha>.95);
+  },{intervals:[30]}).toBe(true);
+  await page.screenshot({path:testInfo.outputPath('ghost-scare.png')});
+  expect((await sampleAudioEnvelope(page,{durationMs:100})).summary.clippedSamples).toBe(0);
+  await expect.poll(async()=>(await state(page)).ghostScare).toBeNull();
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamActive??true)).toBe(false);
+  expect((await state(page)).ghostScareHidden).toBe(true);
+  expect((await state(page)).ghosts.find(ghost=>ghost.id==='hiccup').alpha).toBe(0);
+  await key(page,'j');expect(await cues()).toBe(1);
+  await key(page,'Backspace');await key(page,'j');await expect.poll(cues).toBe(2);
+  await expect.poll(async()=>Boolean((await state(page)).ghostScare)).toBe(true);
+  await key(page,'Escape');expect((await state(page)).ghostScare).toBeNull();
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamActive??true)).toBe(false);
+  expect((await state(page)).quiet).toBe(true);
+  // A page parked during Audio loading must not replay an orphaned scream.
+  await page.reload();await expect.poll(async()=>Boolean(await state(page))).toBe(true);
+  await key(page,'j');expect((await state(page)).starting).toBe(true);
+  await page.evaluate(()=>{
+    window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));
+    window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));
+  });
+  await expect.poll(async()=>(await state(page)).starting).toBe(false);
+  expect(await cues()).toBe(0);expect((await state(page)).ghostScare).toBeNull();
+});
+
 test('mouth, tree, spider, web, eyes and ghost gestures play over the running ensemble',async({page})=>{
   test.setTimeout(60000);
   await observeWorklet(page);await open(page);await wake(page);

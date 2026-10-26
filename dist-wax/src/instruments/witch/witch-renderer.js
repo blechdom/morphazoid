@@ -1,7 +1,7 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
-import { getWitchBlechFlyby } from './witch-scene-model.js';
+import { getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
 import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
@@ -956,12 +956,31 @@ export function getWitchGhostPosition(ghost, state = {}) {
   const home=WITCH_LAYOUT.ghosts[index];
   const phase=state.reducedMotion?0:(Number.isFinite(state.ghostPhase)?state.ghostPhase:0);
   const presence=clamp(state.ghostPresence?.[index]??.35),pulse=clamp(state.ghostPulses?.[index]);
+  const hidden=home.id==='hiccup'&&state.ghostScareHidden===true;
   // A faint remnant remains reachable between phrases. Pulses breathe within
-  // the silhouette; neither picking nor playing brings a ghost to the front.
+  // the silhouette; only the explicit Hiccup scare leaves the background.
   return {...home,index,x:home.x+Math.sin(phase*.17+index*2.1)*12,
     y:home.y+Math.sin(phase*.23+index*1.7)*9,
-    presence,pulse,phase,alpha:.025+presence*(.17+pulse*.025),
+    presence,pulse,phase,hidden,alpha:hidden?0:.025+presence*(.17+pulse*.025),
     rotation:Math.sin(phase*.13+index)*.055,scale:1};
+}
+
+/** Explicit scream age -> a solid portrait rushing from a captured stage
+ * origin into the complete CSS-pixel viewport, including its letterbox. This
+ * geometry never advances time or adds a hit surface over the instrument.
+ * Reduced motion shows the same brief full portrait without zoom or travel. */
+export function getWitchGhostScare(state = {}, width = 1000, height = 720) {
+  const scare=state.ghostScare,age=scare?.age;
+  if(scare?.id!=='hiccup'||!Number.isFinite(age)||age<0||age>=WITCH_GHOST_SCARE_DURATION)return null;
+  const w=Number.isFinite(width)&&width>0?width:1000,h=Number.isFinite(height)&&height>0?height:720;
+  const home=WITCH_LAYOUT.ghosts[2],stageScale=Math.min(w/1000,h/720);
+  const origin=warpWitchPoint({x:clamp(scare.origin?.x??home.x,0,1000),y:clamp(scare.origin?.y??home.y,0,720)},state);
+  const start={x:(w-1000*stageScale)/2+origin.x*stageScale,y:(h-720*stageScale)/2+origin.y*stageScale};
+  const progress=clamp((age-.12)/.43),rush=state.reducedMotion?1:progress*progress;
+  const fade=clamp((age-.92)/(WITCH_GHOST_SCARE_DURATION-.92));
+  const size=home.size*stageScale+(Math.max(w,h)*1.28-home.size*stageScale)*rush;
+  return {id:'hiccup',age,progress,x:start.x+(w/2-start.x)*rush,y:start.y+(h/2-start.y)*rush,
+    width:size,height:size,alpha:1-fade*fade*(3-2*fade)};
 }
 
 const ghostSources=Object.freeze({
@@ -991,7 +1010,7 @@ function removePortraitBackdrop(pixels) {
     if(y>0)add(index-width);if(y<height-1)add(index+width);
   }
 }
-function ghostPortrait(c,ghost) {
+function ghostPortrait(c,ghost,solid=false) {
   const doc=c.canvas?.ownerDocument;
   if(!doc)return null;
   let portraits=ghostImages.get(doc);
@@ -1002,6 +1021,9 @@ function ghostPortrait(c,ghost) {
     portrait={image,surface:null};portraits.set(ghost.id,portrait);
   }
   if(!portrait.image.complete||!portrait.image.naturalWidth)return null;
+  // Keep the decoded original for the foreground rush: the spectral cache is
+  // downsampled, tinted and faded along its lower half for background use only.
+  if(solid)return portrait.image;
   if(!portrait.surface) {
     // Three small, cached spectral portraits: retain each actual instrument's
     // anatomy and internal detail without three live renderers or frame filters.
@@ -1027,7 +1049,9 @@ function ghostPortrait(c,ghost) {
 }
 function backgroundGhosts(c,state) {
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
-    const ghost=getWitchGhostPosition(index,state),portrait=ghostPortrait(c,ghost);
+    const ghost=getWitchGhostPosition(index,state);
+    if(ghost.hidden)continue;
+    const portrait=ghostPortrait(c,ghost);
     c.save();c.translate(ghost.x,ghost.y);c.rotate(ghost.rotation);
     c.globalAlpha*=ghost.alpha;
     if(portrait) {
@@ -1042,6 +1066,16 @@ function backgroundGhosts(c,state) {
     }
     c.restore();
   }
+}
+
+function foregroundGhostScare(c,width,height,state) {
+  const scare=getWitchGhostScare(state,width,height);
+  if(!scare)return;
+  const portrait=ghostPortrait(c,WITCH_LAYOUT.ghosts[2],true);
+  if(!portrait)return;
+  c.save();c.globalAlpha*=scare.alpha;
+  c.drawImage(portrait,scare.x-scare.width/2,scare.y-scare.height/2,scare.width,scare.height);
+  c.restore();
 }
 
 function parkedBroomPoint(point) {
@@ -1364,6 +1398,9 @@ export function renderWitch(ctx, width, height, state = {}) {
     ctx.restore();
   }
   ctx.restore();
+  // The original bloody face stays above hands, die, distortion and palette
+  // filters, while the same canvas keeps every underlying gesture available.
+  foregroundGhostScare(ctx,w,h,state);
 }
 
 function insideOutline(x,y,outline,padding=0) {
@@ -1543,6 +1580,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
   let ghostHit=null,ghostDistance=Infinity;
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
     const ghost=getWitchGhostPosition(index,state),distance=Math.hypot(x-ghost.x,y-ghost.y);
+    if(ghost.hidden)continue;
     if(distance<Math.max(ghost.r,minRadius)&&distance<ghostDistance) {
       ghostHit={type:'ghost',index};ghostDistance=distance;
     }

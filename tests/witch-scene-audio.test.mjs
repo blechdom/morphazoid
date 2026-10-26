@@ -7,7 +7,7 @@ import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
-import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE } from '../src/instruments/witch/witch-scene-model.js';
+import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE, WITCH_GHOST_SCARE_DURATION } from '../src/instruments/witch/witch-scene-model.js';
 import { parseBlackMidiScore } from '../src/instruments/blech-midi/blech-midi-black-score.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
@@ -20,6 +20,46 @@ function render(dsp, seconds, block = 128) {
   for (let i = 0; i < data.length; i += block) dsp.process(data.subarray(i, Math.min(i + block, data.length)));
   return data;
 }
+
+test('the foreground Hiccup scream is one finite sample-clock voice independent of sleeping performers', () => {
+  const controls = { gate: false, ghostGate: false, brewEnabled: false, handEnabled: false, backingEnabled: false };
+  const off = new WitchDSP(8000); off.setControls(controls);
+  assert.equal(off.trigger('ghost-scream'), false); assert.equal(off.visual.ghostScreamActive, false);
+  const a = playing(controls, 8000), b = playing(controls, 8000);
+  assert.equal(a.trigger('ghost-scream'), true); assert.equal(b.trigger('ghost-scream'), true);
+  assert.equal(a.visual.ghostScreamAge, 0); assert.equal(a.visual.ghostScreamActive, true);
+  const voice = a.ghostScream, formants = voice.formants.slice();
+  const onset = render(a, .2);
+  assert.deepEqual(onset, render(b, .2, 1600), 'the scream never depends on display or render block size');
+  assert.ok(rms(onset) > .005 && onset.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  assert.ok(Math.abs(a.visual.ghostScreamAge - .2) < 1e-9); assert.ok(a.visual.ghostScreamEnvelope > .8);
+  assert.equal(a.visual.brewLevel, 0); assert.equal(a.visual.handLevel, 0); assert.equal(a.visual.ghostLevel, 0);
+  const age = a.visual.ghostScreamAge;
+  for (let i = 0; i < 100; i++) assert.equal(a.trigger('ghost-scream'), false, 'busy clicks do not stack or extend the scare');
+  assert.equal(a.ghostScream, voice); assert.deepEqual(voice.formants, formants); assert.equal(a.visual.ghostScreamAge, age);
+  assert.deepEqual(render(a, WITCH_GHOST_SCARE_DURATION - .2), render(b, WITCH_GHOST_SCARE_DURATION - .2, 20000));
+  assert.equal(a.visual.ghostScreamActive, false); assert.equal(a.visual.ghostScreamAge, WITCH_GHOST_SCARE_DURATION);
+  assert.equal(a.visual.ghostScreamEnvelope, 0); assert.equal(rms(render(a, .1)), 0);
+  assert.equal(a.trigger('ghost-scream'), true, 'a later accepted visit reuses the same voice');
+  assert.equal(a.ghostScream, voice);
+});
+
+test('the Hiccup scream joins witch flight echoes, bypasses Fabric and releases on Stop, mute and accent cancellation', () => {
+  const controls = { mode: 'flight', gate: true, ghostGate: false, brewEnabled: false, handEnabled: false,
+    backingEnabled: false, trailPull: .04, trailSpace: .2 };
+  const plain = playing(controls, 8000), cloth = playing({ ...controls, fabricX: .04, fabricY: .97, fabricPull: 1 }, 8000);
+  plain.trigger('ghost-scream'); cloth.trigger('ghost-scream');
+  assert.deepEqual(render(plain, .8), render(cloth, .8), 'only the separate wind enters Fabric');
+  assert.ok(plain.visual.delayLevel > .001, 'the scream reaches Candy Coil and Sandy Syrup');
+  assert.equal(plain.visual.fabricWindEnvelope, 0);
+  for (const cancel of [dsp => dsp.setControls({ gate: false }), dsp => dsp.releaseAccents(), dsp => dsp.setEnabled(false)]) {
+    const dsp = playing(controls, 8000); dsp.trigger('ghost-scream'); render(dsp, .18);
+    cancel(dsp);
+    assert.ok(rms(render(dsp, .01)) > .001, 'cancellation releases without a hard cut');
+    render(dsp, .06); assert.equal(dsp.visual.ghostScreamActive, false); assert.equal(dsp.visual.ghostScreamEnvelope, 0);
+    render(dsp, 6); assert.ok(rms(render(dsp, .1)) < 1e-6, 'the voice and its echoes finish');
+  }
+});
 
 test('BLECH flybys share a sparse icon and native-phrase clock with two bounded voices', () => {
   assert.deepEqual(getWitchBlechFlyby(4.99), []);

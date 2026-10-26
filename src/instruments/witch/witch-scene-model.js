@@ -3,6 +3,9 @@ import { witchVoiceAtHeight } from './witch-model.js';
 
 const discrete = new Set(['scene','voice','spoonAuto','stirAuto','handAuto','direction','palette','trip','visualMode','treeShape','handMotion','handSound','catGait']);
 
+// One finite Hiccup Head approach shares its duration with the scream voice.
+export const WITCH_GHOST_SCARE_DURATION = 1.25;
+
 /** A potion flight morphs musical parameters without replacing clocks/devices. */
 export function blendWitchSpell(from, to, progress) {
   const a=normalizeWitchPreset(from),b=normalizeWitchPreset(to);

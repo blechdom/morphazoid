@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '../src/instruments/witch/witch-model.js';
+import {WITCH_GHOST_SCARE_DURATION} from '../src/instruments/witch/witch-scene-model.js';
 import {traceLSystem,L_SYSTEM_PRESETS} from '../src/instruments/l-system/l-system.js';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
   let distance=Infinity;
@@ -249,6 +250,51 @@ test('ghost tempo gestures follow exposed wisps and disappear with the ground du
   }
 });
 
+test('the explicit Hiccup scare rushes once from its captured origin and fills every viewport',()=>{
+  assert.equal(WITCH_GHOST_SCARE_DURATION,1.25);
+  const origin={x:641,y:188},state={ghostScare:{id:'hiccup',age:0,origin}};
+  const first=getWitchGhostScare(state);
+  assert.deepEqual([first.x,first.y,first.width,first.alpha],[origin.x,origin.y,174,1]);
+  for(const [width,height] of [[1000,720],[1440,834],[390,300],[844,260]]) {
+    const frame=age=>getWitchGhostScare({...state,ghostScare:{...state.ghostScare,age}},width,height);
+    const start=frame(.12),rush=frame(.35),full=frame(.55),hold=frame(.85),fade=frame(1.1);
+    assert.ok(start.width<rush.width&&rush.width<full.width,'a short approach visibly increases depth');
+    assert.deepEqual([full.x,full.y],[width/2,height/2]);
+    assert.ok(full.width>=width&&full.height>=height,'the portrait covers both viewport dimensions, including letterbox');
+    assert.equal(full.alpha,1);assert.equal(hold.alpha,1);
+    assert.ok(fade.alpha>0&&fade.alpha<1);assert.equal(frame(WITCH_GHOST_SCARE_DURATION),null);
+    assert.deepEqual(frame(.35),frame(.35),'rendering cannot advance the sound-owned age');
+  }
+  for(const age of [-1,NaN,Infinity,undefined,1.25,6])assert.equal(getWitchGhostScare({...state,ghostScare:{...state.ghostScare,age}}),null);
+  assert.equal(getWitchGhostScare({}),null);
+  assert.equal(getWitchGhostScare({ghostScare:{id:'creaturazoid',age:.4,origin}}),null);
+  const still=age=>getWitchGhostScare({...state,reducedMotion:true,ghostScare:{...state.ghostScare,age}},1440,834);
+  const placement=frame=>[frame.x,frame.y,frame.width,frame.height];
+  const firstStill=still(0);
+  assert.equal(firstStill.alpha,1);assert.ok(firstStill.width>=1440&&firstStill.height>=834);
+  for(const age of [.12,.35,.55,.85,1.1])assert.deepEqual(placement(still(age)),placement(firstStill),'reduced motion keeps the full portrait stationary without zoom or shake');
+  assert.ok(still(1.1).alpha<1);assert.equal(still(WITCH_GHOST_SCARE_DURATION),null);
+});
+
+test('Hiccup cooldown removes only its background portrait and picking until restored',()=>{
+  const state={ghostPhase:4,ghostPresence:[1,1,1]},hidden={...state,ghostScareHidden:true};
+  for(let index=0;index<3;index++) {
+    const ghost=getWitchGhostPosition(index,state),during=getWitchGhostPosition(index,hidden);
+    const candidates=[.3,.6,.9].flatMap(radius=>Array.from({length:36},(_,i)=>({x:ghost.x+Math.cos(i*Math.PI/18)*ghost.r*radius,y:ghost.y+Math.sin(i*Math.PI/18)*ghost.r*radius})));
+    const exposed=candidates.find(p=>{const hit=hitTestWitch(p.x,p.y,state);return hit?.type==='ghost'&&hit.index===index;});
+    assert.ok(exposed);
+    if(index===2) {
+      assert.equal(during.alpha,0);assert.equal(during.hidden,true);
+      assert.notDeepEqual(hitTestWitch(exposed.x,exposed.y,hidden),{type:'ghost',index});
+      assert.deepEqual(hitTestWitch(exposed.x,exposed.y,{...hidden,ghostScareHidden:false}),{type:'ghost',index});
+    } else {
+      assert.deepEqual(during,ghost);
+      assert.deepEqual(hitTestWitch(exposed.x,exposed.y,hidden),{type:'ghost',index});
+    }
+  }
+  assert.equal(hitTestWitch(600,540,{...hidden,ghostScare:{id:'hiccup',age:.6,origin:{x:640,y:188}}})?.type,'stir','the foreground scare adds no blocking hit surface');
+});
+
 // Inspect actual draw calls, including the cached portrait canvases, to prove
 // depth rather than merely pinning source-code statement order.
 function captureWitchPaint() {
@@ -336,7 +382,7 @@ test('capturing the native spider leaves its web and carries one model into the 
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
 
-test('spectral instrument portraits always paint behind witch, pot, hands and solo ingredients',()=>{
+test('untriggered spectral portraits paint behind witch, pot, hands and solo ingredients',()=>{
   const previousPath=globalThis.Path2D;
   globalThis.Path2D=class {constructor(d){this.d=d;}};
   try {
@@ -365,6 +411,31 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
       }
       const witchBody=world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith(scene==='flight'?'M-67,-32':'M398,360'));
       assert.ok(witchBody>portraits.at(-1).index,'the same depth applies while flying');
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+test('the triggered bloody portrait paints original opaque art above the complete scene and vanishes',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    for(const scene of ['brew','flight']) {
+      const {context,canvases}=captureWitchPaint(),hand0={},hand1={};
+      const state={scene,flightLift:scene==='flight'?1:0,handReach:1,handSurface:hand0,handSurfaces:[hand0,hand1],
+        palette:5,visualMode:7,ghostScareHidden:true,ghostScare:{id:'hiccup',age:.65,origin:{x:640,y:188}}};
+      renderWitch(context,1440,834,state);
+      const world=canvases[1].getContext('2d').calls;
+      assert.equal(world.filter(call=>portraitUrl(call)?.endsWith('/hiccup-head-bloody.webp')).length,0,'no distant Hiccup duplicate remains');
+      assert.equal(world.filter(call=>call.args?.length===4&&/\/(creaturazoid|colony-syrinx)\.webp$/.test(portraitUrl(call)||'')).length,scene==='brew'?2:0);
+      assert.ok(world.some(call=>call.kind==='image'&&call.source===hand0)&&world.some(call=>call.kind==='image'&&call.source===hand1));
+      assert.ok(world.some(call=>call.kind==='text'&&call.value==='20'),'the foreground layer is after the floor die too');
+      const overlay=context.calls.at(-1),geometry=getWitchGhostScare(state,1440,834);
+      assert.ok(overlay.source.src.endsWith('/hiccup-head-bloody.webp'),'the decoded original image bypasses the tinted, bottom-faded 160px cache');
+      assert.equal(overlay.alpha,1);
+      assert.deepEqual(overlay.args,[geometry.x-geometry.width/2,geometry.y-geometry.height/2,geometry.width,geometry.height]);
+      context.calls.length=0;
+      renderWitch(context,1440,834,{...state,ghostScare:{...state.ghostScare,age:1.25}});
+      assert.equal(context.calls.filter(call=>portraitUrl(call)?.endsWith('/hiccup-head-bloody.webp')).length,0);
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

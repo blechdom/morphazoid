@@ -1,4 +1,5 @@
 import { normalizeWitchControls, sampleChant, witchClamp, witchHandConfig, applyWitchManualFingers, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_DROP_EFFECTS, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
+import { WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
 import { RoachPercussion } from '../roach-synth/roach-synth-percussion.js';
@@ -509,6 +510,8 @@ const THROAT_TASTE_PROFILES = Object.freeze(['clear', 'deep', 'bright'].map(id =
 // three formants replace the full physical tube for this deliberately small taste.
 const HICCUP_TASTE_PLAN = physicalVoiceParameters('hiccup');
 const HICCUP_TASTE_FRAMES = Object.freeze(Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame('hiccup', index / 128)));
+const HICCUP_SCREAM_PLAN = physicalVoiceParameters('holler');
+const HICCUP_SCREAM_FRAMES = Object.freeze(Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame('holler', index / 128)));
 const THROAT_TASTE_ORDERS = Object.freeze([[0, 1, 2], [1, 0, 1], [2, 2, 0]]);
 const CREATURE_TASTE_REPEATS = Object.freeze([.69, 1.4, .93]);
 const FM_TASTE_TIMING = Object.freeze([[27, 6, .066, .088], [36, 4, .045, .063], [42, 3, .03, .055]]);
@@ -725,6 +728,68 @@ class WitchGhostDSP {
     }
     this.left = Math.tanh(left * 2); this.right = Math.tanh(right * 2);
     if (controls.ghostGate) this.phase += controls.ghostTempo / 60 * this.dt;
+  }
+}
+
+/** One finite foreground Hiccup Head scare. Its native holler pressure,
+ * voicing, aspiration and formants drive the same compact glottal/resonator
+ * rendering used by the miniature, with an authored upward scream gesture.
+ * Busy clicks never stack or prolong the rush; only an ended voice retriggers. */
+class WitchGhostScream {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate;
+    this.frames = Math.round(rate * WITCH_GHOST_SCARE_DURATION); this.frame = this.frames;
+    this.phase = 0; this.random = 0x91c7; this.low = 0;
+    this.release = 1; this.releasing = false; this.envelope = 0; this.left = this.right = 0;
+    this.formants = Array.from({ length: 3 }, (_, index) => {
+      const filter = new Resonator(rate);
+      filter.tune(HICCUP_SCREAM_PLAN.formantFrequenciesHz[index], HICCUP_SCREAM_PLAN.formantBandwidthsHz[index]);
+      return filter;
+    });
+    this.lowpass = 1 - Math.exp(-TAU * Math.min(4800, rate * .36) / rate);
+  }
+  get active() { return this.frame < this.frames; }
+  get age() { return Math.min(WITCH_GHOST_SCARE_DURATION, this.frame * this.dt); }
+  trigger() {
+    if (this.active) return false;
+    this.frame = 0; this.phase = 0; this.random = 0x91c7; this.low = 0;
+    this.release = 1; this.releasing = false; this.envelope = 0; this.left = this.right = 0;
+    for (const filter of this.formants) filter.x1 = filter.x2 = filter.y1 = filter.y2 = 0;
+    return true;
+  }
+  cancel() { this.releasing = true; }
+  next(enabled) {
+    this.left = this.right = 0;
+    if (!enabled) this.cancel();
+    if (!this.active) { this.envelope = 0; return; }
+    if (this.releasing) this.release = Math.max(0, this.release - this.dt / .035);
+    if (this.release === 0) { this.frame = this.frames; this.envelope = 0; return; }
+    const t = this.age, u = this.frame / this.frames, position = u * 128;
+    const index = Math.min(127, Math.floor(position)), mix = position - index;
+    const a = HICCUP_SCREAM_FRAMES[index], b = HICCUP_SCREAM_FRAMES[index + 1];
+    const pressure = a.pressureDrive + (b.pressureDrive - a.pressureDrive) * mix;
+    const voicing = a.voicing + (b.voicing - a.voicing) * mix;
+    const aspiration = a.aspiration + (b.aspiration - a.aspiration) * mix;
+    const turbulence = a.turbulence + (b.turbulence - a.turbulence) * mix;
+    let random = this.random; random ^= random << 13; random ^= random >>> 17; random ^= random << 5;
+    this.random = random >>> 0; const noise = this.random / 0x80000000 - 1;
+    const rise = 1 - Math.exp(-t / .12), ragged = Math.max(0, (u - .48) / .52);
+    const hz = witchClamp(HICCUP_SCREAM_PLAN.glottalFrequencyHz * (1.1 + rise * 2.8)
+      * (1 + .012 * Math.sin(t * 39) + ragged * .035 * Math.sin(t * 83)), 70, Math.min(1500, this.rate * .16));
+    const step = hz * this.dt;
+    this.phase = (this.phase + step) % 1;
+    const glottal = 2 * this.phase - 1 - polyBlep(this.phase, step);
+    const rasp = 1 - ragged * .3 + ragged * .3 * Math.sin(t * 61) * Math.sin(t * 97);
+    const source = glottal * voicing * pressure * rasp
+      + noise * (aspiration * .14 + turbulence * .22 + ragged * .045);
+    const vowel = this.formants[0].next(source) * 3.1 + this.formants[1].next(source) * 2.4
+      + this.formants[2].next(source) * 1.2 + Math.sin(this.phase * TAU) * pressure * voicing * .14;
+    this.low += (vowel - this.low) * this.lowpass;
+    this.envelope = Math.min(1, t / .018, (WITCH_GHOST_SCARE_DURATION - t) / .24) * this.release;
+    // Character comes from pressure and pitch, not a jump in the master level.
+    const sample = Math.tanh(this.low * 2.6) * .15 * this.envelope;
+    this.left = sample * .72; this.right = sample * .69;
+    if (++this.frame >= this.frames) this.envelope = 0;
   }
 }
 
@@ -1308,12 +1373,14 @@ export class WitchDSP {
     this.fabricWind = new WitchFabricWind(this.rate);
     this.blechFlyby = new WitchBlechFlyby(this.rate);
     this.scene = new WitchSceneDSP(this.rate); this.shock = new WitchEyeShock(this.rate);
-    this.ghosts = new WitchGhostDSP(this.rate); this.backingEnergy = 0;
+    this.ghosts = new WitchGhostDSP(this.rate); this.ghostScream = new WitchGhostScream(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
-      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0, flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
+      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
+      ghostScreamActive: false, ghostScreamAge: WITCH_GHOST_SCARE_DURATION, ghostScreamEnvelope: 0,
+      flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
@@ -1361,7 +1428,7 @@ export class WitchDSP {
     if (c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
       this.scene.tree.setControls(c.treeSpread, c.treeCurl);
     }
-    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
+    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); }
     if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
@@ -1382,12 +1449,13 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
-    if (!this.enabled) { this.cat.release(); this.visitors.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); }
+    if (!this.enabled) { this.cat.release(); this.visitors.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); this.ghostScream.cancel(); }
   }
   /** Cancel manual gestures without seeking or changing either transport. */
   releaseAccents() {
     this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release();
     this.cat.release(); this.visitors.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
+    this.ghostScream.cancel();
   }
   trigger(kind, variant) {
     if (!this.enabled) return false;
@@ -1396,6 +1464,11 @@ export class WitchDSP {
       if (this.controls.mode !== 'flight') return false;
       // Wind has its own channel; it must not reopen stopped witch echoes.
       this.fabricWind.trigger(); return true;
+    } else if (kind === 'ghost-scream') {
+      accepted = this.ghostScream.trigger();
+      if (accepted) {
+        this.visual.ghostScreamActive = true; this.visual.ghostScreamAge = 0; this.visual.ghostScreamEnvelope = 0;
+      }
     } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
     else if (this.scene.trigger(kind)) accepted = true;
@@ -1447,6 +1520,7 @@ export class WitchDSP {
         this.cat.next(c, backingEnabled && c.ghostGate && !c.catCaptured, c.ghostGate);
         this.visitors.next(this.cat.time, backingEnabled && c.ghostGate && c.mode !== 'flight');
         this.scene.next(this.enabled);
+        this.ghostScream.next(this.enabled);
         this.fabricWind.next(c, this.enabled && c.mode === 'flight');
         this.blechFlyby.next(c, backingEnabled);
         // The visitors stay below the singer/fingers even in very quiet
@@ -1459,8 +1533,8 @@ export class WitchDSP {
         const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing * backingGain;
         const visitorL = this.visitors.left * backing * backingGain, visitorR = this.visitors.right * backing * backingGain;
         const flybyL = this.blechFlyby.left * backingGain, flybyR = this.blechFlyby.right * backingGain;
-        const dryL = Math.tanh((bedL * backing + ghostL + catL + visitorL + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + catR + visitorR + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + catL + visitorL + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + this.ghostScream.right + catR + visitorR + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.fabricWind.left, this.fabricWind.right);
         this.fabricMix += ((this.enabled && c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
@@ -1495,6 +1569,9 @@ export class WitchDSP {
     this.visual.catMeowLevel = this.cat.meowLevel * this.sourceGains[2];
     this.visual.dropVariant = this.drops.variant ?? 0; this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.visual.shockEnvelope = this.shock.envelope;
+    this.visual.ghostScreamActive = this.ghostScream.active;
+    this.visual.ghostScreamAge = this.ghostScream.age;
+    this.visual.ghostScreamEnvelope = this.ghostScream.envelope;
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.visual.flybyTime = this.blechFlyby.time;
     this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));
