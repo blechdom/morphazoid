@@ -190,7 +190,8 @@ class CauldronDSP {
       this.lastGate = active;
       this.envelope += ((active ? 1 : 0) - this.envelope) * (active ? this.attack : this.release);
       this.releaseAir *= this.airDecay;
-      if (c.gate) this.speed += (c.speed - this.speed) * this.smooth;
+      // Manual pots rest independently of the singer and the ensemble clock.
+      if (c.gate && (c.stirAuto || c.stirring)) this.speed += (c.speed - this.speed) * this.smooth;
       else this.speed *= this.coast;
       this.radius += (c.radius - this.radius) * this.smooth;
       this.altitude += (c.altitude - this.altitude) * this.smooth;
@@ -477,7 +478,7 @@ class WitchHandDSP extends HandDSP {
   }
   updateTargets(at) {
     super.updateTargets(at);
-    const mask = this.witchControls?.manualFingerMask ?? 0;
+    const mask = this.witchControls?.handAuto === false ? 31 : this.witchControls?.manualFingerMask ?? 0;
     if (!mask || !this.manualConfig) return;
     evaluateHandVoices(this.manualConfig, 0, this.manualTargets, this.manualPose, this.manualPrevious);
     for (let index = 0; index < 5; index++) if (mask & (1 << index)) {
@@ -1267,7 +1268,7 @@ export class WitchDSP {
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); this.scene.tree.release(); }
-    if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
+    if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
         const mask = c.fingerMask || 31;

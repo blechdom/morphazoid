@@ -86,11 +86,13 @@ function wakePerformance() {
   else if(!starting)void startAudio();
 }
 function gate() { return playing || Boolean(pointer && pointer.type!=='ghost') || keyboardGate || fingerMask()!==0; }
-function send() { const cat=getWitchCatFrame({ ...config,performanceTime,catFrame:catClock,capturedAnimals }); lastCatCaptured=Boolean(cat.captured);audio.update({ ...config,catCaptured:lastCatCaptured, mode:config.scene, gate:gate(), ghostGate:playing, fingerMask:playing?0:fingerMask(), manualFingerMask:fingerMask(), handFocus:world.handOpen?1:0, spoonAuto:config.spoonAuto && pointer?.type!=='spoon', volume:Number($('outputLevel').value) }); }
+function stirring() { return pointer?.type==='stir' || (keyboardGate && !world.handOpen && !fingerKeys.size && config.scene!=='flight'); }
+function send() { const cat=getWitchCatFrame({ ...config,performanceTime,catFrame:catClock,capturedAnimals }); lastCatCaptured=Boolean(cat.captured);audio.update({ ...config,catCaptured:lastCatCaptured, mode:config.scene, gate:gate(), stirring:stirring(), ghostGate:playing, fingerMask:playing?0:fingerMask(), manualFingerMask:fingerMask(), handFocus:world.handOpen?1:0, spoonAuto:config.spoonAuto && pointer?.type!=='spoon', volume:Number($('outputLevel').value) }); }
 function sync() {
   const [caption,hint,,action] = sceneCopy[config.scene];
   $('sceneLabel').textContent=caption;
-  $('gestureHint').textContent=playing?hint:'Touch the picture to wake the spell. Pull her hair back to hush it again.';
+  const manualHint=[!config.stirAuto?'Turn the ladle to stir; release to let it rest.':'',!config.handAuto?'Her fingers wait for you to bend them.':''].filter(Boolean).join(' ');
+  $('gestureHint').textContent=playing?[hint,manualHint].filter(Boolean).join(' '):'Touch the picture to wake the spell. Pull her hair back to hush it again.';
   $('playLabel').textContent=playing?'Hush':'Wake';
   $('playGlyph').textContent=playing?'Ⅱ':'▶';
   $('playButton').setAttribute('aria-pressed',String(playing));
@@ -123,6 +125,7 @@ function worldAction(action) {
   }
   else if(action==='sleeve') {
     spellTransition=null;
+    config.handAuto=true;
     config.handMotion=WITCH_HAND_MOTIONS[(WITCH_HAND_MOTIONS.indexOf(config.handMotion)+1)%WITCH_HAND_MOTIONS.length];
     send();sync();$('gestureReadout').value=`Hand animation: ${config.handMotion.replaceAll('-',' ')}.`;
   }
@@ -364,7 +367,7 @@ listen(canvas,'pointermove',e => {
     if(delta>Math.PI) delta-=TAU; if(delta< -Math.PI) delta+=TAU;
     const dt=Math.max(.012,(now-pointer.time)/1000);
     if(Math.abs(delta)>.003) config.direction=delta<0?-1:1;
-    config.speed=clamp(config.speed*.35+Math.abs(delta)/dt/12*.65,.02,1);
+    config.speed=clamp(config.speed*.35+Math.abs(delta)/dt/12*.65,config.stirAuto?.02:0,1);
     config.radius=clamp(current.radius+pointer.radiusOffset,.08,1); pointer.ladleAngle+=delta; pointer.angle=current.angle; pointer.time=now;
   } else if(pointer.type==='finger') { config.fingers[pointer.index]=clamp(pointer.value+(pointer.index===0?-1:1)*(p.y-pointer.start.y)/220+(p.x-pointer.start.x)/600); }
   else if(pointer.type==='flight') { config.flightX=clamp(p.x/1000,.12,.88); config.altitude=clamp(1-p.y/720); config.speed=clamp(.15+Math.abs(p.x-pointer.start.x)/450,.02,1); }
@@ -433,7 +436,8 @@ function draw(now) {
   if(now-lastPaint<1000/30) {frame=requestAnimationFrame(draw);return;}
   lastPaint=now;
   const dt=playing?Math.min(.06,(now-last)/1000):0;last=now;advancePerformanceTime(now);
-  silentSpeed+=(gate()?config.speed-silentSpeed:-silentSpeed)*(1-Math.exp(-dt/(gate()?.08:1.3)));
+  const stirActive=gate() && (config.stirAuto || stirring());
+  silentSpeed+=(stirActive?config.speed-silentSpeed:-silentSpeed)*(1-Math.exp(-dt/(stirActive?.08:1.3)));
   silentPhase=(silentPhase+config.direction*silentSpeed*dt*12+TAU)%TAU;
   motionTime+=dt*(audioMotionReady&&audio.node?audio.visual.speed:silentSpeed);
   if(audioMotionReady&&audio.node&&playing) {
@@ -470,7 +474,7 @@ const clock=setInterval(() => {
   advancePerformanceTime();advanceSpell();
   if(Boolean(getWitchCatFrame({...config,performanceTime,catFrame:catClock,capturedAnimals}).captured)!==lastCatCaptured)send();
   // A held but motionless ladle loses energy; event timing never depends on drawing.
-  if(pointer?.type==='stir' && performance.now()-pointer.time>120) { config.speed=Math.max(.02,config.speed*.8); send(); }
+  if(pointer?.type==='stir' && performance.now()-pointer.time>120) { config.speed=Math.max(config.stirAuto?.02:0,config.speed*.8); send(); }
   if(playing&&++readoutTick%5===0) {
     const v=visualState();
     if(event)return;

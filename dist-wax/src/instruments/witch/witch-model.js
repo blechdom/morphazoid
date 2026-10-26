@@ -53,9 +53,9 @@ export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
 export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','tree-l-system',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
-  speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
+  speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
   ghostTempo: 72, ghostGate: false,
-  handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5,
+  handMotion: 'finger-roll', handRate: 1, handDepth: .66, handAuto: true, handSound: 'glass-and-wire', spellBalance: .5,
   catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
@@ -72,6 +72,8 @@ export function normalizeWitchControls(value = {}) {
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
+  result.stirring = input.stirring === true;
+  for (const name of ['stirAuto', 'handAuto']) result[name] = typeof input[name] === 'boolean' ? input[name] : WITCH_DEFAULTS[name];
   result.ghostGate = input.ghostGate === true;
   result.ghostTempo = witchClamp(input.ghostTempo, 36, 180, WITCH_DEFAULTS.ghostTempo);
   result.handMotion = WITCH_HAND_MOTIONS.includes(input.handMotion) ? input.handMotion : WITCH_DEFAULTS.handMotion;
@@ -120,7 +122,7 @@ export function witchGhostFrame(phase = 0, index = 0, out = {}) {
 export function witchHandConfig(state = {}, handIndex = 0) {
   const bank=WITCH_HAND_SOUNDS.find(sound=>sound.id===state.handSound)||WITCH_HAND_SOUNDS[0];
   return {
-    motion: setHandEffectiveTempo({ id: WITCH_HAND_MOTIONS.includes(state.handMotion) ? state.handMotion : (handIndex ? 'claw-pulse' : 'finger-roll'), amount: witchClamp(state.handDepth,0,1,.66)*(handIndex?.72:1) }, 62*witchClamp(state.handRate,.25,6,1)),
+    motion: setHandEffectiveTempo({ id: state.handAuto === false ? 'still' : WITCH_HAND_MOTIONS.includes(state.handMotion) ? state.handMotion : (handIndex ? 'claw-pulse' : 'finger-roll'), amount: state.handAuto === false ? 0 : witchClamp(state.handDepth,0,1,.66)*(handIndex?.72:1) }, 62*witchClamp(state.handRate,.25,6,1)),
     tremor: { amount: 0 },
     pose: { fingers: Array.from({ length: 5 }, (_, index) => {
       const bend = witchClamp(state.fingers?.[index], 0, 1, .5);
@@ -134,9 +136,10 @@ export function witchHandConfig(state = {}, handIndex = 0) {
 }
 
 /** Directly held digits retain their complete bend while the other fingers
- * continue their incantation. The second, ladle-side hand is independently offset. */
+ * continue their incantation. Manual presets retain those bends after release.
+ * The second, ladle-side hand is independently offset. */
 export function applyWitchManualFingers(state, pose, handIndex = 0) {
-  const mask = handIndex ? 0 : Math.round(witchClamp(state.manualFingerMask, 0, 31));
+  const mask = handIndex ? 0 : state.handAuto === false ? 31 : Math.round(witchClamp(state.manualFingerMask, 0, 31));
   for (let index = 0; index < 5; index++) if (mask & (1 << index)) {
     const bend = witchClamp(state.fingers?.[index], 0, 1, .5), f = pose.fingers[index];
     f.mcp = index ? bend * 70 : bend * 80 - 10;

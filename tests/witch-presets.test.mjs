@@ -33,6 +33,18 @@ test('header snapshots recall complete settings independently of legacy stirring
   }
 });
 
+test('a small minority of presets leave stirring or fingers to the player; old saves keep automation',()=>{
+  for(const key of ['stirAuto','handAuto']) {
+    for(const value of [undefined,null,0,'false'])assert.equal(normalizeWitchPreset({[key]:value})[key],true);
+    assert.equal(normalizeWitchPreset({[key]:false})[key],false);
+    const manual=WITCH_PRESETS.filter(({snapshot})=>!snapshot[key]);
+    assert.ok(manual.length>=2&&manual.length<WITCH_PRESETS.length*.2);
+    if(key==='stirAuto')assert.ok(manual.every(({snapshot})=>!snapshot.spoonAuto));
+  }
+  assert.ok(WITCH_PRESETS.filter(({snapshot})=>snapshot.stirAuto&&snapshot.handAuto).length>WITCH_PRESETS.length*.75);
+  assert.equal('stirring' in witchPresetSettings({stirring:true}),false,'a live gesture is never saved');
+});
+
 test('randomization preserves the chosen mode and reaches every character, direction and continuous setting within bounds',()=>{
   let seed=42;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const modes=['brew','fingers','flight'];
@@ -41,6 +53,11 @@ test('randomization preserves the chosen mode and reaches every character, direc
   assert.deepEqual([...new Set(scenes.map(s=>s.voice))].sort(),[...WITCH_VOICES].sort());
   assert.equal(new Set(scenes.map(s=>s.direction)).size,2);
   assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);
+  for(const key of ['stirAuto','handAuto']) {
+    assert.equal(new Set(scenes.map(s=>s[key])).size,2);
+    assert.ok(scenes.filter(s=>s[key]).length>scenes.length*.75);
+  }
+  assert.ok(scenes.every(s=>s.stirAuto||!s.spoonAuto));
   assert.equal(new Set(scenes.map(s=>s.palette)).size,8);
   assert.equal(new Set(scenes.map(s=>s.trip)).size,4);
   assert.equal(new Set(scenes.map(s=>s.visualMode)).size,8);

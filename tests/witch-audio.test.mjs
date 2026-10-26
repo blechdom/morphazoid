@@ -63,6 +63,45 @@ test('stir speed accelerates articulation; reverse retraces syllable and vortex 
   assert.ok(fast.visual.chantPhase < before); assert.equal(fast.visual.direction, -1);
 });
 
+test('manual stirring rests, follows gestures and coasts independently of singing, hands and flight', () => {
+  for (const mode of ['brew', 'flight']) {
+    const dsp = playing({ mode, stirAuto: false, ghostGate: true });
+    assert.ok(rms(render(dsp, .5)) > .005);
+    assert.equal(dsp.visual.phase, 0); assert.equal(dsp.visual.speed, 0);
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001);
+    dsp.setControls({ stirring: true }); render(dsp, .4);
+    const speed = dsp.visual.speed, chant = dsp.visual.chantPhase;
+    assert.ok(speed > .5); assert.ok(dsp.visual.phase > 0);
+    dsp.setControls({ direction: -1 }); render(dsp, .1);
+    assert.ok(dsp.visual.chantPhase < chant);
+    dsp.setControls({ stirring: false }); render(dsp, .15);
+    assert.ok(dsp.visual.speed < speed && dsp.visual.speed > speed * .8);
+    const handTime = dsp.visual.handTime, flight = dsp.visual.flightPhase, ghost = dsp.visual.ghostPhase;
+    dsp.setControls({ nose: .9, manualFingerMask: 2 }); render(dsp, 6);
+    assert.ok(dsp.visual.speed < .006);
+    assert.ok(dsp.visual.handTime > handTime && dsp.visual.ghostPhase > ghost);
+    assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001);
+    if (mode === 'flight') assert.ok(dsp.visual.flightPhase > flight && dsp.visual.delayLevel > .001);
+    dsp.setControls({ stirAuto: true }); render(dsp, .4);
+    assert.ok(dsp.visual.speed > .5);
+  }
+});
+
+test('manual hand sounds respond to bends without restarting choreography or losing the pose on release', () => {
+  const dsp = playing({ handAuto: false }); render(dsp, .2);
+  const before = dsp.hand.targets.map(target => target.frequency);
+  dsp.setControls({ fingers: [0, .9, .5, .5, .5], manualFingerMask: 3 });
+  assert.ok(rms(render(dsp, .2)) > .005);
+  const bent = structuredClone(dsp.hand.pose.fingers), frequencies = dsp.hand.targets.map(target => target.frequency);
+  assert.notDeepEqual(frequencies.slice(0, 2), before.slice(0, 2));
+  dsp.setControls({ manualFingerMask: 0 }); render(dsp, .3);
+  assert.deepEqual(dsp.hand.pose.fingers, bent);
+  assert.deepEqual(dsp.hand.targets.map(target => target.frequency), frequencies);
+  assert.ok(dsp.visual.handLevel > .001 && dsp.visual.handTime > .6);
+  dsp.setControls({ handAuto: true }); render(dsp, .3);
+  assert.notDeepEqual(dsp.hand.pose.fingers, bent);
+});
+
 test('wail stretches and chatter breaks the vocal phrase while the fingers keep their independent clock', () => {
   const wail = playing({ voice: 'wail' }), ordinary = playing({ voice: 'mutter' }), chatter = playing({ voice: 'chatter' });
   render(wail, 2); render(ordinary, 2); render(chatter, 2);

@@ -482,6 +482,40 @@ test('the floor D20, header dice and D randomize complete settings without chang
   }
 });
 
+test('manual presets wait for stirring or finger bends while the ensemble keeps playing',async({page})=>{
+  test.setTimeout(45000);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await observeWorklet(page);await open(page);await preset(page,'secret');
+  await expect.poll(async()=>page.evaluate(()=>window.witchVisual?.speed??1),{timeout:12000}).toBeLessThan(.006);
+  expect((await state(page)).config).toMatchObject({stirAuto:false,spoonAuto:false});
+  const start=await point(page,440,520);await page.mouse.move(start.x,start.y);await page.mouse.down();
+  for(let i=1;i<=12;i++){const angle=Math.PI+i/12*Math.PI*2,p=await point(page,600+155*Math.cos(angle),520+48*Math.sin(angle));await page.mouse.move(p.x,p.y);}
+  await expect.poll(async()=>page.evaluate(()=>window.witchVisual?.speed??0)).toBeGreaterThan(.03);
+  await page.mouse.up();
+  const live=await state(page);
+  await expect.poll(async()=>page.evaluate(()=>window.witchVisual?.speed??1),{timeout:12000}).toBeLessThan(.006);
+  expect((await state(page)).handTime).toBeGreaterThan(live.handTime);
+  expect(await page.evaluate(()=>window.witchVisual.brewLevel>0&&window.witchVisual.handLevel>0)).toBe(true);
+
+  await preset(page,'fingertips');
+  await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  await page.waitForTimeout(180);
+  const before=await state(page);await page.waitForTimeout(350);
+  expect((await state(page)).hands[0].tips).toEqual(before.hands[0].tips);
+  const tip=before.hands[0].tips[2],from=await point(page,tip.x,tip.y);
+  await page.mouse.move(from.x,from.y);await page.mouse.down();
+  expect((await state(page)).manualFingerMask&4).toBe(4);
+  await page.mouse.move(from.x+45,from.y+40,{steps:5});await page.mouse.up();
+  await page.waitForTimeout(120);
+  const bent=await state(page);await page.waitForTimeout(350);
+  expect(bent.config.fingers[2]).not.toBe(before.config.fingers[2]);
+  expect((await state(page)).hands[0].tips).toEqual(bent.hands[0].tips);
+  expect(bent.config.handAuto).toBe(false);
+  await key(page,'a');expect((await state(page)).config.handAuto).toBe(true);
+  await expect.poll(async()=>(await state(page)).hands[0].tips).not.toEqual(bent.hands[0].tips);
+  await audible(page);
+});
+
 test('the ladle, fingers, nose and burned hat are native controls with clean cancellation',async({page})=>{
   await observeWorklet(page);await open(page);await wake(page);
   await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);

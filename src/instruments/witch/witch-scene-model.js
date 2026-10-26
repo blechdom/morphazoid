@@ -1,7 +1,7 @@
 import { normalizeWitchPreset } from './witch-presets.js';
 import { witchVoiceAtHeight } from './witch-model.js';
 
-const discrete = new Set(['scene','voice','spoonAuto','direction','palette','trip','visualMode','treeShape','handMotion','handSound','catGait']);
+const discrete = new Set(['scene','voice','spoonAuto','stirAuto','handAuto','direction','palette','trip','visualMode','treeShape','handMotion','handSound','catGait']);
 
 /** A potion flight morphs musical parameters without replacing clocks/devices. */
 export function blendWitchSpell(from, to, progress) {

@@ -27,8 +27,13 @@ test('ingredient flights interpolate whole spells while leaving clocks and outpu
 
 test('ingredient transitions never launch, land or change the player-selected hand focus',()=>{
   for(const scene of ['brew','fingers','flight'])for(const targetScene of ['brew','fingers','flight']) {
-    const from={...WITCH_PRESETS[0].snapshot,scene},to={...WITCH_PRESETS[1].snapshot,scene:targetScene};
-    for(const progress of [0,.25,.5,.75,1,2])assert.equal(blendWitchSpell(from,to,progress).scene,scene);
+    const from={...WITCH_PRESETS[0].snapshot,scene,stirAuto:false,handAuto:true},to={...WITCH_PRESETS[1].snapshot,scene:targetScene,stirAuto:true,handAuto:false};
+    for(const progress of [0,.25,.5,.75,1,2]) {
+      const current=blendWitchSpell(from,to,progress);
+      assert.equal(current.scene,scene);
+      assert.equal(current.stirAuto,progress>=.5);
+      assert.equal(current.handAuto,progress<.5);
+    }
     assert.deepEqual(blendWitchSpell(from,to,1),{...to,scene});
   }
 });

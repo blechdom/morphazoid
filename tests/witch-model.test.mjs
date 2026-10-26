@@ -9,6 +9,12 @@ test('witch controls reject malformed values without changing the safe startup',
   assert.equal(defaults.gate, false); assert.equal(defaults.speed, 0);
   assert.equal(defaults.fingerMask, 0); assert.equal(defaults.tone, .5); assert.equal(defaults.flightX, .5);
   assert.equal(defaults.spellBalance, .5);
+  for (const key of ['stirAuto', 'handAuto']) {
+    for (const value of [undefined, null, 0, 'false']) assert.equal(normalizeWitchControls({ [key]: value })[key], true);
+    assert.equal(normalizeWitchControls({ [key]: false })[key], false);
+  }
+  assert.equal(defaults.stirring, false);
+  assert.equal(normalizeWitchControls({ stirring: true }).stirring, true);
   const value = normalizeWitchControls({ speed: Infinity, radius: 90, direction: -22, gate: 'true',
     fingers: [NaN, -2, 5], voice: 'invalid', mode: 'invalid', volume: -9 });
   assert.equal(value.speed, 0); assert.equal(value.radius, 1); assert.equal(value.direction, -1);
@@ -67,6 +73,19 @@ test('manual fingers hold their own bend while neighbours keep gesticulating; re
   assert.deepEqual(ordinary.fingers, reduced.fingers);
   assert.deepEqual(reduced.wrist, { flex: 0, side: 0, twist: 0 });
   assert.notDeepEqual(ordinary.wrist, reduced.wrist);
+});
+
+test('manual hand presets hold both poses, accept finger bends and retain them after release', () => {
+  const state = { handAuto: false, handMotion: 'source-grasp', fingers: [.3, .8, .4, .2, .7] };
+  for (const hand of [0, 1]) assert.deepEqual(evaluateWitchHandPose(state, .1, hand), evaluateWitchHandPose(state, 4.7, hand));
+  const before = evaluateWitchHandPose(state, .1);
+  const bent = { ...state, fingers: [0, .1, .4, .2, .7], manualFingerMask: 3 };
+  const held = evaluateWitchHandPose(bent, .7);
+  assert.notDeepEqual(before.fingers[0], held.fingers[0]);
+  assert.notDeepEqual(before.fingers[1], held.fingers[1]);
+  assert.deepEqual(before.fingers.slice(2), held.fingers.slice(2));
+  assert.deepEqual(held, evaluateWitchHandPose({ ...bent, manualFingerMask: 0 }, 5));
+  assert.notDeepEqual(held, evaluateWitchHandPose({ ...bent, handAuto: true }, 5));
 });
 
 test('authored fast hand animations remain finite, distinct and responsive to their own rate and sound',()=>{

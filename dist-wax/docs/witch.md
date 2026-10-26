@@ -19,7 +19,7 @@ Brightness remains on the **+ / −** keys.
 | Pull her hair | Small tugs stretch the tangles and add scratchy noise. A firm pull backward fades out the whole mix and holds the scene still until the next click. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
-| Click her forearm sleeve | Cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
+| Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
@@ -60,6 +60,14 @@ ingredient transitions and either die preserve the live flight/stirring mode;
 only the performer launches or lands her. The singer/finger balance varies
 through presets and full randomization. Older saved presets retain their chosen voice
 and original balance; new fields receive safe defaults.
+
+Six spells leave one gesture to the player. **A secret in the steam**, **Older
+than the door**, and **One last spell before dawn** wait for manual stirring;
+the ladle coasts to rest when released. **At her fingertips**, **Five crooked
+little instruments**, and **Bells from a drowned room** hold still fingers that
+you can bend and leave in place. Singing and the ensemble continue in either
+case, on the ground or in flight. Most presets retain both automatic motions;
+each die roll has a small independent chance of choosing either manual setting.
 
 Most factory and ingredient spells keep the picture steady while the witch
 performs. Dice choose a steady picture 60% of the time, gentle warps 25%, and
