@@ -91,12 +91,17 @@ function drawCoat(context, rig) {
   for (const leg of rig.legs) if (!leg.far) drawLeg(context, rig, leg);
   coat(context, rig.upperSkull, '#171722', true);
   coat(context, rig.mouth.jaw, '#0c0d14', true);
+  if (rig.mouth.strength > .01) {
+    path(context, rig.mouth.opening, true);
+    context.fillStyle = '#df7b9b'; context.fill();
+    context.strokeStyle = '#f4bdc3'; context.lineWidth = .7; context.stroke();
+  }
   const muzzle = rig.headPoint(.36, .18);
   context.fillStyle = '#393340'; context.beginPath();
   context.ellipse(muzzle.x, muzzle.y, scale * morphology.headScale * .19, scale * morphology.headScale * .13, 0, 0, TAU); context.fill();
   context.strokeStyle = '#9286a4aa'; context.lineWidth = .65;
   for (const side of [-1,1]) for (let index = 0; index < 3; index++) {
-    path(context, [rig.headPoint(.35, side * (.12 + index * .06)), rig.headPoint(.78, side * (.14 + index * .1))]); context.stroke();
+    path(context, [rig.headPoint(.35, side * (.12 + index * .06)), rig.headPoint(.78 + rig.mouth.strength * .16, side * (.14 + index * .1 + rig.mouth.strength * .12))]); context.stroke();
   }
   // The source instrument's constellation skin remains a quiet seam in the
   // black coat, preserving its recognizable articulated, laser-line anatomy.
@@ -105,7 +110,7 @@ function drawCoat(context, rig) {
 }
 
 function drawLaserEye(context, rig, frame) {
-  const eye = rig.headPoint(.14, -.18), length = 38 + Math.sin(frame.position * .18) * 7;
+  const eye = rig.headPoint(.14, -.18), length = 38 + Math.sin(frame.position * .18) * 7 + rig.mouth.strength * 28;
   const end = {x: eye.x + length, y: eye.y + 4};
   const beam = context.createLinearGradient(eye.x, eye.y, end.x, end.y);
   beam.addColorStop(0, '#c9ffbfb0'); beam.addColorStop(.3, '#91e8bb50'); beam.addColorStop(1, '#91e8bb00');
@@ -116,14 +121,52 @@ function drawLaserEye(context, rig, frame) {
   context.beginPath(); context.ellipse(eye.x + .35, eye.y, .45, 1.4, 0, 0, TAU); context.fill();
 }
 
-/** Paint after the scene in its canonical 1000×720 coordinates. This visitor
- * has no hit target; the cauldron, fingers and ingredients retain their input. */
+function catRig(state, frame) {
+  const score = CAT_SCORES.get(frame.behaviorId);
+  const meow = Number.isFinite(state.catMeow) ? clamp(state.catMeow) : 0;
+  const pose = { ...deriveQuadrupedPose(score, frame.position), headPerformance: { strength: meow, headToss: meow * .3 } };
+  return deriveQuadrupedVisualRig(pose, LOCAL_WIDTH, LOCAL_HEIGHT, LOCAL_GROUND, score);
+}
+
+function scenePoint(point, frame) {
+  return {x:frame.x+(point.x-LOCAL_WIDTH/2)*frame.direction*1.25,y:frame.y+(point.y-LOCAL_GROUND)*1.25};
+}
+
+function hitEllipse(points, frame) {
+  const xs=points.map(point=>point.x),ys=points.map(point=>point.y);
+  const lowX=Math.min(...xs),highX=Math.max(...xs),lowY=Math.min(...ys),highY=Math.max(...ys);
+  return {...scenePoint({x:(lowX+highX)/2,y:(lowY+highY)/2},frame),rx:(highX-lowX)*.625,ry:(highY-lowY)*.625};
+}
+
+export function getWitchCatTargets(state = {}) {
+  const frame=getWitchCatFrame(state);
+  if(!frame.active||frame.alpha<=.01)return null;
+  const rig=catRig(state,frame);
+  return {body:hitEllipse(rig.body,frame),head:hitEllipse([...rig.skull,...rig.mouth.jaw,...rig.features.flatMap(feature=>feature.points)],frame)};
+}
+
+/** The foreground cat gets input only on its moving anatomy. */
+export function hitTestWitchCat(x,y,state = {}) {
+  const frame=getWitchCatFrame(state);
+  if(!frame.active||frame.alpha<=.01)return false;
+  const rig=catRig(state,frame),pad=Math.min(18,Math.max(8,(state.hitRadius||46)*.18));
+  for(const points of [rig.body,[...rig.skull,...rig.mouth.jaw,...rig.features.flatMap(feature=>feature.points)]]) {
+    const target=hitEllipse(points,frame);
+    if(((x-target.x)/(target.rx+pad))**2+((y-target.y)/(target.ry+pad))**2<=1)return true;
+  }
+  for(const chain of [rig.tail,rig.neck,...rig.legs.map(leg=>leg.points)])for(let i=1;i<chain.length;i++) {
+    const a=scenePoint(chain[i-1],frame),b=scenePoint(chain[i],frame),dx=b.x-a.x,dy=b.y-a.y;
+    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<pad)return true;
+  }
+  return false;
+}
+
+/** Paint after the scene in its canonical 1000×720 coordinates. */
 export function drawWitchCat(context, state = {}) {
   const frame = getWitchCatFrame(state);
   if (!frame.active || frame.alpha <= 0) return frame;
-  const score = CAT_SCORES.get(frame.behaviorId);
-  const pose = deriveQuadrupedPose(score, frame.position);
-  const rig = deriveQuadrupedVisualRig(pose, LOCAL_WIDTH, LOCAL_HEIGHT, LOCAL_GROUND, score);
+  const rig = catRig(state,frame);
   context.save(); context.globalAlpha *= frame.alpha;
   context.translate(frame.x, frame.y); context.scale(frame.direction * 1.25, 1.25);
   context.translate(-LOCAL_WIDTH / 2, -LOCAL_GROUND);

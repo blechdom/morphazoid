@@ -1,4 +1,4 @@
-import { drawWitchCat } from './witch-cat.js';
+import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { WITCH_SHELF } from './witch-model.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
@@ -997,6 +997,7 @@ export function renderWitch(ctx, width, height, state = {}) {
 export function hitTestWitch(x, y, state = {}) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
+  if(hitTestWitchCat(x,y,state))return {type:'cat'};
   const minRadius=Math.max(46,state.hitRadius||0);
   let nearestObject=null,objectDistance=Infinity,objectRadius=0;
   for(const [index,home] of WITCH_LAYOUT.objects.entries()) {

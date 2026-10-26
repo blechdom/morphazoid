@@ -1087,7 +1087,8 @@ export class WitchDSP {
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
-      catClock: this.cat.clock, catTime: 0, catLevel: 0, ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
+      catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
+      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
@@ -1096,7 +1097,10 @@ export class WitchDSP {
   get effects() { return this.brew.effects; }
   syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock) {
     this.brew.syncPhase(phase, speed);
-    if (catClock && typeof catClock === 'object') { this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; }
+    if (catClock && typeof catClock === 'object') {
+      this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time;
+      this.visual.catMeow = 0; this.visual.catMeowLevel = 0;
+    }
     this.visual.phase = this.brew.phase; this.visual.speed = this.brew.speed;
     if (Number.isFinite(ghostPhase)) { this.ghosts.syncPhase(ghostPhase); this.visual.ghostPhase = this.ghosts.phase; }
     if (Number.isFinite(handTime)) {
@@ -1123,6 +1127,7 @@ export class WitchDSP {
     this.delay.controls = c;
     if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); }
+    if (previous.ghostGate && !c.ghostGate) this.cat.release();
     if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
@@ -1141,9 +1146,11 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
+    if (!this.enabled) this.cat.release();
   }
   trigger(kind) {
     if (!this.enabled) return false;
+    if (kind === 'meow') return this.controls.ghostGate && this.cat.triggerMeow();
     if (WITCH_DROP_EFFECTS.includes(kind)) return this.drops.trigger(kind);
     if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) return this.flight.trigger(kind);
     return this.brew.trigger(kind);
@@ -1175,8 +1182,12 @@ export class WitchDSP {
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
         const ghostL = this.ghosts.left * ghostCeiling * backing, ghostR = this.ghosts.right * ghostCeiling * backing;
-        const dryL = Math.tanh((bedL * backing + ghostL + this.cat.left * .3 * backing + dropL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + this.cat.right * .3 * backing + dropR + b[5][i] * .85) / .54) * .54;
+        // The clicked head is featured above its feet, through the same flight
+        // delay and Fabric filter as every other performer.
+        const catL = (this.cat.left * .3 + this.cat.meowLeft * .9) * backing;
+        const catR = (this.cat.right * .3 + this.cat.meowRight * .9) * backing;
+        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.delay.left, this.delay.right);
         // Fixed makeup preserves relative whispers and decays. This memoryless
@@ -1200,6 +1211,7 @@ export class WitchDSP {
     this.visual.handLevel = Math.sqrt(handEnergy / Math.max(1, left.length));
     this.visual.dropLevel = Math.sqrt(dropEnergy / Math.max(1, left.length));
     this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; this.visual.catLevel = this.cat.level;
+    this.visual.catMeow = this.cat.meowEnvelope; this.visual.catMeowLevel = this.cat.meowLevel;
     this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));

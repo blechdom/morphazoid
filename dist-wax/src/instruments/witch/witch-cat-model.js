@@ -4,6 +4,14 @@ export const WITCH_CAT_GAITS = Object.freeze(['cat-prowl', 'cat-gallop', 'walk',
 export const WITCH_CAT_PERIOD = 30;
 export const WITCH_CAT_DURATION = 7;
 export const WITCH_CAT_STEPS_PER_SECOND = 48;
+export const WITCH_CAT_MEOW_DURATION = .85;
+
+export function witchCatMeowEnvelope(age) {
+  if (!Number.isFinite(age) || age < 0 || age >= WITCH_CAT_MEOW_DURATION) return 0;
+  const smooth = value => value * value * (3 - 2 * value);
+  return smooth(Math.min(1, age / .035))
+    * (1 - smooth(Math.max(0, (age - .4) / (WITCH_CAT_MEOW_DURATION - .4))));
+}
 
 const clamp = (value, low, high, fallback) => Number.isFinite(value)
   ? Math.max(low, Math.min(high, value)) : fallback;

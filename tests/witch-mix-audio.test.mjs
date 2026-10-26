@@ -91,3 +91,50 @@ test('cat owns primary Play transport and joins the same delayed mix; phase snap
   dsp.setEnabled(false); dsp.setControls({ ghostGate: true }); render(dsp, .2);
   assert.ok(dsp.cat.time > paused); assert.equal(dsp.cat.activeVoiceCount, 0);
 });
+
+test('meow accepts only Audio-on primary Play visits and releases on Stop, Audio off, and reset', () => {
+  const dsp = new WitchDSP(12000), clock = createWitchCatClock(31);
+  dsp.syncPhase(0, 0, 0, .5, 0, 0, clock);
+  dsp.setControls({ gate: true, ghostGate: true });
+  assert.equal(dsp.trigger('meow'), false, 'no automatic Audio arm');
+  dsp.setEnabled(true); dsp.setControls({ ghostGate: false });
+  assert.equal(dsp.trigger('meow'), false, 'held gestures cannot replace primary Play');
+  dsp.setControls({ ghostGate: true }); assert.equal(dsp.trigger('meow'), true);
+  render(dsp, .1); assert.ok(dsp.visual.catMeow > .9); assert.ok(dsp.visual.catMeowLevel > .01);
+  dsp.setControls({ ghostGate: false }); assert.equal(dsp.trigger('meow'), false);
+  render(dsp, .04); assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.cat.meow.active, false);
+  dsp.setControls({ ghostGate: true }); assert.equal(dsp.trigger('meow'), true); render(dsp, .1);
+  dsp.setEnabled(false); assert.equal(dsp.trigger('meow'), false); render(dsp, .04);
+  assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.cat.meow.active, false);
+  dsp.setEnabled(true); assert.equal(dsp.trigger('meow'), true); render(dsp, .1);
+  dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(0));
+  assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.trigger('meow'), false);
+  render(dsp, .04); assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.cat.meow.active, false);
+  dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(38));
+  assert.equal(dsp.trigger('meow'), false, 'no voice from an absent cat');
+});
+
+test('meow enters the shared flight delay and Fabric filter without disturbing performer clocks', () => {
+  const make = controls => {
+    const dsp = playing({ gate: false, ghostGate: true, ...controls });
+    dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(31)); return dsp;
+  };
+  const feet = make(), dry = make(), flight = make({ mode: 'flight', trailPull: .6, trailTwist: .6 });
+  const windy = make({ fabricX: .02, fabricY: .94 });
+  dry.trigger('meow'); flight.trigger('meow'); windy.trigger('meow');
+  const quiet = render(feet, .9), plain = render(dry, .9), delayed = render(flight, .9), filtered = render(windy, .9);
+  assert.ok(difference(plain, quiet) > .04, 'clicked head is audible above its feet');
+  assert.ok(difference(plain, delayed) > .01, 'flight processes the meow');
+  assert.ok(difference(plain, filtered) > .01, 'Fabric processes the meow');
+  assert.deepEqual(dry.cat.clock, feet.cat.clock); assert.deepEqual(flight.cat.clock, feet.cat.clock);
+  assert.equal(dry.visual.handTime, feet.visual.handTime); assert.equal(dry.chantPhase, feet.chantPhase);
+  for(const dsp of [dry, flight, windy]) {
+    assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.cat.meow.active, false);
+    dsp.setControls({ ghostGate: false }); render(dsp, .08);
+  }
+  const tail = render(flight, .5), direct = render(dry, .5);
+  assert.ok(rms(tail) > .002, 'shared flight echoes outlast the head envelope');
+  assert.ok(rms(direct) < 1e-7, 'direct voice has released');
+  assert.ok(tail.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  flight.setEnabled(false); render(flight, 2); assert.ok(rms(render(flight, .1)) < 1e-7);
+});

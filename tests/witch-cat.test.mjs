@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { drawWitchCat, getWitchCatFrame } from '../src/instruments/witch/witch-cat.js';
-import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS } from '../src/instruments/witch/witch-cat-model.js';
+import { drawWitchCat, getWitchCatFrame, getWitchCatTargets, hitTestWitchCat } from '../src/instruments/witch/witch-cat.js';
+import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, WITCH_CAT_GAITS, witchCatMeowEnvelope } from '../src/instruments/witch/witch-cat-model.js';
+import { hitTestWitch, warpWitchPoint } from '../src/instruments/witch/witch-renderer.js';
 
 test('the Quadruped cat visits for seven seconds every thirty seconds of the owner clock',()=>{
   for(const time of [0,29.999,37,59.999,67,89.999]) assert.equal(getWitchCatFrame({performanceTime:time}).active,false,`${time}`);
@@ -90,4 +91,35 @@ test('each authored Quadruped gait draws the larger cat about its fixed ground l
   const {context,scales}=drawingProbe();
   drawWitchCat(context,{performanceTime:63.5});
   assert.deepEqual(scales[0],[-1.25,1.25]);
+});
+
+test('click targets follow both directions and every gait through mushroom distortion',()=>{
+  for(const catGait of WITCH_CAT_GAITS)for(const performanceTime of [32.5,33.5,63.5,64.5])for(const trip of [0,3]) {
+    const state={performanceTime,catGait,trip,warpTime:.7,playing:true};
+    const targets=getWitchCatTargets(state);
+    for(const target of Object.values(targets)) {
+      assert.equal(hitTestWitchCat(target.x,target.y,state),true);
+      const visible=warpWitchPoint(target,state);
+      assert.deepEqual(hitTestWitch(visible.x,visible.y,state),{type:'cat'});
+      assert.deepEqual(hitTestWitch(visible.x,visible.y,{...state,playing:false}),{type:'cat'},'paused cat still shields objects behind it');
+    }
+    assert.equal(hitTestWitchCat(targets.body.x,targets.body.y-120,state),false);
+  }
+  for(const performanceTime of [0,29,37,59]) {
+    assert.equal(getWitchCatTargets({performanceTime}),null);
+    assert.equal(hitTestWitchCat(500,650,{performanceTime}),false);
+  }
+});
+
+test('meow opens the actual head rig while preserving body travel and a bounded silent reaction',()=>{
+  const state={performanceTime:33.5},quiet=getWitchCatTargets(state),meow=getWitchCatTargets({...state,catMeow:1});
+  assert.deepEqual(quiet.body,meow.body);
+  assert.notDeepEqual(quiet.head,meow.head);
+  assert.deepEqual(getWitchCatFrame(state),getWitchCatFrame({...state,catMeow:1}));
+  const a=drawingProbe(),b=drawingProbe();drawWitchCat(a.context,state);drawWitchCat(b.context,{...state,catMeow:1});
+  assert.notDeepEqual(a.calls,b.calls);
+  assert.ok(b.calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
+  for(const age of [-1,0,.85,3,Infinity,NaN])assert.equal(witchCatMeowEnvelope(age),0);
+  assert.equal(witchCatMeowEnvelope(.1),1);
+  assert.ok(witchCatMeowEnvelope(.7)<witchCatMeowEnvelope(.5));
 });

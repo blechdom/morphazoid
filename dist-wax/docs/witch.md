@@ -106,7 +106,10 @@ Quadruped anatomy, four authored gaits and contact sounds. Every preset has its
 own gait/pace combination; the default crossing lasts seven seconds, and the
 pace range gives crossings from 3.5 to 14 seconds. Live edits preserve travel
 and paw phase. Stop freezes the cat and releases its sounds. Audio changes
-preserve the clock; the cat does not intercept gestures.
+preserve the clock. Click the walking cat (or press **C** with the picture
+focused) for a short synthesized meow. Its jaw and whiskers react with the
+voice while it continues walking. The meow joins the shared flight delay and
+Fabric Filter. Audio-off clicks react silently and never arm sound.
 
 Audio starts off while Play is already active. Gestures and Play never arm
 Audio. Changing finger focus, steering, landing, mushroom changes and object drops

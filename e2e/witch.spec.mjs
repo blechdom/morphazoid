@@ -45,6 +45,7 @@ async function observeWorklet(page) {
               window.witchGhostPeak=Math.max(window.witchGhostPeak??0,Math.abs(data.ghostLevel??0));
               if(data.catClock?.active&&!window.witchCatFirstActive)window.witchCatFirstActive=data.catClock;
               window.witchCatPeak=Math.max(window.witchCatPeak??0,Math.abs(data.catLevel??0));
+              window.witchCatMeowPeak=Math.max(window.witchCatMeowPeak??0,Math.abs(data.catMeowLevel??0));
             }
           });
           this.port.start();
@@ -83,6 +84,28 @@ async function clickIngredient(page,id,touch=false) {
   }
   await expect.poll(async()=>(await state(page)).objects.find(item=>item.id===id).dropped).toBe(true);
   expect((await state(page)).objects.find(item=>item.id===id).dragging).toBe(false);
+}
+async function clickCat(page,{touch=false,part='body'}={}) {
+  await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
+  const session=touch?await page.context().newCDPSession(page):null;
+  if(session)await session.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+  // The diagnostic targets follow the real Quadruped pose and include the
+  // world's current distortion, so this is a click on the visible animal.
+  const snapshot=await page.evaluate(part=>{
+    const state=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+    return {active:state.cat.active,target:state.catTargets?.[part],rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },part);
+  const target=snapshot.target;
+  expect(snapshot.active).toBe(true);expect(target).toBeTruthy();
+  expect(target.x).toBeGreaterThan(0);expect(target.x).toBeLessThan(1000);
+  expect(target.y).toBeGreaterThan(0);expect(target.y).toBeLessThan(720);
+  const from=stagePoint(snapshot.rect,target.x,target.y);
+  if(session) {
+    await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+    await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await session.detach();
+  } else await page.mouse.click(from.x,from.y);
+  return target;
 }
 async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
@@ -480,53 +503,119 @@ test('expanded presets recall night colors while the cat clock follows Play and 
   expect((await state(page))).toMatchObject({playing:false,performanceTime:0,cat:{active:false},config:{palette:0,trip:0},world:{trip:0}});
 });
 
-test('the first cat crossing arrives at thirty Play seconds, sounds on Audio and retains its place through Stop and rearm',async({page},testInfo)=>{
-  test.setTimeout(65000);
+test('the first cat crossing arrives at thirty Play seconds, meows on mouse, touch and C, and keeps its clock through Stop and rearm',async({page},testInfo)=>{
+  test.setTimeout(90000);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const togglePlay=async()=>{await page.locator('#playButton').focus();await page.keyboard.press('Space');};
   await observeWorklet(page);await open(page);
   expect((await state(page)).cat.active).toBe(false);
-  // Wait through real primary-Play time: neither test-only seeking nor RAF
-  // simulation should manufacture the first thirty-second appearance.
+  await range(page,'catSpeed',.5);await range(page,'lineBend',2);
+  // This is a real first visit, with no test-only seek or accelerated clock.
   await expect.poll(async()=>(await state(page)).performanceTime,{timeout:32000,intervals:[150,250,400]}).toBeGreaterThanOrEqual(27);
   const silent=await state(page);
   expect(silent.performanceTime).toBeLessThan(30);expect(silent.cat.active).toBe(false);
-  await page.locator('#audioButton').click();
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catClock?.time??0)).toBeGreaterThanOrEqual(silent.performanceTime);
   await expect.poll(async()=>(await state(page)).cat.active,{timeout:6000,intervals:[50,100]}).toBe(true);
   const first=await state(page);
   expect(first.performanceTime).toBeGreaterThanOrEqual(30);expect(first.performanceTime).toBeLessThan(31.5);
   expect(first.cat).toMatchObject({visit:1,source:'quadruped',animalId:'cat',behaviorId:'cat-prowl'});
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catLevel??0)).toBeGreaterThan(.00001);
-  const onset=await page.evaluate(()=>window.witchCatFirstActive);
-  expect(onset.time).toBeGreaterThanOrEqual(30);expect(onset.time).toBeLessThan(30.25);
-  await expect.poll(async()=>(await state(page)).cat.progress).toBeGreaterThan(.2);
-  await page.screenshot({path:testInfo.outputPath('desktop-cat-crossing.png'),fullPage:true});
-  const moving=await state(page);
-  await range(page,'catSpeed',.5);
-  const changed=await state(page);
-  expect(changed.cat.position).toBeGreaterThanOrEqual(moving.cat.position-.01);
-  expect(changed.cat.progress).toBeGreaterThanOrEqual(moving.cat.progress-.001);
-  await page.locator('#playButton').click();
+  await expect.poll(async()=>(await state(page)).cat.progress,{intervals:[50,100]}).toBeGreaterThan(.16);
+  // Pause only between stages, keeping a single visit on screen while browser
+  // assertions, screenshots and viewport setup run. Every meow input is live.
+  await togglePlay();
+  const unarmed=await state(page);
+  await togglePlay();await clickCat(page,{part:'head'});
+  await expect.poll(async()=>(await state(page)).catMeow).toBeGreaterThan(.01);
+  const firstReaction=await state(page);
+  expect(firstReaction.config).toEqual(unarmed.config);
+  expect(firstReaction).toMatchObject({playing:true,audioOn:false});
+  expect(firstReaction.cat.position).toBeGreaterThan(unarmed.cat.position);
+  await togglePlay();
+  expect((await state(page)).catMeow).toBe(0);
+  await togglePlay();
+  expect((await state(page)).catMeow).toBe(0);
+  await togglePlay();
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  const handoff=await state(page);
+  await page.locator('#audioButton').click();
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catClock?.time??0)).toBeGreaterThanOrEqual(handoff.performanceTime);
+  expect((await state(page)).cat.position).toBeCloseTo(handoff.cat.position,5);
+  expect((await state(page))).toMatchObject({playing:false,audioOn:true});
+  const meowCount=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='meow').length);
+  const settleStoppedClock=async()=>{
+    // The stop control and its last clock packet cross the worklet port.
+    const audioTime=await page.evaluate(()=>window.witchVisual.audioTime);
+    await page.waitForFunction(time=>window.witchVisual.audioTime>time+.07,audioTime);
+  };
+  async function audibleMeow(gesture,{capture=false,decay=false,stop=true}={}) {
+    const before=await state(page),count=await meowCount();
+    await togglePlay();
+    await gesture();
+    let after;
+    await expect.poll(async()=>{
+      const snapshot=await page.evaluate(()=>({state:window.witchInstrument.state,visual:window.witchVisual,
+        count:window.witchTriggers.filter(kind=>kind==='meow').length}));
+      after=snapshot.state;
+      return snapshot.count===count+1 && snapshot.visual?.catMeow>0 && snapshot.visual.catMeow<=1
+        && snapshot.visual.catMeowLevel>.00001 && after.catMeow>0;
+    },{intervals:[50,100]}).toBe(true);
+    if(capture)await page.screenshot({path:testInfo.outputPath('desktop-cat-meow.png'),fullPage:true});
+    if(decay)await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catMeowLevel<.00001
+      && window.witchInstrument.state.catMeow<.001),{timeout:4000,intervals:[50,100]}).toBe(true);
+    if(stop)await togglePlay();
+    expect(after.config).toEqual(before.config);
+    expect(after).toMatchObject({playing:true,audioOn:true});
+    expect(after.cat.visit).toBe(before.cat.visit);
+    expect(after.cat.position).toBeGreaterThan(before.cat.position);
+    expect(after.cat.progress).toBeGreaterThan(before.cat.progress);
+  }
+  await audibleMeow(()=>clickCat(page,{part:'head'}),{capture:true});
+  await page.setViewportSize({width:390,height:844});
+  await audibleMeow(()=>clickCat(page,{touch:true}));
+  await page.setViewportSize({width:1440,height:900});
+  await audibleMeow(async()=>{await page.locator('#witchCanvas').focus();await page.keyboard.press('c');},{decay:true});
+  expect(await page.evaluate(()=>window.witchCatMeowPeak)).toBeGreaterThan(.00001);
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catLevel??1)).toBeLessThan(.00001);
+  await settleStoppedClock();
   const stopped=await state(page);
   await page.waitForTimeout(250);
   const frozen=await state(page);
   expect(frozen.performanceTime).toBeCloseTo(stopped.performanceTime,5);
   expect(frozen.cat.position).toBeCloseTo(stopped.cat.position,5);
   expect(frozen.cat.progress).toBeCloseTo(stopped.cat.progress,5);
-  await page.locator('#audioButton').click();await page.locator('#playButton').click();
-  await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(stopped.performanceTime+.2);
+  const stoppedCount=await meowCount();
+  await clickCat(page,{part:'head'});
+  await page.locator('#witchCanvas').focus();await page.keyboard.press('c');
+  expect(await meowCount()).toBe(stoppedCount);
+  const stoppedReaction=await state(page);
+  expect(stoppedReaction.catMeow).toBe(0);expect(stoppedReaction.config).toEqual(stopped.config);
+  await page.locator('#audioButton').click();await togglePlay();
+  await clickCat(page);
+  await expect.poll(async()=>(await state(page)).catMeow).toBeGreaterThan(.01);
+  const silentReaction=await state(page);
+  expect(silentReaction.config).toEqual(stopped.config);
+  expect(silentReaction).toMatchObject({playing:true,audioOn:false});
+  expect(silentReaction.cat.position).toBeGreaterThan(stopped.cat.position);
+  const silence=await sampleAudioEnvelope(page,{durationMs:150});
+  expect(silence.summary.maxPeak).toBeLessThan(.00001);
+  await togglePlay();
+  await settleStoppedClock();
   const muted=await state(page);
-  expect(muted.audioOn).toBe(false);expect(muted.cat.position).toBeGreaterThan(stopped.cat.position);
   await page.locator('#audioButton').click();
   const rearmed=await state(page);
-  expect(rearmed.performanceTime).toBeGreaterThanOrEqual(muted.performanceTime);
-  expect(rearmed.cat.position).toBeGreaterThanOrEqual(muted.cat.position);
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catLevel??0)).toBeGreaterThan(.00001);
+  expect(rearmed.performanceTime).toBeCloseTo(muted.performanceTime,5);
+  expect(rearmed.cat.position).toBeCloseTo(muted.cat.position,5);
+  const lastTarget=stopped.catTargets.body;
+  await audibleMeow(async()=>{await page.locator('#witchCanvas').focus();await page.keyboard.press('c');},{stop:false});
   await page.locator('#resetButton').click();
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.catClock?.time)).toBe(0);
   await page.waitForTimeout(200);
-  expect((await state(page))).toMatchObject({playing:false,performanceTime:0,handTime:0,cat:{active:false}});
+  expect((await state(page))).toMatchObject({playing:false,performanceTime:0,handTime:0,cat:{active:false},catMeow:0});
+  await togglePlay();
+  expect((await state(page))).toMatchObject({playing:true,cat:{active:false}});
+  const absentCount=await meowCount(),oldPosition=await point(page,lastTarget.x,lastTarget.y);
+  await page.mouse.click(oldPosition.x,oldPosition.y);
+  await page.locator('#witchCanvas').focus();await page.keyboard.press('c');
+  expect(await meowCount()).toBe(absentCount);expect((await state(page)).catMeow).toBe(0);
   expect(errors).toEqual([]);
 });
 
