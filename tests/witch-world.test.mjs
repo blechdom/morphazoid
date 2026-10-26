@@ -379,7 +379,8 @@ test('capturing the native spider leaves its web and carries one model into the 
       const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,state);
       const world=canvases[1].getContext('2d').calls;
       assert.equal(world.filter(call=>call.kind==='image'&&call.source===spiderSurface).length,count,'no static duplicate stays in the tree during the dive');
-      if(!flightLift)assert.ok(world.some(call=>call.kind==='stroke'&&call.color==='#adc7d47a'),'the catching threads remain after their spider is consumed');
+      if(!flightLift)assert.ok(world.some(call=>call.kind==='image'&&call.source?.getContext?.('2d')?.calls?.some(
+        entry=>entry.kind==='stroke'&&entry.color==='#adc7d47a')),'the cached catching threads remain after their spider is consumed');
       if(spiderCaptured)assert.notEqual(hitTestWitch(target.x,target.y,state)?.type,'spider');
       else assert.equal(hitTestWitch(target.x,target.y,state)?.type,'spider');
     }

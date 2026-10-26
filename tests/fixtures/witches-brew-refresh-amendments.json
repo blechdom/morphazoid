@@ -53,6 +53,18 @@
         {
           "before": "",
           "after": "copy+require\tsrc/instruments/witch/witch-trail-gesture.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-model-display.js\ncopy+require\tsrc/instruments/witch/witch-performance.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-unicorn-audio.js\ncopy+require\tsrc/instruments/witch/witch-shape-model.js\ncopy+require\tsrc/instruments/witch/witch-shape.js\ncopy+require\tsrc/instruments/witch/witch-shape-audio.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tassets/witch/hand-512.glb\ncopy+require\tassets/witch/hand-1024.glb\ncopy+require\tassets/witch/tarantula-512.glb\ncopy+require\tassets/witch/README.md\n"
         }
       ]
     },
@@ -62,7 +74,7 @@
       "replacements": [
         {
           "before": "**[Witch](witch.html)** is a work in progress: stir her cauldron to brew a voice,\ntouch her right hand to stretch five witchy Gesticules fingers, click the moon\nto ride a musical broom, and touch mushrooms to warp the colors and lines. Audio starts off. [Gestures and sound](docs/witch.md).\n\n",
-          "after": "**[Witches Brew](witch.html)** leads Faves with a quiet, still scene.\nClick the picture to fade in her singing cauldron and Gesticules hands; pull\nher hair back to hush and freeze the scene until the next click. Shelf and\ntree instruments add sound bites as they dive into the pot. Mushrooms recall\nwhole spells; the floor's 20-sided die randomizes the settings. Presets keep\nyour chosen flight or stirring mode. The moon or broom toggles flight through\nher playable hair delay trail. Pluck the web and catch passing animals.\n[Gestures and sound](docs/witch.md).\n\n"
+          "after": "**[Witches Brew](witch.html)** leads Faves with a quiet, still scene.\nClick the picture to fade in her singing cauldron and Gesticules hands; pull\nher hair back to hush and freeze the scene until the next click. Shelf and\ntree instruments add sound bites as they dive into the pot. Mushrooms recall\nwhole spells; the floor's SHAPES charm morphs between native 3D/4D forms, plays\nits geometry-derived sound and randomizes the settings. Presets keep\nyour chosen flight or stirring mode. The moon or broom toggles flight through\nher playable hair delay trail. Pluck the web and catch passing animals.\n[Gestures and sound](docs/witch.md).\n\n"
         }
       ]
     }

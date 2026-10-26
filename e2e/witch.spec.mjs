@@ -5,9 +5,9 @@ import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from '.
 const pageErrors=new WeakMap();
 test.afterEach(async({page})=>{expect(pageErrors.get(page)??[]).toEqual([]);});
 
-async function open(page) {
+async function open(page,gotoOptions={}) {
   const errors=[];pageErrors.set(page,errors);page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('/witch.html');
+  await page.goto('/witch.html',gotoOptions);
   await expect(page.locator('#witchCanvas')).toBeVisible();
   await page.waitForFunction(()=>Boolean(window.witchInstrument?.state));
 }
@@ -1091,12 +1091,84 @@ test('Space, reset and page lifecycle release gestures without losing the chosen
   await key(page,'Space');await assertFrozen(page);expect((await state(page)).config.scene).toBe('flight');
   await key(page,'Backspace');expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,eyeShock:0,config:{scene:'flight'}});
   await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
-  await wake(page);await page.locator('#witchCanvas').focus();await page.keyboard.down('2');expect((await state(page)).manualFingerMask&2).toBe(2);
+  // The flight background is Fabric: touching it wakes only wind. Restart
+  // the whole ensemble explicitly before checking its lifecycle.
+  await key(page,'Space');expect((await state(page)).parts).toEqual({brew:true,hand:true});
+  await page.keyboard.down('2');expect((await state(page)).manualFingerMask&2).toBe(2);
   await page.evaluate(()=>window.dispatchEvent(new Event('blur')));expect((await state(page)).manualFingerMask).toBe(0);await page.keyboard.up('2');
   await page.evaluate(()=>{window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
   const live=await state(page);await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(live.performanceTime);
   await audible(page);await page.locator('#audioButton').click();expect(await state(page)).toMatchObject({quiet:true,audioOn:false,config:{scene:'flight'}});
   await waitForStableAudioState(page,false,{timeout:5000,stableMs:150});
+});
+
+test.describe('mobile rendering lifecycle',()=>{
+  test.use({viewport:{width:390,height:844},deviceScaleFactor:3,hasTouch:true,isMobile:true,reducedMotion:'no-preference'});
+  test('quiet assets repaint once, then rendering sleeps until a real gesture',async({page})=>{
+    test.setTimeout(60000);
+    let releaseMoon;
+    const moonGate=new Promise(resolve=>{releaseMoon=resolve;});
+    await page.route('**/assets/instruments/oculoid.webp',async route=>{await moonGate;await route.continue();});
+    try {
+      await open(page,{waitUntil:'domcontentloaded'});
+      await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady);
+      await expect.poll(async()=>(await state(page)).renderQuality.pendingPaint).toBe(false);
+      await page.waitForTimeout(500);
+      const resting=await state(page);
+      releaseMoon();
+      await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(resting.renderQuality.paints);
+      await page.waitForTimeout(500);
+      const loaded=await state(page);
+      await page.waitForTimeout(750);
+      const still=await state(page);
+      expect(still.renderQuality.paints).toBe(loaded.renderQuality.paints);
+      expect(still.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
+      expect(still.handMetadata.renderCounts).toEqual(loaded.handMetadata.renderCounts);
+      expect(still.spiderMetadata.renderCount).toBe(loaded.spiderMetadata.renderCount);
+      expect(still.handMetadata.texturePixels).toBeLessThanOrEqual(3*512*512);
+      expect(still.handMetadata.modelUrl).toMatch(/\/assets\/witch\/hand-512\.glb$/);
+      expect(still.spiderMetadata.texturePixels).toBe(512*512);
+      await wake(page,{touch:true});
+      await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(still.renderQuality.paints+2);
+      await key(page,'Escape');await page.waitForTimeout(300);
+      const hushed=await state(page);await page.waitForTimeout(500);
+      expect((await state(page)).renderQuality.paints).toBe(hushed.renderQuality.paints);
+      expect(hushed.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
+    } finally {releaseMoon();}
+  });
+  test('rotation, tablet resizing and cached-page suspension preserve audio and touch control',async({page},testInfo)=>{
+    test.setTimeout(60000);await observeWorklet(page);await open(page);await wake(page,{touch:true});
+    await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady);
+    // Manual fingers hold their pose while the tablet rotates; this verifies
+    // coordinate preservation without chasing an animated fingertip.
+    await preset(page,'fingertips');expect((await state(page)).config.handAuto).toBe(false);
+    await bendFinger(page,{touch:true});
+    await clickWorld(page,'web',{touch:true});
+    await expect.poll(()=>page.evaluate(()=>window.witchTriggers.some(kind=>kind.startsWith('web-')))).toBe(true);
+    await clickWorld(page,'moon',{touch:true});
+    await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+    const before=await state(page);
+    for(const viewport of [{width:844,height:390},{width:768,height:1024}]) {
+      const paints=(await state(page)).renderQuality.paints;
+      await page.setViewportSize(viewport);
+      await expect.poll(()=>page.locator('#witchCanvas').evaluate(canvas=>canvas.width)).toBe(Math.round(viewport.width*1.5));
+      await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(paints);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+      await bendFinger(page,{touch:true});
+      expect((await state(page)).config.scene).toBe('flight');
+    }
+    await audible(page);
+    expect((await state(page)).performanceTime).toBeGreaterThan(before.performanceTime);
+    await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
+    const hidden=await state(page);await page.waitForTimeout(500);
+    expect((await state(page)).renderQuality.paints).toBe(hidden.renderQuality.paints);
+    expect(hidden.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
+    await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+    await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(hidden.renderQuality.paints);
+    await audible(page);
+    await clickWorld(page,'die',{touch:true});expect((await state(page)).config.scene).toBe('flight');
+    await page.screenshot({path:testInfo.outputPath('tablet-flight.png'),fullPage:true});
+  });
 });
 
 for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['landscape',844,390]]) {

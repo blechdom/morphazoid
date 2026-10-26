@@ -253,7 +253,7 @@ export class WitchSceneDSP {
     this.pictureAccents = new WitchPictureAccents(rate);
     this.web = new SpiderStrings(rate); this.levels = new Float64Array(8).fill(1);
     this.active = 0; this.gain = 0; this.groanAge = 2; this.groan = 0; this.low = 0;
-    this.webControl = 0; this.webLowL = this.webLowR = 0;
+    this.webControl = 0; this.webDormant = true; this.webLowL = this.webLowR = 0;
     this.webLowpass = 1 - Math.exp(-TAU * 1250 / rate);
     this.groanRelease = 1; this.groanReleasing = false;
     this.attack = 1 - Math.exp(-this.dt / .006); this.release = 1 - Math.exp(-this.dt / .035);
@@ -268,6 +268,7 @@ export class WitchSceneDSP {
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
       this.web.pluck(69 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
+      this.webDormant = false;
       this.active = 2.8; return true;
     }
     if (kind === 'spider-groan') {
@@ -283,14 +284,19 @@ export class WitchSceneDSP {
     this.gain += ((active ? 1 : 0) - this.gain) * (active ? this.attack : this.release);
     if (this.webControl-- <= 0) {
       this.webControl = 31;
-      for (const voice of this.web.voices) if (voice.remaining > 0) {
+      if (!this.webDormant) for (const voice of this.web.voices) if (voice.remaining > 0) {
         const age = voice.age / this.rate;
         const strain = 1 + .0525 * Math.sin(age * 17.3 + voice.segmentId) * Math.exp(-age * 1.5)
           + .013 * Math.sin(age * 83.1);
         voice.targetPeriod = Math.max(3, Math.min(4092, this.rate / (voice.frequency * strain) - voice.loss));
       }
     }
-    this.web.sample(this.levels, .47, WEB_SOUND);
+    // Empty SpiderStrings only rewrites zero outputs/scratch arrays. Keep its
+    // strain clock and the downstream lowpass tail running between plucks.
+    if (!this.webDormant) {
+      this.web.sample(this.levels, .47, WEB_SOUND);
+      this.webDormant = this.web.active === 0;
+    }
     this.webLowL += (this.web.left - this.webLowL) * this.webLowpass;
     this.webLowR += (this.web.right - this.webLowR) * this.webLowpass;
     this.groan = 0;

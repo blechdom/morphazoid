@@ -1256,22 +1256,27 @@ export class FlightMixDelay {
     this.delayR += witchClamp(seconds * (.83 + c.flightX * .34) * this.rate - this.delayR, -.38, .38);
     // Native Candy curve/window and fractional head activation. Smoothly morph
     // direction through the center instead of switching an occupied read head.
-    const heads = 4 + this.space * 8, span = (.08 + this.space * 5.8) * this.rate;
-    const direction = (1 + Math.tanh((this.twist - .5) * 7)) * .5;
-    const tilt = (this.twist - .5) * 1.6;
-    let movingL = 0, movingR = 0, weightSum = 0;
-    for (let i = 0; i < Math.ceil(heads); i++) {
-      const phase = (this.headPhase + i / heads) % 1;
-      const weight = barberDelayWindow(phase, tilt) * Math.min(1, heads - i) * 2 / heads;
-      const curve = barberDelayCurve('candy', phase, true);
-      const delay = (curve * direction + (1 - curve) * (1 - direction)) * span;
-      movingL += this.read(this.buffers[0], this.delayL + delay) * weight;
-      movingR += this.read(this.buffers[1], this.delayR + delay * (.86 + this.space * .14)) * weight;
-      weightSum += weight;
+    // A cleared history is exactly zero at every read position. Omit only
+    // its read-head convolution; slews, phase, writes and release still run.
+    let echoL = 0, echoR = 0;
+    if (!this.cleared) {
+      const heads = 4 + this.space * 8, span = (.08 + this.space * 5.8) * this.rate;
+      const direction = (1 + Math.tanh((this.twist - .5) * 7)) * .5;
+      const tilt = (this.twist - .5) * 1.6;
+      let movingL = 0, movingR = 0, weightSum = 0;
+      for (let i = 0; i < Math.ceil(heads); i++) {
+        const phase = (this.headPhase + i / heads) % 1;
+        const weight = barberDelayWindow(phase, tilt) * Math.min(1, heads - i) * 2 / heads;
+        const curve = barberDelayCurve('candy', phase, true);
+        const delay = (curve * direction + (1 - curve) * (1 - direction)) * span;
+        movingL += this.read(this.buffers[0], this.delayL + delay) * weight;
+        movingR += this.read(this.buffers[1], this.delayR + delay * (.86 + this.space * .14)) * weight;
+        weightSum += weight;
+      }
+      const headGain = 1 / Math.max(1, weightSum), coil = .2 + this.space * .72;
+      echoL = this.read(this.buffers[0], this.delayL) * (1 - coil) + movingL * headGain * coil;
+      echoR = this.read(this.buffers[1], this.delayR) * (1 - coil) + movingR * headGain * coil;
     }
-    const headGain = 1 / Math.max(1, weightSum), coil = .2 + this.space * .72;
-    const echoL = this.read(this.buffers[0], this.delayL) * (1 - coil) + movingL * headGain * coil;
-    const echoR = this.read(this.buffers[1], this.delayR) * (1 - coil) + movingR * headGain * coil;
     if (running) this.headPhase = (this.headPhase + this.dt
       * (.012 + Math.abs(this.twist - .5) * .14 + this.space * .025)
       * sandySyrupTargetRate(4.5, this.twist, true)) % 1;
@@ -1342,6 +1347,9 @@ export class WitchFabricFilter {
       f.a3 += (t.a3 - f.a3) * this.smooth; f.k += (t.k - f.k) * this.smooth;
       f.gainL += (f.targetGainL - f.gainL) * this.smooth;
       f.gainR += (f.targetGainR - f.gainR) * this.smooth;
+      // An unexcited wind bank has no signal state. Coefficients still slew
+      // per sample so a later puff starts with the same filter response.
+      if (source === 0 && f.ic1 === 0 && f.ic2 === 0) continue;
       const v3 = source - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3;
       const v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
       f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;

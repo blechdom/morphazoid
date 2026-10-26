@@ -2,15 +2,18 @@ import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { createHandRig } from '../gesticulating-hand/hand-rig.js';
 import { evaluateWitchHandPose } from './witch-model.js';
+import { createHandPose } from '../gesticulating-hand/hand-model.js';
+import { handTransform } from './witch-renderer.js';
+import { witchHandQuality, witchHandSurfaceSize, createWitchHandPaintCache, sizeWitchModelTextures } from './witch-model-display.js';
 
 // Runtime adaptation of Elena FF's "Rigged hand", the same skinned source used
 // by Gesticules. Model/derived model appearance: CC BY-SA 4.0. Original source:
 // https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e
 // This separately authored viewer/controller implementation is MIT.
-const MODEL = new URL('../../../assets/gesticulating-hand/hand.glb', import.meta.url);
+const MODEL = new URL('../../../assets/witch/hand-1024.glb', import.meta.url);
+const PHONE_MODEL = new URL('../../../assets/witch/hand-512.glb', import.meta.url);
 const REPORT = new URL('../../../assets/gesticulating-hand/rig-report.json', import.meta.url);
 const WIDTH = 1000, HEIGHT = 720;
-const RENDER_WIDTH = 800, RENDER_HEIGHT = 576, FRAME_INTERVAL = 50;
 const DIGIT_COLORS = [0xff9868,0xe7dc66,0x50ebba,0x5d9bff,0xd77bff];
 const clamp = (value, low = 0, high = 1) => Math.max(low,Math.min(high,Number.isFinite(value)?value:low));
 
@@ -56,16 +59,21 @@ function clawGeometry() {
  * result is copied into its own transparent canvas, so drawing the second hand
  * cannot change the first hand's pixels or picking coordinates. The caller owns
  * the sample-clock time, placement and mirroring; points are 1000×720 pixels. */
-export function createWitchHand({onStatus = () => {}} = {}) {
+export function createWitchHand({onStatus = () => {},quality:initialQuality={}} = {}) {
+  let quality=witchHandQuality(initialQuality);
+  const modelURL=quality.textureSize<=512?PHONE_MODEL:MODEL;
   const canvas = document.createElement('canvas');
-  canvas.width = RENDER_WIDTH; canvas.height = RENDER_HEIGHT;
+  canvas.width = 128; canvas.height = 92;
   const hands = Array.from({length:2},(_,index)=>{
     const surface=document.createElement('canvas'); surface.width=index===0?360:320; surface.height=Math.round(surface.width*HEIGHT/WIDTH);
-    return {surface,context:surface.getContext('2d'),signature:'',lastRender:0,state:{},tips:[],wrist:{x:590,y:590},palm:{x:590,y:510}};
+    return {surface,context:surface.getContext('2d'),paint:createWitchHandPaintCache(),pose:createHandPose(),lastRender:0,renderCount:0,state:{},tips:[],wrist:{x:590,y:590},palm:{x:590,y:510}};
   });
   const handSlot = index => hands[index===1?1:0];
   const abort = new AbortController();
   const scene = new THREE.Scene();
+  // Rig poses explicitly update their hierarchy. Avoid updating every bone
+  // again in renderer.render(), and during each fingertip projection.
+  scene.matrixWorldAutoUpdate=false;
   const camera = new THREE.OrthographicCamera(-500,500,360,-360,.1,4000);
   camera.position.set(0,0,1000); camera.lookAt(0,0,0); camera.updateMatrixWorld(true);
   const placement = new THREE.Group(); scene.add(placement);
@@ -80,12 +88,12 @@ export function createWitchHand({onStatus = () => {}} = {}) {
   ];
   const projected = new THREE.Vector3(), temporary = new THREE.Vector3();
   let renderer = null, rig = null, loaded = false, disposed = false, lost = false;
-  let vertices = 0, triangles = 0, sourceRoot = null;
+  let vertices = 0, triangles = 0, sourceRoot = null,texturePixels=0,sourceTexturePixels=0;
   const claws = [], anchors = [], manualThumb = [];
 
   function status(message) { if (!disposed) onStatus(message); }
   function project(object, index) {
-    object.getWorldPosition(projected).project(camera);
+    projected.setFromMatrixPosition(object.matrixWorld).project(camera);
     return {x:(projected.x+1)*WIDTH/2,y:(1-projected.y)*HEIGHT/2,...(index===undefined?{}:{index})};
   }
   function restingPose(state) {
@@ -117,7 +125,10 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       for(const joint of manualThumb)joint.rotation.copy(joint.bone.quaternion);
     }
     rig.setPose(rigPose);
-    if(heldThumb)for(const joint of manualThumb)joint.bone.quaternion.copy(joint.rotation);
+    if(heldThumb){
+      for(const joint of manualThumb)joint.bone.quaternion.copy(joint.rotation);
+      rig.group.updateMatrixWorld(true);
+    }
     slot.wristTwist=wristTwist;
     skinColor.value.copy(palette[0]); skinAccent.value.copy(palette[1]);
     for (let index = 0; index < claws.length; index++) {
@@ -125,8 +136,6 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       claws[index].material.emissiveIntensity = .08+level*.55;
       claws[index].material.roughness = .32-level*.13;
     }
-    placement.updateMatrixWorld(true);
-    for (const mesh of rig.meshes) mesh.skeleton?.update();
     slot.tips = anchors.map((anchor,index)=>project(anchor,index));
     slot.wrist = project(rig.wrist);
     // A grip belongs inside the actual posed palm, between the wrist and the
@@ -151,32 +160,37 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     placement.updateMatrixWorld(true);
     rig.wrist.getWorldPosition(temporary);
     placement.position.set(90-temporary.x,-230-temporary.y,-temporary.z);
-    placement.updateMatrixWorld(true);
+    scene.updateMatrixWorld(true);
   }
   function render(state = {},handIndex=0) {
     handIndex=handIndex===1?1:0;
     const slot=handSlot(handIndex); slot.state=state;
     if (!loaded || disposed || lost || !renderer) return slot.surface;
-    const width=handIndex===1?320:state.handReach>.1&&clamp(state.flightLift)<.7?RENDER_WIDTH:360;
-    const height=Math.round(width*HEIGHT/WIDTH),now=performance.now();
-    // Small figures do not need full-stage textures. Keep the backing WebGL
-    // buffer fixed and render at most 20 fps; only reaching changes resolution.
-    if(now-slot.lastRender<FRAME_INTERVAL && slot.signature && slot.surface.width===width) return slot.surface;
+    const sizes=hands.map((_,index)=>witchHandSurfaceSize(handTransform(state,index).scale,state.renderScale,quality.maxWidth));
+    const {width,height}=sizes[handIndex],now=performance.now();
+    const interval=state.manualFingerMask?Math.min(quality.frameInterval,1000/30):quality.frameInterval;
+    if(now-slot.lastRender<interval && slot.paint.valid && slot.surface.width===width) return slot.surface;
     const pose=state.handPoses?.[handIndex]??evaluateWitchHandPose(state,
-      state.handTime??state.incantationPhase??state.motionTime??0,handIndex);
+      state.handTime??state.incantationPhase??state.motionTime??0,handIndex,slot.pose);
     const levels=state.handFingerLevels?.[handIndex]??state.fingerLevels;
-    const signature=JSON.stringify([width,pose,levels?.map(v=>Math.round(v*24))]);
-    if(signature===slot.signature) return slot.surface;
+    if(!slot.paint.update(pose,levels,width,state.manualFingerMask)) return slot.surface;
     update(state,handIndex,pose);
+    const bufferWidth=Math.max(...sizes.map(size=>size.width)),bufferHeight=Math.round(bufferWidth*HEIGHT/WIDTH);
+    if(canvas.width!==bufferWidth)renderer.setSize(bufferWidth,bufferHeight,false);
     renderer.setViewport(0,0,width,height); renderer.setScissor(0,0,width,height); renderer.setScissorTest(true);
     renderer.render(scene,camera);
     if(slot.surface.width!==width) { slot.surface.width=width;slot.surface.height=height; }
     else slot.context.clearRect(0,0,width,height);
     // WebGL viewports start at the lower left; Canvas source rectangles start
     // at the upper left. Projection/picking always stays in canonical pixels.
-    slot.context.drawImage(canvas,0,RENDER_HEIGHT-height,width,height,0,0,width,height);
-    slot.signature=signature;slot.lastRender=now;
+    slot.context.drawImage(canvas,0,canvas.height-height,width,height,0,0,width,height);
+    slot.lastRender=now;slot.renderCount++;
     return slot.surface;
+  }
+  function setQuality(value={}) {
+    quality=witchHandQuality({...quality,...value});
+    if(sourceRoot)texturePixels=sizeWitchModelTextures(sourceRoot,quality.textureSize).texturePixels;
+    hands.forEach(slot=>slot.paint.invalidate());
   }
   function getTips(handIndex=0) { return loaded && !lost && !disposed ? handSlot(handIndex).tips.map(point=>({...point})) : []; }
   function getWrist(handIndex=0) { return {...handSlot(handIndex).wrist}; }
@@ -194,35 +208,37 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     return {
       loaded:loaded && !disposed && !lost,
       source:'assets/gesticulating-hand/hand.glb',
-      modelUrl:MODEL.href,
+      modelUrl:modelURL.href,
       author:'Elena FF', title:'Rigged hand', license:'CC BY-SA 4.0',
       vertices,triangles,deformBones:rig?.deformMap.size??0,
       runtimeAdapted:true,claws:claws.length,
       modelInstances:hands.length,webglContexts:renderer?1:0,wristTwists:hands.map(slot=>slot.wristTwist??0),
+      quality:{...quality},bufferSize:[canvas.width,canvas.height],surfaceSizes:hands.map(slot=>[slot.surface.width,slot.surface.height]),
+      renderCounts:hands.map(slot=>slot.renderCount),sourceTexturePixels,texturePixels,
     };
   }
   function dispose() {
     if (disposed) return;
     disposed=true; loaded=false; abort.abort();
-    rig?.dispose(); disposeTree(sourceRoot); sourceRoot=null;
+    rig?.dispose(); disposeTree(sourceRoot); sourceRoot=null;rig=null;
     placement.clear();
-    for (const slot of hands) { slot.tips=[];slot.state={};slot.context.clearRect(0,0,WIDTH,HEIGHT); }
+    for (const slot of hands) { slot.tips=[];slot.state={};slot.surface.width=slot.surface.height=1; }
     renderer?.dispose(); renderer?.forceContextLoss(); renderer=null;
   }
   const ready = (async () => {
     try {
       renderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});
-      renderer.setPixelRatio(1); renderer.setSize(RENDER_WIDTH,RENDER_HEIGHT,false);
+      renderer.setPixelRatio(1); renderer.setSize(128,92,false);
       renderer.setClearColor(0x000000,0); renderer.outputColorSpace=THREE.SRGBColorSpace;
       renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
       canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();lost=true;status('The hand view was interrupted. Finger controls remain available.');},{signal:abort.signal});
       canvas.addEventListener('webglcontextrestored',()=>{
         lost=false;
-        hands.forEach((slot,index)=>{slot.signature='';render(slot.state,index);}); status('');
+        hands.forEach((slot,index)=>{slot.paint.invalidate();render(slot.state,index);}); status('');
       },{signal:abort.signal});
       status('Loading her Gesticules hands…');
       const [modelResponse,reportResponse] = await Promise.all([
-        fetch(MODEL,{signal:abort.signal}),fetch(REPORT,{signal:abort.signal}),
+        fetch(modelURL,{signal:abort.signal}),fetch(REPORT,{signal:abort.signal}),
       ]);
       if (!modelResponse.ok || !reportResponse.ok) throw new Error('The hand model or calibration could not be loaded.');
       const [buffer,report] = await Promise.all([modelResponse.arrayBuffer(),reportResponse.json()]);
@@ -249,6 +265,8 @@ export function createWitchHand({onStatus = () => {}} = {}) {
           if (material.map) material.map.anisotropy=Math.min(2,renderer.capabilities.getMaxAnisotropy());
         }
       });
+      const textureBudget=sizeWitchModelTextures(sourceRoot,quality.textureSize);
+      texturePixels=textureBudget.texturePixels;sourceTexturePixels=textureBudget.sourcePixels;
       for (const object of imports) object.removeFromParent();
       rig=createHandRig(gltf,report); placement.add(rig.group);
       for(const bone of rig.deformMap.values())if(bone.name.startsWith('thumb_'))manualThumb.push({bone,rotation:new THREE.Quaternion()});
@@ -273,9 +291,12 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       return true;
     } catch (error) {
       loaded=false;
-      if (!disposed) { status(`Her hand could not load: ${error.message}`); rig?.dispose(); disposeTree(sourceRoot); sourceRoot=null; placement.clear(); }
+      if (!disposed) {
+        status(`Her hand could not load: ${error.message}`);rig?.dispose();disposeTree(sourceRoot);sourceRoot=null;rig=null;placement.clear();
+        renderer?.dispose();renderer?.forceContextLoss();renderer=null;
+      }
       return false;
     }
   })();
-  return {ready,render,getTips,getWrist,getPalm,pick,getMetadata,dispose};
+  return {ready,render,setQuality,getTips,getWrist,getPalm,pick,getMetadata,dispose};
 }

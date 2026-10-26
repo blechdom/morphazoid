@@ -9,6 +9,14 @@ import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-s
 const TAU = Math.PI * 2;
 const clamp = (n, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, Number.isFinite(n) ? n : lo));
 const paths = new Map();
+const paintInvalidators = new WeakMap();
+function watchPortrait(image,context) {
+  const notify=paintInvalidators.get(context);
+  if(typeof notify==='function') {image.onload=notify;image.onerror=notify;}
+}
+function renderScale(state={}) {
+  return Math.round(clamp(Number.isFinite(state.renderScale)?state.renderScale:1,.5,1)*20)/20;
+}
 const INK = '#14131c';
 const SKIN = '#b5db9d';
 const LIME = '#cefa8b';
@@ -87,7 +95,7 @@ function moon(c, state, flight) {
   const doc=c.canvas?.ownerDocument;
   let eye=doc?moonImages.get(doc):null;
   if(doc&&!eye) {
-    eye=doc.createElement('img');eye.decoding='async';eye.src=moonSource;
+    eye=doc.createElement('img');eye.decoding='async';watchPortrait(eye,c);eye.src=moonSource;
     moonImages.set(doc,eye);
   }
   const active = ['moon','moan'].includes(state.event?.kind) ? Math.max(0, 1 - (state.event.age || 0) / 2) : 0;
@@ -254,6 +262,7 @@ function hat(c,state) {
 // The sound amount retains its old resting shape. A separate two-dimensional
 // pull moves every tip directly, leaving the scalp fixed; the interior locks
 // wind around that pull instead of constraining the hand to one diagonal.
+let localHairCache,projectedHairCache;
 function witchHairLocal(state = {}) {
   const amount=clamp(state.hair),lift=clamp(state.flightLift);
   const time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
@@ -261,6 +270,8 @@ function witchHairLocal(state = {}) {
   const pull={x:-85,y:48},pullDistance=Math.hypot(pull.x,pull.y);
   const drag={x:clamp(Number.isFinite(state.hairPullX)?state.hairPullX:0,-300,300),
     y:clamp(Number.isFinite(state.hairPullY)?state.hairPullY:0,-240,240)};
+  const key=[amount,lift,time,phase,drag.x,drag.y].join(':');
+  if(localHairCache?.key===key)return localHairCache.value;
   const dragLength=Math.hypot(drag.x,drag.y),pullAmount=clamp(dragLength/300);
   const tangent=dragLength?{x:drag.x/dragLength,y:drag.y/dragLength}:{x:0,y:0};
   const twist=(drag.x/300-drag.y/240)*Math.PI;
@@ -289,7 +300,8 @@ function witchHairLocal(state = {}) {
   const targets=[];
   for(const index of [2,6,10])for(const sample of [9,13,17,20])
     targets.push({...strands[index].points[sample],r:11});
-  return {root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,drag,pullAmount,strands,targets};
+  const value={root,tip,axis:{x:pull.x/pullDistance,y:pull.y/pullDistance},pullDistance,drag,pullAmount,strands,targets};
+  localHairCache={key,value};return value;
 }
 function headTransform(state = {}, flying = clamp(state.flightLift)>.5) {
   if(flying) {
@@ -308,13 +320,16 @@ function headPoint(point,transform) {
  * dragging into head coordinates; axis/range retain the sound/hush projection. */
 export function getWitchHair(state = {}) {
   const local=witchHairLocal(state),transform=headTransform(state);
+  const key=[transform.x,transform.y,transform.scale,transform.rotation].join(':');
+  if(projectedHairCache?.local===local&&projectedHairCache.key===key)return projectedHairCache.value;
   const cos=Math.cos(transform.rotation),sin=Math.sin(transform.rotation);
-  return {root:headPoint(local.root,transform),tip:headPoint(local.tip,transform),
+  const value={root:headPoint(local.root,transform),tip:headPoint(local.tip,transform),
     axis:{x:cos*local.axis.x-sin*local.axis.y,y:sin*local.axis.x+cos*local.axis.y},
     pullDistance:local.pullDistance*transform.scale,scale:transform.scale,transform,pull:local.drag,
     targets:local.targets.map(point=>({...headPoint(point,transform),r:point.r*transform.scale})),
     strands:local.strands.map(strand=>({...strand,width:strand.width*transform.scale,
       points:strand.points.map(point=>headPoint(point,transform))}))};
+  projectedHairCache={local,key,value};return value;
 }
 function drawWitchHair(c,state) {
   const {strands,pullAmount}=witchHairLocal(state),amount=clamp(state.hair),lift=clamp(state.flightLift);
@@ -732,7 +747,6 @@ export function getWitchTree(state={}) {
   const project=neutral?p=>({x:clamp(root.x+p.y*(p.y<0?leftScale:rightScale),710,980),y:clamp(692-p.x*scaleY,20,692)}):
     p=>({x:710+(p.y-b.minY)/wide*270,y:692-(p.x-b.minX)/tall*672});
   const segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation}));
-  const supports=segments.flatMap(({a,b},segmentIndex)=>[.25,.5,.75,1].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,segmentIndex,t})));
   const hints={blech:{x:790,y:365},syrinx:{x:930,y:475},eyeball:{x:815,y:255}},objects={};
   const anchors={};
   // Reserve a high branch for Creaturazoid before placing its larger neighbors.
@@ -743,14 +757,28 @@ export function getWitchTree(state={}) {
       Math.hypot(p.x-910,p.y-140)>r+65&&Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>r+28*miniatureSize(id)+20);
     const anchor=neutral?.anchors[item.id],branch=anchor&&segments[anchor.segmentIndex];
     const perched=branch?{x:branch.a.x+(branch.b.x-branch.a.x)*anchor.t,y:branch.a.y+(branch.b.y-branch.a.y)*anchor.t-offset,...anchor}:null;
-    const candidates=supports.map(p=>({...p,y:p.y-offset})).filter(available),target=perched||hint;
-    const point=perched&&available(perched)?perched:candidates.reduce((best,p)=>Math.hypot(p.x-target.x,p.y-target.y)<Math.hypot(best.x-target.x,best.y-target.y)?p:best,candidates[0]||{x:root.x,y:root.y-offset,segmentIndex:0,t:0});
+    let point=perched&&available(perched)?perched:null;
+    if(!point) {
+      const target=perched||hint;let distance=Infinity;
+      for(let segmentIndex=0;segmentIndex<segments.length;segmentIndex++)for(const t of [.25,.5,.75,1]) {
+        const {a,b}=segments[segmentIndex],p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t-offset,segmentIndex,t};
+        if(!available(p))continue;
+        const d=Math.hypot(p.x-target.x,p.y-target.y);
+        if(d<distance){distance=d;point=p;}
+      }
+      point??={x:root.x,y:root.y-offset,segmentIndex:0,t:0};
+    }
     objects[item.id]={x:point.x,y:point.y};anchors[item.id]={segmentIndex:point.segmentIndex,t:point.t};
   });
-  const candidates=segments.flatMap(({a,b})=>Array.from({length:16},(_,i)=>({x:a.x+(b.x-a.x)*i/16,y:a.y+(b.y-a.y)*i/16}))).filter(p=>p.x>820&&p.y>410&&p.y<610&&
-    WITCH_LAYOUT.mushrooms.every(m=>Math.hypot(p.x-m.x,p.y-m.y)>m.r+10)&&
-    Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>28*miniatureSize(id)+20));
-  const target=candidates.reduce((best,p)=>Math.hypot(p.x-855,p.y-550)<Math.hypot(best.x-855,best.y-550)?p:best,candidates[0]||root);
+  let target=root,targetDistance=Infinity;
+  for(const {a,b} of segments)for(let i=0;i<16;i++) {
+    const p={x:a.x+(b.x-a.x)*i/16,y:a.y+(b.y-a.y)*i/16};
+    if(!(p.x>820&&p.y>410&&p.y<610)||
+      !WITCH_LAYOUT.mushrooms.every(m=>Math.hypot(p.x-m.x,p.y-m.y)>m.r+10)||
+      !Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>28*miniatureSize(id)+20))continue;
+    const distance=Math.hypot(p.x-855,p.y-550);
+    if(distance<targetDistance){targetDistance=distance;target=p;}
+  }
   const result={shape,root,target,segments,objects,anchors,controls:{spread,curl,angle,turnAsymmetry},projection:{scaleX,scaleY}};
   treeTraces.set(result,trace);
   if(isNeutral)neutralTrees.set(shape,result);
@@ -769,17 +797,41 @@ export function getWitchTreePulse(state={}) {
 }
 function livingTree(c,state) {
   const tree=getWitchTree(state);
-  for(const segment of tree.segments) {
-    const points=[[segment.a.x,segment.a.y],[segment.b.x,segment.b.y]],width=1.1+(1-segment.depth)*4.5;
-    line(c,points,'#10141e',width+2);
-    line(c,points,TREE_COLORS[segment.generation%TREE_COLORS.length]+'d9',width);
-  }
+  cachedScenery(c,state,'tree',tree,{x:700,y:10,width:290,height:694},paintTree);
   c.save();c.globalAlpha*=clamp(state.treeEnvelope);
   for(const head of getWitchTreePulse(state)) {
     line(c,[[head.from.x,head.from.y],[head.x,head.y]],TREE_COLORS[head.generation%TREE_COLORS.length],5);
     c.fillStyle='#f4ffe7';c.beginPath();c.arc(head.x,head.y,3.2,0,TAU);c.fill();
   }
   c.restore();
+}
+const sceneryLayers=new WeakMap();
+/** Two tightly cropped, reusable layers per world. Geometry and resolution
+ * invalidate them; flight opacity, palette and musical pulses stay outside. */
+function cachedScenery(c,state,id,geometry,bounds,paint) {
+  const doc=c.canvas?.ownerDocument;
+  if(!doc){paint(c,geometry);return;}
+  let layers=sceneryLayers.get(c);
+  if(!layers){layers={};sceneryLayers.set(c,layers);}
+  let layer=layers[id];
+  if(!layer){const surface=doc.createElement('canvas');layer={surface,ink:surface.getContext('2d')};layers[id]=layer;}
+  const scale=renderScale(state);
+  if(layer.geometry!==geometry||layer.scale!==scale) {
+    const width=Math.ceil(bounds.width*scale),height=Math.ceil(bounds.height*scale);
+    if(layer.surface.width!==width||layer.surface.height!==height){layer.surface.width=width;layer.surface.height=height;}
+    layer.ink.setTransform(scale,0,0,scale,-bounds.x*scale,-bounds.y*scale);
+    layer.ink.clearRect(bounds.x,bounds.y,bounds.width,bounds.height);
+    layer.ink.lineCap='round';layer.ink.lineJoin='round';paint(layer.ink,geometry);
+    layer.geometry=geometry;layer.scale=scale;
+  }
+  c.drawImage(layer.surface,0,0,bounds.width*scale,bounds.height*scale,bounds.x,bounds.y,bounds.width,bounds.height);
+}
+function paintTree(c,tree) {
+  for(const segment of tree.segments) {
+    const points=[[segment.a.x,segment.a.y],[segment.b.x,segment.b.y]],width=1.1+(1-segment.depth)*4.5;
+    line(c,points,'#10141e',width+2);
+    line(c,points,TREE_COLORS[segment.generation%TREE_COLORS.length]+'d9',width);
+  }
 }
 let cornerWeb;
 export function getWitchWeb() {
@@ -815,11 +867,14 @@ export function getWitchWeb() {
   cornerWeb={corners,center,strands,targets,bounds:{left:700,right:994,top:12,bottom:386}};
   return cornerWeb;
 }
-function spiderWeb(c,state) {
-  const web=getWitchWeb(state);
+function paintWeb(c,web) {
   for(const [index,strand] of web.strands.entries()) {
     line(c,strand.map(p=>[p.x,p.y]),index<22?'#c5dce0a0':'#adc7d47a',index===0?1.1:.75);
   }
+}
+function spiderWeb(c,state) {
+  const web=getWitchWeb(state);
+  cachedScenery(c,state,'web',web,{x:694,y:6,width:306,height:386},paintWeb);
   if(state.spiderCaptured)return;
   c.save();c.translate(web.center.x,web.center.y);
   const pulse=clamp(state.spiderPulse),wiggle=state.reducedMotion?0:Math.sin((state.handTime??state.motionTime??0)*13)*pulse*.035;
@@ -829,10 +884,10 @@ function spiderWeb(c,state) {
   c.restore();
 }
 
-export function getWitchTargets(state = {}) {
+export function getWitchTargets(state = {}, resolveTrail = true) {
   const transform=headTransform(state);
   const point=(x,y,r)=>({...headPoint({x,y},transform),r:r*transform.scale});
-  const trails=getWitchTrails(state),candidates=trails.flatMap(strand=>{
+  const trails=resolveTrail?getWitchTrails(state):[],candidates=trails.flatMap(strand=>{
     const stride=Math.max(1,Math.floor(strand.points.length/40));
     return strand.points.filter((p,i)=>i%stride===0);
   }).sort((a,b)=>Math.hypot(a.x-145,a.y-270)-Math.hypot(b.x-145,b.y-270));
@@ -844,7 +899,7 @@ export function getWitchTargets(state = {}) {
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
     broom:{...(clamp(state.flightLift)>.5?broomPoint({x:-200,y:126},state):parkedBroomPoint({x:0,y:123})),r:32},
     trail:{...candidates[0],r:28}};
-  if(clamp(state.flightLift)>.05) {
+  if(resolveTrail&&clamp(state.flightLift)>.05) {
     // A tight coil can move anywhere beside her hair. Pick an actually exposed
     // sample, using the same occlusion tests as input without recursing here.
     const exposed=candidates.find(p=>{
@@ -1003,7 +1058,7 @@ function ghostPortrait(c,ghost,solid=false) {
   if(!portraits) {portraits=new Map();ghostImages.set(doc,portraits);}
   let portrait=portraits.get(ghost.id);
   if(!portrait) {
-    const image=doc.createElement('img');image.decoding='async';image.src=ghostSources[ghost.id];
+    const image=doc.createElement('img');image.decoding='async';watchPortrait(image,c);image.src=ghostSources[ghost.id];
     portrait={image,surface:null};portraits.set(ghost.id,portrait);
   }
   if(!portrait.image.complete||!portrait.image.naturalWidth)return null;
@@ -1181,7 +1236,7 @@ function drawInstrumentMiniature(c,id,size=miniatureSize(id)) {
   if(!images) { images=new Map();miniatureImages.set(doc,images); }
   let portrait=images.get(id);
   if(!portrait) {
-    const image=doc.createElement('img');image.decoding='async';image.src=source;
+    const image=doc.createElement('img');image.decoding='async';watchPortrait(image,c);image.src=source;
     portrait={image,surface:null};images.set(id,portrait);
   }
   if(!portrait.image.complete||!portrait.image.naturalWidth)return false;
@@ -1351,13 +1406,20 @@ export function renderWitchFaceIcon(ctx,size=512) {
 }
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
 export function renderWitch(ctx, width, height, state = {}) {
-  const w=Math.max(1,width),h=Math.max(1,height),scale=Math.min(w/1000,h/720);
+  const w=Math.max(1,width),h=Math.max(1,height),scale=Math.min(w/1000,h/720),density=renderScale(state);
   let world=worlds.get(ctx);
   if(!world) {
     const surface=ctx.canvas.ownerDocument.createElement('canvas'); surface.width=1000;surface.height=720;
     const colored=surface.cloneNode();
     world={surface,ctx:surface.getContext('2d',{alpha:false}),colored,color:colored.getContext('2d',{alpha:false})}; worlds.set(ctx,world);
   }
+  const pixelWidth=Math.round(1000*density),pixelHeight=Math.round(720*density);
+  if(world.surface.width!==pixelWidth||world.surface.height!==pixelHeight||world.colored.width!==pixelWidth||world.colored.height!==pixelHeight) {
+    world.surface.width=world.colored.width=pixelWidth;world.surface.height=world.colored.height=pixelHeight;
+  }
+  world.ctx.setTransform(density,0,0,density,0,0);
+  paintInvalidators.set(ctx,state.onInvalidate);
+  paintInvalidators.set(world.ctx,state.onInvalidate);
   drawWorld(world.ctx,state);
   ctx.save(); ctx.clearRect(0,0,w,h);ctx.fillStyle='#14151f';ctx.fillRect(0,0,w,h);
   ctx.translate((w-1000*scale)/2,(h-720*scale)/2);ctx.scale(scale,scale);
@@ -1367,13 +1429,18 @@ export function renderWitch(ctx, width, height, state = {}) {
   const blend=clamp(state.paletteMix??1),delta=((to-from+540)%360)-180;
   const hue=(from+delta*blend+[0,100,215,290,32,185,267,324][mode]+360)%360;
   const deform=mode>0||clamp(state.eyeShock)>0;
-  world.color.filter=`hue-rotate(${hue}deg) saturate(${mode?1.6:1.25})`;world.color.drawImage(world.surface,0,0);
+  const useColor=deform||palette!==0||blend<1;
+  // The default clear scene is deliberately unfiltered. Do not calculate a
+  // full-frame color pass whose pixels would immediately be discarded.
+  if(useColor) {
+    world.color.filter=`hue-rotate(${hue}deg) saturate(${mode?1.6:1.25})`;world.color.drawImage(world.surface,0,0);
+  }
   if(mode===6) {
     if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=250;world.pixel.height=180;world.pixelInk=world.pixel.getContext('2d');}
-    world.pixelInk.drawImage(world.colored,0,0,250,180);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,1000,720);world.color.imageSmoothingEnabled=true;
+    world.pixelInk.drawImage(world.colored,0,0,250,180);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,pixelWidth,pixelHeight);world.color.imageSmoothingEnabled=true;
   }
-  if(deform)for(let y=0;y<720;y+=4)ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
-  else ctx.drawImage(palette||blend<1?world.colored:world.surface,0,0);
+  if(deform)for(let y=0;y<720;y+=4)ctx.drawImage(world.colored,0,y*density,pixelWidth,4*density,witchWarpX(y+2,state)-25,y,1050,4);
+  else ctx.drawImage(useColor?world.colored:world.surface,0,0,pixelWidth,pixelHeight,0,0,1000,720);
   if(mode===4||mode===5) {
     const time=state.reducedMotion?0:(state.warpTime??state.handTime??0),frame=Math.floor(time*(mode===5?14:6));
     ctx.save();ctx.globalAlpha=mode===5?.08:.045;
@@ -1400,6 +1467,14 @@ function insideOutline(x,y,outline,padding=0) {
     }
   }
   return inside;
+}
+function nearSegment(x,y,a,b,radius) {
+  // Reject almost every distant silk/hair/tree segment without projection or
+  // square roots. The final capsule is the same as the visible line's hit halo.
+  if(x<Math.min(a.x,b.x)-radius||x>Math.max(a.x,b.x)+radius||y<Math.min(a.y,b.y)-radius||y>Math.max(a.y,b.y)+radius)return false;
+  const dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+  const px=x-a.x-dx*along,py=y-a.y-dy*along;
+  return px*px+py*py<radius*radius;
 }
 function unprojectWitchPoint(x,y,t) {
   const dx=(x-t.x)/t.scale,dy=(y-t.y)/t.scale,cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
@@ -1461,7 +1536,9 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
       nearestObject={type:'object',id:home.id,kind:home.kind,index};objectDistance=distance;objectRadius=home.r+8;
     }
   }
-  const targets=prepared?.targets||getWitchTargets(state),ladle=getWitchLadle(state);
+  // A real pointer already supplies its coordinate. Only the public target
+  // diagnostic needs to search the noodles for an exposed suggested handle.
+  const targets=prepared?.targets||getWitchTargets(state,false),ladle=getWitchLadle(state);
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {
@@ -1505,8 +1582,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
     const web=getWitchWeb(),{left,right,top,bottom}=web.bounds;
     if(x>left-12&&x<right+12&&y>top-12&&y<bottom+12) {
       for(const strand of web.strands)for(let i=1;i<strand.length;i++) {
-        const a=strand[i-1],b=strand[i],dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-        if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<12) {
+        if(nearSegment(x,y,strand[i-1],strand[i],12)) {
           const angle=(Math.atan2(y-web.center.y,x-web.center.x)+TAU)%TAU;
           return {type:'web',index:Math.min(6,Math.floor(angle/TAU*7))};
         }
@@ -1535,9 +1611,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
   // Hands, utensil, face, hat and shelf icons retain priority.
   const hair=getWitchHair(state),hairRadius=Math.min(28,Math.max(12*hair.scale,minRadius*.32));
   for(const strand of hair.strands.slice(0,12))for(let i=7;i<strand.points.length;i++) {
-    const a=strand.points[i-1],b=strand.points[i],dx=b.x-a.x,dy=b.y-a.y;
-    const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-    if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<hairRadius)return {type:'hair'};
+    if(nearSegment(x,y,strand.points[i-1],strand.points[i],hairRadius))return {type:'hair'};
   }
   {
     const flying=clamp(state.flightLift)>.5,project=p=>flying?broomPoint(p,state):parkedBroomPoint(p);
@@ -1554,14 +1628,12 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
   if(clamp(state.flightLift)>.05&&witchBodyOccludes(x,y,state))return {type:'flight'};
   if(clamp(state.flightLift)>.05) {
     for(const {points:trail} of prepared?.trails||getWitchTrails(state))for(let i=1;i<trail.length;i++) {
-      const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-      if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
+      if(nearSegment(x,y,trail[i-1],trail[i],Math.max(12,minRadius*.35)))return {type:'trail'};
     }
   }
   if(!grounded)return {type:'fabric'};
   for(const segment of getWitchTree(state).segments) {
-    const {a,b}=segment,dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-    if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<12)return {type:'tree'};
+    if(nearSegment(x,y,segment.a,segment.b,12))return {type:'tree'};
   }
   let ghostHit=null,ghostDistance=Infinity;
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {

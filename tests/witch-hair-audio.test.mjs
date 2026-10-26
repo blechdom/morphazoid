@@ -69,7 +69,7 @@ test('live hair changes slew from the existing sample and leave the other perfor
   }
 });
 
-test('hair texture follows the sample clock through shared flight and Fabric processing', () => {
+test('hair texture follows the sample clock through shared flight independently of Fabric wind', () => {
   const controls = { hair: 1, voice: 'sing', mode: 'flight', fabricX: .08, fabricY: .92 };
   const a = playing(controls), b = playing(controls);
   assert.deepEqual(render(a, 1.4), render(b, 1.4, 24000));
@@ -77,7 +77,8 @@ test('hair texture follows the sample clock through shared flight and Fabric pro
   const flight = playing({ hair: 1, voice: 'sing', mode: 'flight' });
   const wind = playing({ hair: 1, voice: 'sing', mode: 'flight', fabricX: .08, fabricY: .92 });
   const direct = render(dry, 1.2), delayed = render(flight, 1.2), filtered = render(wind, 1.2);
-  assert.ok(difference(direct, delayed) > .015); assert.ok(difference(delayed, filtered) > .015);
+  assert.ok(difference(direct, delayed) > .015);
+  assert.deepEqual(delayed, filtered, 'unexcited Fabric controls leave the hair and performer mix unchanged');
   assert.equal(dry.chantPhase, flight.chantPhase); assert.equal(dry.chantPhase, wind.chantPhase);
   assert.ok(flight.visual.delayLevel > .005);
 });

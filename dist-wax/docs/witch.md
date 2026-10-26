@@ -181,3 +181,51 @@ control can also wake or mute the performance. All effects have
 bounded output, voice counts and release paths; automated checks establish
 mechanical behavior, while listening and physical touchscreen feel require a
 human pass.
+
+## Mobile rendering
+
+The quiet picture paints only when something changes, including an image finishing
+loading. Playing uses a capped graphics clock independent of audio; hidden and
+cached pages cancel their drawing and gesture timers. Canvas resolution adapts
+to the visible stage and sustained rendering pressure without changing presets,
+sound, geometry or touch coordinates. Static tree/web strokes and current hair
+geometry are cached with bounded storage. Unchanged hand and spider poses reuse
+their snapshots; diagnostics no longer render the spider.
+
+Witch-owned [model derivatives](../assets/witch/README.md) retain the complete
+native meshes, rigs and animations. Phones load 512-pixel hand textures, reducing
+their decoded/uploaded pixel count by 93.75% and the hand download from 3.81 to
+1.69 MB. Larger screens use 1024-pixel textures. The tarantula uses a 512-pixel
+atlas. Audio skips only provably empty web, wind-filter and delay-history work;
+336,000 compared reference frames, including releases and control changes,
+matched the original samples exactly.
+
+The October 26 optimization was compared with `9a35042b` in Chromium
+151.0.7922.34, using 390×844/DPR 3, then 844×390, with 4× CPU throttling and
+approximately four seconds per scene:
+
+| Scene | Painted frames/second before → after | Mean paint time before → after |
+| --- | ---: | ---: |
+| Resting | 11.6 → 0 (no repeated work) | 58.9 → 0 ms |
+| Brewing | 6.8 → 14.6 | 116.7 → 60.5 ms |
+| Flying | 7.1 → 15.4 | 111.1 → 57.3 ms |
+| Static distortion | 6.5 → 13.2 | 140.0 → 66.2 ms |
+| Landscape distortion | 6.5 → 12.7 | 138.3 → 68.7 ms |
+
+These are relative browser measurements, not physical-phone frame rates or a
+Safari acceptance result. Automated touch checks cover portrait, landscape,
+tablet resizing, independent source wake, hair hush, flight, cancellation,
+asset-ready repaint and cached-page resume. Physical-device feel and listening
+still need a human pass.
+
+To repeat the profile against a running source preview, use its exact origin:
+
+```sh
+MORPHAZOID_QA_BASE_URL=http://localhost:3517 node scripts/qa/witch-mobile-profile.mjs
+```
+
+`WITCH_PROFILE_CPU=1` disables CPU throttling; `WITCH_PROFILE_OUTPUT` selects the
+JSON artifact (default `/tmp/witch-mobile-profile.json`). Keep other benchmarks
+idle during measurement. The script checks the served app/renderer bytes and
+records frame times, long tasks, audio-clock progress, graphics budgets and
+browser errors. It does not install quality controls in the instrument.
