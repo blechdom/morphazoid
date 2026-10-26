@@ -24,7 +24,7 @@ import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
 import { witchCatMeowEnvelope } from './witch-cat-model.js';
-import { witchBiteClips, WitchSceneDSP, WitchEyeShock, WitchFabricWind } from './witch-scene-audio.js';
+import { witchBiteClips, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -1131,21 +1131,23 @@ export class WitchDSP {
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
     this.cat = new WitchCatDSP(this.rate); this.fabric = new WitchFabricFilter(this.rate); this.fabricMix = 0;
     this.fabricWind = new WitchFabricWind(this.rate);
+    this.blechFlyby = new WitchBlechFlyby(this.rate);
     this.scene = new WitchSceneDSP(this.rate); this.shock = new WitchEyeShock(this.rate);
     this.ghosts = new WitchGhostDSP(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
-      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
+      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0, flybyTime: 0, flybyLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
   get chantPhase() { return this.brew.chantPhase; }
   get effectCounter() { return this.flight.noteCount; }
   get effects() { return this.brew.effects; }
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock) {
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime) {
     this.brew.syncPhase(phase, speed);
+    if (Number.isFinite(flybyTime)) { this.blechFlyby.syncTime(flybyTime); this.visual.flybyTime = this.blechFlyby.time; this.visual.flybyLevel = 0; }
     if (catClock && typeof catClock === 'object') {
       this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time;
       this.visual.catMeow = 0; this.visual.catMeowLevel = 0;
@@ -1178,8 +1180,8 @@ export class WitchDSP {
     this.delay.controls = c;
     if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
-    if (previous.mode === 'flight' && c.mode !== 'flight') this.fabricWind.cancel();
-    if (previous.ghostGate && !c.ghostGate) this.cat.release();
+    if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
+    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); }
     if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
@@ -1198,11 +1200,11 @@ export class WitchDSP {
     this.enabled = enabled === true;
     this.brew.setEnabled(this.enabled); this.hand.setEnabled(this.enabled); this.flight.setEnabled(this.enabled);
     this.drops.setEnabled(this.enabled);
-    if (!this.enabled) { this.cat.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
+    if (!this.enabled) { this.cat.release(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release(); }
   }
   /** Cancel manual gestures without seeking or changing either transport. */
   releaseAccents() {
-    this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel();
+    this.drops.releaseAll(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.blechFlyby.release();
     this.cat.release(); this.brew.releaseAccents(); this.flight.releaseAccents();
   }
   trigger(kind) {
@@ -1226,7 +1228,7 @@ export class WitchDSP {
     const voiceWeight = c.spellBalance <= .5
       ? focusedVoice + (1 - focusedVoice) * .75 * (1 - c.spellBalance * 2)
       : .06 + (focusedVoice - .06) * (2 - c.spellBalance * 2) ** 1.6;
-    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0;
+    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0, flybyEnergy = 0;
     for (let offset = 0; offset < left.length; offset += 128) {
       const count = Math.min(128, left.length - offset);
       const b = count === 128 ? this.buffers : this.buffers.map(buffer => buffer.subarray(0, count));
@@ -1249,6 +1251,7 @@ export class WitchDSP {
         this.cat.next(c, this.enabled && c.ghostGate && !c.catCaptured, c.ghostGate);
         this.scene.next(this.enabled);
         this.fabricWind.next(c, this.enabled && c.mode === 'flight');
+        this.blechFlyby.next(c, this.enabled);
         // The visitors stay below the singer/fingers even in very quiet
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
@@ -1257,8 +1260,8 @@ export class WitchDSP {
         // delay and Fabric filter as every other performer.
         const catL = (this.cat.left * .39 + this.cat.meowLeft * .9) * backing;
         const catR = (this.cat.right * .39 + this.cat.meowRight * .9) * backing;
-        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + this.scene.left + this.fabricWind.left + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + this.scene.right + this.fabricWind.right + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + catL + dropL + this.scene.left + this.fabricWind.left + this.blechFlyby.left + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + catR + dropR + this.scene.right + this.fabricWind.right + this.blechFlyby.right + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.delay.left, this.delay.right);
         this.fabricMix += ((c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
@@ -1276,6 +1279,7 @@ export class WitchDSP {
         dropEnergy += (dropL * dropL + dropR * dropR) * .5;
         delayEnergy += (this.delay.wetLeft ** 2 + this.delay.wetRight ** 2) * .5;
         ghostEnergy += (ghostL * ghostL + ghostR * ghostR) * .5;
+        flybyEnergy += (this.blechFlyby.left ** 2 + this.blechFlyby.right ** 2) * .5;
       }
       this.time += count * this.dt;
     }
@@ -1292,6 +1296,8 @@ export class WitchDSP {
     this.visual.dropKind = this.drops.kind; this.visual.dropEnvelope = this.drops.solo;
     this.visual.shockEnvelope = this.shock.envelope;
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
+    this.visual.flybyTime = this.blechFlyby.time;
+    this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));
     for (let i = 0; i < 3; i++) {
@@ -1333,7 +1339,7 @@ if (typeof globalThis.AudioWorkletProcessor === 'function') {
           // seeks are ordered, and an older one cannot rewind a newer node.
           if (generation === undefined || (Number.isSafeInteger(generation) && generation >= this.phaseGeneration)) {
             if (generation !== undefined) this.phaseGeneration = generation;
-            this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase, data.catClock);
+            this.dsp.syncPhase(data.phase, data.speed, data.handTime, data.spoonHeight, data.flightPhase, data.ghostPhase, data.catClock, data.flybyTime);
             this.nextTelemetry = 0;
           }
         }

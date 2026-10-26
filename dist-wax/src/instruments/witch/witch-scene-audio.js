@@ -1,6 +1,7 @@
 import { WITCH_BITE_CLIPS } from './witch-bite-clips.js';
 import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
+import { WITCH_BLECH_FLYBY_CYCLE, WITCH_BLECH_FLYBY_DURATION, WITCH_BLECH_FLYBY_EVENTS } from './witch-scene-model.js';
 
 const TAU = Math.PI * 2;
 let decodedClips;
@@ -27,6 +28,57 @@ export function witchBiteClips() {
     return [kind, Object.freeze({ data, rate: clip.rate, frames: clip.frames, instrumentId: clip.instrumentId, events: clip.events })];
   }));
   return Object.freeze(decodedClips);
+}
+
+/** Two fixed PCM readers for sparse BLECH visitors. This references the actual
+ * cached instrument phrase without using a potion slot or its solo ducking.
+ * Muted events are consumed; a seek or resume never replays a stale entrance. */
+export class WitchBlechFlyby {
+  constructor(rate) {
+    this.dt = 1 / rate; this.time = 0; this.left = this.right = 0;
+    this.clip = witchBiteClips()['drop-blech'];
+    this.slots = Array.from({ length: 2 }, () => ({ age: -1, release: 1, releasing: false, direction: 1 }));
+    this.nextEvent = 0; this.nextCycle = 0; this.nextAt = WITCH_BLECH_FLYBY_EVENTS[0].at;
+  }
+  syncTime(time) {
+    if (!Number.isFinite(time)) return;
+    this.time = Math.max(0, time); this.release();
+    this.nextCycle = Math.floor(this.time / WITCH_BLECH_FLYBY_CYCLE);
+    const phase = this.time - this.nextCycle * WITCH_BLECH_FLYBY_CYCLE;
+    this.nextEvent = WITCH_BLECH_FLYBY_EVENTS.findIndex(event => event.at > phase);
+    if (this.nextEvent < 0) { this.nextEvent = 0; this.nextCycle++; }
+    this.nextAt = this.nextCycle * WITCH_BLECH_FLYBY_CYCLE + WITCH_BLECH_FLYBY_EVENTS[this.nextEvent].at;
+  }
+  release() { for (const slot of this.slots) slot.releasing = true; }
+  next(controls, enabled) {
+    this.left = this.right = 0;
+    const running = controls.ghostGate && controls.mode === 'flight';
+    if (!running || !enabled) this.release();
+    if (running && this.time >= this.nextAt) {
+      if (enabled) {
+        const slot = this.slots[this.nextEvent === 2 ? 1 : 0];
+        slot.age = 0; slot.release = 1; slot.releasing = false;
+        slot.direction = WITCH_BLECH_FLYBY_EVENTS[this.nextEvent].direction;
+      }
+      if (++this.nextEvent === WITCH_BLECH_FLYBY_EVENTS.length) { this.nextEvent = 0; this.nextCycle++; }
+      this.nextAt = this.nextCycle * WITCH_BLECH_FLYBY_CYCLE + WITCH_BLECH_FLYBY_EVENTS[this.nextEvent].at;
+    }
+    for (const slot of this.slots) {
+      if (slot.age < 0) continue;
+      if (slot.releasing) slot.release = Math.max(0, slot.release - this.dt / .035);
+      if (slot.release === 0 || slot.age >= WITCH_BLECH_FLYBY_DURATION) { slot.age = -1; continue; }
+      const position = slot.age * this.clip.rate, index = Math.floor(position), blend = position - index;
+      const source = index + 1 < this.clip.frames
+        ? this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend : 0;
+      const envelope = Math.min(1, slot.age / .025, (WITCH_BLECH_FLYBY_DURATION - slot.age) / .08) * slot.release;
+      const pan = slot.direction * (slot.age / WITCH_BLECH_FLYBY_DURATION * 2 - 1) * .9;
+      const sample = source * .1 * envelope;
+      this.left += sample * Math.sqrt((1 - pan) * .5);
+      this.right += sample * Math.sqrt((1 + pan) * .5);
+      slot.age += this.dt;
+    }
+    if (running) this.time += this.dt;
+  }
 }
 
 export const WITCH_WEB_RATIOS = Object.freeze([1, 1.071, Math.SQRT2, 1.493, Math.sqrt(3), 2.031, Math.sqrt(5)]);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS} from '../src/instruments/witch/witch-model.js';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTree, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTree, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
   let distance=Infinity;
@@ -13,7 +13,7 @@ function distanceToPolyline(point,points) {
   return distance;
 }
 
-test('moon and pot remain playable in flight while grounded scenery fades away',()=>{
+test('moon, pot and mushrooms remain playable in flight while grounded scenery fades away',()=>{
   assert.equal(WITCH_LAYOUT.mushrooms.length,1);
   assert.equal(WITCH_LAYOUT.mushrooms[0].x,844);
   for(const flightLift of [0,.5,1]) {
@@ -21,8 +21,7 @@ test('moon and pot remain playable in flight while grounded scenery fades away',
     assert.equal(hitTestWitch(800,164,state)?.type,'moon');
     assert.equal(hitTestWitch(600,540,state)?.type,'stir');
     const mushroom=WITCH_LAYOUT.mushrooms[0];
-    if(flightLift===1)assert.notEqual(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
-    else assert.equal(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
+    assert.equal(hitTestWitch(mushroom.x,mushroom.y,state)?.type,'mushrooms');
   }
   assert.equal(hitTestWitch(388,450,{scene:'brew'})?.type,'hand');
   assert.equal(hitTestWitch(NaN,450),null);
@@ -432,15 +431,16 @@ test('foreground hair remains playable where hidden ground ghosts once stood',()
 });
 
 
-test('the whole flying rig grows 30% while the grounded rig and rollercoaster shape stay fixed',()=>{
+test('the enlarged flying rig follows longer returning loops while its grounded scale stays fixed',()=>{
+  const route=Array.from({length:1201},(_,i)=>broomTransform({flightLift:1,flightPhase:i*.05,trailTwist:1}));
+  const reversals=route.slice(2).filter((p,i)=>(p.x-route[i+1].x)*(route[i+1].x-route[i].x)<0).length;
+  assert.ok(reversals>25,'the long sweep contains repeated local doublebacks');
   for(const hat of [0,.5,1])for(const flightLift of [0,.2,.5,.8,1])for(const flightPhase of [0,1,3,7,19]) {
     const state={hat,flightLift,flightPhase,handReach:1,altitude:.8,flightX:.2};
     const body=broomTransform(state),tallHat=Math.max(0,hat-.5)*2;
     const oldScale=.8-(.26+tallHat*.04)*flightLift;
-    const oldY=476+(286+tallHat*16+(.5-state.altitude)*36+Math.sin(flightPhase*1.4)*34+Math.sin(flightPhase*.7)*13-476)*flightLift;
-    const oldX=455+(600+(state.flightX-.5)*120+Math.sin(flightPhase*.7)*165-455)*flightLift;
-    assert.ok(Math.abs(body.x-oldX+18*flightLift)<1e-10,'the same side-to-side path shifts slightly left to clear the warped broom tip');
-    assert.ok(Math.abs(body.y-oldY-64*flightLift)<1e-10,'the same rise and fall shifts down continuously to clear the taller hat');
+    assert.ok(Math.abs(body.x-(455+(582+(state.flightX-.5)*120-455)*flightLift))<=165*flightLift+1e-9);
+    assert.ok(Math.abs(body.y-(476+(350+tallHat*16+(.5-state.altitude)*36-476)*flightLift))<=47*flightLift+1e-9);
     if(flightLift===0)assert.equal(body.scale,oldScale,'grounded broom and witch keep their existing scale');
     if(flightLift===1) {
       assert.ok(Math.abs(body.scale/oldScale-1.3)<1e-12);
@@ -451,15 +451,14 @@ test('the whole flying rig grows 30% while the grounded rig and rollercoaster sh
 });
 
 test('the enlarged flying hat, hair, broom and boots remain inside the warped scene at extremes',()=>{
-  // Authored hat control points bound its Bezier curves, including the torn brim.
-  const hatPoints=[[-22,-213],[12,-237],[47,-223],[70,-214],[78,-181],[109,-193],[-31,-165],[-61,-84],[-143,-6],[-127,8],[-93,11],[148,-4],[143,-21]];
+  // Inspect the current burned panels, rather than the former intact hat.
   const broomPoints=[[-295,120],[-265,126],[-310,152],[162,96],[20,187],[45,202],[75,181]];
   const turn=(p,rotation,scale=1)=>({x:(Math.cos(rotation)*p.x-Math.sin(rotation)*p.y)*scale,y:(Math.sin(rotation)*p.x+Math.cos(rotation)*p.y)*scale});
   for(let phase=0;phase<Math.PI*20;phase+=.2)for(const hat of [0,.5,1])for(const altitude of [0,1])for(const flightX of [0,1]) {
     const state={flightLift:1,flightPhase:phase,hat,altitude,flightX,hair:1,handTime:phase,trip:3,warpTime:phase,energy:1,time:phase};
-    const body=broomTransform(state),stretch=.88+hat*.24,tilt=(hat-.5)*.18+Math.sin(phase*1.7)*2.7*.004;
+    const body=broomTransform(state);
     const worldPoint=p=>{const q=turn(p,body.rotation,body.scale);return {x:body.x+q.x,y:body.y+q.y};};
-    const hatWorld=hatPoints.map(([x,y])=>{const hatPoint=turn({x,y:y*stretch},tilt),headPoint=turn(hatPoint,-.1);return worldPoint({x:headPoint.x-53,y:headPoint.y-149});});
+    const hatWorld=getWitchHat(state).panels.flat();
     const points=[...hatWorld,...broomPoints.map(([x,y])=>worldPoint({x,y})),...getWitchHair(state).strands.flatMap(strand=>strand.points)];
     for(const point of points) {
       const p=warpWitchPoint(point,state);
@@ -598,7 +597,7 @@ test('all eight visual modes have bounded exact inverse picking and respect redu
 test('full flight preserves broom and moon gestures and a bounded screen-wide noodle trail',()=>{
   for(let flightPhase=0;flightPhase<20;flightPhase+=.8)for(const visualMode of [0,3,7]) {
     const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase},trail=getWitchTrail(state);
-    assert.equal(trail.length,161);
+    assert.equal(trail.length,257);
     assert.ok(trail.every(p=>p.x>=24&&p.x<=976&&p.y>=38&&p.y<=674));
     assert.ok(Math.max(...trail.map(p=>p.x))-Math.min(...trail.map(p=>p.x))>700);
     for(const type of ['broom','moon']) {

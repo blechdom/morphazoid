@@ -13,7 +13,7 @@ export class WitchAudio {
     this.pendingPhase = null; this.phaseGeneration = 0;
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
       catClock: createWitchCatClock(), catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
-      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
+      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false, flybyTime: 0, flybyLevel: 0 };
     this.onError = null;
   }
   get running() { return this.audible && this.context?.state === 'running' && Boolean(this.node); }
@@ -87,8 +87,9 @@ export class WitchAudio {
    * optional handTime is seconds of the independent Gesticules choreography;
    * spoonHeight joins its visible position; flightPhase keeps the broom and delay
    * at their current point through silent speed changes; ghostPhase is the
-   * independent background beat count, preserved through tempo changes. */
-  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock) {
+   * independent background beat count, preserved through tempo changes.
+   * flybyTime counts only elapsed Play time in flight. */
+  syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime) {
     const message = { type: 'phase', phaseGeneration: ++this.phaseGeneration, phase: ((witchClamp(phase, -1e12, 1e12) % WITCH_TAU) + WITCH_TAU) % WITCH_TAU,
       speed: witchClamp(speed) };
     if (Number.isFinite(handTime)) {
@@ -100,6 +101,7 @@ export class WitchAudio {
       this.visual.flightPhase = message.flightPhase;
     }
     if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }
+    if (Number.isFinite(flybyTime)) { message.flybyTime = witchClamp(flybyTime,0,1e12);this.visual.flybyTime = message.flybyTime;this.visual.flybyLevel = 0; }
     if (catClock && typeof catClock === 'object') { message.catClock = snapshotWitchCatClock(catClock); this.visual.catClock = message.catClock; this.visual.catTime = message.catClock.time; this.visual.catMeow = 0; this.visual.catMeowLevel = 0; }
     this.visual.phase = message.phase; this.visual.speed = message.speed;
     if (this.node) this.post(message); else this.pendingPhase = message;

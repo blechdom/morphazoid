@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
-import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP } from '../src/instruments/witch/witch-scene-audio.js';
+import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
+import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE } from '../src/instruments/witch/witch-scene-model.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 const difference = (a, b) => rms(a.map((value, i) => value - b[i]));
@@ -15,6 +16,51 @@ function render(dsp, seconds, block = 128) {
   for (let i = 0; i < data.length; i += block) dsp.process(data.subarray(i, Math.min(i + block, data.length)));
   return data;
 }
+
+test('BLECH flybys share a sparse icon and native-phrase clock with two bounded voices', () => {
+  assert.deepEqual(getWitchBlechFlyby(4.99), []);
+  assert.equal(getWitchBlechFlyby(5.3).length, 1);
+  assert.equal(getWitchBlechFlyby(18.5).length, 2);
+  assert.deepEqual(getWitchBlechFlyby(Infinity), []);
+  const first = getWitchBlechFlyby(5.3)[0], repeated = getWitchBlechFlyby(WITCH_BLECH_FLYBY_CYCLE + 5.3)[0];
+  assert.ok(Math.abs(first.x - repeated.x) < 1e-9); assert.notEqual(first.id, repeated.id);
+  const flyby = new WitchBlechFlyby(8000), pool = flyby.slots.slice(), controls = { mode: 'flight', ghostGate: true };
+  assert.equal(flyby.clip, witchBiteClips()['drop-blech'], 'the actual BLECH phrase is shared, not synthesized again');
+  let energy = 0, peak = 0, pairs = 0;
+  for (let i = 0; i < 8000 * 27; i++) {
+    flyby.next(controls, true); energy += flyby.left ** 2 + flyby.right ** 2;
+    peak = Math.max(peak, Math.abs(flyby.left), Math.abs(flyby.right));
+    if (flyby.slots.every(slot => slot.age >= 0)) pairs++;
+  }
+  assert.ok(energy > 1 && peak < .13 && pairs > 8000, 'the pair overlaps at a quiet, finite level');
+  assert.ok(flyby.slots.every((slot, i) => slot === pool[i]));
+  assert.equal(flyby.left, 0); assert.equal(flyby.right, 0);
+});
+
+test('BLECH flight sound follows the sample clock without potion solos, muted backlog or resumed attacks', () => {
+  const make = () => playing({ mode: 'flight', ghostGate: true }, 8000);
+  const a = make(), b = make(), reference = make();
+  for (const dsp of [a, b]) dsp.syncPhase(0, 0, undefined, undefined, undefined, undefined, undefined, 4.9);
+  reference.syncPhase(0, 0);
+  const sound = render(a, .8);
+  assert.deepEqual(sound, render(b, .8, 6400));
+  assert.ok(difference(sound, render(reference, .8)) > .003, 'the native phrase reaches the shared flight mix');
+  assert.equal(a.chantPhase, reference.chantPhase); assert.equal(a.visual.handTime, reference.visual.handTime);
+  assert.equal(a.drops.solo, 0); assert.equal(a.visual.dropKind, ''); assert.equal(a.visual.dropLevel, 0);
+  assert.ok(Math.abs(getWitchBlechFlyby(a.visual.flybyTime)[0].age - a.blechFlyby.slots[0].age) < 1 / a.rate);
+  a.setControls({ ghostGate: false, gate: false }); const held = a.visual.flybyTime;
+  render(a, .1); render(a, .1); assert.equal(a.visual.flybyTime, held); assert.equal(a.visual.flybyLevel, 0);
+  a.setControls({ ghostGate: true }); render(a, .1); assert.equal(a.visual.flybyLevel, 0, 'Release does not retrigger a frozen entrance');
+  a.setEnabled(false); a.syncPhase(0, 0, undefined, undefined, undefined, undefined, undefined, 15.9);
+  render(a, .5); a.setEnabled(true); render(a, .4); assert.equal(a.visual.flybyLevel, 0, 'Audio on skips a phrase that entered while muted');
+  a.syncPhase(0, 0, undefined, undefined, undefined, undefined, undefined, 18.1);
+  render(a, .5); assert.ok(a.visual.flybyLevel > .001);
+  a.setControls({ mode: 'brew' }); const landed = a.visual.flybyTime;
+  render(a, .1); render(a, .1); assert.equal(a.visual.flybyTime, landed); assert.equal(a.visual.flybyLevel, 0);
+  a.setControls({ mode: 'flight' }); a.syncPhase(0, 0, undefined, undefined, undefined, undefined, undefined, 4.9);
+  render(a, .5); a.releaseAccents(); render(a, .1); render(a, .1); assert.equal(a.visual.flybyLevel, 0);
+  assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+});
 
 test('baked native instrument phrases form a bounded, shared source bank with distinct audible bites', () => {
   const clips = witchBiteClips(); assert.equal(witchBiteClips(), clips);

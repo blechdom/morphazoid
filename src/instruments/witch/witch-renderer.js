@@ -1,6 +1,7 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
 import { WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
+import { getWitchBlechFlyby } from './witch-scene-model.js';
 import { traceLSystem, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
@@ -481,14 +482,14 @@ function brewScene(c, state) {
 export function broomTransform(state = {}) {
   const lift=clamp(state.flightLift),time=state.reducedMotion?0:(state.motionTime??state.time??0);
   const phase=state.reducedMotion?0:(state.flightPhase??time*.72),altitude=clamp(state.altitude??.5),steer=clamp(state.flightX??.5);
-  const targetX=582+(steer-.5)*120+Math.sin(phase*.7)*165;
+  const curl=.3+.7*clamp(state.trailTwist??.5),loop=phase*1.8+Math.sin(phase*.23)*.35;
+  // A long sweep carries smaller returning loops; twisting the hair deepens
+  // those loops while retaining space for the complete flying anatomy.
+  const targetX=582+(steer-.5)*120+Math.sin(phase*.27)*(165-50*curl)+Math.sin(loop)*50*curl;
   const tallHat=clamp((state.hat??.5)-.5,0,.5)*2;
-  // The complete flying rig grows 30%; its unchanged rollercoaster curve sits
-  // lower so the tallest hat stays inside the frame at the uppermost crest.
-  // A small left offset also leaves room for the enlarged, mushroom-warped tip.
-  const targetY=350+tallHat*16+(0.5-altitude)*36+Math.sin(phase*1.4)*34+Math.sin(phase*.7)*13;
+  const targetY=350+tallHat*16+(0.5-altitude)*36+Math.sin(phase*.41)*(47-32*curl)+Math.cos(loop)*32*curl;
   return {x:455+(targetX-455)*lift,y:476+(targetY-476)*lift,
-    rotation:(-.08+Math.cos(phase*1.4)*.12)*lift,scale:.8+((.54-tallHat*.04)*1.3-.8)*lift,phase};
+    rotation:(-.08+.085*Math.cos(loop)+.035*Math.sin(phase*.41))*lift,scale:.8+((.54-tallHat*.04)*1.3-.8)*lift,phase};
 }
 function broomPoint(point,state) {
   const t=broomTransform(state),cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
@@ -499,19 +500,20 @@ function broomPoint(point,state) {
 function witchTrails(state={},indices=[10,3,17,22]) {
   const phase=state.reducedMotion?0:(state.flightPhase??state.motionTime??0);
   const pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5),hair=getWitchHair(state);
+  const samples=256,join=Math.round(samples*.85);
   return indices.map((index,strandIndex)=>{
     const lock=hair.strands[index],anchor=lock.points.at(-1),prior=lock.points.at(-2),points=[];
-    for(let i=0;i<=160;i++) {
-      const tail=1-i/160,mix=Math.sin(tail*Math.PI/2),coil=tail*TAU*(3+twist*4+strandIndex*.35),offset=strandIndex*.79;
-      const x=500+Math.sin(tail*TAU*2.35+phase*.23+offset)*390+Math.sin(coil+phase*.6)*pull*38;
-      const y=360+Math.sin(tail*TAU*3.6+phase*.19+offset)*245+Math.cos(coil*1.3-phase*.4)*pull*35;
+    for(let i=0;i<=samples;i++) {
+      const tail=1-i/samples,mix=Math.sin(tail*Math.PI/2),coil=tail*TAU*(5+twist*7+strandIndex*.45),offset=strandIndex*.79;
+      const x=500+Math.sin(tail*TAU*4.7+phase*.23+offset)*390+Math.sin(coil+phase*.6)*pull*38;
+      const y=360+Math.sin(tail*TAU*7.2+phase*.19+offset)*245+Math.cos(coil*1.3-phase*.4)*pull*35;
       points.push({x:anchor.x*(1-mix)+clamp(x,45,955)*mix,y:anchor.y*(1-mix)+clamp(y,75,665)*mix});
     }
-    const join=136,end=points[join],next=points[join-1],length=Math.max(1,Math.hypot(anchor.x-prior.x,anchor.y-prior.y));
+    const end=points[join],next=points[join-1],length=Math.max(1,Math.hypot(anchor.x-prior.x,anchor.y-prior.y));
     const a={x:anchor.x+(anchor.x-prior.x)/length*45,y:anchor.y+(anchor.y-prior.y)/length*45};
     const b={x:end.x+(end.x-next.x)*4,y:end.y+(end.y-next.y)*4};
-    for(let i=join;i<=160;i++) {
-      const t=(160-i)/(160-join),v=1-t;
+    for(let i=join;i<=samples;i++) {
+      const t=(samples-i)/(samples-join),v=1-t;
       points[i]={x:v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,
         y:v*v*v*anchor.y+3*v*v*t*a.y+3*v*t*t*b.y+t*t*t*end.y};
     }
@@ -604,13 +606,16 @@ function spiderWeb(c,state) {
 export function getWitchTargets(state = {}) {
   const transform=headTransform(state);
   const point=(x,y,r)=>({...headPoint({x,y},transform),r:r*transform.scale});
+  // Advertise an exposed part of the moving strand in the left sky, away
+  // from the moon, mushrooms, cauldron and the foreground witch.
+  const trail=getWitchTrail(state).reduce((best,p)=>Math.hypot(p.x-145,p.y-270)<Math.hypot(best.x-145,best.y-270)?p:best);
   return {nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
     hat:getWitchHat(state).target,
     tone:{x:695,y:235-clamp(state.tone??.5)*130,r:32},
     fabric:{...witchFabricPoint(19/24,.05,state),r:18},
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
     broom:{...(clamp(state.flightLift)>.5?broomPoint({x:-200,y:126},state):parkedBroomPoint({x:0,y:123})),r:32},
-    trail:{...getWitchTrail(state)[22],r:28}};
+    trail:{...trail,r:28}};
 }
 
 // Each model has its own projected pose. Display and picking share this affine
@@ -843,7 +848,6 @@ function flightScene(c, state) {
     }
     c.restore();
   }
-  if (state.flightLift > .001) broomWitch(c,state);
 }
 
 export function getWitchObjectPosition(object, state = {}) {
@@ -1017,13 +1021,25 @@ export function warpWitchPoint(point,state={},inverse=false) {
 function drawWorld(c,state) {
   c.clearRect(0,0,1000,720);c.lineCap='round';c.lineJoin='round';background(c,state);
   const ground=1-clamp(state.flightLift);
+  if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime)) {
+    c.save();c.globalAlpha*=(1-ground)*flyby.opacity;
+    c.translate(flyby.x,flyby.y);c.rotate(flyby.angle);c.scale(flyby.scale,flyby.scale);
+    drawInstrumentMiniature(c,'blech');c.restore();
+  }
   if(ground>0) {
     c.save();c.globalAlpha*=ground;
     backgroundGhosts(c,state);instrumentShelves(c);livingTree(c,state);spiderWeb(c,state);
-    const mushroom=WITCH_LAYOUT.mushrooms[0];mushrooms(c,mushroom.x,mushroom.y,mushroom.scale);
+    c.restore();
+  }
+  flightScene(c,state);
+  const mushroom=WITCH_LAYOUT.mushrooms[0];mushrooms(c,mushroom.x,mushroom.y,mushroom.scale);
+  if(ground>0) {
+    c.save();c.globalAlpha*=ground;
     ingredientObjects(c,state,false);parkedBroom(c,state);c.restore();
   }
-  brewScene(c,state);flightScene(c,state);reachingHand(c,state);
+  brewScene(c,state);
+  if(state.flightLift>.001)broomWitch(c,state);
+  reachingHand(c,state);
   if(ground>0) {
     c.save();c.globalAlpha*=ground;toneFirefly(c,state);ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
@@ -1129,7 +1145,7 @@ export function hitTestWitch(x, y, state = {}) {
   }
   const moon=WITCH_LAYOUT.moon;
   if(Math.hypot(x-moon.x,y-moon.y)<Math.max(moon.r+12,minRadius)) return {type:'moon'};
-  for(const m of grounded?WITCH_LAYOUT.mushrooms:[])for(const [mx,my,size] of [[0,0,1],[34,12,.67],[-23,15,.48]]) {
+  for(const m of WITCH_LAYOUT.mushrooms)for(const [mx,my,size] of [[0,0,1],[34,12,.67],[-23,15,.48]]) {
     const scale=m.scale*size,cx=m.x+mx*m.scale,cy=m.y+my*m.scale,halo=Math.min(12,minRadius*.18);
     // Match the enlarged caps and stems, leaving the exposed pot edge playable.
     if(((x-cx)/(26*scale+halo))**2+((y-cy+10*scale)/(19*scale+halo))**2<1||
@@ -1151,15 +1167,16 @@ export function hitTestWitch(x, y, state = {}) {
     const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
     if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(18,minRadius*.45))return {type:'broom'};
   }
-  // The string paints over the potion; its exact path remains pullable there.
+  // The potion and mushrooms sit in front of the dense sky noodles, leaving
+  // their full gesture surfaces available throughout flight.
+  const pot=WITCH_LAYOUT.cauldron;
+  if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
   if(clamp(state.flightLift)>.05) {
     for(const {points:trail} of getWitchTrails(state))for(let i=1;i<trail.length;i++) {
       const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
       if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
     }
   }
-  const pot=WITCH_LAYOUT.cauldron;
-  if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
   if(clamp(state.flightLift)>.05) {
     const fabric=getWitchFabric(state);
     if(Math.hypot(x-fabric.target.x,y-fabric.target.y)<Math.max(fabric.target.r,minRadius*.45))return {type:'fabric'};

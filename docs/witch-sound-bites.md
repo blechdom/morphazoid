@@ -75,3 +75,8 @@ command, separate from normal site/WAX builds. Mechanical audio tests cover
 finite output, differences between excerpts, phrase lifetime, repeated triggers,
 shared effects, clock continuity and Audio/Stop behavior. They do not establish
 human listening quality or physical controller feel.
+
+During flight, occasional BLECH MIDI flybys reuse the `drop-blech` PCM excerpt
+with stereo travel and a quiet fixed trim. Two dedicated readers feed the shared
+delay and fabric without consuming or featuring a potion ingredient. Their
+flight-only clock pauses on landing or Release; muting consumes missed entrances.

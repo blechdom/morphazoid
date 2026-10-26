@@ -22,7 +22,7 @@ stay visible; secondary controls live inside the closed **Parameters** section.
 | Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
 | Click the broom or moon | Toggles flight. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
-| Click the giant right mushrooms | Chooses the next complete preset, including sounds, finger animation, scene and colors, and refills the instrument shelves. |
+| Click the giant right mushrooms | Chooses the next complete preset, including sounds, finger animation, scene and colors, and refills the instrument shelves. During flight she stays airborne. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
 
 The left cupboard has six shelves with three real instrument icons on each:
@@ -59,8 +59,12 @@ pixel and angular shifts have half their earlier horizontal displacement;
 Pixel rot uses finer blocks so the scene stays readable.
 
 Flight keeps the moon, clouds and cauldron while the cupboard, tree,
-ghosts, mushrooms and animal visitors fade into the sky. The witch remains
+ghosts and animal visitors fade into the sky. The mushrooms remain playable. The witch remains
 30% larger than her earlier flight form, and her spoon can still reach the pot.
+A longer sweeping route carries smaller returning loops; twisting the hair
+deepens those loops. Denser hair noodles cross the sky and bend the shared delay.
+Occasional BLECH MIDI icons fly past, singly or in pairs, carrying their native
+five-second phrase through the same delay and fabric. They leave the shelf intact.
 The physical broom is wood and bundled bristles. Four screen-filling delay
 strands grow directly from her hair; the flying fabric uses Fabric Filter’s
 green columns and pink rows. Clicking the moon or broom again lands her without
