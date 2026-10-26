@@ -15,7 +15,8 @@ const PINK = '#f29bce';
 const INGREDIENTS=[...WITCH_SHELF,...WITCH_TREE_OBJECTS];
 // The same generation colors used by L-system Delay and its Rust renderer.
 const TREE_COLORS=['#fff3d6','#55d9ff','#5fe8c4','#7db4ff','#c79bff','#ff826f','#e8c46b'];
-const miniatureSize=id=>id==='blech'?1.5:1;
+const treeIconIds=new Set(WITCH_TREE_OBJECTS.map(item=>item.id));
+const miniatureSize=id=>(id==='blech'?1.5:1)*(treeIconIds.has(id)?1.35:1);
 
 export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
@@ -572,10 +573,11 @@ export function getWitchTree(state={}) {
   const project=p=>({x:710+(p.y-b.minY)/wide*270,y:692-(p.x-b.minX)/tall*672});
   const root=project({x:0,y:0}),segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation}));
   const supports=segments.flatMap(({a,b})=>[.25,.5,.75,1].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})));
-  const hints=[{x:780,y:345},{x:902,y:435},{x:938,y:575}],objects={};
+  const hints=[{x:780,y:345},{x:935,y:420},{x:940,y:550}],objects={};
   WITCH_TREE_OBJECTS.forEach((item,index)=>{
     const hint=hints[index],size=miniatureSize(item.id),offset=27*size,r=28*size;
-    const candidates=supports.map(p=>({x:p.x,y:p.y-offset})).filter(p=>p.x>735&&p.x<960&&p.y>280&&p.y<625&&
+    const candidates=supports.map(p=>({x:p.x,y:p.y-offset})).filter(p=>p.x>735&&p.x+r<980&&p.y>280&&p.y<625&&
+      (p.y+r<500||p.x-r>810)&&
       Math.hypot(p.x-910,p.y-140)>r+65&&Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>r+28*miniatureSize(id)+20));
     const point=candidates.reduce((best,p)=>Math.hypot(p.x-hint.x,p.y-hint.y)<Math.hypot(best.x-hint.x,best.y-hint.y)?p:best,candidates[0]||{x:root.x,y:root.y-offset});
     objects[item.id]=point;
@@ -910,7 +912,7 @@ const miniatureSources=Object.freeze(Object.fromEntries([...INGREDIENTS,{id:"web
   entry.id,new URL('../../../'+entry.imageHref,import.meta.url).href,
 ])));
 const miniatureImages=new WeakMap();
-function drawInstrumentMiniature(c,id) {
+function drawInstrumentMiniature(c,id,size=miniatureSize(id)) {
   const source=miniatureSources[id],doc=c.canvas?.ownerDocument;
   if(!source||!doc)return false;
   let images=miniatureImages.get(doc);
@@ -932,7 +934,7 @@ function drawInstrumentMiniature(c,id) {
     portrait.bounds=right<left?{x:0,y:0,w:160,h:160}:{x:left,y:top,w:right-left+1,h:bottom-top+1};
     portrait.surface=surface;
   }
-  const b=portrait.bounds,size=miniatureSize(id),scale=Math.min(56/b.w,54/b.h)*size,width=b.w*scale,height=b.h*scale;
+  const b=portrait.bounds,scale=Math.min(56/b.w,54/b.h)*size,width=b.w*scale,height=b.h*scale;
   // Rest the visible cutout, not its transparent image rectangle, on the board.
   // The web portrait remains centered beneath the live spider surface.
   const bottom=id==='web-spider'?height/2:27*size;
@@ -1042,7 +1044,7 @@ function drawWorld(c,state) {
   if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime)) {
     c.save();c.globalAlpha*=(1-ground)*flyby.opacity;
     c.translate(flyby.x,flyby.y);c.rotate(flyby.angle);c.scale(flyby.scale,flyby.scale);
-    drawInstrumentMiniature(c,'blech');c.restore();
+    drawInstrumentMiniature(c,'blech',1.5);c.restore();
   }
   if(ground>0) {
     c.save();c.globalAlpha*=ground;

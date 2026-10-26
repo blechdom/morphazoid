@@ -1138,7 +1138,7 @@ export class WitchDSP {
     this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
-      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0, flybyTime: 0, flybyLevel: 0,
+      ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0, flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
@@ -1181,7 +1181,7 @@ export class WitchDSP {
     if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
-    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); }
+    if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); this.scene.tree.release(); }
     if (c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
       if (c.gate && this.enabled) {
@@ -1228,7 +1228,7 @@ export class WitchDSP {
     const voiceWeight = c.spellBalance <= .5
       ? focusedVoice + (1 - focusedVoice) * .75 * (1 - c.spellBalance * 2)
       : .06 + (focusedVoice - .06) * (2 - c.spellBalance * 2) ** 1.6;
-    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0, flybyEnergy = 0;
+    let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0, flybyEnergy = 0, treeEnergy = 0;
     for (let offset = 0; offset < left.length; offset += 128) {
       const count = Math.min(128, left.length - offset);
       const b = count === 128 ? this.buffers : this.buffers.map(buffer => buffer.subarray(0, count));
@@ -1280,6 +1280,7 @@ export class WitchDSP {
         delayEnergy += (this.delay.wetLeft ** 2 + this.delay.wetRight ** 2) * .5;
         ghostEnergy += (ghostL * ghostL + ghostR * ghostR) * .5;
         flybyEnergy += (this.blechFlyby.left ** 2 + this.blechFlyby.right ** 2) * .5;
+        treeEnergy += (this.scene.tree.left ** 2 + this.scene.tree.right ** 2) * .5;
       }
       this.time += count * this.dt;
     }
@@ -1298,6 +1299,8 @@ export class WitchDSP {
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.visual.flybyTime = this.blechFlyby.time;
     this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));
+    this.visual.treeEnvelope = this.scene.tree.envelope;
+    this.visual.treeLevel = Math.sqrt(treeEnergy / Math.max(1, left.length));
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));
     for (let i = 0; i < 3; i++) {

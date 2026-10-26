@@ -86,9 +86,43 @@ const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .18, decay: 1.7,
   texture: .49, slide: .08, coupling: .08, pluckRegister: 5, pluckSpread: 1,
   pluckAttack: .004, pluckHold: .025, pluckRelease: 1.2 });
 
+/** One native L-System phrase reader. Repeated clicks coalesce behind a short
+ * fade before restarting; they never stack voices or abruptly seek live PCM. */
+export class WitchTreePhrase {
+  constructor(rate) {
+    this.dt = 1 / rate; this.clip = witchBiteClips()['tree-l-system'];
+    this.age = -1; this.gain = 0; this.envelope = 0; this.left = this.right = 0;
+    this.releasing = false; this.restart = false;
+  }
+  trigger() {
+    if (this.age >= 0) { this.restart = true; this.releasing = true; }
+    else { this.age = 0; this.gain = 0; this.releasing = false; }
+  }
+  release() { this.restart = false; this.releasing = true; }
+  next(enabled) {
+    this.left = this.right = this.envelope = 0;
+    if (!enabled) this.release();
+    if (this.age < 0) return;
+    if (this.releasing) {
+      this.gain = Math.max(0, this.gain - this.dt / (this.restart ? .008 : .035));
+      if (this.gain === 0) {
+        if (this.restart && enabled) { this.age = 0; this.restart = false; this.releasing = false; }
+        else { this.age = -1; return; }
+      }
+    } else this.gain = Math.min(1, this.gain + this.dt / .012);
+    const position = this.age * this.clip.rate, index = Math.floor(position), blend = position - index;
+    if (index + 1 >= this.clip.frames) { this.age = -1; this.gain = 0; return; }
+    const sample = (this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend) * this.gain * .5;
+    this.left = sample * .58; this.right = sample * .82;
+    this.envelope = this.gain * Math.min(1, (this.clip.frames / this.clip.rate - this.age) / .12);
+    this.age += this.dt;
+  }
+}
+
 export class WitchSceneDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate; this.left = this.right = 0;
+    this.tree = new WitchTreePhrase(rate);
     this.web = new SpiderStrings(rate); this.levels = new Float64Array(8).fill(1);
     this.active = 0; this.gain = 0; this.groanAge = 2; this.groan = 0; this.low = 0;
     this.groanRelease = 1; this.groanReleasing = false;
@@ -99,6 +133,7 @@ export class WitchSceneDSP {
     } });
   }
   trigger(kind) {
+    if (kind === 'tree-l-system') { this.tree.trigger(); return true; }
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
       this.web.pluck(71 * WITCH_WEB_RATIOS[index], .8, (index - 3) / 4, WEB_SOUND, 6, index, index % 3, .28, null, 1, true, 0, -1, true);
@@ -110,7 +145,7 @@ export class WitchSceneDSP {
     }
     return false;
   }
-  releaseAll() { this.active = 0; this.web.release(); this.groanReleasing = true; }
+  releaseAll() { this.active = 0; this.web.release(); this.groanReleasing = true; this.tree.release(); }
   next(enabled) {
     this.active = Math.max(0, this.active - this.dt);
     const active = enabled && this.active > 0;
@@ -126,8 +161,9 @@ export class WitchSceneDSP {
       this.low += .07 * (source - this.low);
       this.groan = Math.tanh(this.low * 3) * Math.sin(Math.PI * t / 1.6) * .11 * this.groanRelease;
     }
-    this.left = (this.web.left * 1.8 + this.groan) * this.gain;
-    this.right = (this.web.right * 1.8 + this.groan * .8) * this.gain;
+    this.tree.next(enabled);
+    this.left = (this.web.left * 1.8 + this.groan) * this.gain + this.tree.left;
+    this.right = (this.web.right * 1.8 + this.groan * .8) * this.gain + this.tree.right;
     if (this.gain < 1e-9) this.groanAge = 2;
   }
 }

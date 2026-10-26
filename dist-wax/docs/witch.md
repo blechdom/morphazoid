@@ -20,7 +20,7 @@ Brightness remains in Parameters and on the **+ / −** keys.
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
-| Touch a branch | Reshapes the upright tree using the L-system instrument's branching geometry and colors. |
+| Touch a branch | Plays a short phrase from the native L-system synth while reshaping its branches. |
 | Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
 | Click the broom or moon | Toggles flight. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
@@ -33,7 +33,8 @@ Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
 and Dentaphone. BLECH MIDI, Syrinx and Creaturazoid occupy separate branches.
 The full-height tree uses the L-system Delay instrument's seven generation colors,
-with the moon behind its branches and a larger BLECH MIDI visitor perched below.
+with the moon behind its branches. The three visitors use enlarged portraits
+and remain seated directly on the branches.
 The spider lives in a broad top-right corner web, with radial spokes and bowed
 silk threads in front of the tree.
 
@@ -83,7 +84,7 @@ raised or lowered to adjust its tempo.
 
 With the picture focused: **H** features fingers, **M** toggles flight, **B** lands,
 **W** chooses the next whole spell, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
-**T** reshapes branches, **S** wakes the spider and **P** plucks the next web string.
+**T** plays and reshapes the tree, **S** wakes the spider and **P** plucks the next web string.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
 arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.
 **[ / ]** select an ingredient and **Enter** sends it into the pot.

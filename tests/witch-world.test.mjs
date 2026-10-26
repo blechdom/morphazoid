@@ -491,7 +491,7 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
       assert.ok(image,object.id);
       const [sx,sy,sw,sh,dx,dy,dw,dh]=image.args;
       assert.deepEqual([sx,sy,sw,sh],[40,40,80,80],'transparent margins are cropped using the cached alpha bounds');
-      const size=object.id==='blech'?1.5:1;
+      const size=(object.id==='blech'?1.5:1)*(object.location==='tree'?1.35:1);
       assert.equal(dy+dh,27*size,'the visible bottom, not the source rectangle, sits on the support');
       assert.ok(dw<=56*size+1e-10&&dh<=54*size+1e-10&&dx===-dw/2);
       const position=getWitchObjectPosition(object,{});

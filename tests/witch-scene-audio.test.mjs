@@ -91,6 +91,32 @@ test('tree instruments keep playing through the perch phrase and dive while norm
   assert.ok(rms(render(ordinary, .1)) < 1e-6);
 });
 
+test('tree click plays the native L-System phrase through the scene mix with bounded retriggers and release', () => {
+  const clip = witchBiteClips()['tree-l-system'];
+  assert.equal(clip.instrumentId, 'l-systems'); assert.equal(clip.events, 15);
+  assert.match(WITCH_BITE_CLIPS['tree-l-system'].source, /native coral traversal.*MorphazoidContourSynth FM/);
+  const off = new WitchDSP(8000); assert.equal(off.trigger('tree-l-system'), false);
+  const a = playing({ gate: false }, 8000), b = playing({ gate: false }, 8000);
+  for (const dsp of [a, b]) assert.equal(dsp.trigger('tree-l-system'), true);
+  const sound = render(a, .8); assert.deepEqual(sound, render(b, .8, 6400));
+  assert.ok(rms(sound) > .02); assert.ok(a.visual.treeEnvelope > .9); assert.ok(a.visual.treeLevel > .005);
+  assert.equal(a.drops.solo, 0); assert.equal(a.visual.dropKind, ''); assert.equal(a.visual.dropLevel, 0);
+  render(a, 2); assert.equal(a.visual.treeEnvelope, 0); assert.ok(rms(render(a, .1)) < 1e-7);
+  const tree = a.scene.tree, controls = JSON.stringify(a.controls);
+  for (let i = 0; i < 80; i++) { a.trigger('tree-l-system'); render(a, .004); }
+  assert.equal(a.scene.tree, tree); assert.equal(JSON.stringify(a.controls), controls);
+  assert.ok(render(a, .2).every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  for (const cancel of [dsp => dsp.releaseAccents(), dsp => dsp.setControls({ gate: false, ghostGate: false }), dsp => dsp.setEnabled(false)]) {
+    a.setEnabled(true); a.setControls({ gate: true, ghostGate: true }); a.trigger('tree-l-system'); render(a, .3);
+    cancel(a); render(a, .1); render(a, .05); assert.equal(a.visual.treeLevel, 0); assert.equal(a.visual.treeEnvelope, 0);
+  }
+  assert.equal(a.trigger('tree-l-system'), false); a.setEnabled(true); render(a, .2); assert.equal(a.visual.treeLevel, 0);
+  const plain = playing({ mode: 'flight' }, 8000), filtered = playing({ mode: 'flight', fabricX: .04, fabricY: .94 }, 8000);
+  plain.trigger('tree-l-system'); filtered.trigger('tree-l-system');
+  assert.ok(difference(render(plain, .7), render(filtered, .7)) > .01);
+  assert.equal(plain.chantPhase, filtered.chantPhase); assert.equal(plain.visual.handTime, filtered.visual.handTime);
+});
+
 test('Rubix and FM Drums race through reusable hit pools and Rattlesnake has a falling cascade', () => {
   const dsp = playing({ gate: false }); dsp.trigger('drop-rubix'); render(dsp, 2.4);
   assert.equal(dsp.drops.slots.find(s => s.kind === 'drop-rubix').event, 32);

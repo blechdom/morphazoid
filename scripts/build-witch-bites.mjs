@@ -19,6 +19,13 @@ import { WitchCatDSP } from '../src/instruments/witch/witch-cat-audio.js';
 import { quadrupedCalls } from '../src/instruments/quadruped/quadruped-voices.js';
 import { RoachBodyEngine } from '../src/instruments/roach-synth/roach-synth-body-engine.js';
 import { ROACH_SOUND_PRESETS } from '../src/instruments/roach-synth/roach-synth-dsp.js';
+import { L_SYSTEMS_FULL_PRESETS } from '../src/instruments/l-systems/full-presets.js';
+import { createDefaultState as createLSystemsState } from '../src/instruments/l-systems/state.js';
+import { lSystemsTrace } from '../src/instruments/l-systems/branch-parameters.js';
+import { L_SYSTEM_PRESETS } from '../src/instruments/l-system/l-system.js';
+import { lSystemDrumTraversalStepSize } from '../src/instruments/l-system-drum-machine/l-system-drum-machine.js';
+import { LSystemEventClock, lSystemNoteVoice, lSystemNoteDuration, lSystemNoteEnvelope } from '../src/instruments/l-systems/discrete-audio.js';
+import { percussionEnvelopeTimeMs } from '../src/audio.js';
 
 const RATE = 22050, TAU = Math.PI * 2;
 let seed = 0x73ac51;
@@ -42,7 +49,9 @@ function render(seconds, next, before = () => {}) {
   }
   return out;
 }
-const clips = {};
+// A focused source addition preserves every previously authored PCM byte.
+const treeOnly = process.argv.includes('--tree-only');
+const clips = treeOnly ? { ...(await import('../src/instruments/witch/witch-bite-clips.js')).WITCH_BITE_CLIPS } : {};
 function save(id, instrumentId, source, data, events) {
   let sum = 0, peak = 0;
   for (let i = 0; i < data.length; i++) {
@@ -59,6 +68,7 @@ function save(id, instrumentId, source, data, events) {
   console.log(`${id}: ${data.length} frames, ${events} events, RMS ${(rms * gain).toFixed(4)}`);
 }
 
+if (!treeOnly) {
 const fractalState = FACTORY_PRESETS.find(p => p.id === 'wander-copper-zip').snapshot;
 const fractal = new FractalDSP(RATE, fractalState, generateStructure(fractalState)); fractal.setPlaying(true);
 save('drop-fractal', 'fractal-signals', 'FractalDSP / wander-copper-zip', render(2.4, (l, r) => fractal.process(l, r)), 60);
@@ -215,6 +225,51 @@ for (let i = 0; i < flutter.length; i++) {
   flutter[i] = (wings.left + wings.right) * .5;
 }
 save('roach-wings', 'roach-synth', 'RoachBodyEngine / Wing radio buzz + CC0 vivarium rustle / three flutter trains', flutter, trains.length);
+}
+
+// Use the native L-System branch/event mapping and native synth, not a phrase
+// written for a replacement oscillator. The preset's final lowpass is applied
+// offline as well; the interactive instrument is never loaded in the Witch.
+const { MorphazoidContourSynth } = await import('../src/contour-synth-processor.js');
+globalThis.currentTime = 0; globalThis.currentFrame = 0;
+const treeSynth = new MorphazoidContourSynth({ processorOptions: { maxVoices: 128 } });
+const treePreset = L_SYSTEMS_FULL_PRESETS.find(p => p.id === 'notes-2').snapshot;
+const treeState = { ...createLSystemsState(), ...treePreset.shared, mode: treePreset.mode,
+  synth: treePreset.synth, drums: treePreset.drums, corners: treePreset.corners };
+const treeGrammar = L_SYSTEM_PRESETS.find(p => p.id === treeState.presetId);
+const treeTraces = Array.from({ length: treeState.iterations }, (_, i) => lSystemsTrace(treeGrammar, i + 1, treeState));
+const treeClock = new LSystemEventClock({ traces: treeTraces, position: 0, direction: treeState.direction,
+  rate: treeState.speed, behavior: treeState.traversalBehavior, structureMode: treeState.structureMode,
+  subdivisions: treeState.drums.subdivisions, mappingMode: treeState.drums.mappingMode,
+  maxPhaseStep: lSystemDrumTraversalStepSize(treeTraces, treeState.drums.subdivisions, treeState.structureMode),
+  now: 0, pruningBias: treeState.pruningBias, playingMode: 'notes', readerMode: treeState.readerMode,
+  cornerThreshold: treeState.corners.minimumAngle, hitPlacement: treeState.corners.placement });
+const omega = TAU * Math.min(RATE * .45, treeState.synth.cutoff) / RATE;
+// Web Audio lowpass Q is specified in dB, unlike peaking-filter bandwidth.
+const cosine = Math.cos(omega), alpha = Math.sin(omega) / (2 * 10 ** (treeState.synth.resonance / 20));
+const b0 = (1 - cosine) / (2 * (1 + alpha)), b1 = 2 * b0, a1 = -2 * cosine / (1 + alpha), a2 = (1 - alpha) / (1 + alpha);
+const z1 = [0, 0], z2 = [0, 0]; let treeEvents = 0;
+const treePhrase = render(2.4, (left, right) => {
+  treeSynth.process([], [[left, right]]);
+  for (let channel = 0; channel < 2; channel++) {
+    const data = channel ? right : left;
+    for (let i = 0; i < data.length; i++) {
+      const input = data[i], output = input * b0 + z1[channel];
+      z1[channel] = input * b1 - output * a1 + z2[channel]; z2[channel] = input * b0 - output * a2;
+      data[i] = output;
+    }
+  }
+}, t => {
+  if (t >= 1.5) return;
+  for (const { event, eventCount, startAt } of treeClock.read(t)) {
+    if (startAt >= 1.5) continue;
+    treeSynth.queueNotes({ voices: [lSystemNoteVoice(event, eventCount, treeState, treePreset.envelope.level)],
+      startAt, voiceLimit: 128, envelope: lSystemNoteEnvelope(lSystemNoteDuration(treeState, eventCount), treePreset.envelope)
+        .map(point => ({ time: percussionEnvelopeTimeMs(point.x) / 1000, level: point.y })) });
+    treeEvents++;
+  }
+});
+save('tree-l-system', 'l-systems', 'L-System Synth / Notes Orchard chimes / native coral traversal + MorphazoidContourSynth FM', treePhrase, treeEvents);
 
 const output = new URL('../src/instruments/witch/witch-bite-clips.js', import.meta.url);
 await writeFile(output, `// Generated by scripts/build-witch-bites.mjs; PCM16LE mono at22050Hz.\n// Provenance and licenses: docs/witch-sound-bites.md.\nexport const WITCH_BITE_CLIPS = Object.freeze(${JSON.stringify(clips)});\n`);

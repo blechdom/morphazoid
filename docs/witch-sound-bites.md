@@ -21,6 +21,7 @@ drop or audio render boundary.
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
+| `tree-l-system` | L-System Synth's Notes · Orchard chimes preset: native coral traversal, `LSystemEventClock`, note mapping/envelopes, `MorphazoidContourSynth` FM processor and preset lowpass; 15 notes in 2.4 seconds |
 
 Normal bites last 2.4 seconds. BLECH MIDI, Syrinx and Creaturazoid last five
 seconds so their 3.2-second tree phrase continues during the dive. Existing
@@ -31,6 +32,12 @@ their icons are no longer on the shelf.
 
 The internal `roach-wings` clip follows the roach bite's clock, fades and release;
 it does not add another ingredient or a separately running instrument.
+
+Clicking the tree plays `tree-l-system` through one dedicated scene reader while
+the tree changes shape. Rapid clicks fade and restart that reader; they never
+consume an ingredient, duck the singer, or change the preset. It joins the
+shared flight delay/Fabric path. Release, Reset and Audio off cancel it; no
+muted click is queued. `treeEnvelope` and `treeLevel` follow its audio clock.
 
 The final bite gain is lower and the ongoing voice/fingers retain 72% of their
 backing gain during a drop. The output makeup and 0.84 sample ceiling are
@@ -70,7 +77,8 @@ soundfont and the exact rendering script remain available alongside the derived
 excerpt. The repository's existing SpessaSynth vendor notices remain applicable
 to that offline rendering tool.
 
-Rebuild with `node scripts/build-witch-bites.mjs`. This is a source-asset authoring
+Rebuild with `node scripts/build-witch-bites.mjs`, or append `--tree-only` to
+rebuild just the tree phrase while preserving all existing clip bytes. This is a source-asset authoring
 command, separate from normal site/WAX builds. Mechanical audio tests cover
 finite output, differences between excerpts, phrase lifetime, repeated triggers,
 shared effects, clock continuity and Audio/Stop behavior. They do not establish
