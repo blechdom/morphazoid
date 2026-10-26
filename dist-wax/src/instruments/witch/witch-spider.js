@@ -1,4 +1,5 @@
-/** The actual Spider Synth specimen, rendered once at rest and on touch only. */
+/** Spider Synth's King Baboon tarantula, rendered once at rest and on touch only.
+ * Auckland Museum, CC BY 4.0; model credits and modifications in docs/witch.md. */
 export function createWitchSpider(doc=document) {
   const canvas=doc.createElement('canvas');canvas.width=canvas.height=224;
   let renderer,scene,camera,model,bones=[],disposed=false,lastPulse=-1;
@@ -16,7 +17,7 @@ export function createWitchSpider(doc=document) {
       scene=new THREE.Scene();
       scene.add(new THREE.HemisphereLight(0xd6ddff,0x23112d,2));
       const light=new THREE.DirectionalLight(0xffc7a1,3);light.position.set(-2,3,2);scene.add(light);
-      const gltf=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL('../../../assets/spider-synth/spider-phone.glb',import.meta.url).href);
+      const gltf=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL('../../../assets/spider-synth/skins/tarantula/spider-phone.glb',import.meta.url).href);
       model=gltf.scene;
       if(disposed){releaseModel();return false;}
       scene.add(model);model.updateMatrixWorld(true);

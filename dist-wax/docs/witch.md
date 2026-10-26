@@ -44,8 +44,13 @@ with the moon behind its branches. The three visitors use enlarged portraits
 and remain seated directly on the branches.
 Enlarged transparent red BLECH logos sometimes pass through the flying sky,
 playing an excerpt from its bundled Black MIDI demo.
-The spider lives in a broad top-right corner web, with radial spokes and bowed
-silk threads in front of the tree.
+Spider Synth's bulky King Baboon tarantula lives in a broad top-right corner web,
+with radial spokes and bowed silk threads in front of the tree.
+The model is based on [King Baboon Tarantula](https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381)
+by [Auckland Museum](https://sketchfab.com/aucklandmuseum), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Morphazoid normalized,
+rigged and compressed the scan; [asset notes](../assets/spider-synth/skins/ASSET.md)
+describe the modifications. Its placement in this web is artistic.
 
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
 and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnake
