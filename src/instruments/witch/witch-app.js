@@ -74,7 +74,7 @@ function sync() {
   $('voice').value = config.voice; $('spoonAuto').checked=config.spoonAuto;
   for(const key of ['handMotion','handSound','catGait'])$(key).value=config[key];
   for(const key of ['handRate','catSpeed']) {$(key).value=config[key];$(`${key}Out`).value=`${config[key].toFixed(2)}×`;}
-  for(const key of ['handDepth','fabricX','fabricY','trailPull','trailTwist']) {$(key).value=config[key];$(`${key}Out`).value=`${Math.round(config[key]*100)}%`;}
+  for(const key of ['handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {$(key).value=config[key];$(`${key}Out`).value=`${Math.round(config[key]*100)}%`;}
   const handBank=WITCH_HAND_SOUNDS.find(bank=>bank.id===config.handSound)||WITCH_HAND_SOUNDS[0];
   instrumentLabels=handBank.sources.map((source,i)=>`${['Thumb','Index','Middle','Ring','Little'][i]} · ${source}`);
   for(const button of document.querySelectorAll('[data-drop]'))button.disabled=objects.some(object=>object.id===button.dataset.drop&&object.dropped);
@@ -122,7 +122,7 @@ function trigger(kind) {
     catMeowAt=performance.now();
   }
   const character={bat:'cackle',moon:'sing',gust:'creak',spark:'mutter'}[kind];
-  if(character) { config.voice=character;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(character)+.5)/5;send();sync(); }
+  if(character) { config.voice=character;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(character)+.5)/WITCH_VOICES.length;send();sync(); }
   if(kind!=='meow')event={kind,age:0};
   audio.trigger(kind);
   $('gestureReadout').value = {meow:'Meow!',launch:'Bwa bwa ha ha hah ha!',moon:'A silver moon bell.',bat:'A flutter of ticking wings.',spark:'A star plucks a string.',gust:'Wind through the broom.'}[kind] || kind;
@@ -175,7 +175,7 @@ listen($('audioButton'),'click',toggleAudio);
 listen($('playButton'),'click',() => { stopGesture(); setPlaying(!playing); send(); sync(); });
 listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); performanceTime=0; catMeowAt=-Infinity; config=normalizeWitchPreset(WITCH_DEFAULTS); Object.assign(catClock,createWitchCatClock(0,config)); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0,snapshotWitchCatClock(catClock)); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
-listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/5; send(); sync(); });
+listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/WITCH_VOICES.length; send(); sync(); });
 for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','hair','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
 listen($('ghostTempo'),'input',()=>{config.ghostTempo=clamp($('ghostTempo').value,36,180);send();sync();});
 listen($('palette'),'change',()=>{config.palette=Math.round(clamp($('palette').value,0,7));sync();});
@@ -183,7 +183,7 @@ listen($('lineBend'),'input',()=>{config.trip=Math.round(clamp($('lineBend').val
 listen($('spoonAuto'),'change',()=>{config.spoonAuto=$('spoonAuto').checked;send();sync();});
 for(const button of document.querySelectorAll('[data-drop]')) listen(button,'click',()=>dropObject(button.dataset.drop));
 for(const key of ['handMotion','handSound','catGait'])listen($(key),'change',()=>{advancePerformanceTime();config[key]=$(key).value;send();sync();});
-for(const key of ['handRate','handDepth','catSpeed','fabricX','fabricY','trailPull','trailTwist'])listen($(key),'input',()=>{advancePerformanceTime();config[key]=Number($(key).value);send();sync();});
+for(const key of ['handRate','handDepth','catSpeed','fabricX','fabricY','trailPull','trailTwist','spellBalance'])listen($(key),'input',()=>{advancePerformanceTime();config[key]=Number($(key).value);send();sync();});
 listen($('flightSpeed'),'input',()=>{ config.speed=Number($('flightSpeed').value); send(); sync(); });
 for(let i=0;i<5;i++) {
   const slider=$(`finger${i}`);

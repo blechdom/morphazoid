@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
-import { WITCH_DROP_EFFECTS, WITCH_HAND_SOUNDS } from '../src/instruments/witch/witch-model.js';
+import { WITCH_DROP_EFFECTS, WITCH_HAND_SOUNDS, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
 import { handEffectiveTempo } from '../src/instruments/gesticulating-hand/hand-model.js';
 
@@ -16,6 +16,51 @@ function render(dsp, seconds) {
   for (let i = 0; i < data.length; i += 128) dsp.process(data.subarray(i, Math.min(data.length, i + 128)));
   return data;
 }
+
+function performerLevels(dsp, seconds = 2) {
+  const data = new Float32Array(128);
+  let voice = 0, hand = 0, blocks = 0;
+  for (let i = 0; i < Math.ceil(dsp.rate * seconds / data.length); i++) {
+    dsp.process(data); voice += dsp.visual.brewLevel ** 2; hand += dsp.visual.handLevel ** 2; blocks++;
+  }
+  return { voice: Math.sqrt(voice / blocks), hand: Math.sqrt(hand / blocks) };
+}
+
+test('preset balance can feature either rendered performer while the hand stays closed', () => {
+  for (const voice of WITCH_VOICES) {
+    const voiceLed = playing({ voice, spellBalance: .1, handFocus: 0 });
+    const fingersLed = playing({ voice, spellBalance: .9, handFocus: 0 });
+    render(voiceLed, .6); render(fingersLed, .6);
+    const low = performerLevels(voiceLed), high = performerLevels(fingersLed);
+    assert.ok(low.voice > low.hand * 2, `${voice}: voice-led preset has a measurable vocal foreground`);
+    assert.ok(high.hand > high.voice * 2, `${voice}: finger-led preset works without opening the hand`);
+    assert.ok(low.hand > .001 && high.voice > .001, `${voice}: both performers remain audible contributors`);
+    assert.equal(voiceLed.chantPhase, fingersLed.chantPhase);
+    assert.equal(voiceLed.visual.handTime, fingersLed.visual.handTime);
+  }
+});
+
+test('live preset-balance fades preserve running sounds and interrupted focus transitions', () => {
+  const changed = playing({ voice: 'wail' }), held = playing({ voice: 'wail' });
+  render(changed, .4); render(held, .4);
+  for (const spellBalance of [.95, .08, .84, .5]) {
+    const weight = changed.weights[0], phrase = changed.chantPhase, handTime = changed.visual.handTime;
+    changed.setControls({ spellBalance });
+    assert.equal(changed.weights[0], weight); assert.equal(changed.chantPhase, phrase); assert.equal(changed.visual.handTime, handTime);
+    render(changed, .012); render(held, .012);
+    assert.deepEqual(changed.buffers[0], held.buffers[0], 'crossfade leaves the singer itself untouched');
+    assert.deepEqual(changed.buffers[2], held.buffers[2], 'crossfade leaves the fingers themselves untouched');
+    assert.ok(Math.abs(changed.weights[0] + changed.weights[1] - 1) < 1e-12);
+  }
+  render(changed, .08); render(held, .08);
+  assert.equal(changed.weights[0], .72, 'the midpoint restores the established scene balance');
+  assert.ok(difference(render(changed, .1), render(held, .1)) < 1e-7, 'the held sounds return without a restart');
+  const open = playing({ spellBalance: .85 }); render(open, .2);
+  const closedWeight = open.weights[0]; open.setControls({ handFocus: 1 }); render(open, .06);
+  assert.ok(open.weights[0] < closedWeight, 'opening the hand still brings it forward within the preset');
+  const focusWeight = open.weights[0]; open.setControls({ mode: 'flight', handFocus: 1 }); render(open, .06);
+  assert.equal(open.weights[0], focusWeight, 'flight keeps both the preset balance and hand focus');
+});
 
 test('pulling the nose changes voiced pitch and tract while the independent hand keeps its clock', () => {
   const low = playing({ nose: 0 }), high = playing({ nose: 1 });

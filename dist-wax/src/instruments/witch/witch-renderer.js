@@ -1,5 +1,5 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
-import { WITCH_SHELF } from './witch-model.js';
+import { WITCH_SHELF, WITCH_VOICES } from './witch-model.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -456,13 +456,13 @@ function ladleArm(c,state) {
   const t=handTransform(state,1),{x:wx,y:wy}=t.wrist,lift=clamp(state.flightLift);
   const shoulder=broomPoint({x:-2,y:2},state);
   const sx=437*(1-lift)+shoulder.x*lift,sy=408*(1-lift)+shoulder.y*lift;
-  const width=19*(1-lift)+9*lift,cuff=42*t.scale;
+  const growth=1+.3*lift,width=19*(1-lift)+9*1.3*lift,cuff=42*t.scale;
   const ux=Math.cos(t.rotation)*cuff,uy=Math.sin(t.rotation)*cuff;
-  const bend=34*(1-lift)+12*lift,mx=(sx+wx)/2,my=(sy+wy)/2+bend;
+  const bend=34*(1-lift)+12*1.3*lift,mx=(sx+wx)/2,my=(sy+wy)/2+bend;
   // This sleeve paints before either face. The palm and utensil can then sit
   // above the rim while the arm passes naturally behind her jaw and hair.
-  path(c,`M${sx-width},${sy} Q${mx-width},${my+22} ${wx-ux},${wy-uy} L${wx+ux},${wy+uy} Q${mx+width},${my-18} ${sx+width},${sy-13} Z`,'#48324b',INK,3);
-  curve(c,[sx,sy,mx,my+14,wx-ux*.5,wy-uy*.5,wx,wy],'#79566f',1.4);
+  path(c,`M${sx-width},${sy} Q${mx-width},${my+22*growth} ${wx-ux},${wy-uy} L${wx+ux},${wy+uy} Q${mx+width},${my-18*growth} ${sx+width},${sy-13*growth} Z`,'#48324b',INK,3);
+  curve(c,[sx,sy,mx,my+14*growth,wx-ux*.5,wy-uy*.5,wx,wy],'#79566f',1.4);
   line(c,[[wx-ux,wy-uy],[wx+ux,wy+uy]],'#b29c88',1.5);
 }
 
@@ -490,9 +490,10 @@ function brewScene(c, state) {
   line(c, [[lx,ly - 2],[tx-2,ty-2]], '#d8bf87', 1.4);
   ellipse(c, lx, ly + 2, 18, 7, '#385d50', '#c4d995', 1.4, -.1);
   ellipse(c, lx - 3, ly, 12, 3.5, '#b6d797');
-  for(let i=0;i<5;i++) {
-    const py=ly-80-i*35,active=Math.min(4,Math.floor(clamp(state.spoonHeight??.5)*5))===i;
-    ellipse(c,hx+22,py,active?3.4:1.6,active?3.4:1.6,['#cfb8ee','#78ccdc','#addc94','#dfaa7d','#e6a4c9'][i]);
+  for(let i=0;i<WITCH_VOICES.length;i++) {
+    const py=ly-80-i*140/Math.max(1,WITCH_VOICES.length-1);
+    const active=Math.min(WITCH_VOICES.length-1,Math.floor(clamp(state.spoonHeight??.5)*WITCH_VOICES.length))===i;
+    ellipse(c,hx+22,py,active?3.4:1.6,active?3.4:1.6,['#cfb8ee','#78ccdc','#addc94','#dfaa7d','#e6a4c9','#f2bf83','#bb9de7'][i%7]);
     if(active)glow(c,hx+22,py,12,'#d7ddae27');
   }
   if (state.handSurfaces?.[1]) drawHandModel(c,state,1);
@@ -530,11 +531,14 @@ function brewScene(c, state) {
 export function broomTransform(state = {}) {
   const lift=clamp(state.flightLift),time=state.reducedMotion?0:(state.motionTime??state.time??0);
   const phase=state.reducedMotion?0:(state.flightPhase??time*.72),altitude=clamp(state.altitude??.5),steer=clamp(state.flightX??.5);
-  const targetX=600+(steer-.5)*120+Math.sin(phase*.7)*165;
+  const targetX=590+(steer-.5)*120+Math.sin(phase*.7)*165;
   const tallHat=clamp((state.hat??.5)-.5,0,.5)*2;
-  const targetY=286+tallHat*16+(0.5-altitude)*36+Math.sin(phase*1.4)*34+Math.sin(phase*.7)*13;
+  // The complete flying rig grows 30%; its unchanged rollercoaster curve sits
+  // lower so the tallest hat stays inside the frame at the uppermost crest.
+  // A small left offset also leaves room for the enlarged, mushroom-warped tip.
+  const targetY=350+tallHat*16+(0.5-altitude)*36+Math.sin(phase*1.4)*34+Math.sin(phase*.7)*13;
   return {x:455+(targetX-455)*lift,y:476+(targetY-476)*lift,
-    rotation:(-.08+Math.cos(phase*1.4)*.12)*lift,scale:.8-(.26+tallHat*.04)*lift,phase};
+    rotation:(-.08+Math.cos(phase*1.4)*.12)*lift,scale:.8+((.54-tallHat*.04)*1.3-.8)*lift,phase};
 }
 function broomPoint(point,state) {
   const t=broomTransform(state),cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
@@ -609,7 +613,7 @@ function drawHandModel(c,state,index) {
 function reachingHand(c, state) {
   if (!state.handSurface) return;
   const t = handTransform(state), {x:wx,y:wy} = t.wrist;
-  const lift=clamp(state.flightLift),reach=clamp(state.handReach)*(1-lift),cuff=(12+clamp(state.handReach)*39)*(1-lift*.72);
+  const lift=clamp(state.flightLift),growth=1+.3*lift,reach=clamp(state.handReach)*(1-lift),cuff=(12+clamp(state.handReach)*39)*(1-lift*.72)*growth;
   const ux=Math.cos(t.rotation)*cuff,uy=Math.sin(t.rotation)*cuff;
   const flying=broomPoint({x:-8,y:19},state);
   const sx=365*(1-lift)+flying.x*lift,sy=410*(1-lift)+flying.y*lift;
@@ -617,12 +621,12 @@ function reachingHand(c, state) {
   // The cuff rotates with the model so the stretched arm meets its actual wrist.
   const sleeve=c.createLinearGradient(sx,sy,wx,wy);
   sleeve.addColorStop(0,'#59305f');sleeve.addColorStop(.55,'#49375e');sleeve.addColorStop(1,'#275a65');
-  path(c, `M${sx},${sy} Q${sx-25},${sy+59*(1-lift)+18*lift+reach*105} ${wx-ux},${wy-uy} Q${wx-10},${wy+26} ${wx+ux},${wy+uy} Q${sx+55*(1-lift)+16*lift},${sy-3+reach*28} ${sx+38*(1-lift)+14*lift},${sy-1} Z`, sleeve, INK, 3);
-  curve(c,[sx+14,sy+12,sx-9,sy+73+reach*95,wx-30,wy+25,wx-14,wy+7],'#bc78ae',1.5);
+  path(c, `M${sx},${sy} Q${sx-25*growth},${sy+59*(1-lift)+18*1.3*lift+reach*105} ${wx-ux},${wy-uy} Q${wx-10*growth},${wy+26*growth} ${wx+ux},${wy+uy} Q${sx+55*(1-lift)+16*1.3*lift},${sy-3*growth+reach*28} ${sx+38*(1-lift)+14*1.3*lift},${sy-growth} Z`, sleeve, INK, 3);
+  curve(c,[sx+14*growth,sy+12*growth,sx-9*growth,sy+73*growth+reach*95,wx-30*growth,wy+25*growth,wx-14*growth,wy+7*growth],'#bc78ae',1.5);
   line(c,[[wx-ux,wy-uy],[wx+ux,wy+uy]],'#ddac87',2);
   drawHandModel(c,state,0);
   if (clamp(state.handReach) > .5) {
-    const cue=1-lift*.7;
+    const cue=(1-lift*.7)*growth;
     const colors=['#ffc17e','#e5ef82','#75f0cb','#86c9ff','#ee9ee9'];
     for (const tip of getFingerTips(state)) {
       const level=clamp(state.fingerLevels?.[tip.index]);
@@ -1095,16 +1099,24 @@ export function hitTestWitch(x, y, state = {}) {
     const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy));
     if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(18,minRadius*.45))return {type:'broom'};
   }
-  const pot=WITCH_LAYOUT.cauldron;
-  if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
   // Visible locks sit in front of the background ghosts, bats and spirits.
-  // Hands, utensil, face, hat, shelf icons and the pot retain priority.
+  // Hands, utensil, face, hat and shelf icons retain priority.
   const hair=getWitchHair(state),hairRadius=Math.min(28,Math.max(12*hair.scale,minRadius*.32));
   for(const strand of hair.strands.slice(0,8))for(let i=7;i<strand.points.length;i++) {
     const a=strand.points[i-1],b=strand.points[i],dx=b.x-a.x,dy=b.y-a.y;
     const along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
     if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<hairRadius)return {type:'hair'};
   }
+  // The string paints over the potion; its exact path remains pullable there.
+  if(clamp(state.flightLift)>.05) {
+    const trail=getWitchTrail(state);
+    for(let i=1;i<trail.length;i++) {
+      const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+      if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
+    }
+  }
+  const pot=WITCH_LAYOUT.cauldron;
+  if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
   let ghostHit=null,ghostDistance=Infinity;
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
     const ghost=getWitchGhostPosition(index,state),distance=Math.hypot(x-ghost.x,y-ghost.y);
@@ -1118,13 +1130,6 @@ export function hitTestWitch(x, y, state = {}) {
   }
   for(const spirit of WITCH_LAYOUT.spirits) if(Math.hypot(x-spirit.x,y-spirit.y)<Math.max(spirit.r,minRadius*.7))return {type:spirit.kind};
   if(nearestObject)return nearestObject;
-  if(clamp(state.flightLift)>.05) {
-    const trail=getWitchTrail(state);
-    for(let i=1;i<trail.length;i++) {
-      const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-      if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
-    }
-  }
   if(state.scene==='flight') return {type:'flight'};
   if(Math.hypot(x-ladle.hx,y-ladle.hy)<Math.max(35,minRadius*.8)) return {type:'spoon'};
   return null;

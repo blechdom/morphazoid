@@ -62,6 +62,15 @@ function stagePoint(rect,x,y) {
   const s=Math.min(rect.width/1000,rect.height/720);
   return {x:rect.x+(rect.width-1000*s)/2+x*s,y:rect.y+(rect.height-720*s)/2+y*s};
 }
+async function inputSnapshot(session,read,arg) {
+  // Sample on the native input session. Traced page.evaluate snapshots can
+  // delay its return enough for moving hair or foreground fingers to cross.
+  const {result,exceptionDetails}=await session.send('Runtime.evaluate',{
+    expression:`(${read.toString()})(${JSON.stringify(arg)})`,awaitPromise:true,returnByValue:true,
+  });
+  if(exceptionDetails)throw new Error(exceptionDetails.text);
+  return result.value;
+}
 async function range(page,id,value) {
   await page.locator(`#${id}`).evaluate((el,v)=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));},String(value));
 }
@@ -119,7 +128,7 @@ async function clickCat(page,{touch=false,part='body'}={}) {
 async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
   const session=await page.context().newCDPSession(page);
-  const candidateSnapshot=(offset=null)=>page.evaluate(async({id,dy,offset})=>{
+  const candidateSnapshot=(offset=null)=>inputSnapshot(session,async({id,dy,offset})=>{
     const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,ghost=current.ghosts.find(item=>item.id===id);
     const rect=document.querySelector('#witchCanvas').getBoundingClientRect(),minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
@@ -203,7 +212,7 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
       };
     },{once:true,capture:true});
   });
-  const candidateSnapshot=(index=null)=>page.evaluate(async({amount,index})=>{
+  const candidateSnapshot=(index=null)=>inputSnapshot(session,async({amount,index})=>{
     const {warpWitchPoint,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,geometry=current.hairGeometry;
     const visual={trip:current.config.trip,warpTime:matchMedia('(prefers-reduced-motion: reduce)').matches?0:performance.now()/1000};
@@ -243,6 +252,8 @@ async function dragHair(page,amount,{touch=false,cancel=false,hold=false}={}) {
     return true;
   },{intervals:[50,100]}).toBe(true);
   expect(await canvas.evaluate(canvas=>canvas.hasPointerCapture(window.witchHairPointerId))).toBe(true);
+  const down=await page.evaluate(()=>window.witchHairDown);
+  expect(down.hairDistance,JSON.stringify(down)).toBeLessThan(down.hairRadius);
   if(hold) {
     const before=await state(page);
     for(let i=0;i<3;i++) {
@@ -386,13 +397,58 @@ test('voice and fingers stay sounding together through focus, flight and manual 
   await waitForStableAudioState(page,false,{timeout:12000,stableMs:300});
 });
 
-test('spoon height selects all five singing characters and automatic motion remains visible',async({page})=>{
+test('preset balances and the two new voices change without restarting the ensemble',async({page})=>{
+  test.setTimeout(45000);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await observeWorklet(page);await open(page);
+  await expect(page.locator('#spellBalance')).toBeHidden();
+  expect((await state(page)).config.spellBalance).toBe(.5);
+  const presets=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-presets.js')).WITCH_PRESETS);
+  const choices=['blood-moon','low-fog','green-lightning'].map(id=>presets.find(preset=>preset.id===id));
+  expect(choices.every(Boolean)).toBe(true);
+  const balances=choices.map(preset=>preset.snapshot.spellBalance);
+  expect(Math.max(...balances)-Math.min(...balances)).toBeGreaterThan(.35);
+  expect(choices.map(preset=>preset.snapshot.voice)).toEqual(['wail','whisper','chatter']);
+  await page.locator('#audioButton').click();
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.00001&&window.witchVisual?.handLevel>.00001)).toBe(true);
+  const connections=(await readAudioStatus(page)).connectionCount;expect(connections).toBeGreaterThan(0);
+  for(const preset of choices) {
+    const before=await state(page);
+    await page.locator('.header-preset-controls summary').click();
+    await page.locator(`button[data-preset-id="${preset.id}"]`).click();
+    await expect.poll(async()=>(await state(page)).activeVoice).toBe(preset.snapshot.voice);
+    const after=await state(page);
+    expect(after.config).toEqual(preset.snapshot);
+    expect(after).toMatchObject({playing:true,audioOn:true,config:{spoonAuto:false}});
+    for(const clock of ['performanceTime','handTime','flightPhase','ghostPhase'])expect(after[clock]).toBeGreaterThan(before[clock]);
+    expect(Number(await page.locator('#spellBalance').inputValue())).toBeCloseTo(preset.snapshot.spellBalance,6);
+    expect(await page.locator('#witchParameters').evaluate(el=>el.open)).toBe(false);
+    expect((await readAudioStatus(page)).connectionCount).toBe(connections);
+    await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.00001&&window.witchVisual?.handLevel>.00001)).toBe(true);
+  }
+  await parameters(page);await page.locator('#spellBalance').focus();
+  for(const [key,value] of [['Home',0],['End',1]]) {
+    const before=await state(page);await page.keyboard.press(key);
+    const after=await state(page);
+    expect(after.config).toEqual({...before.config,spellBalance:value});
+    expect(after).toMatchObject({playing:true,audioOn:true});
+    await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel>.00001&&window.witchVisual?.handLevel>.00001)).toBe(true);
+  }
+  const envelope=await sampleAudioEnvelope(page,{durationMs:350});
+  expect(envelope.summary.finite).toBe(true);expect(envelope.summary.maxPeak).toBeGreaterThan(.001);expect(envelope.summary.clippedSamples).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('spoon height selects all seven singing characters and automatic motion remains visible',async({page})=>{
   await open(page);
   const initial=await state(page);
   await expect.poll(async()=>(await state(page)).spoonHeight).not.toBe(initial.spoonHeight);
   await parameters(page);
-  for(const [i,voice] of ['mutter','whisper','creak','cackle','sing'].entries()) {
-    await range(page,'spoonHeight',(i+.5)/5);
+  const voices=await page.evaluate(async()=>[...(await import('/src/instruments/witch/witch-model.js')).WITCH_VOICES]);
+  expect(voices).toHaveLength(7);expect(voices).toEqual(expect.arrayContaining(['wail','chatter']));
+  expect(await page.locator('#voice option').evaluateAll(options=>options.map(option=>option.value))).toEqual(voices);
+  for(const [i,voice] of voices.entries()) {
+    await range(page,'spoonHeight',(i+.5)/voices.length);
     expect((await state(page)).config.voice).toBe(voice);
     expect((await state(page)).config.spoonAuto).toBe(false);
     expect((await state(page)).activeVoice).toBe(voice);
@@ -903,6 +959,7 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
       expect(errors).toEqual([]);
     });
     test(`Witches Brew ${label}: controls, two hands and ongoing flight fit`,async({page},testInfo)=>{
+      test.setTimeout(60000);
       const errors=[];page.on('pageerror',error=>errors.push(error.message));
       await observeWorklet(page);await open(page);
       for(const scene of ['brew','fingers','flight']) {
@@ -915,6 +972,23 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
         expect(object.x).toBeGreaterThan(0);expect(object.x).toBeLessThan(1000);
         expect(object.y).toBeGreaterThan(0);expect(object.y).toBeLessThan(720);
       }
+      await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+      const neutral=(await state(page)).config;
+      for(const [id,value] of [['hat',1],['nose',1],['hair',1],['lineBend',3]])await range(page,id,value);
+      for(const [edge,x,altitude] of [['left-high',.12,1],['right-low',.88,0]]) {
+        await range(page,'flightX',x);await range(page,'altitude',altitude);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        const flying=await state(page);expectHairInScene(flying);
+        expect(flying.hands.map(hand=>hand.tips.length)).toEqual([5,5]);
+        const points=flying.hands.flatMap(hand=>[hand.wrist,hand.palm,...hand.tips]);
+        expect(points.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y))).toBe(true);
+        expect(Math.min(...points.map(point=>point.x))).toBeGreaterThan(0);expect(Math.max(...points.map(point=>point.x))).toBeLessThan(1000);
+        expect(Math.min(...points.map(point=>point.y))).toBeGreaterThan(0);expect(Math.max(...points.map(point=>point.y))).toBeLessThan(720);
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+        await page.screenshot({path:testInfo.outputPath(`${label}-flight-${edge}.png`),fullPage:true});
+      }
+      for(const key of ['hat','nose','hair','flightX','altitude'])await range(page,key,neutral[key]);
+      await range(page,'lineBend',neutral.trip);
       await clickIngredient(page,'oculoid',label!=='desktop');
       expect((await state(page)).config.scene).toBe('flight');expect((await state(page)).audioOn).toBe(false);
       await range(page,'ghostTempo',72);

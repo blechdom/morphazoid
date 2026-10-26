@@ -33,6 +33,8 @@ const VOICE = Object.freeze({
   creak: { hz: 69, air: .09, rasp: .88, vibrato: .025, sustain: .3 },
   cackle: { hz: 253, air: .21, rasp: .52, vibrato: .045, sustain: .02 },
   sing: { hz: 252, air: .025, rasp: .015, vibrato: .013, sustain: .86 },
+  wail: { hz: 206, air: .08, rasp: .07, vibrato: .022, sustain: .68 },
+  chatter: { hz: 187, air: .17, rasp: .38, vibrato: .006, sustain: .015 },
 });
 
 class Resonator {
@@ -74,6 +76,7 @@ class CauldronDSP {
     this.lastInput = 0; this.dc = 0; this.gain = 0; this.targetHz = 139; this.frequency = 139;
     this.targetAir = .13; this.air = .13; this.targetRasp = .23; this.rasp = .23;
     this.targetSustain = .24; this.sustain = .24; this.targetVibrato = .009; this.vibrato = .009;
+    this.articulation = .24 + .76 * .22; this.articulationFollow = 1 - Math.exp(-this.dt / .003);
     this.formants = Array.from({ length: 3 }, () => new Resonator(this.rate));
     this.ring = new Resonator(this.rate); this.nasal = new Resonator(this.rate); this.chant = sampleChant(0); this.controlSamples = 0;
     this.effects = Array.from({ length: 4 }, () => ({ kind: '', age: 0, duration: 0, phase: 0, low: 0, envelope: 0,
@@ -114,7 +117,7 @@ class CauldronDSP {
     const c = this.controls;
     this.activeVoice = c.spoonAuto ? witchVoiceAtHeight(this.spoonHeight) : c.voice;
     const v = VOICE[this.activeVoice];
-    sampleChant(this.chantPhase, 1, this.radius, this.chant);
+    sampleChant(this.chantPhase, 1, this.radius, this.chant, this.activeVoice);
     const vowel = (.77 + this.fingers[1] * .46) * Math.pow(1.8, (this.nose - .5) * 2);
     this.targetHz = v.hz * Math.pow(2.7, this.fingers[0] - .5) * this.chant.pitch * Math.pow(2, (this.hat - .5) * 1.3 + (this.nose - .5) * 1.5);
     this.targetAir = witchClamp(v.air + (this.fingers[4] - .5) * .55, 0, .98);
@@ -188,7 +191,9 @@ class CauldronDSP {
       if (c.gate) this.spoonTime += this.dt;
       if (c.gate || !c.spoonAuto) this.spoonHeight += ((c.spoonAuto ? witchSpoonHeight(this.spoonTime) : c.spoonHeight) - this.spoonHeight) * this.spoonSmooth;
       for (let f = 0; f < 5; f++) this.fingers[f] += (c.fingers[f] - this.fingers[f]) * this.smooth;
-      const pace = .46 + this.speed * (this.activeVoice === 'cackle' ? 12 : 8.6);
+      const pace = this.activeVoice === 'wail' ? .18 + this.speed * 2.3
+        : this.activeVoice === 'chatter' ? 1.1 + this.speed * 16.4
+          : .46 + this.speed * (this.activeVoice === 'cackle' ? 12 : 8.6);
       this.chantPhase += c.direction * pace * this.dt * (c.gate ? 1 : this.speed);
       // Radians, independent from articulation so a broad chant still follows
       // the visible ladle rotation while its vowels take their own time.
@@ -216,7 +221,8 @@ class CauldronDSP {
       vowel += this.glass * ringing * 2.4;
       const nasalAmount = (this.nose - .5) * 2;
       vowel = vowel * (1 - Math.abs(nasalAmount) * .27) + this.nasal.next(source) * nasalAmount * 3.2;
-      const articulation = this.sustain + (1 - this.sustain) * this.chant.articulation;
+      this.articulation += (this.sustain + (1 - this.sustain) * this.chant.articulation - this.articulation) * this.articulationFollow;
+      const articulation = this.articulation;
       const release = (noise - this.noiseLow) * this.releaseAir * .026;
       let sample = (vowel * articulation * .88 + cycle * (1 - this.air) * .035) * this.envelope + release;
       // Pulling tangles adds uneven, scratchy friction around the voiced spell.
@@ -1155,7 +1161,9 @@ export class WitchDSP {
     this.controls = normalizeWitchControls({ ...previous, ...value,
       handFocus: value.mode && value.mode !== previous.mode && value.handFocus === undefined ? undefined : value.handFocus ?? previous.handFocus });
     const c = this.controls;
-    if (c.handFocus !== previous.handFocus) { this.fadeFrom.set(this.weights); this.fadePosition = 0; }
+    if (c.handFocus !== previous.handFocus || c.spellBalance !== previous.spellBalance) {
+      this.fadeFrom.set(this.weights); this.fadePosition = 0;
+    }
     // Preserve the brewed anatomy underneath hand gestures: bending an
     // instrumental finger must not simultaneously reshape the background voice.
     this.brew.setControls({ ...c, mode: 'brew', fingers: this.brew.controls.fingers });
@@ -1192,7 +1200,13 @@ export class WitchDSP {
     return this.brew.trigger(kind);
   }
   process(left, right = left) {
-    const c = this.controls, voiceWeight = .72 - c.handFocus * .54;
+    const c = this.controls, focusedVoice = .72 - c.handFocus * .54;
+    // The midpoint keeps the established scene balance. Hand-heavy presets
+    // can lead even with the hand closed; the singer always keeps a small part.
+    // Biasing a preset toward voice still leaves room for finger instruments.
+    const voiceWeight = c.spellBalance <= .5
+      ? focusedVoice + (1 - focusedVoice) * .75 * (1 - c.spellBalance * 2)
+      : .06 + (focusedVoice - .06) * (2 - c.spellBalance * 2) ** 1.6;
     let energy = 0, brewEnergy = 0, handEnergy = 0, dropEnergy = 0, delayEnergy = 0, ghostEnergy = 0;
     for (let offset = 0; offset < left.length; offset += 128) {
       const count = Math.min(128, left.length - offset);

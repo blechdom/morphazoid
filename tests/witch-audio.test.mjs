@@ -63,6 +63,46 @@ test('stir speed accelerates articulation; reverse retraces syllable and vortex 
   assert.ok(fast.visual.chantPhase < before); assert.equal(fast.visual.direction, -1);
 });
 
+test('wail stretches and chatter breaks the vocal phrase while the fingers keep their independent clock', () => {
+  const wail = playing({ voice: 'wail' }), ordinary = playing({ voice: 'mutter' }), chatter = playing({ voice: 'chatter' });
+  render(wail, 2); render(ordinary, 2); render(chatter, 2);
+  assert.ok(wail.chantPhase < ordinary.chantPhase * .35, 'wail holds much longer syllables');
+  assert.ok(chatter.chantPhase > ordinary.chantPhase * 1.8, 'chatter runs faster through its uneven syllables');
+  assert.equal(wail.visual.handTime, chatter.visual.handTime);
+  assert.deepEqual(wail.buffers[2], chatter.buffers[2], 'voicing does not change finger audio');
+  for (const dsp of [wail, chatter]) {
+    const phrase = dsp.chantPhase, time = dsp.visual.handTime;
+    dsp.setControls({ direction: -1 }); render(dsp, .25);
+    assert.ok(dsp.chantPhase < phrase); assert.ok(dsp.visual.handTime > time);
+    const reversed = dsp.chantPhase;
+    dsp.setControls({ voice: 'sing' }); assert.equal(dsp.chantPhase, reversed, 'changing phrase never resets its clock');
+    render(dsp, .1); assert.ok(dsp.chantPhase < reversed);
+  }
+});
+
+test('both new vocal patterns preserve block-independent flight and release with bounded live changes', () => {
+  for (const voice of ['wail', 'chatter']) {
+    const a = playing({ voice, mode: 'flight', spellBalance: .88 });
+    const b = playing({ voice, mode: 'flight', spellBalance: .88 });
+    assert.deepEqual(render(a, 1.2), render(b, 1.2, RATE * 2));
+    assert.ok(a.visual.brewLevel > .0005 && a.visual.handLevel > .001);
+    a.setControls({ gate: false }); render(a, 9);
+    assert.ok(rms(render(a, .1)) < 1e-6);
+    for (const rate of [8000, 48000]) {
+      const dsp = new WitchDSP(rate);
+      dsp.setControls({ voice, gate: true, speed: 1, hair: 1, mode: 'flight', nose: 1, hat: 1, glass: 1 });
+      assert.equal(rms(render(dsp, .1)), 0, 'a selected voice cannot arm Audio');
+      dsp.setEnabled(true);
+      for (let i = 0; i < 12; i++) {
+        dsp.setControls({ spellBalance: i % 2, direction: i % 2 ? -1 : 1 });
+        assert.ok(render(dsp, .04).every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+      }
+      dsp.setEnabled(false); render(dsp, 2);
+      assert.ok(rms(render(dsp, .1)) < 1e-7);
+    }
+  }
+});
+
 test('phase alignment joins silent motion without restarting a vocal phrase or arming audio', () => {
   const dsp = playing(); render(dsp, .5);
   const phrase = dsp.chantPhase; dsp.syncPhase(2.4, .62, 3.2);
@@ -430,7 +470,7 @@ test('the shared flight delay has smooth live control changes, bounded feedback 
   for (let i = 0; i < rate; i++) { delay.next(0, 0, true); assert.ok(Math.abs(delay.left) < 1e-8); }
 });
 
-test('automatic spoon height selects all five singing characters on the sample clock and pauses on Stop', () => {
+test('automatic spoon height selects every singing character on the sample clock and pauses on Stop', () => {
   const dsp = playing({ spoonAuto: true }), seen = new Set();
   for (let i = 0; i < 110; i++) { render(dsp, .1); seen.add(dsp.visual.activeVoice); }
   assert.deepEqual([...seen].sort(), [...WITCH_VOICES].sort());

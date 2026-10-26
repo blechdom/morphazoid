@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
-import { WITCH_SHELF, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
+import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 
 test('every complete Witch scene survives recall without bringing transport or output state',()=>{
@@ -21,15 +21,16 @@ test('randomization reaches every scene, character, direction and continuous mus
   let seed=42;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const scenes=Array.from({length:150},()=>randomizeWitchPreset(WITCH_DEFAULTS,random));
   assert.equal(new Set(scenes.map(s=>s.scene)).size,3);
-  assert.equal(new Set(scenes.map(s=>s.voice)).size,5);
+  assert.deepEqual([...new Set(scenes.map(s=>s.voice))].sort(),[...WITCH_VOICES].sort());
   assert.equal(new Set(scenes.map(s=>s.direction)).size,2);
   assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);
   assert.equal(new Set(scenes.map(s=>s.palette)).size,8);
   assert.equal(new Set(scenes.map(s=>s.trip)).size,4);
-  for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist']) {
+  for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }
+  for(const scene of scenes) if(!scene.spoonAuto)assert.equal(witchVoiceAtHeight(scene.spoonHeight),scene.voice);
   for(let i=0;i<5;i++) assert.ok(new Set(scenes.map(s=>s.fingers[i])).size>100,`finger ${i}`);
   assert.ok(new Set(scenes.map(s=>s.ghostTempo)).size>40,'the ghost beat participates in full-state randomization');
   assert.ok(scenes.every(s=>s.ghostTempo>=36&&s.ghostTempo<=180));
@@ -84,4 +85,34 @@ test('the scene bank offers distinct complete spells across colors, distortion a
   assert.equal(normalizeWitchPreset({trip:100,palette:-10}).palette,0);
   assert.equal(normalizeWitchPreset({trip:-1,palette:100}).palette,7);
   assert.deepEqual(normalizeWitchPreset(null),normalizeWitchPreset());
+});
+
+test('presets feature either singer or fingers and give both new vocal patterns contrasting ensembles',()=>{
+  for(const scene of ['brew','fingers','flight']) {
+    const bank=WITCH_PRESETS.filter(({snapshot})=>snapshot.scene===scene);
+    assert.ok(bank.some(({snapshot})=>snapshot.spellBalance>=(scene==='fingers'?.5:.8)),`${scene} includes a finger-led spell`);
+    if(scene!=='fingers')assert.ok(bank.some(({snapshot})=>snapshot.spellBalance<=.3),`${scene} includes a singer-led spell`);
+  }
+  for(const voice of ['wail','chatter']) {
+    const bank=WITCH_PRESETS.filter(({snapshot})=>snapshot.voice===voice&&!snapshot.spoonAuto);
+    assert.ok(bank.length>=3);
+    assert.ok(bank.some(({snapshot})=>snapshot.spellBalance<=.35));
+    assert.ok(bank.some(({snapshot})=>snapshot.scene==='fingers'||snapshot.spellBalance>=.8));
+    assert.ok(new Set(bank.map(({snapshot})=>snapshot.handSound)).size>=2);
+    for(const {snapshot} of bank)assert.equal(witchVoiceAtHeight(snapshot.spoonHeight),voice);
+  }
+});
+
+test('older scenes retain their singing character and restore the original balance',()=>{
+  for(const [i,voice] of ['mutter','whisper','creak','cackle','sing'].entries()) {
+    const scene=normalizeWitchPreset({voice,spoonAuto:false,spoonHeight:(i+.5)/5});
+    assert.equal(scene.voice,voice);
+    assert.equal(witchVoiceAtHeight(scene.spoonHeight),voice);
+    assert.equal(scene.spellBalance,.5);
+  }
+  for(const value of [undefined,NaN,Infinity,'broken'])assert.equal(normalizeWitchPreset({spellBalance:value}).spellBalance,.5);
+  assert.equal(normalizeWitchPreset({spellBalance:-3}).spellBalance,0);
+  assert.equal(normalizeWitchPreset({spellBalance:4}).spellBalance,1);
+  const held=(WITCH_VOICES.indexOf('wail')+.2)/WITCH_VOICES.length;
+  assert.equal(normalizeWitchPreset({voice:'wail',spoonAuto:false,spoonHeight:held}).spoonHeight,held);
 });

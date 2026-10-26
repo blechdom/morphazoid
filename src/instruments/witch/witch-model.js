@@ -5,7 +5,7 @@ export { WITCH_CAT_GAITS };
 import { createHandPose, evaluateHandPose, setHandEffectiveTempo } from '../gesticulating-hand/hand-model.js';
 
 export const WITCH_TAU = Math.PI * 2;
-export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing']);
+export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing', 'wail', 'chatter']);
 export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'ghost', 'bat']);
 export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
 export const WITCH_LAUNCH_DURATION = 1.86;
@@ -45,7 +45,7 @@ export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, 
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter',
   ghostTempo: 72, ghostGate: false,
-  handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire',
+  handMotion: 'finger-roll', handRate: 1, handDepth: .66, handSound: 'glass-and-wire', spellBalance: .5,
   catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
@@ -57,7 +57,7 @@ export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
 export function normalizeWitchControls(value = {}) {
   const input = value && typeof value === 'object' ? value : {};
   const result = {};
-  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
+  for (const name of ['speed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;
@@ -80,7 +80,7 @@ export function normalizeWitchControls(value = {}) {
 }
 
 export const witchSpoonHeight = seconds => .5 + .48 * Math.sin(witchClamp(seconds, 0, 1e9) * .62);
-export const witchVoiceAtHeight = height => WITCH_VOICES[Math.min(4, Math.floor(witchClamp(height) * 5))];
+export const witchVoiceAtHeight = height => WITCH_VOICES[Math.min(WITCH_VOICES.length - 1, Math.floor(witchClamp(height) * WITCH_VOICES.length))];
 
 const GHOST_BEATS = Object.freeze([
   Object.freeze([1, 0, 0, .48, 1, 0, .6, 0]),
@@ -189,13 +189,33 @@ export const WITCH_SYLLABLES = Object.freeze([
   [810, 1460, 2830, .9, .95], [380, 1950, 3080, .43, 1.12],
 ].map(Object.freeze));
 
+// Wail holds open vowels through long continuous swoops. Chatter skips between
+// smaller, uneven syllables with broken accents. These are fictional phrases,
+// never words, recorded speech, or destinations on a musical pitch scale.
+const WAIL_SYLLABLES = Object.freeze([
+  [360, 790, 2420, .62, .68], [690, 1110, 2650, .95, 1.28],
+  [830, 1350, 2830, 1, 1.72], [570, 910, 2580, .84, 1.09],
+  [310, 670, 2370, .51, .59], [460, 980, 2490, .73, .83],
+].map(Object.freeze));
+const CHATTER_SYLLABLES = Object.freeze([
+  [290, 2310, 3180, .26, .83], [720, 1520, 2820, .81, 1.19],
+  [350, 1960, 2990, .38, .92], [810, 1260, 2570, .92, 1.37],
+  [270, 880, 2390, .22, .74], [590, 1780, 2910, .67, 1.04],
+  [390, 2150, 3120, .31, 1.28], [760, 1080, 2490, .88, .87],
+  [320, 1840, 2790, .29, 1.12], [470, 960, 2280, .54, .71],
+].map(Object.freeze));
+const CHATTER_ACCENTS = Object.freeze([1, .72, 1, .22, .9, .65, .08, 1, .55, .16]);
+
 /** phase is measured in syllables. Negative direction traverses the same
  * continuous vowel path backward. An optional output object avoids DSP garbage. */
-export function sampleChant(phase, direction = 1, radius = .5, out = {}) {
-  const p = ((witchClamp(phase, -1e12, 1e12) * (direction < 0 ? -1 : 1)) % 8 + 8) % 8;
+export function sampleChant(phase, direction = 1, radius = .5, out = {}, voice = 'mutter') {
+  const syllables = voice === 'wail' ? WAIL_SYLLABLES : voice === 'chatter' ? CHATTER_SYLLABLES : WITCH_SYLLABLES;
+  const length = syllables.length;
+  const p = ((witchClamp(phase, -1e12, 1e12) * (direction < 0 ? -1 : 1)) % length + length) % length;
   const index = Math.floor(p), fraction = p - index;
-  const blend = fraction * fraction * (3 - 2 * fraction);
-  const a = WITCH_SYLLABLES[index], b = WITCH_SYLLABLES[(index + 1) % 8];
+  const travel = voice === 'chatter' ? witchClamp((fraction - .08) / .58) : fraction;
+  const blend = travel * travel * (3 - 2 * travel);
+  const a = syllables[index], b = syllables[(index + 1) % length];
   const opening = witchClamp(radius, 0, 1, .5);
   out.index = index; out.fraction = fraction;
   out.f1 = (a[0] + (b[0] - a[0]) * blend) * (.65 + opening * .75);
@@ -203,6 +223,9 @@ export function sampleChant(phase, direction = 1, radius = .5, out = {}) {
   out.f3 = a[2] + (b[2] - a[2]) * blend;
   out.mouth = (a[3] + (b[3] - a[3]) * blend) * (.28 + opening * .72);
   out.pitch = a[4] + (b[4] - a[4]) * blend;
-  out.articulation = .22 + .78 * Math.sin(Math.PI * fraction) ** 2;
+  out.articulation = voice === 'wail' ? .72 + .28 * Math.sin(Math.PI * p / length) ** 2
+    : voice === 'chatter' ? .025 + .975 * CHATTER_ACCENTS[index] * Math.sin(Math.PI * fraction) ** 5
+      : .22 + .78 * Math.sin(Math.PI * fraction) ** 2;
+  if (voice === 'chatter') out.mouth *= .2 + .8 * out.articulation;
   return out;
 }

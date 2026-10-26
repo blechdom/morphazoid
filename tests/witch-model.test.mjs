@@ -8,6 +8,7 @@ test('witch controls reject malformed values without changing the safe startup',
   const defaults = normalizeWitchControls();
   assert.equal(defaults.gate, false); assert.equal(defaults.speed, 0);
   assert.equal(defaults.fingerMask, 0); assert.equal(defaults.tone, .5); assert.equal(defaults.flightX, .5);
+  assert.equal(defaults.spellBalance, .5);
   const value = normalizeWitchControls({ speed: Infinity, radius: 90, direction: -22, gate: 'true',
     fingers: [NaN, -2, 5], voice: 'invalid', mode: 'invalid', volume: -9 });
   assert.equal(value.speed, 0); assert.equal(value.radius, 1); assert.equal(value.direction, -1);
@@ -28,11 +29,14 @@ test('instrumental control fields and five-finger masks stay bounded', () => {
   assert.equal(normalizeWitchControls({ mode: 'flight', handFocus: 1 }).handFocus, 1);
   const anatomy = normalizeWitchControls({ nose: Infinity, hat: -2, spoonHeight: 7, spoonAuto: 'true' });
   assert.equal(anatomy.nose, .5); assert.equal(anatomy.hat, 0); assert.equal(anatomy.spoonHeight, 1); assert.equal(anatomy.spoonAuto, false);
+  assert.equal(normalizeWitchControls({ spellBalance: -1 }).spellBalance, 0);
+  assert.equal(normalizeWitchControls({ spellBalance: 2 }).spellBalance, 1);
+  assert.equal(normalizeWitchControls({ spellBalance: NaN }).spellBalance, .5);
 });
 
-test('spoon height spans five characters with a bounded continuous automatic target', () => {
-  for (let i = 0; i < 5; i++) assert.equal(witchVoiceAtHeight((i + .5) / 5), WITCH_VOICES[i]);
-  assert.equal(witchVoiceAtHeight(-9), 'mutter'); assert.equal(witchVoiceAtHeight(1), 'sing');
+test('spoon height spans every character with a bounded continuous automatic target', () => {
+  for (let i = 0; i < WITCH_VOICES.length; i++) assert.equal(witchVoiceAtHeight((i + .5) / WITCH_VOICES.length), WITCH_VOICES[i]);
+  assert.equal(witchVoiceAtHeight(-9), WITCH_VOICES[0]); assert.equal(witchVoiceAtHeight(1), WITCH_VOICES.at(-1));
   let low = 1, high = 0;
   for (let i = 0; i < 110; i++) { const value = witchSpoonHeight(i / 10); low = Math.min(low, value); high = Math.max(high, value); }
   assert.ok(low < .05 && high > .95); assert.equal(witchSpoonHeight(NaN), .5);
@@ -122,4 +126,26 @@ test('chant traverses the same asymmetric vowel path in reverse and opens with r
   const pinched = sampleChant(2.4, 1, 0), open = sampleChant(2.4, 1, 1);
   assert.ok(open.mouth > pinched.mouth * 2); assert.ok(open.f1 > pinched.f1 * 2);
   const target = {}; assert.equal(sampleChant(3, 1, .5, target), target);
+});
+
+test('wail and chatter have distinct reversible vowel, pitch and articulation paths', () => {
+  const profiles = {};
+  for (const voice of ['mutter', 'wail', 'chatter']) {
+    const frames = Array.from({ length: 1000 }, (_, i) => sampleChant(i / 100, 1, .6, {}, voice));
+    profiles[voice] = {
+      pitchRange: Math.max(...frames.map(frame => frame.pitch)) / Math.min(...frames.map(frame => frame.pitch)),
+      meanArticulation: frames.reduce((sum, frame) => sum + frame.articulation, 0) / frames.length,
+      quietFraction: frames.filter(frame => frame.articulation < .1).length / frames.length,
+    };
+    for (const phase of [.1, 1.75, 3.4, 9.1]) {
+      assert.deepEqual(sampleChant(phase, -1, .6, {}, voice), sampleChant(-phase, 1, .6, {}, voice));
+    }
+    const target = {};
+    assert.equal(sampleChant(2.4, 1, .6, target, voice), target, 'DSP reuses its fixed output object');
+  }
+  assert.ok(profiles.wail.pitchRange > profiles.mutter.pitchRange * 1.8, 'wail sweeps a substantially wider continuous pitch range');
+  assert.ok(profiles.wail.meanArticulation > .8, 'wail holds its vowel across syllables');
+  assert.ok(profiles.chatter.meanArticulation < profiles.mutter.meanArticulation * .5, 'chatter has brief broken accents');
+  assert.ok(profiles.chatter.quietFraction > .45, 'chatter leaves irregular gaps between bursts');
+  for (const voice of ['wail', 'chatter']) assert.notEqual(sampleChant(2.4, 1, .6, {}, voice).f1, sampleChant(2.4, 1, .6).f1);
 });

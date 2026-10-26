@@ -7,14 +7,15 @@ fingers, click a miniature instrument on the shelf, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
 Presets and playback stay visible; **Parameters** starts closed and contains
 the native controls and a complete ingredient list for keyboard access. The 51
-complete presets are the main way to change the spell: singing, fingers, ghost
-beat, flight, eight night palettes and crooked lines recall together. Preset
+complete presets are the main way to change the spell: singing, fingers, their
+balance, ghost beat, flight, eight night palettes and crooked lines recall
+together. Preset
 changes keep Audio, Play and the live clocks running.
 
 | Gesture | Picture | Sound |
 | --- | --- | --- |
 | Stir faster | Faster vortex and articulation | Faster invented syllables |
-| Lift or lower the spoon | Five glowing motes follow its height | Selects mutter, whisper, creak, cackle or singing |
+| Lift or lower the spoon | Seven glowing motes follow its height | Selects mutter, whisper, creak, cackle, singing, wail or chatter |
 | Pull her nose / hat | Nose lengthens / hat stretches and tips | Nose bends pitch and nasal resonances; hat changes rasp |
 | Pull her hair away from her scalp; push it back | Wiry locks stretch and knot; flying hair whips behind her | Adds or eases a scratchy, tangled noise texture in the voice |
 | Widen the circle | Wider whirlpool and open jaw | Broader vowel resonances |
@@ -35,8 +36,8 @@ changes keep Audio, Play and the live clocks running.
 | Stop | The performance and ghost beat pause | Voice, fingers, ghosts, solos and flight effects release |
 
 The spoon rises and falls automatically through muttering, whisper, creak,
-cackle and singing. Drag its handle vertically to take over its height. The
-checkbox inside Parameters resumes automatic selection; choosing Character
+cackle, singing, a swooping moon wail and rapid, broken hex chatter. Drag its
+handle vertically to take over its height. The checkbox inside Parameters resumes automatic selection; choosing Character
 or the height slider holds a selection. Nose and hat pulls reshape the voice
 independently of the instrumental finger bends. Pull her hair outward to stretch
 the strands and add scratchy noise; push back toward her head to soften it.
@@ -54,14 +55,21 @@ with teal, violet and jewel-toned claws. The left hand keeps its prior screen
 angle while the actual wrist turns its palm inward. The spoon passes through
 its projected palm, and the sleeve stays behind her face. The right hand stays
 large while brewing. During flight both hands and their sleeves follow her body
-and become smaller; neither spell-casting arm stays pinned to the foreground.
+and stay proportional to her flying body; neither spell-casting arm stays pinned
+to the foreground. The enlarged flight silhouette scales the witch, hat, hair,
+hands and broom together.
 
 Sixteen authored Gesticules animations include slow rolls and claws, spider
 walks, flicks, spirals, frantic orbits and fast finger swarms. Ten instrumental
 sound banks combine the actual glass, wire, bowed, metal, pulse, air, reed and
 marimba sources. Presets recall motion, rate, depth and sound together. Holding
 a digit takes over its bend while the others keep moving. Touching the right
-palm features the fingers over the quieter continuing singer.
+palm features the fingers over the quieter continuing singer. Presets also recall
+a separate voice/finger balance: some lead with the singer, others bring the
+finger instruments forward, including during flight. Both layers remain active.
+The **Voice ↔ fingers** slider inside Parameters adjusts this balance; moving
+toward fingers brings them forward without changing the master volume. Older
+saved scenes retain their original balance and singing character.
 
 Nineteen actual catalogue icons occupy shelves behind the witch: Alien Larynx,
 Tongued Beasts, Digestazoid, Creaturazoid, Monstroid, Hybrinx, Roach Synth,

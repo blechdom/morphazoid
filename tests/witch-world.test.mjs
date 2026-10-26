@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {WITCH_VOICES} from '../src/instruments/witch/witch-model.js';
 import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+
+function distanceToPolyline(point,points) {
+  let distance=Infinity;
+  for(let i=1;i<points.length;i++) {
+    const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y;
+    const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy)));
+    distance=Math.min(distance,Math.hypot(point.x-a.x-dx*t,point.y-a.y-dy*t));
+  }
+  return distance;
+}
 
 test('the same world exposes moon, mushrooms and cauldron in every activity',()=>{
   for(const scene of ['brew','fingers','flight']) {
@@ -185,7 +196,12 @@ test('ghost tempo gestures use the visible drifting centers without swallowing i
     for(let index=0;index<3;index++) {
       const ghost=getWitchGhostPosition(index,state),point=warpWitchPoint(ghost,state);
       const hit=hitTestWitch(point.x,point.y,state);
-      if(scene==='flight'&&['hat','nose','spoon','hand'].includes(hit?.type)) {
+      if(scene==='flight'&&['hair','trail'].includes(hit?.type)) {
+        if(hit.type==='hair') {
+          const hair=getWitchHair(state),distance=Math.min(...hair.strands.slice(0,8).map(strand=>distanceToPolyline(ghost,strand.points.slice(6))));
+          assert.ok(distance<Math.min(28,Math.max(12*hair.scale,hitRadius*.32)),'only the actually overlapping foreground hair can occlude a ghost');
+        } else assert.ok(distanceToPolyline(ghost,getWitchTrail(state))<Math.max(12,hitRadius*.35),'only the actually overlapping foreground string can occlude a ghost');
+      } else if(scene==='flight'&&['hat','nose','spoon','hand'].includes(hit?.type)) {
         const targets=getWitchTargets(state),ladle=getWitchLadle(state);
         const foreground=hit.type==='spoon'?{x:ladle.hx-8,y:ladle.hy-24,r:Math.max(27,hitRadius*.75)}:
           hit.type==='hand'?{...transformHandPoint({x:590,y:415},state),r:Math.max(38,hitRadius)}:
@@ -210,7 +226,8 @@ function captureWitchPaint() {
     const calls=[],stack=[];
     const context=new Proxy({canvas,calls,globalAlpha:1,save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
-      fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle});},
+      beginPath(){this.lastEllipse=null;},ellipse(x,y,rx,ry){this.lastEllipse={x,y,rx,ry};},
+      fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle,ellipse:shape?null:this.lastEllipse});},
       fillText(value){calls.push({kind:'text',value});},
       drawImage(source,...args){calls.push({kind:'image',source,args,alpha:this.globalAlpha});},
       getImageData(){
@@ -275,7 +292,7 @@ test('the enlarged turned ladle hand holds the spoon in its real palm throughout
     assert.equal(ladle.lx,ground.lx);assert.equal(ladle.ly,ground.ly,'bowl keeps stirring the same cauldron during flight');
   }
   const ground=handTransform({...state,flightLift:0},1),flying=handTransform({...state,flightLift:1},1);
-  assert.ok(flying.scale<ground.scale*.75&&flying.scale>ground.scale*.5,'hand becomes somewhat smaller in the sky');
+  assert.ok(Math.abs(flying.scale-.54*1.3*.28*1.25*1.25)<1e-12&&flying.scale<ground.scale,'ladle hand follows the larger flying body and remains smaller than its grounded model');
   const first=getWitchLadle({...state,flightLift:1,flightPhase:0}),later=getWitchLadle({...state,flightLift:1,flightPhase:3});
   assert.ok(Math.hypot(first.gx-later.gx,first.gy-later.gy)>30,'spoon grip travels with the flying witch');
   assert.equal(first.lx,later.lx);assert.equal(first.ly,later.ly);
@@ -286,11 +303,11 @@ test('both actual hand models become body-sized and travel with the flying witch
   for(const index of [0,1]) {
     const ground=handTransform(state,index),first=handTransform({...state,flightLift:1,flightPhase:0},index);
     const later=handTransform({...state,flightLift:1,flightPhase:3},index);
-    assert.ok(first.scale<ground.scale*.75,'both hands shrink as the body moves into the sky');
+    assert.ok(Math.abs(first.scale-.54*1.3*(index===0?.48:.28*1.25*1.25))<1e-12&&first.scale<ground.scale,'both hands share the 30% larger flight scale');
     assert.ok(Math.hypot(first.wrist.x-later.wrist.x,first.wrist.y-later.wrist.y)>50,'neither hand remains pinned to the foreground');
     for(const phase of [0,2,4,6,8]) {
       const current={...state,flightLift:1,flightPhase:phase},hand=handTransform(current,index),body=broomTransform(current);
-      assert.ok(Math.hypot(hand.wrist.x-body.x,hand.wrist.y-body.y)<135,'wrists stay near the flying body');
+      assert.ok(Math.hypot(hand.wrist.x-body.x,hand.wrist.y-body.y)<250*body.scale,'wrists stay within the same body-relative reach');
     }
   }
 });
@@ -405,12 +422,66 @@ test('visible hair locks remain pickable in brew and flight without replacing ex
 
 test('foreground hair wins over a background ghost halo while exposed ghost points remain playable',()=>{
   for(const hitRadius of [67,80])for(const trip of [0,3]) {
-    const state={hair:0,flightLift:1,flightPhase:4,handTime:3.7,handReach:1,scene:'flight',hitRadius,trip,warpTime:2.8};
-    const lock=getWitchHair(state).targets[0],ghost=getWitchGhostPosition(2,state);
+    const state={hair:0,flightLift:1,flightPhase:5.75,handTime:3.7,handReach:1,scene:'flight',hitRadius,trip,warpTime:2.8};
+    const lock=getWitchHair(state).targets[0],ghost=getWitchGhostPosition(0,state);
     assert.ok(Math.hypot(lock.x-ghost.x,lock.y-ghost.y)<Math.max(ghost.r,hitRadius),'the visible lock overlaps the ghost touch halo');
     const point=warpWitchPoint(lock,state);
     assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'hair'},'grabbing visible hair must not alter the ghost beat');
-    const clear={...state,flightPhase:2},exposed=warpWitchPoint(getWitchGhostPosition(2,clear),clear);
-    assert.deepEqual(hitTestWitch(exposed.x,exposed.y,clear),{type:'ghost',index:2},'the ghost becomes playable again as the witch moves clear');
+    const clear={...state,flightPhase:2},exposed=warpWitchPoint(getWitchGhostPosition(0,clear),clear);
+    assert.deepEqual(hitTestWitch(exposed.x,exposed.y,clear),{type:'ghost',index:0},'the ghost becomes playable again as the witch moves clear');
   }
+});
+
+
+test('the whole flying rig grows 30% while the grounded rig and rollercoaster shape stay fixed',()=>{
+  for(const hat of [0,.5,1])for(const flightLift of [0,.2,.5,.8,1])for(const flightPhase of [0,1,3,7,19]) {
+    const state={hat,flightLift,flightPhase,handReach:1,altitude:.8,flightX:.2};
+    const body=broomTransform(state),tallHat=Math.max(0,hat-.5)*2;
+    const oldScale=.8-(.26+tallHat*.04)*flightLift;
+    const oldY=476+(286+tallHat*16+(.5-state.altitude)*36+Math.sin(flightPhase*1.4)*34+Math.sin(flightPhase*.7)*13-476)*flightLift;
+    const oldX=455+(600+(state.flightX-.5)*120+Math.sin(flightPhase*.7)*165-455)*flightLift;
+    assert.ok(Math.abs(body.x-oldX+10*flightLift)<1e-10,'the same side-to-side path shifts slightly left to clear the warped broom tip');
+    assert.ok(Math.abs(body.y-oldY-64*flightLift)<1e-10,'the same rise and fall shifts down continuously to clear the taller hat');
+    if(flightLift===0)assert.equal(body.scale,oldScale,'grounded broom and witch keep their existing scale');
+    if(flightLift===1) {
+      assert.ok(Math.abs(body.scale/oldScale-1.3)<1e-12);
+      assert.ok(Math.abs(getWitchHair(state).scale/body.scale-1)<1e-12,'hair uses the larger face transform');
+      for(const index of [0,1])assert.ok(Math.abs(handTransform(state,index).scale/body.scale-(index===0?.48:.28*1.25*1.25))<1e-12,'both hands retain their body-relative scale');
+    }
+  }
+});
+
+test('the enlarged flying hat, hair, broom and boots remain inside the warped scene at extremes',()=>{
+  // Authored hat control points bound its Bezier curves, including the torn brim.
+  const hatPoints=[[-22,-213],[12,-237],[47,-223],[70,-214],[78,-181],[109,-193],[-31,-165],[-61,-84],[-143,-6],[-127,8],[-93,11],[148,-4],[143,-21]];
+  const broomPoints=[[-295,120],[-265,126],[-310,152],[162,96],[20,187],[45,202],[75,181]];
+  const turn=(p,rotation,scale=1)=>({x:(Math.cos(rotation)*p.x-Math.sin(rotation)*p.y)*scale,y:(Math.sin(rotation)*p.x+Math.cos(rotation)*p.y)*scale});
+  for(let phase=0;phase<Math.PI*20;phase+=.2)for(const hat of [0,.5,1])for(const altitude of [0,1])for(const flightX of [0,1]) {
+    const state={flightLift:1,flightPhase:phase,hat,altitude,flightX,hair:1,handTime:phase,trip:3,warpTime:phase,energy:1,time:phase};
+    const body=broomTransform(state),stretch=.88+hat*.24,tilt=(hat-.5)*.18+Math.sin(phase*1.7)*2.7*.004;
+    const worldPoint=p=>{const q=turn(p,body.rotation,body.scale);return {x:body.x+q.x,y:body.y+q.y};};
+    const hatWorld=hatPoints.map(([x,y])=>{const hatPoint=turn({x,y:y*stretch},tilt),headPoint=turn(hatPoint,-.1);return worldPoint({x:headPoint.x-53,y:headPoint.y-149});});
+    const points=[...hatWorld,...broomPoints.map(([x,y])=>worldPoint({x,y})),...getWitchHair(state).strands.flatMap(strand=>strand.points)];
+    for(const point of points) {
+      const p=warpWitchPoint(point,state);
+      assert.ok(p.x>10&&p.x<990&&p.y>20&&p.y<610,'larger flight anatomy stays inside the playable viewbox');
+    }
+  }
+});
+
+test('the spoon shows one color mote per native singing preset',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const colors=new Set(['#cfb8ee','#78ccdc','#addc94','#dfaa7d','#e6a4c9','#f2bf83','#bb9de7']);
+    for(const spoonHeight of [0,.5,1]) {
+      const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,{spoonHeight});
+      const motes=canvases[1].getContext('2d').calls.filter(call=>call.kind==='fill'&&call.ellipse&&colors.has(call.color));
+      assert.equal(motes.length,WITCH_VOICES.length);
+      assert.equal(new Set(motes.map(mote=>mote.color)).size,WITCH_VOICES.length,'every native voice has a distinct mote');
+      assert.equal(motes.filter(mote=>mote.ellipse.rx===3.4).length,1,'one singing state is featured at any spoon height');
+      assert.equal(motes[Math.min(WITCH_VOICES.length-1,Math.floor(spoonHeight*WITCH_VOICES.length))].ellipse.rx,3.4);
+      assert.ok(Math.max(...motes.map(m=>m.ellipse.y))-Math.min(...motes.map(m=>m.ellipse.y))<=140,'new voices share the existing compact spoon range');
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
