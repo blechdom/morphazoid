@@ -87,12 +87,12 @@ test('live authored hand motion and sound changes reach the actual Gesticules en
   assert.ok(difference(changed, render(reference, .4)) > .04);
 });
 
-test('flight Fabric filters ongoing performers and featured objects, then decays cleanly after Audio off', () => {
+test('flight Fabric leaves ongoing performers and featured objects unchanged, with clean Audio off', () => {
   for (const kind of [null, 'drop-roach', 'drop-glass']) {
     const dry = playing({ mode: 'flight' }), wind = playing({ mode: 'flight', fabricX: .03, fabricY: .94 });
     if (kind) { dry.trigger(kind); wind.trigger(kind); }
     const a = render(dry, .8), b = render(wind, .8);
-    assert.ok(difference(a, b) > .015, kind ?? 'ongoing ensemble');
+    assert.deepEqual(a, b, `${kind ?? 'ongoing ensemble'} bypasses the wind filter`);
     assert.ok(b.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
     wind.setEnabled(false); render(wind, 2);
     assert.ok(rms(render(wind, .1)) < 1e-7);
@@ -173,6 +173,7 @@ test('fixed makeup retains voice dynamics and remains finite through maximum ove
   assert.ok(rms(render(whisper, 1)) < rms(render(singing, 1)) * .92);
   const dsp = playing({ mode: 'flight', speed: 1, trailPull: 1, trailTwist: 0, trailFeedback: 1, trailSpace: 1, fabricX: 1, fabricY: 0, fabricPull: 1, fabricVelocity: 1 });
   for (const kind of WITCH_DROP_EFFECTS) dsp.trigger(kind);
+  dsp.trigger('fabric-wind');
   const signal = render(dsp, 3);
   assert.ok(signal.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
   dsp.setControls({ gate: false }); render(dsp, 9);
@@ -218,7 +219,7 @@ test('meow accepts only Audio-on primary Play visits and releases on Stop, Audio
   assert.equal(dsp.trigger('meow'), false, 'no voice from an absent cat');
 });
 
-test('meow enters the shared flight delay and Fabric filter without disturbing performer clocks', () => {
+test('meow enters the flight delay but bypasses the wind filter without disturbing performer clocks', () => {
   const make = controls => {
     const dsp = playing({ gate: false, ghostGate: true, ...controls });
     dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(31)); return dsp;
@@ -229,7 +230,7 @@ test('meow enters the shared flight delay and Fabric filter without disturbing p
   const quiet = render(feet, .9), plain = render(dry, .9), delayed = render(flight, .9), filtered = render(windy, .9);
   assert.ok(difference(plain, quiet) > .04, 'clicked head is audible above its feet');
   assert.ok(difference(plain, delayed) > .01, 'flight processes the meow');
-  assert.ok(difference(delayed, filtered) > .01, 'Fabric processes the meow during flight');
+  assert.deepEqual(delayed, filtered, 'Fabric leaves the meow unchanged during flight');
   assert.deepEqual(dry.cat.clock, feet.cat.clock); assert.deepEqual(flight.cat.clock, feet.cat.clock);
   assert.equal(dry.visual.handTime, feet.visual.handTime); assert.equal(dry.chantPhase, feet.chantPhase);
   for(const dsp of [dry, flight, windy]) {

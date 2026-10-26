@@ -105,15 +105,15 @@ function wakePerformance(part=null) {
   const restarting=!playing||Boolean(hairHush);hairHush=null;
   if(restarting)awake.brew=awake.hand=awake.backing=part===null;
   if(part==='brew'||part==='hand')awake[part]=true;
-  // The web needs its initial pluck even when it is the Audio opt-in.
-  wakeFadeSeconds=part==='web'?.035:.85;
+  // Short independent accents need their onset even on the Audio opt-in.
+  wakeFadeSeconds=part==='web'||part==='fabric'?.035:.85;
   if(!playing)setPlaying(true);
   send();sync();
   if(audioOn)audio.setPresence(1,wakeFadeSeconds);
   else if(!starting)void startAudio();
 }
 function wakePart(type) {
-  if(type==='web')return 'web';
+  if(type==='web'||type==='fabric')return type;
   if(['stir','spoon','mouth','nose','hat','brew'].includes(type))return 'brew';
   if(['finger','hand','sleeve'].includes(type))return 'hand';
   return null;
@@ -409,7 +409,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to ripple the filter',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir for her voice or bend a finger for its spell',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to shape the wind',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Lift or lower the spoon to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir for her voice or bend a finger for its spell',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
@@ -497,8 +497,9 @@ listen(canvas,'keydown',e => {
   if(e.key==='Escape') {hushPerformance();e.preventDefault();return;}
   if(e.key==='Backspace') {if(!e.repeat)resetPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
+  if(e.key.toLowerCase()==='f'&&config.scene!=='flight') {e.preventDefault();return;}
   if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnlk]$/i.test(e.key))) {
-    const part=e.key.toLowerCase()==='p'?'web':/^[1-5ah]$/i.test(e.key)?'hand':/^[bvk]$/i.test(e.key)?'brew':e.key.startsWith('Arrow')&&!treeKeyboard?(world.handOpen||fingerKeys.size?'hand':config.scene!=='flight'?'brew':null):null;
+    const part=e.key.toLowerCase()==='p'?'web':e.key.toLowerCase()==='f'?'fabric':/^[1-5ah]$/i.test(e.key)?'hand':/^[bvk]$/i.test(e.key)?'brew':e.key.startsWith('Arrow')&&!treeKeyboard?(world.handOpen||fingerKeys.size?'hand':config.scene!=='flight'?'brew':null):null;
     wakePerformance(part);
   }
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }

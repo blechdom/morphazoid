@@ -361,7 +361,7 @@ export class WitchFabricWind {
 }
 
 /** A finite electrical tear after the complete mix, including existing flight
- * echoes and Fabric. One reusable capture buffer; no performer clock changes. */
+ * echoes and filtered wind. One reusable capture buffer; no performer clock changes. */
 export class WitchEyeShock {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate; this.age = 2; this.envelope = 0;

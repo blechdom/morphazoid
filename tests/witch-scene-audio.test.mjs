@@ -145,7 +145,7 @@ test('tree click plays the native L-System phrase through the scene mix with bou
   assert.equal(a.trigger('tree-l-system'), false); a.setEnabled(true); render(a, .2); assert.equal(a.visual.treeLevel, 0);
   const plain = playing({ mode: 'flight' }, 8000), filtered = playing({ mode: 'flight', fabricX: .04, fabricY: .94 }, 8000);
   plain.trigger('tree-l-system'); filtered.trigger('tree-l-system');
-  assert.ok(difference(render(plain, .7), render(filtered, .7)) > .01);
+  assert.deepEqual(render(plain, .7), render(filtered, .7), 'cloth settings leave the tree phrase and witch ensemble unchanged');
   assert.equal(plain.chantPhase, filtered.chantPhase); assert.equal(plain.visual.handTime, filtered.visual.handTime);
 });
 
@@ -342,11 +342,13 @@ test('capturing the cat silences its walking voice while the independent diving 
   dsp.setControls({ ghostGate: false, gate: false }); render(dsp, .2); assert.equal(dsp.visual.catMeow, 0);
 });
 
-test('flight Fabric filters the ensemble and adds a bounded wind puff while the ground stays dry', () => {
+test('flight Fabric filters only its bounded wind puff and leaves the witch ensemble unchanged', () => {
   const dry = playing(), cloth = playing({ fabricX: .05, fabricY: .95 });
   assert.deepEqual(render(dry, .4), render(cloth, .4), 'stored cloth displacement does not filter the grounded brew');
   dry.setControls({ mode: 'flight' }); cloth.setControls({ mode: 'flight' }); render(dry, 1); render(cloth, 1);
-  assert.ok(difference(render(dry, .2), render(cloth, .2)) > .01, 'the cloth processes the shared flight mix');
+  assert.deepEqual(render(dry, .2), render(cloth, .2), 'cloth displacement cannot color the witch or her flight echoes');
+  cloth.setControls({ fabricX: .9, fabricY: .1, fabricPull: 1, fabricVelocity: 1 });
+  assert.deepEqual(render(dry, .2), render(cloth, .2), 'live cloth motion is also isolated until wind is triggered');
   assert.equal(dry.chantPhase, cloth.chantPhase); assert.equal(dry.visual.handTime, cloth.visual.handTime);
   dry.setControls({ mode: 'brew' }); cloth.setControls({ mode: 'brew' }); render(dry, 1); render(cloth, 1);
   assert.ok(difference(render(dry, .2), render(cloth, .2)) < 1e-7, 'landing smoothly restores the dry brew');
@@ -358,30 +360,67 @@ test('flight Fabric filters the ensemble and adds a bounded wind puff while the 
   const sound = render(puff, .6);
   assert.deepEqual(sound, render(same, .6, 4800), 'wind uses the sample clock');
   assert.ok(rms(sound) > .003 && sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  assert.equal(puff.visual.delayLevel, 0, 'wind is not sent into Candy Coil or Sandy Syrup');
   render(puff, 4); assert.equal(puff.visual.fabricWindEnvelope, 0, 'an unattended puff ends without a queued event');
+  assert.ok(rms(render(puff, .1)) < 1e-7, 'the separate resonators finish their tail');
   const voice = puff.fabricWind;
   for (const cancel of [dsp => dsp.setControls({ gate: false }), dsp => dsp.releaseAccents(),
     dsp => dsp.setControls({ mode: 'brew' }), dsp => dsp.setEnabled(false)]) {
-    puff.setEnabled(true); puff.setControls({ mode: 'flight', gate: true });
+    puff.setEnabled(true); puff.setControls({ mode: 'flight', gate: true, brewEnabled: false, handEnabled: false,
+      backingEnabled: false, fabricX: .05, fabricY: .95, fabricPull: 1, fabricVelocity: 1 });
     for (let i = 0; i < 50; i++) puff.trigger('fabric-wind');
     render(puff, .1); assert.equal(puff.fabricWind, voice, 'drag refreshes reuse one voice');
     cancel(puff); render(puff, .4);
     assert.ok(puff.visual.fabricWindEnvelope < 1e-6, 'Stop, Reset, landing and mute release the puff');
+    render(puff, 1.6); assert.ok(rms(render(puff, .1)) < 1e-7, 'the wind channel cannot leave ringing output after cancellation');
   }
 });
 
-test('anchored fabric pull and release velocity each change the shared flight spectrum without seeking performers', () => {
+test('anchored fabric pull and release velocity shape the wind without seeking or filtering performers', () => {
   for (const gesture of [{ fabricPull: .9 }, { fabricVelocity: 1 }]) {
     const controls = { mode: 'flight', fabricX: .56, fabricY: .45, trailPull: .08, trailSpace: .25 };
     const held = playing(controls, 8000), pulled = playing(controls, 8000);
     render(held, .4); render(pulled, .4);
     pulled.setControls(gesture);
+    assert.deepEqual(render(held, .1), render(pulled, .1), 'pull and velocity do not filter the witch ensemble');
+    held.trigger('fabric-wind'); pulled.trigger('fabric-wind');
     const a = render(held, .6), b = render(pulled, .6);
-    assert.ok(difference(a, b) > .005, JSON.stringify(gesture));
+    assert.ok(difference(a, b) > .001, JSON.stringify(gesture));
     assert.equal(held.chantPhase, pulled.chantPhase); assert.equal(held.visual.handTime, pulled.visual.handTime);
     assert.equal(held.visual.flightPhase, pulled.visual.flightPhase);
+    for (const [left, right] of held.delay.buffers.map((buffer, index) => [buffer, pulled.delay.buffers[index]])) {
+      assert.deepEqual(left, right, 'neither the wind nor its filter can enter witch echo history');
+    }
     assert.ok(b.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
   }
+});
+
+test('noodle delay settings leave wind alone and a fresh puff cannot revive stopped witch echoes', () => {
+  const wind = { mode: 'flight', gate: false, ghostGate: false, brewEnabled: false, handEnabled: false,
+    backingEnabled: false, fabricX: .16, fabricY: .85, fabricPull: .8, fabricVelocity: .65 };
+  const close = playing({ ...wind, trailPull: 0, trailTwist: 0, trailFeedback: 0, trailSpace: 0 }, 8000);
+  const far = playing({ ...wind, trailPull: 1, trailTwist: 1, trailFeedback: 1, trailSpace: 1 }, 8000);
+  close.trigger('fabric-wind'); far.trigger('fabric-wind');
+  assert.deepEqual(render(close, 1.1), render(far, 1.1), 'wind bypasses every noodle delay control');
+  assert.equal(close.visual.delayLevel, 0); assert.equal(far.visual.delayLevel, 0);
+
+  const puff = playing({ mode: 'flight', trailPull: .04, trailSpace: .2 }, 8000);
+  const reference = playing({ mode: 'flight', trailPull: .04, trailSpace: .2 }, 8000);
+  for (const dsp of [puff, reference]) {
+    render(dsp, 1);
+    dsp.setControls({ gate: false, brewEnabled: false, handEnabled: false, backingEnabled: false }); render(dsp, .04);
+  }
+  assert.ok(puff.delay.stopping && puff.visual.delayLevel > 0, 'there is stopped echo history still fading');
+  const flightPhase = puff.visual.flightPhase;
+  for (const dsp of [puff, reference]) dsp.setControls({ gate: true, ghostGate: true });
+  puff.trigger('fabric-wind');
+  assert.equal(puff.delay.stopping, true, 'wind does not resume the separate delay');
+  render(puff, .2); render(reference, .2);
+  assert.equal(puff.delay.stopping, true, 'wind-only scene clocks do not reopen the delay');
+  assert.ok(puff.visual.flightPhase > flightPhase, 'the broom still follows the global flight clock');
+  assert.equal(puff.visual.delayLevel, reference.visual.delayLevel, 'old witch echoes retain the same release');
+  assert.deepEqual(puff.delay.buffers, reference.delay.buffers);
+  assert.ok(puff.visual.fabricWindEnvelope > .1, 'the new wind still sounds beside that release');
 });
 
 test('hair friction keeps a longer decaying texture after a pull while the singer retains its clock', () => {

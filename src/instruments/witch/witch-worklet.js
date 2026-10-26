@@ -1152,7 +1152,9 @@ export class FlightMixDelay {
   }
   resume() {
     this.stopping = false;
-    this.previousGate = this.controls.gate; this.previousGhostGate = this.controls.ghostGate;
+    const c = this.controls;
+    this.previousGate = c.gate && (c.brewEnabled !== false || c.handEnabled !== false);
+    this.previousGhostGate = c.ghostGate && c.backingEnabled !== false;
   }
   read(buffer, delay) {
     const position = (this.writeIndex - delay + buffer.length) % buffer.length;
@@ -1161,14 +1163,18 @@ export class FlightMixDelay {
   }
   next(left, right, enabled) {
     const c = this.controls, flying = c.mode === 'flight';
-    if ((this.previousGate && !c.gate && !c.ghostGate)
-      || (this.previousGhostGate && !c.ghostGate && !c.gate)) this.stopping = true;
-    if ((!this.previousGate && c.gate) || (!this.previousGhostGate && c.ghostGate)) this.stopping = false;
-    this.previousGate = c.gate; this.previousGhostGate = c.ghostGate;
+    // Scene motion can resume for wind alone. Only an awake witch performer
+    // reopens her echo history; explicit web/drop accents use resume().
+    const gate = c.gate && (c.brewEnabled !== false || c.handEnabled !== false);
+    const ghostGate = c.ghostGate && c.backingEnabled !== false;
+    if ((this.previousGate && !gate && !ghostGate)
+      || (this.previousGhostGate && !ghostGate && !gate)) this.stopping = true;
+    if ((!this.previousGate && gate) || (!this.previousGhostGate && ghostGate)) this.stopping = false;
+    this.previousGate = gate; this.previousGhostGate = ghostGate;
     this.activityHold = Math.abs(left) + Math.abs(right) > 1e-5 ? 2.5 : Math.max(0, this.activityHold - this.dt);
     // An explicit Stop fades history even while source release envelopes are
     // still audible. A fresh manual accent can reopen the delay while stopped.
-    const running = !this.stopping && (c.gate || c.ghostGate || this.activityHold > 0);
+    const running = !this.stopping && (gate || ghostGate || this.activityHold > 0);
     this.pull += (c.trailPull - this.pull) * this.smooth;
     this.twist += (c.trailTwist - this.twist) * this.smooth;
     this.space += (witchClamp(c.trailSpace, 0, 1, .5) - this.space) * this.smooth;
@@ -1227,7 +1233,7 @@ export class FlightMixDelay {
 
 /** Eight pairs from Fabric Filter's actual lattice, planar pull and Q mapping.
  * The centered fabric rests dry; displacement reveals its parallel resonators
- * across the whole flight mix. Fixed TPT states slew without seeking audio. */
+ * on its separate wind channel. Fixed TPT states slew without seeking audio. */
 export class WitchFabricFilter {
   constructor(rate) {
     this.rate = rate; this.wet = 0; this.targetWet = 0; this.left = 0; this.right = 0;
@@ -1254,7 +1260,7 @@ export class WitchFabricFilter {
           pluckCut: 0, stereoWidth: .84 } });
       const f = this.filters[i], pan = (target.pan + 1) * Math.PI / 4;
       // Keep native lattice/collision gain, without applying the source page's
-      // extra fabric-cut fade to this already mixed external performance.
+      // extra fabric-cut fade to the independent wind source.
       const gain = target.gain / Math.max(.08, target.fabricCut);
       f.target = stableSvfCoefficients(target.frequency, target.q, this.rate);
       f.targetGainL = gain * Math.cos(pan); f.targetGainR = gain * Math.sin(pan);
@@ -1280,8 +1286,9 @@ export class WitchFabricFilter {
   }
 }
 
-/** Voice and Gesticules keep their clocks together. Focus changes balance,
- * dropped instruments briefly solo, and flight delays the complete performance. */
+/** Voice and Gesticules keep independent clocks. Focus changes balance,
+ * dropped instruments briefly solo, and flight delays the witch ensemble.
+ * Fabric's wind runs beside that delay through its own resonant filter. */
 export class WitchDSP {
   constructor(rate = 48000, seed = 0x71c4) {
     this.rate = witchClamp(rate, 8000, 192000, 48000); this.dt = 1 / this.rate;
@@ -1387,7 +1394,8 @@ export class WitchDSP {
     let accepted;
     if (kind === 'fabric-wind') {
       if (this.controls.mode !== 'flight') return false;
-      this.fabricWind.trigger(); accepted = true;
+      // Wind has its own channel; it must not reopen stopped witch echoes.
+      this.fabricWind.trigger(); return true;
     } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
     else if (this.scene.trigger(kind)) accepted = true;
@@ -1446,18 +1454,18 @@ export class WitchDSP {
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
         const ghostL = this.ghosts.left * ghostCeiling * backing * backingGain, ghostR = this.ghosts.right * ghostCeiling * backing * backingGain;
         // The clicked head is featured above its feet, through the same flight
-        // delay and Fabric filter as every other performer.
+        // delay as every other performer.
         const catL = (this.cat.left * .85 + this.cat.meowLeft * .9) * backing * backingGain;
         const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing * backingGain;
         const visitorL = this.visitors.left * backing * backingGain, visitorR = this.visitors.right * backing * backingGain;
         const flybyL = this.blechFlyby.left * backingGain, flybyR = this.blechFlyby.right * backingGain;
-        const dryL = Math.tanh((bedL * backing + ghostL + catL + visitorL + dropL + this.scene.left + this.fabricWind.left + flybyL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + catR + visitorR + dropR + this.scene.right + this.fabricWind.right + flybyR + b[5][i] * .85) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + catL + visitorL + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + catR + visitorR + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
-        this.fabric.next(this.delay.left, this.delay.right);
-        this.fabricMix += ((c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
-        this.shock.next(this.delay.left + (this.fabric.left - this.delay.left) * this.fabricMix,
-          this.delay.right + (this.fabric.right - this.delay.right) * this.fabricMix, this.enabled);
+        this.fabric.next(this.fabricWind.left, this.fabricWind.right);
+        this.fabricMix += ((this.enabled && c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
+        this.shock.next(this.delay.left + this.fabric.left * this.fabricMix,
+          this.delay.right + this.fabric.right * this.fabricMix, this.enabled);
         // Fixed makeup preserves relative whispers and decays. This memoryless
         // soft peak ceiling cannot raise a tail or chase silence like AGC.
         const outL = Math.tanh(this.shock.left * 2.9 / .84) * .84;

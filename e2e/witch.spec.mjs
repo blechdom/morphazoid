@@ -806,7 +806,8 @@ test('mouth, tree, spider, web, eyes and ghost gestures play over the running en
   await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('eye-shock'))).toBe(true);await audible(page);
 });
 
-test('broom and moon alone toggle flight while the fabric and hair noodles bend its sound',async({page})=>{
+test('broom and moon toggle flight while cloth plays independent wind and hair noodles bend the delay',async({page})=>{
+  test.setTimeout(45000);
   await observeWorklet(page);await open(page);await clickWorld(page,'broom');
   await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
   expect((await state(page)).config.scene).toBe('flight');
@@ -849,8 +850,21 @@ test('broom and moon alone toggle flight while the fabric and hair noodles bend 
   await dragWorld(page,'fabric',100,-65,{holdMs:120});
   expect((await state(page)).fabricGesture.audio.fabricPull).toBeGreaterThan(0);
   await key(page,'Backspace');expect(await state(page)).toMatchObject({quiet:true,config:{scene:'flight'},fabricGesture:still,trailGesture:{held:false,active:false,strands:[]}});
+  // Let the previous performance finish its normal Stop release before soloing wind.
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.delayLevel??1)).toBeLessThan(.000001);
+  await key(page,'f');
+  expect(await state(page)).toMatchObject({playing:true,parts:{brew:false,hand:false},backingAwake:false});
+  const wind=await sampleAudioEnvelope(page,{durationMs:180});
+  expect(wind.summary.finite).toBe(true);expect(wind.summary.maxPeak).toBeGreaterThan(.001);expect(wind.summary.clippedSamples).toBe(0);
+  expect(await page.evaluate(()=>['brewLevel','handLevel','ghostLevel','catLevel','flybyLevel','delayLevel'].every(key=>window.witchVisual[key]<.000001))).toBe(true);
+  await key(page,'Space');
+  await dragWorld(page,'fabric',70,-40);
+  expect(await state(page)).toMatchObject({playing:true,parts:{brew:false,hand:false},backingAwake:false});
   await clickWorld(page,'moon');await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);
   expect((await state(page)).config.scene).toBe('brew');
+  await key(page,'Space');const windCues=await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='fabric-wind').length);
+  await key(page,'f');expect((await state(page)).quiet).toBe(true);
+  expect(await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='fabric-wind').length)).toBe(windCues);
 });
 
 test('representative shelf icons solo, interpolate settings and stay consumed until a refill',async({page})=>{

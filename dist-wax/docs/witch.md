@@ -29,7 +29,7 @@ Brightness remains on the **+ / −** keys.
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
-| Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to send an elastic ripple through the cloth and the ensemble. The witch, moon, pot, mushrooms and hair noodles keep priority. Grounded sound bypasses the fabric. |
+| Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play its native L-system sound bite, with a pulse travelling through the branches. Mushrooms and the die choose new tree settings. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
 | Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
@@ -110,13 +110,14 @@ ghosts and animal visitors fade into the sky. The mushrooms remain playable. The
 A longer sweeping route carries smaller returning loops; twisting the hair
 deepens those loops. Denser hair noodles cross the sky and bend the shared delay.
 Occasional BLECH MIDI icons fly past, singly or in pairs, carrying their native
-five-second phrase through the same delay and fabric. They leave the shelf intact.
+five-second phrase through the same flight delay. They leave the shelf intact.
 The physical broom is wood and bundled bristles. Four screen-filling delay
 strands grow directly from her hair; the flying fabric uses Fabric Filter’s
 green columns and pink rows. Clicking the moon or broom again lands her without
 stopping her song. Flight processing keeps the ensemble at a comparable level
-to stirring while adding the shared delay and fabric. Keyboard ingredient shortcuts
-remain available during flight.
+to stirring while adding the shared delay. Fabric Filter shapes only its own wind
+channel, mixed alongside the delayed performers; wind does not enter the delay.
+Keyboard ingredient shortcuts remain available during flight.
 
 The black cat is 20% larger than its preceding appearance and keeps its
 Quadruped gait with louder foot contacts. It crosses every thirty seconds of Play;
