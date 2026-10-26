@@ -54,7 +54,11 @@ test('both wrists, angled fingertips and inverse drags share their model transfo
       assert.ok(Math.abs(local.y-point.y)<1e-10);
     }
     if(index===0) assert.ok(Math.abs(t.rotation-reach*55*Math.PI/180)<1e-12);
-    else assert.equal(t.mirror,-1);
+    else {
+      assert.equal(t.mirror,-1);
+      assert.ok(Math.abs(t.rotation-(-.38+Math.PI/2))<1e-12);
+      assert.ok(Math.abs(t.scale-.23*1.25)<1e-12);
+    }
   }
   const state={handReach:1};
   assert.ok(Math.hypot(handTransform(state,0).wrist.x-handTransform(state,1).wrist.x,handTransform(state,0).wrist.y-handTransform(state,1).wrist.y)>150);

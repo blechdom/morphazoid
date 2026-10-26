@@ -477,8 +477,8 @@ export function handTransform(state = {}, index = 0) {
   const reach = index === 0 ? clamp(state.handReach) : 0;
   const lift=clamp(state.flightLift),flight=broomTransform(state);
   const baseScale=(index===0?.19:.23)*(1-lift)+flight.scale*.28*lift;
-  const scale = baseScale+(1-baseScale)*reach;
-  const rotation = index===0 ? flight.rotation*lift*(1-reach)+reach*55*Math.PI/180 : -.38+flight.rotation*lift;
+  const scale = (baseScale+(1-baseScale)*reach)*(index===1?1.25:1);
+  const rotation = index===0 ? flight.rotation*lift*(1-reach)+reach*55*Math.PI/180 : -.38+Math.PI/2+flight.rotation*lift;
   const mirror = index === 0 ? 1 : -1;
   const ladle=getWitchLadle(state);
   const flying=broomPoint(index===0?{x:32,y:59}:{x:91,y:85},state);

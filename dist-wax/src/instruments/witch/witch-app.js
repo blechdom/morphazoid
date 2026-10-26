@@ -20,7 +20,7 @@ let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionT
 const fingerPointers = new Map(), fingerKeys = new Set(), sliderKeys = new Set(), sliderPointers = new Map(), arrowKeys = new Set();
 const instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
 let width = 1000, height = 720, presets;
-const world={handReach:0,handOpen:false,flightLift:0,trip:0};
+const world={handReach:1,handOpen:false,flightLift:0,trip:0};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 let handReady=false,handSurface=null,handSurfaces=[],pageSuspended=false,audioMotionReady=false;
@@ -186,7 +186,7 @@ listen(canvas,'pointerdown',e => {
     pointer={id:e.pointerId,type:'object',object,offset:{x:p.x-origin.x,y:p.y-origin.y}};canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
   }
   if(hit.type==='stir' && config.scene==='fingers') setScene('brew');
-  if(hit.type==='finger' && world.handOpen) {
+  if(hit.type==='finger') {
     selectedFinger=hit.index; fingerPointers.set(e.pointerId,{index:hit.index,start:p,transform:handTransform(visualState()),value:config.fingers[hit.index]});
     canvas.setPointerCapture(e.pointerId); send(); sync(); e.preventDefault(); return;
   }
@@ -290,7 +290,7 @@ function draw(now) {
   }
   if(event) { event.age+=dt; if(event.age>3.5) event=null; }
   const ease=reducedMotion.matches?1:1-Math.exp(-dt/ .18);
-  for(const [key,target] of [['handReach',world.handOpen?1:0],['flightLift',config.scene==='flight'?1:0]]) { world[key]+=(target-world[key])*ease;if(Math.abs(target-world[key])<.001)world[key]=target; }
+  for(const [key,target] of [['flightLift',config.scene==='flight'?1:0]]) { world[key]+=(target-world[key])*ease;if(Math.abs(target-world[key])<.001)world[key]=target; }
   for(const object of objects) if(object.dropped) { object.dropAge+=dt;if(object.dropAge>3.6){object.dropped=false;returnObject(object);} }
   const state=visualState();
   if(handReady) {

@@ -2,8 +2,8 @@
 
 Witches Brew leads Faves with an ensemble in one continuous night scene.
 Her cauldron voice and instrumental fingers play together. The scene starts
-moving with **Audio off**; enable Audio to hear it. Stir the potion, reach her
-hand, drop a floating miniature instrument into the pot, or take the whole
+moving with **Audio off**; enable Audio to hear it. Stir the potion, play her
+fingers, drop a floating miniature instrument into the pot, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
 
 | Gesture | Picture | Sound |
@@ -14,7 +14,7 @@ ensemble on a broom ride. **Stop** releases the sound and pauses the performance
 | Widen the circle | Wider whirlpool and open jaw | Broader vowel resonances |
 | Reverse | Vortex changes direction | The syllable path runs backward |
 | Release a gesture | Automatic motion resumes while Play is active | The ensemble continues; stopped manual gestures fade |
-| Click her right hand | A long, articulated 3D hand reaches toward you at a 55° clockwise angle | Five instrumental voices come forward over quieter brewing |
+| Click her right palm | Her long 3D hand stays enlarged at a 55° clockwise angle | Five instrumental voices come forward over quieter brewing |
 | Bend a fingertip | Its long finger curls and glows | Glass, reed, wire, metal or marimba pitch and brightness |
 | Drop a miniature hand, marimba or choir mouth into the pot | The object falls into the potion | Its short solo comes forward while the ensemble continues underneath |
 | Click the moon | She takes off on a rollercoaster broom ride | One launch cackle; flight bends the whole mix through delay |
@@ -36,8 +36,9 @@ Backward means reversing the authored syllable trajectory, not reversing a
 recorded waveform. Pitch is continuous; there is no scale quantization.
 
 Both hands use Gesticules’ actual weighted 3D hand model, elongated and colored
-with teal, violet and jewel-toned claws. The ladle hand stays visible while her
-right arm reaches forward. Their finger-roll and claw-pulse animations reuse
+with teal, violet and jewel-toned claws. Her left ladle hand is rotated another
+90° clockwise and enlarged by 25%. Her right hand stays fully extended through
+brewing, flight, presets and Reset. Their finger-roll and claw-pulse animations reuse
 Gesticules choreography with offset timing. The reaching hand uses its five-voice
 synthesis engine: thumb glass, index reed, middle wire, ring metal and little
 finger marimba. Each bend changes its own pitch and tone. The fingers play
@@ -46,7 +47,7 @@ Hold several fingertips or number keys together. Holding a digit takes over its
 bend while the others keep moving.
 Moving a finger also re-excites the struck metal and marimba sounds. Brightness
 shapes the instrument mix. Cauldron character and ingredients do not color the
-hand's instrumental voices. Reaching the hand brings it forward in the mix and
+hand's instrumental voices. Touching the right palm brings the fingers forward in the mix and
 quiets the continuing cauldron voice.
 
 Three floating objects offer featured solos: the miniature Gesticules hand
@@ -72,7 +73,7 @@ fingertips and other targets follow their visible positions. Palette changes
 preserve the current instrument, Audio and Play.
 
 Audio starts off while Play is already active. Gestures and Play never arm
-Audio. Reaching the hand, steering, landing, mushroom changes and object drops
+Audio. Changing finger focus, steering, landing, mushroom changes and object drops
 preserve the current Play state. Clicking the moon starts the ride and Play;
 it keeps Audio off unless you explicitly arm it. Each held finger also plays
 independently while stopped. Releasing it returns to the animation during Play
@@ -80,12 +81,12 @@ or fades its manual note while stopped. Presets retain Audio, output volume and
 Play. Reset returns to the original cauldron, releases the sound and clears the
 ingredients while retaining explicit Audio arming and output level.
 
-With the picture focused, **H** reaches out the hand, **M** takes off or rings the
+With the picture focused, **H** brings the fingers forward in the mix, **M** takes off or rings the
 moon bell while flying, **B** returns to brewing, and **W** cycles the mushrooms.
 **Escape** returns to the cauldron and stops Play. **Space** toggles Play. **Q/E/R** drop the hand, marimba and mouth.
 **T/G/S/V** play bats, ghosts, stars and wind in every activity. Arrows stir/open the voice
 or steer the broom. Hold **1–5** to play individual finger instruments; arrows
-bend the selected finger when the hand is reached. Native finger sliders also play
+bend the selected finger when its sound is featured. Native finger sliders also play
 while held or adjusted with keys. The controls beside the picture provide
 alternatives for bending, steering, ingredients and scenery accents. Pointer
 cancellation and window blur release manual gestures. Hidden pages mute;

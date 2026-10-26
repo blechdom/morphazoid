@@ -13,11 +13,11 @@ async function selectScene(page,scene) {
     await page.locator('#witchCanvas').focus();
     await page.keyboard.press({brew:'b',fingers:'h',flight:'m'}[scene]);
   }
-  await expect.poll(async()=>(await state(page)).config.scene).toBe(scene);
   if(scene==='fingers') {
+    await expect.poll(async()=>(await state(page)).world.handOpen).toBe(true);
     await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
     await expect.poll(async()=>(await state(page)).world.handReach).toBe(1);
-  }
+  } else await expect.poll(async()=>(await state(page)).config.scene).toBe(scene);
 }
 async function clickStage(page,x,y) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
@@ -58,15 +58,28 @@ test('Witches Brew opens as one silent, moving ensemble with two offset model ha
   await open(page);await expect(page.locator('h1')).toHaveText('witches brew');
   await expect(page).toHaveTitle('Witches Brew · Morphazoid');
   expect((await state(page)).playing).toBe(true);
+  expect((await state(page)).world.handReach).toBe(1);
   expect((await state(page)).audioOn).toBe(false);
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
   await expect(page.locator('.witch-scene-switch, button[data-scene], .witch-scene-caption, .witch-understage')).toHaveCount(0);
   expect(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontFamily)).not.toContain('Georgia');
+  await page.waitForFunction(()=>window.witchInstrument.state.handReady);
+  // The permanently enlarged hand is playable while the voice is featured.
+  await page.locator('#playButton').click();
+  const unfeatured=await state(page),tip=unfeatured.hands[0].tips[1],from=await point(page,tip.x,tip.y);
+  expect(unfeatured.world.handOpen).toBe(false);
+  await page.mouse.move(from.x,from.y);await page.mouse.down();
+  expect((await state(page)).manualFingerMask&2).toBe(2);
+  await page.mouse.move(from.x+30,from.y+60,{steps:4});await page.mouse.up();
+  expect((await state(page)).config.fingers[1]).not.toBe(unfeatured.config.fingers[1]);
+  expect((await state(page)).manualFingerMask).toBe(0);
+  await page.locator('#playButton').click();
   await selectScene(page,'fingers');
   const hand=await state(page);
   expect(hand.handMetadata).toMatchObject({triangles:28994,deformBones:22,runtimeAdapted:true,modelInstances:2,webglContexts:1});
   expect(hand.hands).toHaveLength(2);
   expect(hand.hands[0].rotation).toBeCloseTo(55*Math.PI/180,5);
+  expect(hand.hands[1].rotation).toBeCloseTo(-.38+Math.PI/2,5);
   for(const model of hand.hands) {
     expect(model.tips).toHaveLength(5);
     for(const tip of model.tips) {expect(tip.x).toBeGreaterThan(0);expect(tip.x).toBeLessThan(1000);expect(tip.y).toBeGreaterThan(0);expect(tip.y).toBeLessThan(720);}
@@ -164,7 +177,8 @@ test('hovering instruments drop into the cauldron for solos, including during fl
 
 test('stirring, presets, cancellation and page lifecycle preserve the ensemble and explicit Audio state',async({page})=>{
   await open(page);await range(page,'outputLevel',.23);
-  const center=await point(page,700,520);await page.mouse.move(center.x,center.y);await page.mouse.down();
+  // Start in the exposed potion, clear of the permanently enlarged fingers.
+  const center=await point(page,440,520);await page.mouse.move(center.x,center.y);await page.mouse.down();
   for(let i=1;i<=12;i++){const a=-i/12*Math.PI*2;const p=await point(page,600+155*Math.cos(a),520+48*Math.sin(a));await page.mouse.move(p.x,p.y);}
   await page.mouse.up();expect((await state(page)).config.direction).toBe(-1);
   expect((await state(page)).playing).toBe(true);
@@ -180,6 +194,7 @@ test('stirring, presets, cancellation and page lifecycle preserve the ensemble a
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
   await page.locator('#resetButton').click();
   expect((await state(page)).playing).toBe(false);expect((await state(page)).world.trip).toBe(0);
+  expect((await state(page)).world.handReach).toBe(1);
 });
 
 for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['landscape',844,390]]) {
