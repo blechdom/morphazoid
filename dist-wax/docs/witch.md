@@ -81,13 +81,23 @@ stopping her song. Keyboard ingredient shortcuts remain available during flight.
 
 The black cat is 20% larger than its preceding appearance and keeps its
 Quadruped gait and contact sounds. It crosses every thirty seconds of Play;
-a mouse and lizard make staggered visits using their own Quadruped anatomy.
+a skeletal mouse and a lizard make staggered visits using their own Quadruped anatomy.
+The mouse uses Quadruped's actual Skeleton skin, with articulated ribs, skull,
+legs and tail bones.
 The lizard crawls upside down across the top edge. The mouse follows the left
 edge and bottom, reversing direction on alternate visits to climb up or down.
 Capturing a visitor hides it for the rest of that visit. It can return on a later
 visit. Stop freezes the visitor clock; changing presets does not restart it.
 Ghost portraits keep a quiet background beat while grounded, and can still be
 raised or lowered to adjust its tempo.
+The larger Hiccup Head ghost retains the bloody red Zombie Zoid skin. Its
+transparent portrait at `assets/witch/hiccup-head-bloody.webp` is captured from
+Hiccup Head's native `drawFace` renderer with `wild-ink` selected and beat zero
+of its original `wild-ink-decay-fields.webp` atlas. It remains behind the witch
+and fades into the mist with the other ghosts; the shelf miniature keeps its
+usual catalogue portrait. See the [skin provenance](https://github.com/blechdom/morphazoid/blob/main/assets/hiccup-head/skins/README.md).
+Regenerate the portrait with `scripts/render-witch-hiccup-ghost.mjs`, pointing
+`MORPHAZOID_QA_BASE_URL` at a running source preview.
 
 With the picture focused: **A** cycles hand animations, **H** features fingers, **M** toggles flight, **B** lands,
 **W** chooses the next whole spell, **D** rolls the die, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,

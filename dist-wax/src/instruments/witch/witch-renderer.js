@@ -28,7 +28,7 @@ export const WITCH_LAYOUT = Object.freeze({
   ghosts: Object.freeze([
     Object.freeze({id:'creaturazoid',x:300,y:115,r:45,size:115,color:'#a7ccc7'}),
     Object.freeze({id:'monstroid',x:590,y:80,r:44,size:116,color:'#a5bcd3'}),
-    Object.freeze({id:'hiccup',x:620,y:180,r:43,size:102,color:'#c0b2ce'}),
+    Object.freeze({id:'hiccup',x:640,y:188,r:68,size:174,color:'#d58d94'}),
   ]),
   bats:Object.freeze([]),spirits:Object.freeze([]),
   shelves:Object.freeze([{x:34,y:148,w:239,h:488,rows:[218,299,380,461,542,623]}]),
@@ -108,11 +108,6 @@ function background(c,state) {
   c.save();c.globalAlpha*=grounded;
   glow(c,310,260,300,'#a43aa51f');glow(c,740,420,300,'#1db6ae1b');
   path(c,'M0,662 Q128,618 251,636 Q390,657 499,642 Q656,621 782,638 Q908,620 1000,664 L1000,720 L0,720 Z','#111822');
-  for(const [x,y,z]of [[304,606,.43],[930,610,.63]]) {
-    c.save();c.translate(x,y);c.scale(z,z);
-    path(c,'M-22,29 L-19,-20 Q-7,-39 10,-23 L20,26 Z','#25303b','#0b151d',2);
-    line(c,[[-8,-10],[8,-10]],'#897c945b',2);line(c,[[0,-21],[0,10]],'#897c945b',2);c.restore();
-  }
   c.restore();
 }
 
@@ -782,7 +777,7 @@ export function getWitchGhostPosition(ghost, state = {}) {
 const ghostSources=Object.freeze({
   creaturazoid:new URL('../../../assets/instruments/creaturazoid.webp',import.meta.url).href,
   monstroid:new URL('../../../assets/instruments/colony-syrinx.webp',import.meta.url).href,
-  hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
+  hiccup:new URL('../../../assets/witch/hiccup-head-bloody.webp',import.meta.url).href,
 });
 const ghostImages=new WeakMap();
 function removePortraitBackdrop(pixels) {
@@ -828,7 +823,10 @@ function ghostPortrait(c,ghost) {
     const tint=[1,3,5].map(offset=>parseInt(ghost.color.slice(offset,offset+2),16));
     for(let p=0;p<rgba.length;p+=4) {
       const gray=Math.min(255,(rgba[p]*.2126+rgba[p+1]*.7152+rgba[p+2]*.0722)*1.36+25.5);
-      for(let channel=0;channel<3;channel++)rgba[p+channel]=gray*.6+tint[channel]*.4;
+      // Keep Zombie Zoid's native blood-red skin readable through the mist.
+      for(let channel=0;channel<3;channel++)rgba[p+channel]=ghost.id==='hiccup'
+        ? Math.min(255,rgba[p+channel]*1.15+18)
+        : gray*.6+tint[channel]*.4;
       const y=Math.floor(p/4/160)/159;
       rgba[p+3]*=1-clamp((y-.52)/.48)*.93;
     }

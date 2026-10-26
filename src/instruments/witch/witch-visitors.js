@@ -1,11 +1,13 @@
 import { createQuadrupedState, deriveQuadrupedPose } from '../quadruped/quadruped.js';
-import { deriveQuadrupedVisualRig } from '../quadruped/quadruped-visual-skins.js';
+import { deriveQuadrupedVisualRig, drawQuadrupedVisualSkin } from '../quadruped/quadruped-visual-skins.js';
 import { WITCH_VISITORS, getWitchVisitors } from './witch-visitors-model.js';
 export { WITCH_VISITORS, getWitchVisitors } from './witch-visitors-model.js';
 
 // Reuse the real Mouse and Lizard body/limb rigs and authored gaits. These
 // small coats have no separate instrument, audio graph, assets, or lifecycle.
-const SCORES=new Map(WITCH_VISITORS.map(visitor=>[visitor.id,createQuadrupedState(visitor.id,visitor.behaviorId)]));
+const SCORES=new Map(WITCH_VISITORS.map(visitor=>[visitor.id,{
+  ...createQuadrupedState(visitor.id,visitor.behaviorId),visualSkinId:visitor.id==='mouse'?'skeleton':'animal',
+}]));
 const LOCAL_WIDTH=500,LOCAL_HEIGHT=260,LOCAL_GROUND=240,TAU=Math.PI*2;
 const COATS=Object.freeze({
   mouse:Object.freeze({body:'#352b3c',head:'#514052',edge:'#9d8198',ear:'#9a657b',eye:'#e8cba3',tail:'#8f7185'}),
@@ -118,7 +120,11 @@ export function drawWitchVisitors(context,state = {}) {
     context.save();context.globalAlpha*=frame.alpha;
     context.translate(frame.x,frame.y);context.rotate(frame.rotation);context.scale(frame.direction*scale,scale);
     context.translate(-LOCAL_WIDTH/2,-LOCAL_GROUND);context.lineJoin='round';context.lineCap='round';
-    coat(context,visitorRig(frame),frame);context.restore();
+    if(frame.id==='mouse') {
+      const score=SCORES.get(frame.id),pose=deriveQuadrupedPose(score,frame.position);
+      drawQuadrupedVisualSkin(context,pose,LOCAL_WIDTH,LOCAL_HEIGHT,LOCAL_GROUND,score);
+    } else coat(context,visitorRig(frame),frame);
+    context.restore();
   }
   return frames;
 }

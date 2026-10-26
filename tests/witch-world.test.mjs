@@ -248,7 +248,7 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
         handSurface:hand0,handSurfaces:[hand0,hand1],ghostPresence:[1,1,1],ghostPulses:[1,1,1],ghostPhase:4,
         objects:WITCH_LAYOUT.objects.map(object=>object.id==='hiccup'?{...object,dropped:true,dropAge:.3}:object)});
       const world=canvases[1].getContext('2d').calls;
-      const isGhost=call=>call.args?.length===4&&call.args[2]>90&&/\/(creaturazoid|colony-syrinx|hiccup-head)\.webp$/.test(portraitUrl(call)||'');
+      const isGhost=call=>call.args?.length===4&&call.args[2]>90&&/\/(creaturazoid|colony-syrinx|hiccup-head-bloody)\.webp$/.test(portraitUrl(call)||'');
       const portraits=world.map((call,index)=>({call,index})).filter(({call})=>isGhost(call));
       assert.equal(portraits.length,scene==='flight'?0:3,'ghosts fade out with ground scenery in flight');
       if(scene==='flight')continue;
