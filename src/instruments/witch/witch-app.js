@@ -421,7 +421,7 @@ listen(canvas,'pointermove',e => {
   if(!pointer || pointer.id!==e.pointerId) {
     const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());
     canvas.style.cursor=hit?'grab':'default';
-    canvas.title=hit?.type==='object'?objects.find(item=>item.id===hit.id)?.name??'':({cat:'Meow — into the potion!',animal:'Catch this visitor',mouth:'Change her phrase',eyes:'An electrical hex',tree:'Play the L-system tree; drag outward to spread, up or down to curl',spider:'Send the spider into the potion',web:'Pluck the web',broom:config.scene==='flight'?'Land beside the pot':'Take flight',fabric:'Grab the cloth, pull, and release to shape the wind',trail:'Stretch for echo time and space; wind circles for dub feedback',ghost:'Lift a ghost to quicken the beat; lower it to slow the beat',spoon:'Tap for stirring speed or direction; lift or lower to change her voice',nose:'Pull her nose',hat:'Click to break and drop the hat; drag to stretch it',hair:config.scene==='flight'?'Pull her hair to stretch, twist and coil the delay':'Pull her hair back to hush slowly; stir for her voice or bend a finger for its spell',hand:'Feature her finger spells',sleeve:'Cycle her hand animation',moon:'Fly to the moon',mushrooms:'Change the spell settings',dice:'Roll all the spell settings'})[hit?.type]??'';
+    canvas.dataset.hoverTarget=hit?.type??'';
     return;
   }
   if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}

@@ -168,8 +168,8 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
     for(const target of snapshot.targets) {
       from=stagePoint(snapshot.rect,target.x,target.y);
       await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
-      const title=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').title);
-      if(title.startsWith('Play the L-system tree')){selected=target;exposed=true;break;}
+      const targetType=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').dataset.hoverTarget);
+      if(targetType==='tree'){selected=target;exposed=true;break;}
     }
     expect(exposed,'an exposed L-system branch remains playable').toBe(true);
   }
@@ -236,7 +236,7 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
     canvas.addEventListener('pointerdown',event=>{
       window.witchGhostPointerId=event.pointerId;
       const current=window.witchInstrument.state;
-      window.witchGhostDown={id,title:canvas.title,clientX:event.clientX,clientY:event.clientY,
+      window.witchGhostDown={id,target:canvas.dataset.hoverTarget,clientX:event.clientX,clientY:event.clientY,
         ghost:current.ghosts.find(ghost=>ghost.id===id),config:current.config,world:current.world};
     },{once:true,capture:true});
   },id);
@@ -277,7 +277,7 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
       if(snapshot.clearance<30)continue;
       const candidate=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y);
       await page.mouse.move(candidate.x,candidate.y);
-      if(!(await page.locator('#witchCanvas').getAttribute('title'))?.startsWith('Lift a ghost'))continue;
+      if(await page.locator('#witchCanvas').getAttribute('data-hover-target')!=='ghost')continue;
       const fresh=await candidateSnapshot(offset);
       if(fresh.clearance<30)continue;
       from=stagePoint(fresh.rect,fresh.from.x,fresh.from.y);to=stagePoint(fresh.rect,fresh.to.x,fresh.to.y);
@@ -318,7 +318,7 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
         const along=Math.min(1,Math.max(0,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
         return Math.hypot(p.x-a.x-along*dx,p.y-a.y-along*dy);
       }));
-      window.witchHairDown={x:p.x,y:p.y,title:canvas.title,config:{...current.config},world:{...current.world},minRadius,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,sampleAge:performance.now()-window.witchHairSampleAt,
+      window.witchHairDown={x:p.x,y:p.y,target:canvas.dataset.hoverTarget,config:{...current.config},world:{...current.world},minRadius,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,sampleAge:performance.now()-window.witchHairSampleAt,
         hairDistance:Math.min(...hairDistances),hairRadius:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32)),
         mouth:Math.hypot(p.x-current.targets.mouth.x,p.y-current.targets.mouth.y)-Math.max(current.targets.mouth.r,Math.min(27,minRadius*.38)),
         eyes:Math.hypot(p.x-current.targets.eyes.x,p.y-current.targets.eyes.y)-Math.max(current.targets.eyes.r,Math.min(27,minRadius*.38)),
@@ -361,7 +361,7 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
     if(snapshot.clearance<30)return false;
     const candidate=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y);
     await page.mouse.move(candidate.x,candidate.y);
-    if(!(await canvas.getAttribute('title'))?.startsWith('Pull her hair'))return false;
+    if(await canvas.getAttribute('data-hover-target')!=='hair')return false;
     const fresh=await candidateSnapshot(snapshot.index);
     if(fresh.clearance<30)return false;
     from=stagePoint(fresh.rect,fresh.from.x,fresh.from.y);to=stagePoint(fresh.rect,fresh.to.x,fresh.to.y);
@@ -491,8 +491,8 @@ async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
     for(const candidate of snapshot.candidates) {
       const from=stagePoint(snapshot.rect,candidate.from.x,candidate.from.y);
       await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
-      const title=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').title);
-      if(title.startsWith('Grab the cloth')){target=candidate;break;}
+      const targetType=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').dataset.hoverTarget);
+      if(targetType==='fabric'){target=candidate;break;}
     }
     expect(target,'an exposed point on the full flight fabric remains draggable').toBeTruthy();
   }
