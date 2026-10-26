@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset } from '../src/instruments/witch/witch-presets.js';
+import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 
 test('every complete Witch scene survives recall without bringing transport or output state',()=>{
@@ -8,7 +8,7 @@ test('every complete Witch scene survives recall without bringing transport or o
   for(const {snapshot} of WITCH_PRESETS) {
     assert.deepEqual(normalizeWitchPreset(snapshot),snapshot);
     assert.equal('volume' in snapshot,false);assert.equal('gate' in snapshot,false);assert.equal('playing' in snapshot,false);
-    assert.equal('ghostPhase' in snapshot,false);
+    assert.equal('ghostPhase' in snapshot,false);assert.equal('performanceTime' in snapshot,false);
     assert.ok(snapshot.ghostTempo>=36&&snapshot.ghostTempo<=180);
     const recalled=normalizeWitchPreset(snapshot);recalled.fingers[0]=.123;
     assert.notEqual(recalled.fingers[0],snapshot.fingers[0]);
@@ -22,6 +22,8 @@ test('randomization reaches every scene, character, direction and continuous mus
   assert.equal(new Set(scenes.map(s=>s.voice)).size,5);
   assert.equal(new Set(scenes.map(s=>s.direction)).size,2);
   assert.equal(new Set(scenes.map(s=>s.spoonAuto)).size,2);
+  assert.equal(new Set(scenes.map(s=>s.palette)).size,8);
+  assert.equal(new Set(scenes.map(s=>s.trip)).size,4);
   for(const key of ['speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
@@ -37,4 +39,18 @@ test('ghost beat tempo recalls old presets safely and clamps malformed or extrem
   assert.equal(normalizeWitchPreset({ghostTempo:-100}).ghostTempo,36);
   assert.equal(normalizeWitchPreset({ghostTempo:1000}).ghostTempo,180);
   assert.equal(normalizeWitchPreset({ghostTempo:108}).ghostTempo,108);
+});
+
+test('the scene bank offers distinct complete spells across colors, distortion and performance focus',()=>{
+  assert.ok(WITCH_PRESETS.length>=32);
+  assert.equal(WITCH_PALETTES.length,8);
+  assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>JSON.stringify(snapshot))).size,WITCH_PRESETS.length);
+  assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>snapshot.palette)).size,8);
+  assert.equal(new Set(WITCH_PRESETS.map(({snapshot})=>snapshot.trip)).size,4);
+  for(const scene of ['brew','fingers','flight']) assert.ok(WITCH_PRESETS.filter(({snapshot})=>snapshot.scene===scene).length>=6);
+  assert.equal(normalizeWitchPreset({}).palette,0);
+  assert.equal(normalizeWitchPreset({trip:100,palette:-10}).trip,3);
+  assert.equal(normalizeWitchPreset({trip:100,palette:-10}).palette,0);
+  assert.equal(normalizeWitchPreset({trip:-1,palette:100}).palette,7);
+  assert.deepEqual(normalizeWitchPreset(null),normalizeWitchPreset());
 });

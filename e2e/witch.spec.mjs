@@ -147,7 +147,9 @@ test('Witches Brew opens as one silent, moving ensemble with two offset model ha
   expect(hand.handMetadata).toMatchObject({triangles:28994,deformBones:22,runtimeAdapted:true,modelInstances:2,webglContexts:1});
   expect(hand.hands).toHaveLength(2);
   expect(hand.hands[0].rotation).toBeCloseTo(55*Math.PI/180,5);
-  expect(hand.hands[1].rotation).toBeCloseTo(-.38+Math.PI/2,5);
+  expect(hand.hands[1].rotation).toBeCloseTo(-.38+Math.PI*1.5,5);
+  expect(hand.hands[1].scale).toBeCloseTo(.23*1.25*1.25,5);
+  expect(Math.hypot(hand.hands[1].palm.x-hand.ladle.gx,hand.hands[1].palm.y-hand.ladle.gy)).toBeLessThan(.001);
   for(const model of hand.hands) {
     expect(model.tips).toHaveLength(5);
     for(const tip of model.tips) {expect(tip.x).toBeGreaterThan(0);expect(tip.x).toBeLessThan(1000);expect(tip.y).toBeGreaterThan(0);expect(tip.y).toBeLessThan(720);}
@@ -174,7 +176,14 @@ test('voice and fingers stay sounding together through focus, flight and manual 
   expect(after.config.fingers.filter((_,i)=>i!==2)).toEqual(before.config.fingers.filter((_,i)=>i!==2));
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.fingerLevels?.filter(v=>v>.05).length)).toBe(5);
   await page.keyboard.up('3');expect((await state(page)).manualFingerMask).toBe(0);
+  const grounded=await state(page);
   await selectScene(page,'flight');
+  await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
+  const flying=await state(page);
+  expect(flying.hands[1].scale).toBeLessThan(grounded.hands[1].scale);
+  expect(flying.hands[0].scale).toBe(grounded.hands[0].scale);
+  expect(Math.hypot(flying.hands[1].palm.x-flying.ladle.gx,flying.hands[1].palm.y-flying.ladle.gy)).toBeLessThan(.001);
+  expect(((flying.ladle.lx-600)/188)**2+((flying.ladle.ly-520)/62)**2).toBeLessThan(1);
   expect((await state(page)).world.handOpen).toBe(true);
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.delayWet??0)).toBeGreaterThan(.1);
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.001);
@@ -300,6 +309,7 @@ test('ghost beat joins Audio without restarting, survives presets and Tap, and r
     await page.locator(selector).click();
     const after=await state(page);
     expect(after.ghostPhase).toBeGreaterThan(before.ghostPhase-.1);
+    expect(after.performanceTime).toBeGreaterThanOrEqual(before.performanceTime);
     expect(after).toMatchObject({playing:true,audioOn:true});
     expect(after.config.ghostTempo).toBeGreaterThanOrEqual(36);expect(after.config.ghostTempo).toBeLessThanOrEqual(180);
   }
@@ -310,6 +320,7 @@ test('ghost beat joins Audio without restarting, survives presets and Tap, and r
   const tapped=await state(page);
   expect(tapped.config.ghostTempo).toBeCloseTo(120,5);
   expect(tapped.ghostPhase).toBeGreaterThanOrEqual(beforeTap.ghostPhase);
+  expect(tapped.performanceTime).toBeGreaterThanOrEqual(beforeTap.performanceTime);
   expect(tapped).toMatchObject({playing:true,audioOn:true});
   await expect(page.locator('#ghostTempo')).toHaveValue('120');
   await parameters(page,false);
@@ -325,6 +336,64 @@ test('ghost beat joins Audio without restarting, survives presets and Tap, and r
   await page.waitForTimeout(250);
   expect((await state(page)).ghostPhase).toBeCloseTo(stopped,5);
   await waitForStableAudioState(page,false,{timeout:12000,stableMs:300});
+});
+
+test('expanded presets recall night colors while the cat clock follows Play and keeps its place',async({page})=>{
+  test.setTimeout(90000);
+  await open(page);await range(page,'outputLevel',.23);
+  const initial=await state(page);
+  expect(initial.cat).toMatchObject({active:false,source:'quadruped',animalId:'cat',behaviorId:'cat-prowl'});
+  await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(initial.performanceTime+.15);
+  const bank=await page.evaluate(async()=>{
+    const {WITCH_PRESETS}=await import('/src/instruments/witch/witch-presets.js');return WITCH_PRESETS;
+  });
+  expect(bank).toHaveLength(32);
+  const row=page.locator('.header-preset-controls');
+  for(const palette of Array.from({length:8},(_,i)=>i)) {
+    const preset=bank.find(item=>item.snapshot.palette===palette),before=await state(page);
+    expect(preset,`preset for color ${palette}`).toBeTruthy();
+    await row.locator('summary').click();
+    await expect(page.locator('button[data-preset-id]')).toHaveCount(32);
+    await page.locator(`button[data-preset-id="${preset.id}"]`).click();
+    const recalled=await state(page);
+    expect(recalled.config).toEqual(preset.snapshot);
+    expect(recalled.world.trip).toBe(preset.snapshot.trip);
+    expect(recalled.performanceTime).toBeGreaterThanOrEqual(before.performanceTime);
+    expect(recalled.ghostPhase).toBeGreaterThanOrEqual(before.ghostPhase);
+    expect(recalled).toMatchObject({playing:true,audioOn:false});
+  }
+  await page.locator('#playButton').click();
+  const stopped=await state(page);
+  await page.locator('#witchCanvas').focus();await page.keyboard.down('3');await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(250);
+  expect((await state(page)).performanceTime).toBe(stopped.performanceTime);
+  expect((await state(page)).ghostPhase).toBe(stopped.ghostPhase);
+  await page.keyboard.up('3');
+  await parameters(page);
+  const colors=[];
+  for(const palette of Array.from({length:8},(_,i)=>i)) {
+    await page.locator('#palette').selectOption(String(palette));
+    await page.waitForTimeout(90);
+    colors.push(await page.locator('#witchCanvas').evaluate(canvas=>{
+      const rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/1000,rect.height/720);
+      const x=(rect.width-1000*scale)/2+50*scale,y=(rect.height-720*scale)/2+50*scale;
+      return [...canvas.getContext('2d').getImageData(Math.floor(x*canvas.width/rect.width),Math.floor(y*canvas.height/rect.height),1,1).data].join(',');
+    }));
+    expect((await state(page)).config.palette).toBe(palette);
+    expect((await state(page)).performanceTime).toBe(stopped.performanceTime);
+  }
+  expect(new Set(colors).size).toBeGreaterThanOrEqual(6);
+  await range(page,'lineBend',3);expect((await state(page)).world.trip).toBe(3);expect((await state(page)).config.trip).toBe(3);
+  await parameters(page,false);
+  await page.locator('.header-preset-next').click();
+  expect((await state(page))).toMatchObject({playing:false,audioOn:false,performanceTime:stopped.performanceTime});
+  expect((await state(page)).world.trip).toBe((await state(page)).config.trip);
+  await expect(page.locator('#outputLevel')).toHaveValue('0.23');
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  await page.locator('#playButton').click();
+  await expect.poll(async()=>(await state(page)).performanceTime).toBeGreaterThan(stopped.performanceTime+.15);
+  await page.locator('#resetButton').click();
+  expect((await state(page))).toMatchObject({playing:false,performanceTime:0,cat:{active:false},config:{palette:0,trip:0},world:{trip:0}});
 });
 
 test('every potion ingredient drops from the picture for a solo while voice, fingers and flight continue',async({page})=>{

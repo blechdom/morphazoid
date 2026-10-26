@@ -1,3 +1,4 @@
+import { drawWitchCat } from './witch-cat.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -30,11 +31,11 @@ export const WITCH_LAYOUT = Object.freeze({
     Object.freeze({id:'hair',kind:'drop-hair',name:'Hair',x:223,y:511,r:31,color:'#af9ed8'}),
     Object.freeze({id:'roach',kind:'drop-roach',name:'Roach Synth',x:73,y:568,r:34,color:'#c99b65'}),
     Object.freeze({id:'spider',kind:'drop-spider',name:'Spider Synth',x:265,y:637,r:35,color:'#d3cb81'}),
-    Object.freeze({id:'oculoid',kind:'drop-oculoid',name:'Oculoid',x:930,y:119,r:33,color:'#a5dfb6'}),
+    Object.freeze({id:'oculoid',kind:'drop-oculoid',name:'FM Drums',x:930,y:119,r:33,color:'#a5dfb6'}),
     Object.freeze({id:'rubix',kind:'drop-rubix',name:'Rubix',x:927,y:240,r:34,color:'#c7a5ec'}),
     Object.freeze({id:'hiccup',kind:'drop-hiccup',name:'Hiccup Head',x:925,y:360,r:32,color:'#e8a2cf'}),
     Object.freeze({id:'gesticules',kind:'drop-gesticules',name:'Gesticules',x:923,y:477,r:33,color:'#79e0c8'}),
-    Object.freeze({id:'marimba',kind:'drop-marimba',name:'Linear Drums',x:925,y:586,r:34,color:'#e8b075'}),
+    Object.freeze({id:'marimba',kind:'drop-marimba',name:'Rattlesnake',x:925,y:586,r:34,color:'#e8b075'}),
     Object.freeze({id:'choir',kind:'drop-choir',name:'Throatazoid',x:62,y:659,r:33,color:'#e698c8'}),
   ]),
 });
@@ -386,10 +387,29 @@ function mushrooms(c, x, y, scale = 1) {
 
 export function getWitchLadle(state = {}) {
   const angle=Number.isFinite(state.ladleAngle)?state.ladleAngle:state.phase||0;
-  const radius=28+clamp(state.radius)*109;
+  const radius=28+clamp(state.radius)*109,lift=clamp(state.flightLift);
   const lx=600+Math.cos(angle)*radius,ly=520+Math.sin(angle)*radius*.27;
-  // Keep the handle to the right of her face while its bowl circles the pot.
-  return {lx,ly,hx:640+Math.cos(angle)*radius*.26,hy:ly-(80+140*clamp(state.spoonHeight??.5))};
+  // The bowl always stirs the same potion. Her grip follows her wrist into
+  // flight, with a small stir-driven motion rather than abandoning the spoon.
+  const ground={x:632+Math.cos(angle)*radius*.26,y:ly-(104+140*clamp(state.spoonHeight??.5))};
+  const flying=broomPoint({x:112+Math.cos(angle)*radius*.08,y:75+(0.5-clamp(state.spoonHeight??.5))*35+Math.sin(angle)*radius*.045},state);
+  const gx=ground.x*(1-lift)+flying.x*lift,gy=ground.y*(1-lift)+flying.y*lift;
+  const length=Math.max(1,Math.hypot(gx-lx,gy-ly));
+  return {lx,ly,gx,gy,hx:gx+8,hy:gy+24,tx:gx+(gx-lx)/length*22,ty:gy+(gy-ly)/length*22};
+}
+
+function ladleArm(c,state) {
+  const t=handTransform(state,1),{x:wx,y:wy}=t.wrist,lift=clamp(state.flightLift);
+  const shoulder=broomPoint({x:-2,y:2},state);
+  const sx=437*(1-lift)+shoulder.x*lift,sy=408*(1-lift)+shoulder.y*lift;
+  const width=19*(1-lift)+9*lift,cuff=42*t.scale;
+  const ux=Math.cos(t.rotation)*cuff,uy=Math.sin(t.rotation)*cuff;
+  const bend=34*(1-lift)+12*lift,mx=(sx+wx)/2,my=(sy+wy)/2+bend;
+  // This sleeve paints before either face. The palm and utensil can then sit
+  // above the rim while the arm passes naturally behind her jaw and hair.
+  path(c,`M${sx-width},${sy} Q${mx-width},${my+22} ${wx-ux},${wy-uy} L${wx+ux},${wy+uy} Q${mx+width},${my-18} ${sx+width},${sy-13} Z`,'#48324b',INK,3);
+  curve(c,[sx,sy,mx,my+14,wx-ux*.5,wy-uy*.5,wx,wy],'#79566f',1.4);
+  line(c,[[wx-ux,wy-uy],[wx+ux,wy+uy]],'#b29c88',1.5);
 }
 
 function brewScene(c, state) {
@@ -397,6 +417,9 @@ function brewScene(c, state) {
   glow(c, 556, 418, 200, '#bbdb8b12');
   c.save(); c.globalAlpha *= 1 - clamp(state.flightLift);
   robe(c, time, energy);
+  c.restore();
+  ladleArm(c,state);
+  c.save();c.globalAlpha*=1-clamp(state.flightLift);
   witchHead(c, state, 439, 254 + Math.sin(time * 1.9) * (1 + energy * 1.4), 1, .025 + Math.sin(time * .8) * .008);
   // Far hand is poised over the rising vapor.
   path(c, 'M391,411 Q358,407 341,438 L381,483 Q411,462 421,443 Z', '#4b3650', INK, 3);
@@ -405,11 +428,11 @@ function brewScene(c, state) {
   c.restore();
   smoke(c, state);
   cauldron(c, state);
-  const {lx,ly,hx,hy}=getWitchLadle(state);
-  // The moving bowl, the handle, and the wrist all share the stir point.
-  line(c, [[lx + 2,ly],[hx - 8,hy - 24]], '#1e2524', 11);
-  line(c, [[lx + 2,ly],[hx - 8,hy - 24]], '#9a8664', 6.5);
-  line(c, [[lx,ly - 2],[hx - 10,hy - 22]], '#d8bf87', 1.4);
+  const {lx,ly,hx,hy,gx,gy,tx,ty}=getWitchLadle(state);
+  // A continuous shaft runs through the model's projected palm.
+  line(c, [[lx + 2,ly],[tx,ty]], '#1e2524', 11);
+  line(c, [[lx + 2,ly],[tx,ty]], '#9a8664', 6.5);
+  line(c, [[lx,ly - 2],[tx-2,ty-2]], '#d8bf87', 1.4);
   ellipse(c, lx, ly + 2, 18, 7, '#385d50', '#c4d995', 1.4, -.1);
   ellipse(c, lx - 3, ly, 12, 3.5, '#b6d797');
   for(let i=0;i<5;i++) {
@@ -417,12 +440,16 @@ function brewScene(c, state) {
     ellipse(c,hx+22,py,active?3.4:1.6,active?3.4:1.6,['#cfb8ee','#78ccdc','#addc94','#dfaa7d','#e6a4c9'][i]);
     if(active)glow(c,hx+22,py,12,'#d7ddae27');
   }
-  c.save(); c.globalAlpha *= 1 - clamp(state.flightLift);
-  path(c, `M437,395 Q459,387 ${hx - 24},${hy - 14} L${hx - 9},${hy + 21} Q465,457 427,438 Z`, '#48324b', INK, 3);
-  curve(c, [443,411,472,433,hx - 33,hy + 3,hx - 14,hy + 8], '#79566f', 1.4);
   if (state.handSurfaces?.[1]) drawHandModel(c,state,1);
-  else smallHand(c, hx, hy, -.35, .7, .95);
-  c.restore();
+  else {
+    const t=handTransform(state,1);
+    smallHand(c,t.wrist.x,t.wrist.y,t.rotation,t.scale*2.6,.9);
+  }
+  // The short exposed grip crosses the palm; fingers stay free to cast spells.
+  const gripLength=Math.max(1,Math.hypot(tx-gx,ty-gy));
+  const dx=(tx-gx)/gripLength,dy=(ty-gy)/gripLength;
+  line(c,[[gx-dx*7,gy-dy*7],[tx,ty]],'#513e36',7);
+  line(c,[[gx-dx*7,gy-dy*7],[tx,ty]],'#b3996c',4.5);
   // Little highlights make the gesture target easy to find without a label.
   c.save(); c.globalAlpha = .25 + energy * .35;
   ellipse(c, lx, ly + 2, 25, 11, null, LIME, 1); c.restore();
@@ -491,21 +518,25 @@ export function getWitchTargets(state = {}) {
 // transform, including the clockwise reach and the mirrored ladle hand.
 export function handTransform(state = {}, index = 0) {
   const wrist = state.handWrists?.[index] || state.handWrist || {x:590,y:590};
+  const palm=state.handPalms?.[index]||{x:wrist.x,y:wrist.y-80};
   const reach = index === 0 ? clamp(state.handReach) : 0;
   const lift=clamp(state.flightLift),flight=broomTransform(state);
   const baseScale=(index===0?.19:.23)*(1-lift)+flight.scale*.28*lift;
-  const scale = (baseScale+(1-baseScale)*reach)*(index===1?1.25:1);
-  const rotation = index===0 ? flight.rotation*lift*(1-reach)+reach*55*Math.PI/180 : -.38+Math.PI/2+flight.rotation*lift;
+  const scale = (baseScale+(1-baseScale)*reach)*(index===1?1.25*1.25:1);
+  const rotation = index===0 ? flight.rotation*lift*(1-reach)+reach*55*Math.PI/180 : -.38+Math.PI*1.5+flight.rotation*lift;
   const mirror = index === 0 ? 1 : -1;
-  const ladle=getWitchLadle(state);
-  const flying=broomPoint(index===0?{x:32,y:59}:{x:91,y:85},state);
-  const groundX=index===0?388:ladle.hx,groundY=index===0?450:ladle.hy;
-  const wx = (groundX*(1-lift)+flying.x*lift)*(1-reach)+435*reach;
-  const wy = (groundY*(1-lift)+flying.y*lift)*(1-reach)+635*reach;
+  const ladle=getWitchLadle(state),flying=broomPoint({x:32,y:59},state);
+  const anchor=index===1?palm:wrist;
+  const targetX=index===1?ladle.gx:((388*(1-lift)+flying.x*lift)*(1-reach)+435*reach);
+  const targetY=index===1?ladle.gy:((450*(1-lift)+flying.y*lift)*(1-reach)+635*reach);
   const a = Math.cos(rotation)*scale*mirror, b = Math.sin(rotation)*scale*mirror;
   const c = -Math.sin(rotation)*scale, d = Math.cos(rotation)*scale;
-  return {scale,rotation,mirror,a,b,c,d,x:wx-a*wrist.x-c*wrist.y,y:wy-b*wrist.x-d*wrist.y,wrist:{x:wx,y:wy}};
+  const x=targetX-a*anchor.x-c*anchor.y,y=targetY-b*anchor.x-d*anchor.y;
+  return {scale,rotation,mirror,a,b,c,d,x,y,
+    wrist:{x:a*wrist.x+c*wrist.y+x,y:b*wrist.x+d*wrist.y+y},
+    palm:{x:a*palm.x+c*palm.y+x,y:b*palm.x+d*palm.y+y}};
 }
+
 export function transformHandPoint(point, state = {}, index = 0, inverse = false) {
   const t = handTransform(state,index);
   if (inverse) {
@@ -718,11 +749,8 @@ function broomWitch(c, state) {
   path(c, 'M-15,85 Q28,99 19,139 L45,178 Q34,191 15,181 L-9,143 Q-24,126 -40,105 Z', '#34303d', INK, 2.5);
   path(c, 'M14,168 Q34,176 42,171 Q54,196 75,181 Q74,204 45,202 L20,187 Z', '#22232e', INK, 2.3);
   line(c,[[28,179],[38,183],[31,190]],'#b89e7f',1.6);
-  path(c, 'M-2,2 Q20,9 40,42 L92,69 L83,94 Q44,87 12,64 L-18,39 Z', '#4e3753', INK, 2.5);
-  if(!state.handSurfaces?.[1])smallHand(c,89,83,-.4,.64,.9);
   witchHead(c,state,-53,-149,1,-.1);
   c.restore();
-  if(state.handSurfaces?.[1]) { c.save();c.globalAlpha*=lift;drawHandModel(c,state,1);c.restore(); }
 }
 
 function flightScene(c, state) {
@@ -805,6 +833,10 @@ const miniatureSources=Object.freeze({
   spider:new URL('../../../assets/instruments/spider-synth.webp',import.meta.url).href,
   rubix:new URL('../../../assets/instruments/rubix.webp',import.meta.url).href,
   hiccup:new URL('../../../assets/instruments/hiccup-head.webp',import.meta.url).href,
+  gesticules:new URL('../../../assets/instruments/gesticulating-hand.webp',import.meta.url).href,
+  marimba:new URL('../../../assets/instruments/linear-drums.webp',import.meta.url).href,
+  choir:new URL('../../../assets/instruments/throatazoid.webp',import.meta.url).href,
+  oculoid:new URL('../../../assets/instruments/fm-drums.webp',import.meta.url).href,
 });
 const miniatureImages=new WeakMap();
 function drawInstrumentMiniature(c,id) {
@@ -858,8 +890,8 @@ function potionMaterial(c,id) {
     ellipse(c,-8,-5,12,10,'#d4a043');ellipse(c,13,10,8,7,'#956327');
     curve(c,[-11,13,4,23,13,-2,4,-8],'#efd285',2);
     for(const [x,y] of [[-22,12],[14,-13],[3,23]])line(c,[[x,y],[x-3,y-8]],'#453735',1);
-  } else if(id==='eyeball'||id==='oculoid') {
-    potionEye(c,id==='oculoid');
+  } else if(id==='eyeball') {
+    potionEye(c);
   } else if(id==='newt') {
     for(const [x,y,sign] of [[-10,-9,-1],[9,1,1],[-12,13,-1],[7,22,1]]) {
       line(c,[[x,y],[x+sign*15,y-6],[x+sign*24,y+1]],'#9eae67',3);
@@ -875,33 +907,6 @@ function potionMaterial(c,id) {
       curve(c,[x,-31,x-23+Math.sin(i)*11,-3,x+28,10,x-12+Math.sin(i)*10,32+(i%4)*3],['#8d7396','#c0b0b0','#716e9b'][i%3],i%3===0?1.7:1);
     }
     line(c,[[-22,-28],[18,-29]],'#a3bfa1',2.4);
-  } else if(id==='roach'||id==='spider') {
-    // Detailed portraits load asynchronously; these silhouettes keep pickup
-    // visible even during a slow or failed asset request.
-    const spider=id==='spider',legs=spider?4:3;
-    for(let i=0;i<legs;i++)for(const side of [-1,1]) {
-      line(c,[[side*8,-16+i*11],[side*(25+i*2),-27+i*15],[side*(37-i*3),-17+i*18]],spider?'#d1b97b':'#b78350',2.4);
-    }
-    ellipse(c,0,8,spider?14:13,spider?19:29,spider?'#b6a352':'#755038','#d2ae69',1.4);
-    ellipse(c,0,-16,9,11,spider?'#b9b6a0':'#9e7345','#dab886',1);
-    if(spider)for(let i=0;i<4;i++)curve(c,[-12,-1+i*8,-4,4+i*7,3,-4+i*8,13,1+i*8],'#3c3b35',2.2);
-    else {line(c,[[0,-12],[0,35]],'#d7a56b',1);for(const side of [-1,1])curve(c,[side*3,-24,side*14,-39,side*27,-46,side*37,-38],'#bd9457',1.2);}
-  } else if(id==='rubix') {
-    for(const [ox,oy,sx,sy,colors] of [[-27,-9,1,.5,['#93cd89','#d6dcb1','#b3bcda']],[0,5,1,-.5,['#cc7697','#cf8b6e','#9995d0']]]) {
-      for(let row=0;row<3;row++)for(let column=0;column<3;column++) {
-        const x=ox+column*9,y=oy+row*11+column*sy*9;
-        path(c,`M${x},${y} l${sx*8},${sy*8} v10 l${-sx*8},${-sy*8} Z`,colors[(row+column)%3],'#1a2230',1.1);
-      }
-    }
-    path(c,'M-27,-9 L0,-24 L27,-10 L0,5 Z','#e3dfb8','#1a2230',1.3);
-    for(let i=1;i<3;i++) {line(c,[[-27+i*9,-9-i*5],[i*9,5-i*5]],'#26333a',1.3);line(c,[[-27+i*9,-9+i*4.6],[i*9,-24+i*4.6]],'#26333a',1.3);}
-  } else if(id==='hiccup') {
-    c.save();c.beginPath();c.ellipse(0,0,26,33,0,0,TAU);c.clip();
-    for(let row=0;row<8;row++)for(let column=0;column<7;column++) {c.fillStyle=(row+column)%2?'#ddd9bd':'#28232c';c.fillRect(-28+column*8,-33+row*9,8,9);}
-    c.restore();ellipse(c,0,0,26,33,null,'#b089dd',1.7);
-    for(const x of [-10,10]) {ellipse(c,x,-12,9,10,'#d6dfab','#ad83d1',1.4);ellipse(c,x+2,-11,3.5,4.5,'#83b5df');ellipse(c,x+2,-11,1.5,2.5,'#202431');}
-    ellipse(c,0,2,6,7,'#d47249','#b68abf',1.3);ellipse(c,0,19,17,8,'#24252e','#6c9e79',1.5);
-    for(let i=0;i<5;i++)line(c,[[-10+i*5,12],[-10+i*5,17]],'#ebe0c2',2.2);
   }
 }
 
@@ -949,27 +954,8 @@ function ingredientObjects(c,state) {
     glow(c,0,8,55,`${color}19`);
     for(let i=0;i<3;i++)curve(c,[-43,15+i*6,-12,34+i*5,31,-12+i*4,44,7+i*8],`${color}30`,1.3+i*.7);
     if(state.selectedIngredient===home.id)ellipse(c,0,2,home.r+10,home.r+13,null,`${color}aa`,1.2);
-    if(drawInstrumentMiniature(c,home.id)) {
-      // Shared portrait drawn above; all its movement is the ingredient's.
-    } else if(home.id==='gesticules') {
-      path(c,'M-17,24 L-21,2 L-30,-13 L-26,-22 L-14,-7 L-16,-40 L-10,-47 L-5,-10 L0,-49 L6,-52 L7,-10 L15,-41 L21,-44 L17,-5 L26,-28 L32,-29 L27,11 L15,31 Z','#397f79','#a1e6cb',1.3);
-      path(c,'M-16,23 Q-10,6 15,2 L21,14 L14,31 Z','#8b5d9b99');
-      line(c,[[-11,-43],[-13,-51]],'#e9b1a1',1.7);line(c,[[3,-48],[4,-57]],'#dce99b',1.7);line(c,[[19,-40],[24,-48]],'#a1c8f0',1.7);
-    } else if(home.id==='marimba') {
-      line(c,[[-34,23],[30,23]],'#514134',5);
-      for(let i=0;i<5;i++) {
-        c.save();c.translate(-27+i*13,0);c.rotate(-.05);
-        const length=46-i*5;
-        path(c,`M-5,${-length/2} L5,${-length/2} L5,${length/2} L-5,${length/2} Z`,['#bc744f','#d7a160','#af9466','#819c79','#778eac'][i],'#211f28',1.4);
-        ellipse(c,0,-length/2+6,1.2,1.2,'#34262d');c.restore();
-      }
-      line(c,[[-19,35],[17,-28]],'#d6bea1',3);ellipse(c,20,-32,6,6,'#a8688e','#d9a9bd',1);
-    } else if(home.id==='choir') {
-      path(c,'M-22,-28 Q-6,-44 13,-26 L14,-10 L29,-1 L17,7 L26,14 L10,25 L7,39 L-13,34 L-15,12 Q-29,-4 -22,-28 Z','#8c6488','#d5abb5',1.4);
-      path(c,'M-9,-5 Q6,-15 18,5 L3,12 Q-5,9 -3,27 L-11,27 Q-18,7 -9,-5 Z','#2a2338','#e6bb94',1.4);
-      ellipse(c,5,-19,2.6,3.5,'#302238');
-      for(let i=0;i<4;i++)curve(c,[27+i*4,-8,36+i*4,-1,36+i*4,6,27+i*4,12],`${color}aa`,1);
-    } else potionMaterial(c,home.id);
+    if(miniatureSources[home.id]) drawInstrumentMiniature(c,home.id);
+    else potionMaterial(c,home.id);
     if(object.dragging) {c.font='11px monospace';c.textAlign='center';c.fillStyle='#eee3da';c.fillText(home.name,0,58);}
     c.restore();
   }
@@ -1016,6 +1002,7 @@ function drawWorld(c, state) {
       for(let i=0;i<3;i++) ellipse(c,m.x,m.y-10,32+i*12+Math.sin(t*2+i)*6,12+i*7,null,'#e5b8df77',1.3);
     }
   }
+  drawWitchCat(c,state);
 }
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
 export function renderWitch(ctx, width, height, state = {}) {
@@ -1030,14 +1017,15 @@ export function renderWitch(ctx, width, height, state = {}) {
   ctx.save(); ctx.clearRect(0,0,w,h);ctx.fillStyle='#14151f';ctx.fillRect(0,0,w,h);
   ctx.translate((w-1000*scale)/2,(h-720*scale)/2);ctx.scale(scale,scale);
   ctx.beginPath();ctx.rect(0,0,1000,720);ctx.clip();
-  const trip=Math.round(clamp(state.trip,0,3));
-  if(trip) {
-    // Color once, then warp cheap raster slices: filtering every slice would
-    // create hundreds of offscreen filter surfaces on software/mobile GPUs.
-    world.color.filter=`hue-rotate(${[0,100,215,290][trip]}deg) saturate(2.15)`;
+  const trip=Math.round(clamp(state.trip,0,3)),palette=Math.round(clamp(state.palette,0,7));
+  if(trip||palette) {
+    // Base preset color and mushroom color add without changing each other's
+    // state. Only mushrooms bend coordinates; a palette change is purely color.
+    const hue=([0,38,82,132,178,218,268,315][palette]+[0,100,215,290][trip])%360;
+    world.color.filter=`hue-rotate(${hue}deg) saturate(${trip?2.15:1.25})`;
     world.color.drawImage(world.surface,0,0);
-    // Four-pixel strips keep the raster pass bounded even on a large display.
-    for(let y=0;y<720;y+=4) ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
+    if(trip)for(let y=0;y<720;y+=4) ctx.drawImage(world.colored,0,y,1000,4,witchWarpX(y+2,state)-25,y,1050,4);
+    else ctx.drawImage(world.colored,0,0);
   } else ctx.drawImage(world.surface,0,0);
   ctx.restore();
 }

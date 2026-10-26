@@ -56,8 +56,8 @@ test('both wrists, angled fingertips and inverse drags share their model transfo
     if(index===0) assert.ok(Math.abs(t.rotation-reach*55*Math.PI/180)<1e-12);
     else {
       assert.equal(t.mirror,-1);
-      assert.ok(Math.abs(t.rotation-(-.38+Math.PI/2))<1e-12);
-      assert.ok(Math.abs(t.scale-.23*1.25)<1e-12);
+      assert.ok(Math.abs(t.rotation-(-.38+Math.PI*1.5))<1e-12);
+      assert.ok(Math.abs(t.scale-.23*1.25*1.25)<1e-12);
     }
   }
   const state={handReach:1};
@@ -169,7 +169,7 @@ function captureWitchPaint() {
     const calls=[],stack=[];
     const context=new Proxy({canvas,calls,globalAlpha:1,save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
-      fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha});},
+      fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle});},
       drawImage(source,...args){calls.push({kind:'image',source,args,alpha:this.globalAlpha});},
       getImageData(){
         const data=new Uint8ClampedArray(160*160*4);
@@ -215,5 +215,63 @@ test('spectral instrument portraits always paint behind witch, pot, hands and so
       const witchBody=world.findIndex(entry=>entry.kind==='fill'&&entry.path?.startsWith(scene==='flight'?'M-67,-32':'M398,360'));
       assert.ok(witchBody>portraits.at(-1).index,'the same depth applies while flying');
     }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+
+test('the enlarged flipped ladle hand holds the spoon in its real palm throughout takeoff and stirring',()=>{
+  const state={handReach:1,handWrists:[{x:590,y:590},{x:588,y:593}],handPalms:[{x:588,y:516},{x:583,y:512}],radius:.76};
+  for(const flightLift of [0,.15,.5,.8,1])for(const flightPhase of [0,.5,2,8,17])for(const phase of [0,1.7,4.2])for(const spoonHeight of [0,.5,1]) {
+    const current={...state,flightLift,flightPhase,phase,spoonHeight},ladle=getWitchLadle(current),t=handTransform(current,1);
+    const palm=transformHandPoint(state.handPalms[1],current,1),wrist=transformHandPoint(state.handWrists[1],current,1);
+    assert.ok(Math.hypot(palm.x-ladle.gx,palm.y-ladle.gy)<1e-10,'shaft passes through projected palm');
+    assert.deepEqual(wrist,t.wrist);
+    assert.ok(Math.abs((ladle.gx-ladle.lx)*(ladle.ty-ladle.ly)-(ladle.gy-ladle.ly)*(ladle.tx-ladle.lx))<1e-8,'grip and handle lie on the same shaft');
+    const ground=getWitchLadle({...current,flightLift:0});
+    assert.equal(ladle.lx,ground.lx);assert.equal(ladle.ly,ground.ly,'bowl keeps stirring the same cauldron during flight');
+  }
+  const ground=handTransform({...state,flightLift:0},1),flying=handTransform({...state,flightLift:1},1);
+  assert.ok(flying.scale<ground.scale*.75&&flying.scale>ground.scale*.5,'hand becomes somewhat smaller in the sky');
+  const first=getWitchLadle({...state,flightLift:1,flightPhase:0}),later=getWitchLadle({...state,flightLift:1,flightPhase:3});
+  assert.ok(Math.hypot(first.gx-later.gx,first.gy-later.gy)>30,'spoon grip travels with the flying witch');
+  assert.equal(first.lx,later.lx);assert.equal(first.ly,later.ly);
+});
+
+test('the ladle sleeve stays behind both faces and all instrument minis use their catalogue portraits',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    for(const flightLift of [0,.5,1]) {
+      const {context,canvases}=captureWitchPaint(),hand0={},hand1={};
+      renderWitch(context,1000,720,{handReach:1,handSurface:hand0,handSurfaces:[hand0,hand1],flightLift,flightPhase:1.7});
+      const world=canvases[1].getContext('2d').calls;
+      const sleeve=world.findIndex(call=>call.kind==='fill'&&call.color==='#48324b');
+      const faces=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='fill'&&call.path?.startsWith('M-35,-30'));
+      assert.ok(sleeve>=0&&faces.length>=1);
+      for(const {index} of faces)assert.ok(index>sleeve,'face occludes the sleeve at every flight transition');
+      assert.equal(world.filter(call=>call.kind==='image'&&call.source===hand1).length,1,'one continuous ladle hand, without a duplicate flight copy');
+      const portraits=world.filter(call=>call.kind==='image'&&call.source.src).map(call=>call.source.src.split('/').at(-1));
+      for(const asset of ['roach-synth.webp','spider-synth.webp','rubix.webp','hiccup-head.webp','gesticulating-hand.webp','linear-drums.webp','throatazoid.webp','fm-drums.webp'])
+        assert.equal(portraits.filter(name=>name===asset).length,1,asset+' miniature uses its actual instrument icon');
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+test('eight preset palettes keep gesture geometry and mushroom deformation independent',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const filters=new Set(),point={x:160,y:280};
+    for(let palette=0;palette<8;palette++)for(let trip=0;trip<4;trip++) {
+      const state={palette,trip,warpTime:2.7};
+      assert.deepEqual(warpWitchPoint(point,state),warpWitchPoint(point,{...state,palette:0}));
+      const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,state);
+      const filter=canvases[2].getContext('2d').filter;
+      if(!trip)filters.add(palette===0?'none':filter);
+      if(palette||trip)assert.match(filter,/^hue-rotate\([0-9]+deg\) saturate\(/);
+      const composites=context.calls.filter(call=>call.kind==='image');
+      assert.equal(composites.length,trip?180:1,'color is a single cache pass and only mushroom warping adds strips');
+    }
+    assert.equal(filters.size,8);
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

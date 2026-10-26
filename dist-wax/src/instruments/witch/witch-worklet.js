@@ -6,6 +6,8 @@ import { RoachZing } from '../roach-synth/roach-synth-textures.js';
 import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { hiccupHeadGestureFrame, physicalVoiceParameters } from '../hiccup-head/hiccup-head.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
+import { DEFAULT_FM_DRUM_VOICES } from '../fm-drums/fm-drums.js';
+import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../../families/tract/throatazoid.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -437,17 +439,23 @@ class WitchHandDSP extends HandDSP {
 // FM Drum carrier/modulator trajectories. This small scalar rendering omits
 // Rubix's sequencer, native-node filters, and optional synthesis banks.
 const RUBIX_TASTE_KIT = Object.freeze([
-  [48, .30, 1, 4.8, 2.6, .02, 'sine'],
-  [176, .16, 1.82, 6.4, 1.1, .68, 'sine'],
-  [4820, .05, 1.414, 9.2, 0, .74, 'square'],
-  [563, .15, 1.48, 3.4, 0, .03, 'square'],
-  [784, .22, 2.76, 6.8, 0, .01, 'sine'],
-  [329, .20, 4.2, 10.6, 5.2, .02, 'sine'],
-].map(Object.freeze));
+  [0, .30], [2, .16], [7, .05], [10, .15], [11, .22], [14, .20],
+].map(([index, decay]) => {
+  const voice = DEFAULT_FM_DRUM_VOICES[index];
+  return Object.freeze([voice.frequency, decay, voice.modRatio, voice.modIndex, voice.pitchBend, voice.noise,
+    voice.family === 'hat' || voice.family === 'metal' ? 'square' : 'sine']);
+}));
 const SPIDER_TASTE_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .28, decay: 1.2,
   texture: .3, slide: .18, coupling: 0, pluckRegister: 5, pluckSpread: 1,
   pluckAttack: .006, pluckHold: .015, pluckRelease: .75 });
 const SPIDER_TASTE_RATIOS = Object.freeze([1, 1.437, .83, 2.13, 1.19, 1.73, .94, 2.41]);
+// The former Oculoid slot retains its trigger ID for saved controls, but now
+// contains an actual FM Drums excerpt and uses that instrument's catalogue icon.
+const FM_TASTE_VOICES = Object.freeze([4, 6, 9, 11, 14, 12].map(index => DEFAULT_FM_DRUM_VOICES[index]));
+const THROAT_TASTE_PROFILES = Object.freeze(['clear', 'deep', 'bright'].map(id => {
+  const state = voicePresetState(id);
+  return Object.freeze({ id, state, spectrum: glottalHarmonics(state.exciterTenseness, 48, 1024) });
+}));
 // Sample the real Hiccup Head gesture model once on module load. The miniature
 // keeps its pressure, catch, aspiration and rear-tongue release trajectory;
 // three formants replace the full physical tube for this deliberately small taste.
@@ -455,6 +463,57 @@ const HICCUP_TASTE_PLAN = physicalVoiceParameters('hiccup');
 const HICCUP_TASTE_FRAMES = Object.freeze(Array.from({ length: 129 }, (_, index) => hiccupHeadGestureFrame('hiccup', index / 128)));
 const GHOST_PAN_LEFT = Object.freeze([-.58, .48, .1].map(pan => Math.cos((pan + 1) * Math.PI / 4)));
 const GHOST_PAN_RIGHT = Object.freeze([-.58, .48, .1].map(pan => Math.sin((pan + 1) * Math.PI / 4)));
+
+/** Scalar version of FM Drums' native oscillator/envelope/filter graph. Only
+ * four reusable hits are needed for this short factory-kit excerpt; the source
+ * parameters remain the actual shared factory objects rather than a new kit. */
+class FmTasteDSP {
+  constructor(rate) {
+    this.rate = rate; this.dt = 1 / rate; this.index = 0;
+    this.voices = Array.from({ length: 4 }, () => ({ age: 10, phase: 0, modPhase: 0, voice: FM_TASTE_VOICES[0],
+      random: 0x51ac83, x1: 0, x2: 0, y1: 0, y2: 0, noiseLow: 0, b0: 0, b1: 0, b2: 0, a1: 0, a2: 0 }));
+  }
+  reset() { this.index = 0; for (const hit of this.voices) { hit.age = 10; hit.x1 = hit.x2 = hit.y1 = hit.y2 = 0; } }
+  strike(voice) {
+    const hit = this.voices[this.index++ % this.voices.length];
+    hit.voice = voice; hit.age = hit.phase = hit.modPhase = hit.x1 = hit.x2 = hit.y1 = hit.y2 = hit.noiseLow = 0;
+    const highpass = voice.family === 'hat';
+    const frequency = Math.min(this.rate * .43, highpass ? 2200 + voice.tone * 5000 : 550 + voice.tone * 11500);
+    const omega = TAU * frequency / this.rate, cosine = Math.cos(omega);
+    const alpha = Math.sin(omega) / (2 * (voice.family === 'metal' ? 2.6 : .75)), inverse = 1 / (1 + alpha);
+    hit.b0 = (1 + (highpass ? cosine : -cosine)) * .5 * inverse;
+    hit.b1 = (highpass ? -1 - cosine : 1 - cosine) * inverse; hit.b2 = hit.b0;
+    hit.a1 = -2 * cosine * inverse; hit.a2 = (1 - alpha) * inverse;
+  }
+  next() {
+    let sum = 0;
+    for (const hit of this.voices) {
+      const voice = hit.voice, t = hit.age;
+      if (t > voice.attack + voice.decay * 1.35) continue;
+      hit.age += this.dt;
+      const envelope = t < voice.attack ? .0001 * (Math.max(.001, voice.level) / .0001) ** (t / voice.attack)
+        : voice.level * (.0001 / voice.level) ** Math.min(1, (t - voice.attack) / voice.decay);
+      hit.modPhase = (hit.modPhase + Math.min(this.rate * .4, voice.frequency * voice.modRatio) * this.dt) % 1;
+      const modulation = voice.family === 'bell' ? Math.sin(hit.modPhase * TAU) : 1 - 4 * Math.abs(hit.modPhase - .5);
+      const index = voice.frequency * voice.modIndex * (.001 / Math.max(.001, voice.frequency * voice.modIndex)) ** Math.min(1, t / Math.max(.025, voice.decay));
+      const carrier = voice.frequency * Math.max(.15, 1 + voice.pitchBend) ** Math.max(0, 1 - t / Math.max(.018, voice.decay * .42));
+      const hz = witchClamp(carrier + modulation * index, -this.rate * .4, this.rate * .4);
+      hit.phase = ((hit.phase + hz * this.dt) % 1 + 1) % 1;
+      const step = Math.max(.00001, Math.abs(hz) * this.dt);
+      const oscillator = (voice.family === 'hat' || voice.family === 'metal' || voice.family === 'rattle')
+        ? (hit.phase < .5 ? 1 : -1) + polyBlep(hit.phase, step) - polyBlep((hit.phase + .5) % 1, step)
+        : Math.sin(hit.phase * TAU);
+      let x = hit.random; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; hit.random = x | 0;
+      const noise = (x >>> 0) / 2147483648 - 1;
+      hit.noiseLow += .4 * (noise - hit.noiseLow);
+      const excitation = (oscillator + (noise - hit.noiseLow) * voice.noise) * envelope;
+      const filtered = hit.b0 * excitation + hit.b1 * hit.x1 + hit.b2 * hit.x2 - hit.a1 * hit.y1 - hit.a2 * hit.y2;
+      hit.x2 = hit.x1; hit.x1 = excitation; hit.y2 = hit.y1; hit.y1 = filtered;
+      sum += filtered * .55;
+    }
+    return sum;
+  }
+}
 
 /** Three fixed background voices, never drop/solo voices. Creaturazoid borrows
  * its frog source family for a distant gunk/chuff; Monstrozoid borrows its
@@ -538,14 +597,17 @@ class WitchGhostDSP {
 
 /** Fixed resources for the new potion ingredients. Roach shares its actual
  * contact percussion and wire rasp; Spider shares its actual silk waveguides.
- * The ordinary materials and Oculoid eye resonance are original Witch sounds.
- * Oculoid currently has no standalone engine in this repository. */
+ * Throatazoid uses its own glottal spectrum and authored vowel resonances; the
+ * legacy Oculoid slot is now the actual FM Drums factory-kit excerpt. The six
+ * ordinary potion materials remain original Witch sounds. */
 class PotionTasteDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate;
     this.roach = new RoachPercussion(rate, true); this.zing = new RoachZing(rate);
     this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
     this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
+    this.fmDrums = new FmTasteDSP(rate);
+    this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
     this.left = 0; this.right = 0;
     this.attack = 1 - Math.exp(-1 / (rate * .012)); this.release = 1 - Math.exp(-1 / (rate * .07));
   }
@@ -553,13 +615,14 @@ class PotionTasteDSP {
     const slot = { kind, mask: 0, until: -1, age: 0, gain: 0, event: 0, nextEvent: 0,
       phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
       eventAge: 0, kit: RUBIX_TASTE_KIT[0], control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
-      formants: [new Resonator(this.rate), new Resonator(this.rate), new Resonator(this.rate)] };
+      formants: Array.from({ length: kind === 'drop-choir' ? 4 : 3 }, () => new Resonator(this.rate)) };
     for (let i = 0; i < 3; i++) slot.formants[i].tune(HICCUP_TASTE_PLAN.formantFrequenciesHz[i], HICCUP_TASTE_PLAN.formantBandwidthsHz[i]);
     return slot;
   }
   trigger(slot) {
     slot.tailL = slot.lastL; slot.tailR = slot.lastR;
     slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.eventAge = 0; slot.control = 0;
+    if (slot.kind === 'drop-oculoid') this.fmDrums.reset();
   }
   releaseAll() { this.roach.releaseAll(); this.spider.release(); }
   finish(slot, left, right) {
@@ -577,7 +640,38 @@ class PotionTasteDSP {
     const noise = (x >>> 0) / 2147483648 - 1;
     let sample = 0, frequency = 0;
     const fade = Math.min(1, Math.max(0, (2.4 - t) / .23));
-    if (slot.kind === 'drop-roach') {
+    if (slot.kind === 'drop-choir') {
+      // An excerpt of Throatazoid's authored Clear / Deep / Bright voices.
+      // Its source harmonics and body resonances are reused directly; a fixed
+      // four-formant miniature replaces the complete multi-mouth tube network.
+      const position = Math.min(2.999999, t / .8), index = Math.floor(position), blend = position - index;
+      const mix = blend * blend * (3 - 2 * blend);
+      const a = this.throatProfiles[index], b = this.throatProfiles[(index + 1) % 3];
+      frequency = a.state.exciterPitch + (b.state.exciterPitch - a.state.exciterPitch) * mix;
+      const vibrato = a.state.exciterVibrato + (b.state.exciterVibrato - a.state.exciterVibrato) * mix;
+      frequency *= 1 + Math.sin(t * TAU * 4.63) * vibrato * .02;
+      slot.phase = (slot.phase + frequency * this.dt) % 1;
+      if (slot.control-- <= 0) {
+        for (let band = 0; band < 4; band++) {
+          const center = a.body.formants[band] + (b.body.formants[band] - a.body.formants[band]) * mix;
+          const resonance = a.body.resonance + (b.body.resonance - a.body.resonance) * mix;
+          slot.formants[band].tune(center, center / resonance);
+        }
+        slot.control = 31;
+      }
+      const c = Math.cos(TAU * slot.phase), s = Math.sin(TAU * slot.phase);
+      let cosine = c, sine = s, glottis = 0;
+      for (let harmonic = 1; harmonic <= 48; harmonic++) {
+        const fade = witchClamp((this.rate * .45 - frequency * harmonic) / (this.rate * .06));
+        glottis += ((a.spectrum.real[harmonic] + (b.spectrum.real[harmonic] - a.spectrum.real[harmonic]) * mix) * cosine
+          + (a.spectrum.imaginary[harmonic] + (b.spectrum.imaginary[harmonic] - a.spectrum.imaginary[harmonic]) * mix) * sine) * fade;
+        const next = cosine * c - sine * s; sine = sine * c + cosine * s; cosine = next;
+      }
+      const source = glottis + noise * (a.state.exciterBreath + (b.state.exciterBreath - a.state.exciterBreath) * mix) * .07;
+      sample = (slot.formants[0].next(source) * 1.7 + slot.formants[1].next(source) * 1.2
+        + slot.formants[2].next(source) * .7 + slot.formants[3].next(source) * .35 + glottis * .09) * 2.2;
+      sample *= Math.min(1, t / .035);
+    } else if (slot.kind === 'drop-roach') {
       if (active && t >= slot.nextEvent && t < 2.1) {
         this.roach.strike(.64 + .2 * Math.sin(slot.event * 1.7), slot.event % 6);
         this.zing.excite(.35); slot.event++;
@@ -670,10 +764,10 @@ class PotionTasteDSP {
       sample = (Math.sin(slot.phase * TAU) * .19 + Math.sin(slot.phase2 * TAU) * .12 + Math.sin(slot.phase3 * TAU) * .07
         + (noise - slot.low) * .09) * (.55 + .45 * Math.sin(t * 23) ** 2);
     } else if (slot.kind === 'drop-oculoid') {
-      frequency = 231 + 81 * Math.sin(t * 3.2);
-      slot.phase = (slot.phase + frequency * this.dt) % 1; slot.phase2 = (slot.phase2 + (61 + t * 30) * this.dt) % 1;
-      const pupil = .2 + .8 * Math.sin(t * 8.7) ** 2;
-      sample = Math.sin(slot.phase * TAU + Math.sin(slot.phase2 * TAU) * 3.3) * pupil * .32;
+      if (active && t >= slot.nextEvent && slot.event < FM_TASTE_VOICES.length) {
+        this.fmDrums.strike(FM_TASTE_VOICES[slot.event++]); slot.nextEvent += .32;
+      }
+      sample = this.fmDrums.next();
     }
     sample *= slot.gain * fade;
     const pan = slot.kind === 'drop-oculoid' ? Math.sin(t * 5.3) * .8 : Math.sin(t * 2.7) * .22;
@@ -689,7 +783,7 @@ class DroppedInstrumentDSP {
     this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
     this.hand = new HandDSP(rate); this.tastes = new PotionTasteDSP(rate);
     this.solo = 0; this.kind = ''; this.levels = new Float32Array(128);
-    this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ ...this.tastes.createSlot(kind), mask: [19, 4, 8][i] || 0 }));
+    this.slots = WITCH_DROP_EFFECTS.map((kind, i) => ({ ...this.tastes.createSlot(kind), mask: [19, 4][i] || 0 }));
     this.hand.setConfig({
       motion: { id: 'flourish', tempo: 90, amount: .48 }, tremor: { amount: 0 },
       pose: { fingers: [.12, .28, .18, .38, .22].map(bend => ({ mcp: bend * 50, pip: bend * 60, dip: bend * 40, spread: 0 })) },

@@ -61,7 +61,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
   canvas.width = RENDER_WIDTH; canvas.height = RENDER_HEIGHT;
   const hands = Array.from({length:2},(_,index)=>{
     const surface=document.createElement('canvas'); surface.width=index===0?360:320; surface.height=Math.round(surface.width*HEIGHT/WIDTH);
-    return {surface,context:surface.getContext('2d'),signature:'',lastRender:0,state:{},tips:[],wrist:{x:590,y:590}};
+    return {surface,context:surface.getContext('2d'),signature:'',lastRender:0,state:{},tips:[],wrist:{x:590,y:590},palm:{x:590,y:510}};
   });
   const handSlot = index => hands[index===1?1:0];
   const abort = new AbortController();
@@ -116,6 +116,11 @@ export function createWitchHand({onStatus = () => {}} = {}) {
     for (const mesh of rig.meshes) mesh.skeleton?.update();
     slot.tips = anchors.map((anchor,index)=>project(anchor,index));
     slot.wrist = project(rig.wrist);
+    // A grip belongs inside the actual posed palm, between the wrist and the
+    // central metacarpals. Project it with the same camera as skin and tips.
+    const knuckles=rig.digits.slice(1,4).map(digit=>project(digit[0].bone));
+    slot.palm={x:slot.wrist.x+(knuckles.reduce((sum,p)=>sum+p.x,0)/3-slot.wrist.x)*.58,
+      y:slot.wrist.y+(knuckles.reduce((sum,p)=>sum+p.y,0)/3-slot.wrist.y)*.58};
   }
   function frame() {
     placement.rotation.set(.08,Math.PI-.18,-.035);
@@ -162,6 +167,7 @@ export function createWitchHand({onStatus = () => {}} = {}) {
   }
   function getTips(handIndex=0) { return loaded && !lost && !disposed ? handSlot(handIndex).tips.map(point=>({...point})) : []; }
   function getWrist(handIndex=0) { return {...handSlot(handIndex).wrist}; }
+  function getPalm(handIndex=0) { return {...handSlot(handIndex).palm}; }
   function pick(x,y,radius=46,handIndex=0) {
     if (!loaded || lost || disposed || !Number.isFinite(x) || !Number.isFinite(y)) return null;
     let hit = null, distance = clamp(radius,8,160);
@@ -257,5 +263,5 @@ export function createWitchHand({onStatus = () => {}} = {}) {
       return false;
     }
   })();
-  return {ready,render,getTips,getWrist,pick,getMetadata,dispose};
+  return {ready,render,getTips,getWrist,getPalm,pick,getMetadata,dispose};
 }

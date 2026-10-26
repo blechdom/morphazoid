@@ -1,5 +1,5 @@
 {
-  "description": "Exact October 25 Witches Brew rename and copy refresh, after reversing its separately proven Faves promotion. Older instrument baselines retain the original Witch addition.",
+  "description": "Exact October 25 Witches Brew rename, copy refresh and cat runtime addition, after reversing its separately proven Faves promotion. Older instrument baselines retain the original Witch addition.",
   "baseCommit": "c3e963753675fa5a23e9555001b24211ab7d2f02",
   "changes": [
     {
@@ -19,6 +19,16 @@
         {
           "before": "  witch: define(\n    \"A cauldron voice, five fingers and a musical broom\",\n    \"Stir a cauldron to drive a witch’s whispers, creaks and singing. Her right hand stretches into five long Gesticules fingers with instrumental sounds. Click the moon for a cackling takeoff and musical broom flight; mushrooms warp the colors and lines of the same night scene.\",\n    \"Enable Audio and stir to chant. Click her right hand to play its fingers, the moon to fly, the pot to return, or mushrooms to bend the picture. Play sustains the current gesture.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n",
           "after": "  witch: define(\n    \"A singing cauldron, gesticulating hands and a flying ensemble\",\n    \"A witch’s cauldron voice and five Gesticules instruments play together. Reach her long fingers, drop a miniature hand, marimba or choir mouth into the pot for a featured solo, and ride a rollercoaster broom that bends the whole mix through delay. Mushrooms warp the colors and lines.\",\n    \"The scene starts moving with Audio off. Enable Audio to hear the ensemble. Stir, bend fingers or drop a floating instrument into the pot; all remain playable during flight. The moon takes off, mushrooms change the picture, and Stop releases the sound.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Gesture sound\", \"Presets\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "c1ba9879dc8cb92a9fe6b0f7de9a42bbf5668af17981f2ff5324505229962abb",
+      "replacements": [
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-cat.js\n"
         }
       ]
     },

@@ -75,7 +75,7 @@
       "replacements": [
         {
           "before": "copy+require\tdocs/esi-32.md\n",
-          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch-hand.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
+          "after": "copy+require\tdocs/esi-32.md\n# Witch: authored page is emitted through src/pages/manifest.js.\ncopy+require\tsrc/instruments/witch/witch-app.js\ncopy+require\tsrc/instruments/witch/witch-audio.js\ncopy+require\tsrc/instruments/witch/witch-worklet.js\ncopy+require\tsrc/instruments/witch/witch-model.js\ncopy+require\tsrc/instruments/witch/witch-presets.js\ncopy+require\tsrc/instruments/witch/witch-renderer.js\ncopy+require\tsrc/instruments/witch/witch-hand.js\ncopy+require\tsrc/instruments/witch/witch-cat.js\ncopy+require\tsrc/instruments/witch/witch.css\ncopy+require\tassets/instruments/witch.webp\ncopy+require\tdocs/witch.md\n"
         }
       ]
     },

@@ -1,7 +1,8 @@
 import { WitchAudio } from './witch-audio.js';
 import { WITCH_VOICES, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
 import { createWitchHand } from './witch-hand.js';
-import { renderWitch, hitTestWitch, getFingerTips, handTransform, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { getWitchCatFrame } from './witch-cat.js';
+import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchLadle, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -16,6 +17,7 @@ const TAU = Math.PI * 2;
 let config = normalizeWitchPreset(WITCH_DEFAULTS);
 let playing = true, audioOn = false, starting = false, disposed = false, request = 0;
 let selectedIngredient = -1;
+let performanceTime=0,lastPerformanceTick=performance.now();
 let selectedFinger = 1, frame = 0, lastPaint=0, last = performance.now(), silentPhase = 0, silentSpeed = 0;
 let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionTime = 0, silentHandTime = 0, silentFlightPhase = 0, silentGhostPhase = 0;
 const ghostFrames=Array.from({length:3},()=>({}));
@@ -43,6 +45,11 @@ function fingerMask() {
   if(keyboardGate && world.handOpen) mask |= 1 << selectedFinger;
   return mask;
 }
+function advancePerformanceTime(now=performance.now()) {
+  if(playing) performanceTime+=Math.max(0,now-lastPerformanceTick)/1000;
+  lastPerformanceTick=now;
+}
+function setPlaying(value) { advancePerformanceTime();playing=value; }
 function gate() { return playing || Boolean(pointer && pointer.type!=='ghost') || keyboardGate || fingerMask()!==0; }
 function send() { audio.update({ ...config, mode:config.scene, gate:gate(), ghostGate:playing, fingerMask:playing?0:fingerMask(), manualFingerMask:fingerMask(), handFocus:world.handOpen?1:0, spoonAuto:config.spoonAuto && pointer?.type!=='spoon', volume:Number($('outputLevel').value) }); }
 function sync() {
@@ -57,6 +64,7 @@ function sync() {
   $('audioButton').disabled = starting;
   canvas.dataset.scene=config.scene;canvas.dataset.trip=String(world.trip);
   $('voice').value = config.voice; $('spoonAuto').checked=config.spoonAuto;
+  $('palette').value=config.palette; $('lineBend').value=config.trip; $('lineBendOut').value=['Still','A ripple','Bent','Wonkywonk'][config.trip];
   $('ghostTempo').value=config.ghostTempo; $('ghostTempoOut').value=`${Math.round(config.ghostTempo)} BPM`;
   for (const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) { $(key).value=config[key]; $(`${key}Out`).value=`${Math.round(config[key]*100)}%`; }
   config.fingers.forEach((value,i) => { $(`finger${i}`).value=value; $(`finger${i}Out`).value=`${Math.round(value*100)}%`; });
@@ -88,10 +96,10 @@ function worldAction(action) {
     else setScene(world.handOpen?'brew':'fingers');
   }
   else if(action==='moon') {
-    if(config.scene!=='flight') { setScene('flight'); playing=true; send();sync();trigger('launch'); }
+    if(config.scene!=='flight') { setScene('flight'); setPlaying(true); send();sync();trigger('launch'); }
     else trigger('moon');
   } else if(action==='mushrooms') {
-    world.trip=(world.trip+1)%4; sync();
+    config.trip=(config.trip+1)%4; world.trip=config.trip; sync();
     $('gestureReadout').value=world.trip?'Wonkywonk wonk.':'The forest settles.';
   } else if(action==='brew') setScene('brew');
 }
@@ -132,12 +140,14 @@ async function toggleAudio() {
   finally { if(generation===request && !disposed) { starting=false; sync(); } }
 }
 listen($('audioButton'),'click',toggleAudio);
-listen($('playButton'),'click',() => { stopGesture(); playing=!playing; send(); sync(); });
-listen($('resetButton'),'click',() => { stopGesture(); playing=false; config=normalizeWitchPreset(WITCH_DEFAULTS); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
+listen($('playButton'),'click',() => { stopGesture(); setPlaying(!playing); send(); sync(); });
+listen($('resetButton'),'click',() => { stopGesture(); setPlaying(false); performanceTime=0; config=normalizeWitchPreset(WITCH_DEFAULTS); silentPhase=0; silentSpeed=0; audio.syncPhase(0,0,0,undefined,0,0); ladleOffset=0; motionTime=0; silentHandTime=0; silentFlightPhase=0; silentGhostPhase=0; event=null;selectedIngredient=-1; world.trip=0;world.handOpen=false;for(const object of objects){object.dropped=false;returnObject(object);} send(); sync(); $('gestureReadout').value='The pot is listening.'; });
 for(const button of document.querySelectorAll('[data-world-action]')) listen(button,'click',() => worldAction(button.dataset.worldAction));
 listen($('voice'),'change',() => { config.voice=$('voice').value;config.spoonAuto=false;config.spoonHeight=(WITCH_VOICES.indexOf(config.voice)+.5)/5; send(); sync(); });
 for(const key of ['speed','radius','altitude','tone','flightX','nose','hat','spoonHeight']) listen($(key),'input',() => { config[key]=Number($(key).value);if(key==='spoonHeight'){config.spoonAuto=false;setSpoonHeight(config[key]);} send(); sync(); });
 listen($('ghostTempo'),'input',()=>{config.ghostTempo=clamp($('ghostTempo').value,36,180);send();sync();});
+listen($('palette'),'change',()=>{config.palette=Math.round(clamp($('palette').value,0,7));sync();});
+listen($('lineBend'),'input',()=>{config.trip=Math.round(clamp($('lineBend').value,0,3));world.trip=config.trip;sync();});
 listen($('spoonAuto'),'change',()=>{config.spoonAuto=$('spoonAuto').checked;send();sync();});
 for(const button of document.querySelectorAll('[data-drop]')) listen(button,'click',()=>dropObject(button.dataset.drop));
 listen($('flightSpeed'),'input',()=>{ config.speed=Number($('flightSpeed').value); send(); sync(); });
@@ -179,7 +189,7 @@ function visualState() {
   const fingerLevels=audioOn&&v?.fingerLevels?v.fingerLevels:Array.from({length:5},(_,i)=>mask&(1<<i)?1:0);
   const ghostPhase=v?.ghostPhase??silentGhostPhase;
   ghostFrames.forEach((out,i)=>witchGhostFrame(ghostPhase,i,out));
-  return { ...config, ...world, ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
+  return { ...config, ...world, performanceTime, handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performance.now()/1000,time:performance.now()/1000, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
 }
 listen(canvas,'pointerdown',e => {
   if(pointer || e.button!==0) return;
@@ -263,7 +273,7 @@ function releasePointer(e) {
 listen(canvas,'pointerup',releasePointer); listen(canvas,'pointercancel',releasePointer); listen(canvas,'lostpointercapture',releasePointer);
 listen(canvas,'keydown',e => {
   if(e.altKey || e.ctrlKey || e.metaKey) return;
-  if(e.key==='Escape') { setScene('brew'); playing=false; send(); sync(); e.preventDefault(); return; }
+  if(e.key==='Escape') { setScene('brew'); setPlaying(false); send(); sync(); e.preventDefault(); return; }
   if(/^[1-5]$/.test(e.key)) { selectedFinger=Number(e.key)-1; fingerKeys.add(selectedFinger); $('gestureReadout').value=instrumentLabels[selectedFinger]; send(); e.preventDefault(); return; }
   if(e.key==='[' || e.key===']') {
     selectedIngredient=selectedIngredient<0?(e.key===']'?0:objects.length-1):(selectedIngredient+(e.key===']'?1:-1)+objects.length)%objects.length;
@@ -301,7 +311,7 @@ function resize() {
 }
 const observer=new ResizeObserver(resize); observer.observe($('witchViewport'));
 function resumeDrawing() {
-  cancelAnimationFrame(frame);frame=0;lastPaint=0;last=performance.now();
+  cancelAnimationFrame(frame);frame=0;lastPaint=0;last=performance.now();lastPerformanceTick=last;
   if(!disposed && !document.hidden && !pageSuspended) frame=requestAnimationFrame(draw);
 }
 function draw(now) {
@@ -310,7 +320,7 @@ function draw(now) {
   // Keep compositing below 30fps; audio and musical events own their sample clock.
   if(now-lastPaint<1000/30) {frame=requestAnimationFrame(draw);return;}
   lastPaint=now;
-  const dt=Math.min(.06,(now-last)/1000); last=now;
+  const dt=Math.min(.06,(now-last)/1000); last=now;advancePerformanceTime(now);
   silentSpeed+=(gate()?config.speed-silentSpeed:-silentSpeed)*(1-Math.exp(-dt/(gate()?.08:1.3)));
   silentPhase=(silentPhase+config.direction*silentSpeed*dt*12+TAU)%TAU;
   motionTime+=dt*(audioMotionReady&&audio.node?audio.visual.speed:silentSpeed);
@@ -330,6 +340,7 @@ function draw(now) {
   if(handReady) {
     handSurfaces=[hand.render(state,0),hand.render(state,1)]; handSurface=handSurfaces[0];
     state.handSurface=handSurface;state.handSurfaces=handSurfaces;
+    state.handPalms=[hand.getPalm(0),hand.getPalm(1)];
     state.handsTips=[hand.getTips(0),hand.getTips(1)];state.handWrists=[hand.getWrist(0),hand.getWrist(1)];
     state.handTips=state.handsTips[0];state.handWrist=state.handWrists[0];
   }
@@ -363,12 +374,12 @@ listen(window,'pagehide',e => {
   if(e.persisted) { pageSuspended=true;stopGesture(); audio.setAudible(false); cancelAnimationFrame(frame);frame=0; return; }
   if(disposed) return; disposed=true; ++request; clearInterval(clock); cancelAnimationFrame(frame); observer.disconnect(); abort.abort(); presets?.destroy(); hand.dispose();audio.dispose();delete window.witchInstrument;
 });
-presets=registerHeaderPresets({id:'witch',presets:WITCH_PRESETS,capture:()=>structuredClone(config),apply:snapshot=>{stopGesture();config=normalizeWitchPreset(snapshot);world.handOpen=config.scene==='fingers';send();sync();},randomize:randomizeWitchPreset});
+presets=registerHeaderPresets({id:'witch',presets:WITCH_PRESETS,capture:()=>structuredClone(config),apply:snapshot=>{stopGesture();config=normalizeWitchPreset(snapshot);world.trip=config.trip;world.handOpen=config.scene==='fingers';send();sync();},randomize:randomizeWitchPreset});
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
   const state=visualState();
-  return {config:structuredClone(config),playing,audioOn,world:{...world},handReady,
+  return {config:structuredClone(config),playing,audioOn,world:{...world},handReady,performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
-    hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),rotation:handTransform(state,i).rotation})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
+    hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostPhase:state.ghostPhase,ghosts:WITCH_LAYOUT.ghosts.map((_,i)=>{const ghost=getWitchGhostPosition(i,state);return {...ghost,...warpWitchPoint(ghost,state)};}),
     selectedIngredient:state.selectedIngredient,objects:objects.map(object=>({...object,...getWitchObjectPosition(object,state)})),targets:getWitchTargets(state),ladle:getWitchLadle(state),
     handMetadata:hand.getMetadata?.()??hand.metadata??null};

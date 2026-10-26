@@ -13,7 +13,7 @@ test("Witches Brew refresh restores the complete preceding source while retainin
     const source = readFileSync(new URL(change.file, root), "utf8");
     const restored = restoreWitchesBrewRefresh(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
-    assert.match(restored, /witch\.html|witch: define/);
+    assert.match(restored, /witch\.html|witch: define|src\/instruments\/witch\/witch-app\.js/);
     assert.equal(restoreWitchesBrewRefresh(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreWitchesBrewRefresh(restored, change.file), /exact Witches Brew refresh amendment/);
     for (const { after } of change.replacements) {

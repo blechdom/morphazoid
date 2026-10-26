@@ -6,7 +6,10 @@ moving with **Audio off**; enable Audio to hear it. Stir the potion, play her
 fingers, drop a floating miniature instrument into the pot, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
 Presets and playback stay visible; **Parameters** starts closed and contains
-the native controls and a complete ingredient list for keyboard access.
+the native controls and a complete ingredient list for keyboard access. The 32
+complete presets are the main way to change the spell: singing, fingers, ghost
+beat, flight, eight night palettes and crooked lines recall together. Preset
+changes keep Audio, Play and the live clocks running.
 
 | Gesture | Picture | Sound |
 | --- | --- | --- |
@@ -40,8 +43,10 @@ Backward means reversing the authored syllable trajectory, not reversing a
 recorded waveform. Pitch is continuous; there is no scale quantization.
 
 Both hands use Gesticules’ actual weighted 3D hand model, elongated and colored
-with teal, violet and jewel-toned claws. Her left ladle hand is rotated another
-90° clockwise and enlarged by 25%. Her right hand stays fully extended through
+with teal, violet and jewel-toned claws. Her left ladle hand is flipped and
+enlarged, with the spoon anchored inside its actual projected palm. Its sleeve
+passes behind her face. During flight this hand becomes smaller and follows
+her body while the spoon bowl keeps circling the pot. Her right hand stays fully extended through
 brewing, flight, presets and Reset. Their finger-roll and claw-pulse animations reuse
 Gesticules choreography with offset timing. The reaching hand uses its five-voice
 synthesis engine: thumb glass, index reed, middle wire, ring metal and little
@@ -55,22 +60,23 @@ hand's instrumental voices. Touching the right palm brings the fingers forward i
 quiets the continuing cauldron voice.
 
 Fourteen floating ingredients hover around the forest: glass, tail, ear wax,
-eyeball, newt, hair, Roach Synth, Spider Synth, Oculoid, Rubix cube, Hiccup Head,
-Gesticules, marimba bars and a singing mouth. Drag one into the cauldron for a
+eyeball, newt, hair, Roach Synth, Spider Synth, FM Drums, Rubix cube, Hiccup Head,
+Gesticules, Rattlesnake and Throatazoid. Drag one into the cauldron for a
 short featured phrase. Glass and hair also add ringing resonance and unstable
 harmonics to the ongoing singer. The ingredient reappears after its solo.
 Singing and fingers continue underneath, and drops remain available in flight.
-The small figures use original ingredient drawings and existing instrument
-thumbnails; they do not load the instruments' complete interfaces or 3D scenes.
+The eight miniature instruments use their actual catalogue icons. The six
+ordinary potion materials have their own drawings.
 
-The hand, marimba and mouth reuse Gesticules synthesis. Its marimba adapts
-Linear Drums' pitched archetype, and its choir uses the Hiccup Head/Throatazoid
-glottal source with vowel resonances. The Roach taste reuses its percussion and
-zing sources; the Spider taste reuses its silk-string synthesis. Rubix and
-Hiccup Head use compact adaptations of their authored synthesis gestures.
-The ordinary materials and Oculoid eye resonance are original potion sounds;
-there is no standalone Oculoid implementation in this checkout to reuse.
-These are bounded excerpts and adaptations, not complete copies of each synth.
+The Gesticules bite reuses its synthesis engine. Rattlesnake uses its Linear
+Drums marimba voice. Throatazoid follows its own Clear, Deep and Bright glottal
+spectra, pitches and throat resonances. Roach and Spider reuse their percussion,
+wire rasp and silk-string engines. FM Drums plays a short phrase from its factory
+voices; Rubix uses its Color Kit parameters, and Hiccup Head follows its authored
+physical vocal gestures. Each is a bounded synthesized excerpt that joins the
+mix when dropped. The ordinary materials remain original potion sounds.
+FM Drums replaces the invented Oculoid miniature; its former trigger ID remains
+compatible with saved controls.
 
 Ghostly Creaturazoid, Monstrozoid (the catalogue's Monstroid) and Hiccup Head
 portraits visit the mist behind the witch. They fade through offset phrases of
@@ -91,10 +97,17 @@ stereo delay. Her rise, fall and sideways motion shape the sound. You can keep
 singing, bending fingers and dropping objects while she flies; returning to
 the pot keeps the musical phrase going. The scenery adds instrumental accents.
 
-Each mushroom cycles through three altered palettes and returns to the original
-on the fourth activation. The altered picture has wavy lines; the playable
+Each mushroom cycles through four levels of altered color and line distortion,
+returning to its starting setting on the fourth activation. Presets choose the
+base night palette and initial distortion; both also have hidden Parameters controls. The altered picture has wavy lines; the playable
 fingertips and other targets follow their visible positions. Palette changes
 preserve the current instrument, Audio and Play.
+
+Every thirty seconds of Play, a black Quadruped cat prowls across the lower
+scene for seven seconds, alternating direction between visits. Its articulated
+shape and gait come from Quadruped’s cat and cat-prowl score, with a small laser
+eye and glowing constellation seams. Stop freezes its paws and position; presets
+and Audio changes preserve its clock. The cat does not intercept playing gestures.
 
 Audio starts off while Play is already active. Gestures and Play never arm
 Audio. Changing finger focus, steering, landing, mushroom changes and object drops
@@ -108,7 +121,7 @@ ingredients while retaining explicit Audio arming and output level.
 With the picture focused, **H** brings the fingers forward in the mix, **M** takes off or rings the
 moon bell while flying, **B** returns to brewing, and **W** cycles the mushrooms.
 **Escape** returns to the cauldron and stops Play. **Space** toggles Play.
-**Q/E/R** drop the hand, marimba and mouth. **[ / ]** select any ingredient;
+**Q/E/R** drop Gesticules, Rattlesnake and Throatazoid. **[ / ]** select any ingredient;
 **Enter** drops the selected ingredient. **− / +** darken or brighten the fingers and night accents.
 **G / Shift+G** speed up or slow down the ghost beat. **T/S/V** play bats, stars
 and wind in every activity. Arrows stir/open the voice

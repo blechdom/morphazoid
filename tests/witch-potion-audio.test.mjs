@@ -5,6 +5,8 @@ import { WITCH_DROP_EFFECTS } from '../src/instruments/witch/witch-model.js';
 import { RoachPercussion } from '../src/instruments/roach-synth/roach-synth-percussion.js';
 import { RoachZing } from '../src/instruments/roach-synth/roach-synth-textures.js';
 import { SpiderStrings } from '../src/instruments/spider-synth/spider-synth-string.js';
+import { DEFAULT_FM_DRUM_VOICES } from '../src/instruments/fm-drums/fm-drums.js';
+import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../src/families/tract/throatazoid.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 function render(dsp, seconds, block = 128) {
@@ -38,16 +40,18 @@ test('the complete miniature palette shares exact sample-clock timing and bounde
   assert.ok(a.drops.tastes.roach instanceof RoachPercussion);
   assert.ok(a.drops.tastes.zing instanceof RoachZing);
   assert.ok(a.drops.tastes.spider instanceof SpiderStrings);
-  const slots = a.drops.slots.slice(), strings = a.drops.tastes.spider.voices.slice();
+  assert.equal(a.drops.tastes.fmDrums.voices.length, 4);
+  const slots = a.drops.slots.slice(), strings = a.drops.tastes.spider.voices.slice(), fmHits = a.drops.tastes.fmDrums.voices.slice();
   for (let i = 0; i < 250; i++) a.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]);
   assert.ok(a.drops.slots.every((slot, index) => slot === slots[index]));
   assert.ok(a.drops.tastes.spider.voices.every((voice, index) => voice === strings[index]));
+  assert.ok(a.drops.tastes.fmDrums.voices.every((voice, index) => voice === fmHits[index]));
   a.setEnabled(false); render(a, 2);
   assert.ok(rms(render(a, .1)) < 1e-6);
 });
 
 test('retriggering each new miniature crossfades from its previous sample', () => {
-  for (const kind of WITCH_DROP_EFFECTS.slice(3)) {
+  for (const kind of ['drop-choir', ...WITCH_DROP_EFFECTS.slice(3)]) {
     const dsp = new WitchDSP(24000); dsp.setEnabled(true); dsp.trigger(kind);
     const left = new Float32Array(128), right = new Float32Array(128);
     for (let i = 0; i < 40; i++) dsp.drops.process(left, right);
@@ -57,4 +61,28 @@ test('retriggering each new miniature crossfades from its previous sample', () =
     assert.ok(Math.abs(left[0] - lastLeft) < .001, `${kind} left retrigger edge`);
     assert.ok(Math.abs(right[0] - lastRight) < .001, `${kind} right retrigger edge`);
   }
+});
+
+test('Throatazoid and FM Drums excerpts retain their actual authored source identities', () => {
+  const dsp = new WitchDSP(24000); dsp.setEnabled(true);
+  const profiles = dsp.drops.tastes.throatProfiles;
+  assert.deepEqual(profiles.map(profile => profile.id), ['clear', 'deep', 'bright']);
+  for (const profile of profiles) {
+    const authored = voicePresetState(profile.id);
+    assert.deepEqual(profile.spectrum, glottalHarmonics(authored.exciterTenseness, 48, 1024));
+    assert.deepEqual(profile.body, throatVoiceParameters(authored, 0, dsp.rate));
+    assert.equal(profile.state.exciterPitch, authored.exciterPitch);
+  }
+  const choir = dsp.drops.slots.find(slot => slot.kind === 'drop-choir');
+  assert.equal(choir.mask, 0, 'Throatazoid owns its miniature voice rather than using the generic hand choir');
+  dsp.trigger('drop-choir'); const voice = render(dsp, 2.4);
+  assert.ok(rms(voice.subarray(0, 8000)) > .01 && rms(voice.subarray(32000, 40000)) > .01);
+  render(dsp, 4);
+  dsp.trigger('drop-oculoid'); const drums = render(dsp, 2.4);
+  assert.ok(rms(drums) > .01, 'the preserved legacy trigger now sounds the actual FM Drums excerpt');
+  const hits = dsp.drops.tastes.fmDrums.voices;
+  assert.ok(hits.every(hit => DEFAULT_FM_DRUM_VOICES.includes(hit.voice)), 'hits retain the shared factory objects');
+  assert.deepEqual(new Set(hits.map(hit => hit.voice.id)), new Set(['rim-shot', 'glass-bell', 'laser-zap', 'soft-chime']));
+  assert.ok(rms(voice.map((value, index) => value - drums[index])) > .04, 'the two instrument bites have distinct signals');
+  render(dsp, 5); assert.ok(rms(render(dsp, .1)) < 1e-6);
 });
