@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
+import { WitchDSP, FlightMixDelay } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
 import { WITCH_DROP_EFFECTS, WITCH_HAND_SOUNDS, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
@@ -102,17 +102,59 @@ test('pulling and twisting the flight string alters shared echoes without restar
   const a = playing({ mode: 'flight', trailPull: .05, trailTwist: .05 });
   const b = playing({ mode: 'flight', trailPull: .95, trailTwist: .95 });
   assert.ok(difference(render(a, 2), render(b, 2)) > .035);
-  assert.ok(b.delay.feedback > a.delay.feedback + .2);
+  assert.equal(b.delay.feedback, a.delay.feedback, 'echo regeneration is independent of time and twist');
   assert.ok(b.visual.delayTime > a.visual.delayTime + .35);
   assert.equal(a.chantPhase, b.chantPhase); assert.equal(a.visual.handTime, b.visual.handTime);
   b.setControls({ gate: false, ghostGate: false }); render(b, 8);
   assert.ok(rms(render(b, .1)) < 1e-6);
 });
 
+function echoRender(controls, seconds = 8) {
+  const delay = new FlightMixDelay(8000);
+  delay.controls = { ...delay.controls, mode: 'flight', gate: true, ghostGate: false,
+    trailPull: .08, trailTwist: .5, trailSpace: .25, ...controls };
+  const data = new Float32Array(seconds * 8000);
+  for (let i = 0; i < data.length; i++) {
+    const source = i < 1600 ? Math.sin(i * Math.PI * 2 * 233 / 8000) * .16 : 0;
+    delay.next(source, source * .8, true); data[i] = (delay.left + delay.right) * .5;
+  }
+  return { delay, data };
+}
+
+test('independent Candy feedback keeps older echoes and space widens their history without changing flight time', () => {
+  const low = echoRender({ trailFeedback: .05 }), high = echoRender({ trailFeedback: 1 });
+  assert.ok(rms(high.data.subarray(8000 * 3)) > rms(low.data.subarray(8000 * 3)) * 2 + .0001,
+    'strong feedback audibly retains an earlier phrase');
+  const wide = echoRender({ trailFeedback: 1, trailSpace: 1 });
+  assert.ok(difference(high.data.subarray(8000), wide.data.subarray(8000)) > .002,
+    'space changes the actual echo cloud, beyond its dry-mix balance');
+  assert.equal(high.delay.ridePhase, low.delay.ridePhase); assert.equal(wide.delay.ridePhase, high.delay.ridePhase);
+  assert.equal(wide.delay.delayL, high.delay.delayL, 'space does not substitute for the time pull');
+});
+
+test('long-history maximum-feedback flight remains bounded and releases Stop and Audio off without stale replay', () => {
+  for (const mute of [false, true]) {
+    const { delay, data } = echoRender({ trailFeedback: 1, trailSpace: 1, trailPull: 1, trailTwist: .94 }, 10);
+    const buffers = delay.buffers.slice();
+    assert.ok(data.every(value => Number.isFinite(value) && Math.abs(value) < .85));
+    delay.controls = { ...delay.controls, gate: false, ghostGate: false };
+    let ending = 0;
+    for (let i = 0; i < 8000 * 9; i++) {
+      delay.next(0, 0, !mute);
+      assert.ok(Number.isFinite(delay.left) && Number.isFinite(delay.right));
+      if (i > 8000 * 8.9) ending += delay.left ** 2 + delay.right ** 2;
+    }
+    assert.ok(ending < 1e-10, 'Stop and Audio off finitely release the longer history');
+    assert.ok(delay.buffers.every((buffer, i) => buffer === buffers[i]), 'gesture and release retain bounded storage');
+    delay.controls = { ...delay.controls, gate: true };
+    for (let i = 0; i < 8000; i++) { delay.next(0, 0, true); assert.equal(delay.left, 0); assert.equal(delay.right, 0); }
+  }
+});
+
 test('fixed makeup retains voice dynamics and remains finite through maximum overlapping solos and wind', () => {
   const whisper = playing({ voice: 'whisper' }), singing = playing({ voice: 'sing' });
   assert.ok(rms(render(whisper, 1)) < rms(render(singing, 1)) * .92);
-  const dsp = playing({ mode: 'flight', speed: 1, trailPull: 1, trailTwist: 0, fabricX: 1, fabricY: 0 });
+  const dsp = playing({ mode: 'flight', speed: 1, trailPull: 1, trailTwist: 0, trailFeedback: 1, trailSpace: 1, fabricX: 1, fabricY: 0, fabricPull: 1, fabricVelocity: 1 });
   for (const kind of WITCH_DROP_EFFECTS) dsp.trigger(kind);
   const signal = render(dsp, 3);
   assert.ok(signal.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
@@ -125,7 +167,7 @@ test('cat owns primary Play transport and joins the same delayed mix; phase snap
   const audio = new WitchAudio({}); audio.syncPhase(0, 0, 0, .5, 0, 0, clock);
   assert.deepEqual(audio.visual.catClock, clock); assert.notEqual(audio.visual.catClock, clock);
   assert.deepEqual(audio.pendingPhase.catClock, clock);
-  const dsp = playing({ gate: false, ghostGate: true, mode: 'flight' });
+  const dsp = playing({ gate: false, ghostGate: true, mode: 'flight', trailPull: .08, trailSpace: .15 });
   dsp.syncPhase(0, 0, 0, .5, 0, 0, clock);
   assert.deepEqual(dsp.visual.catClock, clock);
   const signal = render(dsp, 1);
@@ -164,8 +206,8 @@ test('meow enters the shared flight delay and Fabric filter without disturbing p
     const dsp = playing({ gate: false, ghostGate: true, ...controls });
     dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(31)); return dsp;
   };
-  const feet = make(), dry = make(), flight = make({ mode: 'flight', trailPull: .6, trailTwist: .6 });
-  const windy = make({ mode: 'flight', trailPull: .6, trailTwist: .6, fabricX: .02, fabricY: .94 });
+  const feet = make(), dry = make(), flight = make({ mode: 'flight', trailPull: .12, trailTwist: .6, trailSpace: .2 });
+  const windy = make({ mode: 'flight', trailPull: .12, trailTwist: .6, trailSpace: .2, fabricX: .02, fabricY: .94 });
   dry.trigger('meow'); flight.trigger('meow'); windy.trigger('meow');
   const quiet = render(feet, .9), plain = render(dry, .9), delayed = render(flight, .9), filtered = render(windy, .9);
   assert.ok(difference(plain, quiet) > .04, 'clicked head is audible above its feet');

@@ -27,11 +27,15 @@ export function witchBiteClips() {
     }
     return [kind, Object.freeze({ data, rate: clip.rate, frames: clip.frames, instrumentId: clip.instrumentId, events: clip.events })];
   }));
+  // The cupboard Quadruped is the same native cat call already used by the
+  // walking animal; share its fixed PCM allocation rather than duplicate it.
+  decodedClips['drop-quadruped'] = decodedClips['drop-cat'];
   return Object.freeze(decodedClips);
 }
 
-/** Two fixed PCM readers for sparse BLECH visitors. This references the actual
- * cached instrument phrase without using a potion slot or its solo ducking.
+/** Two fixed PCM readers for sparse BLECH visitors. The shared clip is the
+ * actual Black Lattice MIDI demo's dense 32–36.5-second passage, rendered with
+ * BLECH's SoundFont engine, without using a potion slot or its solo ducking.
  * Muted events are consumed; a seek or resume never replays a stale entrance. */
 export class WitchBlechFlyby {
   constructor(rate) {
@@ -72,7 +76,7 @@ export class WitchBlechFlyby {
         ? this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend : 0;
       const envelope = Math.min(1, slot.age / .025, (WITCH_BLECH_FLYBY_DURATION - slot.age) / .08) * slot.release;
       const pan = slot.direction * (slot.age / WITCH_BLECH_FLYBY_DURATION * 2 - 1) * .9;
-      const sample = source * .1 * envelope;
+      const sample = source * .13 * envelope;
       this.left += sample * Math.sqrt((1 - pan) * .5);
       this.right += sample * Math.sqrt((1 + pan) * .5);
       slot.age += this.dt;
@@ -82,9 +86,11 @@ export class WitchBlechFlyby {
 }
 
 export const WITCH_WEB_RATIOS = Object.freeze([1, 1.071, Math.SQRT2, 1.493, Math.sqrt(3), 2.031, Math.sqrt(5)]);
-const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .18, decay: 1.7,
-  texture: .49, slide: .08, coupling: .08, pluckRegister: 5, pluckSpread: 1,
-  pluckAttack: .004, pluckHold: .025, pluckRelease: 1.2 });
+// Slow displaced silk: the native string's long noisy excitation, dispersion
+// and tension glide creak into pitch instead of striking like a guitar pick.
+const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .58, decay: 2.2,
+  texture: .94, slide: .9, coupling: .08, pluckRegister: -3, pluckSpread: .86,
+  pluckAttack: .055, pluckHold: .14, pluckRelease: 1.45 });
 
 /** One native L-System phrase reader. Repeated clicks coalesce behind a short
  * fade before restarting; they never stack voices or abruptly seek live PCM. */
@@ -125,6 +131,8 @@ export class WitchSceneDSP {
     this.tree = new WitchTreePhrase(rate);
     this.web = new SpiderStrings(rate); this.levels = new Float64Array(8).fill(1);
     this.active = 0; this.gain = 0; this.groanAge = 2; this.groan = 0; this.low = 0;
+    this.webControl = 0; this.webLowL = this.webLowR = 0;
+    this.webLowpass = 1 - Math.exp(-TAU * 1250 / rate);
     this.groanRelease = 1; this.groanReleasing = false;
     this.attack = 1 - Math.exp(-this.dt / .006); this.release = 1 - Math.exp(-this.dt / .035);
     this.source = new SyrinxSourceEngine({ sampleRate: rate, seed: 0x4a61, model: 'twoMass', parameters: {
@@ -136,7 +144,7 @@ export class WitchSceneDSP {
     if (kind === 'tree-l-system') { this.tree.trigger(); return true; }
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
-      this.web.pluck(71 * WITCH_WEB_RATIOS[index], .8, (index - 3) / 4, WEB_SOUND, 6, index, index % 3, .28, null, 1, true, 0, -1, true);
+      this.web.pluck(67 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
       this.active = 2.8; return true;
     }
     if (kind === 'spider-groan') {
@@ -150,7 +158,18 @@ export class WitchSceneDSP {
     this.active = Math.max(0, this.active - this.dt);
     const active = enabled && this.active > 0;
     this.gain += ((active ? 1 : 0) - this.gain) * (active ? this.attack : this.release);
-    this.web.sample(this.levels, .7, WEB_SOUND);
+    if (this.webControl-- <= 0) {
+      this.webControl = 31;
+      for (const voice of this.web.voices) if (voice.remaining > 0) {
+        const age = voice.age / this.rate;
+        const strain = 1 + .105 * Math.sin(age * 17.3 + voice.segmentId) * Math.exp(-age * 1.5)
+          + .026 * Math.sin(age * 83.1);
+        voice.targetPeriod = Math.max(3, Math.min(4092, this.rate / (voice.frequency * strain) - voice.loss));
+      }
+    }
+    this.web.sample(this.levels, .24, WEB_SOUND);
+    this.webLowL += (this.web.left - this.webLowL) * this.webLowpass;
+    this.webLowR += (this.web.right - this.webLowR) * this.webLowpass;
     this.groan = 0;
     if (this.groanReleasing) this.groanRelease = Math.max(0, this.groanRelease - this.dt / .035);
     if (this.groanRelease === 0) this.groanAge = 2;
@@ -162,8 +181,8 @@ export class WitchSceneDSP {
       this.groan = Math.tanh(this.low * 3) * Math.sin(Math.PI * t / 1.6) * .11 * this.groanRelease;
     }
     this.tree.next(enabled);
-    this.left = (this.web.left * 1.8 + this.groan) * this.gain + this.tree.left;
-    this.right = (this.web.right * 1.8 + this.groan * .8) * this.gain + this.tree.right;
+    this.left = (this.webLowL * 1.05 + this.groan) * this.gain + this.tree.left;
+    this.right = (this.webLowR * 1.05 + this.groan * .8) * this.gain + this.tree.right;
     if (this.gain < 1e-9) this.groanAge = 2;
   }
 }
@@ -204,13 +223,15 @@ export class WitchFabricWind {
     this.gain += ((active ? 1 : 0) - this.gain) * (active ? this.attack : this.releasing ? this.cancelRelease : this.release);
     if (this.gain < 1e-7) { this.gain = 0; this.left = this.right = 0; return; }
     this.x += (controls.fabricX - this.x) * this.attack; this.y += (controls.fabricY - this.y) * this.attack;
-    const color = -.85 + this.y * .75;
+    const pull = Math.max(0, Math.min(1, Number(controls.fabricPull) || 0));
+    const velocity = Math.max(0, Math.min(1, Number(controls.fabricVelocity) || 0));
+    const color = -.9 + this.y * .7 + pull * .18;
     const common = this.noise(0, color) * .824621125;
     const a = common + this.noise(1, color) * .565685425, b = common + this.noise(2, color) * .565685425;
     this.phase = (this.phase + TAU * (.7 + this.x * 1.4) * this.dt) % TAU;
-    const gust = .84 + Math.sin(this.phase) * .16;
-    this.left = Math.tanh(a * 1.8) * .07 * this.gain * gust * (1.25 - this.x * .5);
-    this.right = Math.tanh(b * 1.8) * .07 * this.gain * gust * (.75 + this.x * .5);
+    const gust = (.84 + Math.sin(this.phase) * .16) * (1 + velocity * .55 + pull * .24);
+    this.left = Math.tanh(a * 1.8) * .085 * this.gain * gust * (1.25 - this.x * .5);
+    this.right = Math.tanh(b * 1.8) * .085 * this.gain * gust * (.75 + this.x * .5);
   }
 }
 

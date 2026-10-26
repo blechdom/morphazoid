@@ -2287,6 +2287,8 @@ copy+require	src/instruments/witch/witch-app.js
 copy+require	src/instruments/witch/witch-audio.js
 copy+require	src/instruments/witch/witch-worklet.js
 copy+require	src/instruments/witch/witch-model.js
+copy+require	src/instruments/witch/witch-fabric-gesture.js
+copy+require	src/instruments/witch/witch-trail-gesture.js
 copy+require	src/instruments/witch/witch-presets.js
 copy+require	src/instruments/witch/witch-renderer.js
 copy+require	src/instruments/witch/witch-scene-model.js

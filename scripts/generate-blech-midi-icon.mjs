@@ -1,4 +1,4 @@
-// Render the page's authored bat/MIDI SVG as the catalogue's square WebP.
+// Render the page's authored red bat/MIDI SVG as a transparent catalogue WebP.
 // Midiophilia keeps the original heart WebP from BLECH MIDI, without re-encoding.
 import { chromium } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -10,17 +10,9 @@ try {
   const data = await page.evaluate(async svg => {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#050709';
-    ctx.fillRect(0, 0, 512, 512);
-    ctx.strokeStyle = '#ffffff07';
-    ctx.lineWidth = 1;
-    for (let pos = .5; pos < 512; pos += 32) {
-      ctx.beginPath();
-      ctx.moveTo(pos, 0); ctx.lineTo(pos, 512);
-      ctx.moveTo(0, pos); ctx.lineTo(512, pos);
-      ctx.stroke();
-    }
+    // The mark belongs directly on each instrument's surface. Keep the
+    // surrounding space and the MIDI socket opening genuinely transparent.
+    const ctx = canvas.getContext('2d', { alpha: true });
     const img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     await img.decode();

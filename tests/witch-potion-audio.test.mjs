@@ -20,7 +20,7 @@ function render(dsp, seconds, block = 128) {
 
 test('every potion ingredient speaks alone without transport and finishes at low and normal sample rates', () => {
   assert.deepEqual(WITCH_DROP_EFFECTS.map(kind => kind.slice(5)).sort(),
-    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'hyper-rubix', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard'].sort());
+    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'hyper-rubix', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler', 'fractal', 'synthesaurus', 'jaw-harp', 'harmonicazoid', 'dentaphone', 'blech', 'cat', 'mouse', 'lizard', 'quadruped', 'monstroid', 'candy-coil'].sort());
   for (const rate of [8000, 48000]) for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = new WitchDSP(rate); dsp.setEnabled(true);
     assert.equal(dsp.controls.gate, false); assert.equal(dsp.trigger(kind), true);

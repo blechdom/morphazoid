@@ -1,6 +1,6 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
-import { WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
+import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby } from './witch-scene-model.js';
 import { traceLSystem, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
@@ -12,7 +12,7 @@ const INK = '#14131c';
 const SKIN = '#b5db9d';
 const LIME = '#cefa8b';
 const PINK = '#f29bce';
-const INGREDIENTS=[...WITCH_SHELF,...WITCH_TREE_OBJECTS];
+const INGREDIENTS=WITCH_INGREDIENTS;
 // The same generation colors used by L-system Delay and its Rust renderer.
 const TREE_COLORS=['#fff3d6','#55d9ff','#5fe8c4','#7db4ff','#c79bff','#ff826f','#e8c46b'];
 const treeIconIds=new Set(WITCH_TREE_OBJECTS.map(item=>item.id));
@@ -32,11 +32,16 @@ export const WITCH_LAYOUT = Object.freeze({
   ]),
   bats:Object.freeze([]),spirits:Object.freeze([]),
   shelves:Object.freeze([{x:34,y:148,w:239,h:488,rows:[218,299,380,461,542,623]}]),
-  objects:Object.freeze(INGREDIENTS.map((entry,index)=>Object.freeze({...entry,
-    x:index<18?[77,154,231][index%3]:[768,900,842][index-18],
-    y:index<18?191+Math.floor(index/3)*81:[300,370,465][index-18],
-    r:28*miniatureSize(entry.id),color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
-  }))),
+  objects:Object.freeze(INGREDIENTS.map((entry,index)=>{
+    const shelfIndex=WITCH_SHELF.findIndex(item=>item.id===entry.id);
+    const treeIndex=WITCH_TREE_OBJECTS.findIndex(item=>item.id===entry.id);
+    const topIndex=INGREDIENTS.filter(item=>item.location==='cupboard-top').findIndex(item=>item.id===entry.id);
+    return Object.freeze({...entry,
+      x:entry.location==='web'?910:topIndex>=0?[77,154,231][topIndex]:shelfIndex>=0?[77,154,231][shelfIndex%3]:[768,900,842][treeIndex],
+      y:entry.location==='web'?140:topIndex>=0?120:shelfIndex>=0?191+Math.floor(shelfIndex/3)*81:[300,370,465][treeIndex],
+      r:entry.location==='web'?56:28*miniatureSize(entry.id),color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
+    });
+  })),
 });
 
 function path(c, d, fill, stroke = null, width = 1.5) {
@@ -556,33 +561,67 @@ function broomPoint(point,state) {
   const t=broomTransform(state),cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
   return {x:t.x+(cos*point.x-sin*point.y)*t.scale,y:t.y+(sin*point.x+cos*point.y)*t.scale};
 }
-/** Delay strands continue the real hair tips; drawing and picking share every
- * point, including the short tangent-matched join into the larger sky loops. */
-function witchTrails(state={},indices=[10,3,17,22]) {
+/** Delay strands continue the real hair tips. Their resting shape is a curled
+ * travelling worm, from a small hank of hair to loops filling the whole sky. */
+const TRAIL_LOCKS=[10,17];
+function trailStyle(index,order,state) {
+  return {index,color:'#fff7ea',stripe:'#dc2f3f',stripeLength:17-clamp(state.trailFeedback??.55)*11,width:order?3.5:4.8};
+}
+export function getWitchRestTrails(state={}) {
   const phase=state.reducedMotion?0:(state.flightPhase??state.motionTime??0);
   const pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5),hair=getWitchHair(state);
+  const feedback=clamp(state.trailFeedback??.55),space=clamp(state.trailSpace??.5);
   const samples=256,join=Math.round(samples*.85);
-  return indices.map((index,strandIndex)=>{
+  return TRAIL_LOCKS.map((index,strandIndex)=>{
     const lock=hair.strands[index],anchor=lock.points.at(-1),prior=lock.points.at(-2),points=[];
-    for(let i=0;i<=samples;i++) {
-      const tail=1-i/samples,mix=Math.sin(tail*Math.PI/2),coil=tail*TAU*(5+twist*7+strandIndex*.45),offset=strandIndex*.79;
-      const x=500+Math.sin(tail*TAU*4.7+phase*.23+offset)*390+Math.sin(coil+phase*.6)*pull*38;
-      const y=360+Math.sin(tail*TAU*7.2+phase*.19+offset)*245+Math.cos(coil*1.3-phase*.4)*pull*35;
-      points.push({x:anchor.x*(1-mix)+clamp(x,45,955)*mix,y:anchor.y*(1-mix)+clamp(y,75,665)*mix});
+    const reach=.20+.80*space,width=952*reach,height=636*reach;
+    const cx=clamp((anchor.x-width*.37)*(1-space)+500*space,24+width/2,976-width/2);
+    const cy=clamp((anchor.y-height*.38)*(1-space)+356*space,38+height/2,674-height/2);
+    const bounds={left:cx-width/2,right:cx+width/2,top:cy-height/2,bottom:cy+height/2};
+    const raw=[{x:0,y:0}],direction=strandIndex?-1:1;
+    const orientation=(strandIndex?1.27:-.85)+phase*(.19+.31*pull)+(twist-.5)*Math.PI*1.5;
+    // Integrating changing curvature produces loops that wind, fold and whip
+    // instead of replaying one wide route with slightly displaced waypoints.
+    for(let i=1;i<=join;i++) {
+      const u=(i-.5)/join;
+      const bend=(.25+pull*1.45)*Math.sin(u*TAU*(.65+twist*2.7)+phase*(.47+twist*.72)+strandIndex*1.8);
+      const kink=(.1+twist*1.5)*Math.sin(u*TAU*(1.7+pull*2.3)-phase*(.8+pull*1.4)+strandIndex*2.3);
+      const flick=pull*.65*Math.sin(u*TAU*(3.7+feedback*3.6)+phase*(1.7+twist*.6)+strandIndex*.7);
+      const angle=orientation+direction*(u*TAU*(.3+feedback*4.4)+bend+kink+flick),last=raw.at(-1);
+      raw.push({x:last.x+Math.cos(angle),y:last.y+Math.sin(angle)});
     }
+    const xs=raw.map(p=>p.x),ys=raw.map(p=>p.y),left=Math.min(...xs),top=Math.min(...ys);
+    const rx=Math.max(.001,Math.max(...xs)-left),ry=Math.max(.001,Math.max(...ys)-top);
+    for(const p of raw)points.push({x:bounds.left+(p.x-left)/rx*width,y:bounds.top+(p.y-top)/ry*height});
     const end=points[join],next=points[join-1],length=Math.max(1,Math.hypot(anchor.x-prior.x,anchor.y-prior.y));
-    const a={x:anchor.x+(anchor.x-prior.x)/length*45,y:anchor.y+(anchor.y-prior.y)/length*45};
-    const b={x:end.x+(end.x-next.x)*4,y:end.y+(end.y-next.y)*4};
+    const tx=(anchor.x-prior.x)/length,ty=(anchor.y-prior.y)/length;
+    const availableX=Math.abs(tx)<1e-6?Infinity:(tx>0?bounds.right-anchor.x:bounds.left-anchor.x)/tx;
+    const availableY=Math.abs(ty)<1e-6?Infinity:(ty>0?bounds.bottom-anchor.y:bounds.top-anchor.y)/ty;
+    const joinLength=Math.max(0,Math.min(45,width*.15,height*.22,availableX*.85,availableY*.85));
+    const a={x:anchor.x+tx*joinLength,y:anchor.y+ty*joinLength};
+    const b={x:clamp(end.x+(end.x-next.x)*4,bounds.left,bounds.right),y:clamp(end.y+(end.y-next.y)*4,bounds.top,bounds.bottom)};
     for(let i=join;i<=samples;i++) {
       const t=(samples-i)/(samples-join),v=1-t;
-      points[i]={x:v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,
-        y:v*v*v*anchor.y+3*v*v*t*a.y+3*v*t*t*b.y+t*t*t*end.y};
+      points[i]={x:clamp(v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,24,976),
+        y:clamp(v*v*v*anchor.y+3*v*v*t*a.y+3*v*t*t*b.y+t*t*t*end.y,38,674)};
     }
-    return {index,points,color:['#bcc5ac','#81758e','#6c7286','#92b9ae','#bb9cb9'][index%5],width:strandIndex?2.1:3.4};
+    return {...trailStyle(index,strandIndex,state),points};
   });
 }
-export function getWitchTrails(state={}) {return witchTrails(state);}
-export function getWitchTrail(state={}) {return witchTrails(state,[10])[0].points;}
+/** The rope controller supplies the same simulated points for drawing and
+ * picking. Captured nodes may leave the view; the controller owns that bound. */
+export function getWitchTrails(state={}) {
+  if(!Array.isArray(state.trailStrands))return getWitchRestTrails(state);
+  const hair=getWitchHair(state);let rest;
+  return TRAIL_LOCKS.map((index,order)=>{
+    const strand=state.trailStrands.find(entry=>entry.index===index);
+    if(!strand||!Array.isArray(strand.points)||strand.points.length<2||strand.points.length>513||
+      strand.points.some(p=>!Number.isFinite(p?.x)||!Number.isFinite(p?.y)))return (rest??=getWitchRestTrails(state))[order];
+    const points=strand.points.map(p=>({x:p.x,y:p.y}));points[points.length-1]={...hair.strands[index].points.at(-1)};
+    return {...trailStyle(index,order,state),points};
+  });
+}
+export function getWitchTrail(state={}) {return getWitchTrails(state)[0].points;}
 
 const treeShapes=new Map();
 /** The upright tree is the actual L-system turtle trace, bounded and cached. */
@@ -595,10 +634,11 @@ export function getWitchTree(state={}) {
   const project=p=>({x:710+(p.y-b.minY)/wide*270,y:692-(p.x-b.minX)/tall*672});
   const root=project({x:0,y:0}),segments=trace.segments.map(segment=>({a:project(segment.start),b:project(segment.end),depth:segment.forkDepth/Math.max(1,trace.maxForkDepth),generation:segment.generation}));
   const supports=segments.flatMap(({a,b})=>[.25,.5,.75,1].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})));
-  const hints=[{x:780,y:345},{x:935,y:420},{x:940,y:550}],objects={};
-  WITCH_TREE_OBJECTS.forEach((item,index)=>{
-    const hint=hints[index],size=miniatureSize(item.id),offset=27*size,r=28*size;
-    const candidates=supports.map(p=>({x:p.x,y:p.y-offset})).filter(p=>p.x>735&&p.x+r<980&&p.y>280&&p.y<625&&
+  const hints={blech:{x:790,y:365},syrinx:{x:930,y:475},eyeball:{x:815,y:255}},objects={};
+  // Reserve a high branch for Creaturazoid before placing its larger neighbors.
+  [...WITCH_TREE_OBJECTS].sort((a,b)=>(b.id==='eyeball')-(a.id==='eyeball')).forEach(item=>{
+    const hint=hints[item.id],size=miniatureSize(item.id),offset=27*size,r=28*size;
+    const candidates=supports.map(p=>({x:p.x,y:p.y-offset})).filter(p=>p.x>735&&p.x+r<980&&p.y>(item.id==='eyeball'?195:280)&&p.y<(item.id==='eyeball'?420:625)&&
       (p.y+r<500||p.x-r>810)&&
       Math.hypot(p.x-910,p.y-140)>r+65&&Object.entries(objects).every(([id,q])=>Math.hypot(p.x-q.x,p.y-q.y)>r+28*miniatureSize(id)+20));
     const point=candidates.reduce((best,p)=>Math.hypot(p.x-hint.x,p.y-hint.y)<Math.hypot(best.x-hint.x,best.y-hint.y)?p:best,candidates[0]||{x:root.x,y:root.y-offset});
@@ -657,6 +697,7 @@ function spiderWeb(c,state) {
   for(const [index,strand] of web.strands.entries()) {
     line(c,strand.map(p=>[p.x,p.y]),index<22?'#c5dce0a0':'#adc7d47a',index===0?1.1:.75);
   }
+  if(state.spiderCaptured)return;
   c.save();c.translate(web.center.x,web.center.y);
   const pulse=clamp(state.spiderPulse),wiggle=state.reducedMotion?0:Math.sin((state.handTime??state.motionTime??0)*13)*pulse*.035;
   c.rotate(wiggle);
@@ -668,16 +709,27 @@ function spiderWeb(c,state) {
 export function getWitchTargets(state = {}) {
   const transform=headTransform(state);
   const point=(x,y,r)=>({...headPoint({x,y},transform),r:r*transform.scale});
-  // Advertise an exposed part of the moving strand in the left sky, away
-  // from the moon, mushrooms, cauldron and the foreground witch.
-  const trail=getWitchTrail(state).reduce((best,p)=>Math.hypot(p.x-145,p.y-270)<Math.hypot(best.x-145,best.y-270)?p:best);
-  return {nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
+  const trails=getWitchTrails(state),candidates=trails.flatMap(strand=>{
+    const stride=Math.max(1,Math.floor(strand.points.length/40));
+    return strand.points.filter((p,i)=>i%stride===0);
+  }).sort((a,b)=>Math.hypot(a.x-145,a.y-270)-Math.hypot(b.x-145,b.y-270));
+  const targets={nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),
     die:{...WITCH_LAYOUT.die},
     hat:getWitchHat(state).target,
-    fabric:{...witchFabricPoint(19/24,.05,state),r:18},
+    fabric:witchFabricTarget(state),
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
     broom:{...(clamp(state.flightLift)>.5?broomPoint({x:-200,y:126},state):parkedBroomPoint({x:0,y:123})),r:32},
-    trail:{...trail,r:28}};
+    trail:{...candidates[0],r:28}};
+  if(clamp(state.flightLift)>.05) {
+    // A tight coil can move anywhere beside her hair. Pick an actually exposed
+    // sample, using the same occlusion tests as input without recursing here.
+    const exposed=candidates.find(p=>{
+      const visible=warpWitchPoint(p,state);
+      return hitTestWitch(visible.x,visible.y,state,{targets,trails})?.type==='trail';
+    });
+    if(exposed)targets.trail={...exposed,r:28};
+  }
+  return targets;
 }
 
 // Each model has its own projected pose. Display and picking share this affine
@@ -878,6 +930,18 @@ function broomShape(c,state) {
   ellipse(c,-25,119,6,2,null,'#4c3b29',1.1,-.2);
 }
 
+const FLYING_ROBE='M-67,-32 Q-103,-8 -102,45 Q-151,74 -181,85 L-156,111 Q-122,98 -117,119 Q-79,96 -66,111 Q-14,94 25,109 Q48,96 29,76 L-6,47 L-3,-5 Z';
+const FLYING_ROBE_OUTLINE=[[-67,-32],[-98,-6],[-102,45],[-143,71],[-181,85],[-156,111],[-133,104],[-117,119],[-84,102],[-66,111],[-20,100],[25,109],[38,95],[29,76],[-6,47],[-3,-5]];
+const FLYING_LEGS=[
+  {path:'M-48,73 Q-78,91 -88,120 L-135,171 Q-147,184 -162,171 L-122,112 Q-105,80 -79,71 Z',fill:'#292a38',
+    outline:[[-48,73],[-75,93],[-88,120],[-135,171],[-149,180],[-162,171],[-122,112],[-102,83],[-79,71]]},
+  {path:'M-145,163 Q-157,179 -173,175 Q-189,190 -207,177 Q-200,201 -174,198 L-145,183 Z',fill:'#1a1e2c',
+    outline:[[-145,163],[-157,179],[-173,175],[-189,186],[-207,177],[-200,193],[-183,200],[-174,198],[-145,183]]},
+  {path:'M-12,78 Q-40,94 -44,129 L-100,182 Q-114,195 -134,178 L-80,120 Q-77,85 -49,73 Z',fill:'#41404d',
+    outline:[[-12,78],[-37,96],[-44,129],[-100,182],[-116,191],[-134,178],[-80,120],[-74,92],[-49,73]]},
+  {path:'M-116,171 Q-128,189 -143,184 Q-165,207 -187,188 Q-178,217 -151,214 L-117,193 Z',fill:'#252634',
+    outline:[[-116,171],[-128,189],[-143,184],[-164,199],[-187,188],[-178,207],[-159,216],[-151,214],[-117,193]]},
+];
 function broomWitch(c, state) {
   const time = state.motionTime ?? state.time ?? 0;
   const pulse = clamp(state.flightPulse);
@@ -886,12 +950,14 @@ function broomWitch(c, state) {
   const transform=broomTransform(state);
   c.save(); c.globalAlpha *= lift; c.translate(transform.x,transform.y); c.rotate(transform.rotation); c.scale(transform.scale,transform.scale);
   broomShape(c,state);
-  path(c, 'M-67,-32 Q-103,-8 -102,45 Q-151,74 -181,85 L-156,111 Q-122,98 -117,119 Q-79,96 -66,111 Q-14,94 25,109 Q48,96 29,76 L-6,47 L-3,-5 Z', '#3b2b47', INK, 3);
+  // Two longer trailing legs remain joined beneath the robe, with distinct
+  // boots so their silhouette reads clearly against the open flying scene.
+  for(const leg of FLYING_LEGS)path(c,leg.path,leg.fill,INK,2.5);
+  line(c,[[-156,176],[-166,184],[-158,190]],'#8b887e',1.6);
+  line(c,[[-129,186],[-142,195],[-132,202]],'#c3ac87',1.8);
+  path(c,FLYING_ROBE,'#3b2b47',INK,3);
   path(c, 'M-87,14 Q-107,77 -159,88 L-143,97 Q-120,80 -109,96 Q-68,75 -54,95 L-30,65 Z', '#58405b');
   curve(c,[-67,5,-40,50,-69,75,-81,90],'#80637b',1.3);
-  path(c, 'M-21,79 Q-48,91 -49,120 L-94,151 Q-105,159 -119,147 L-81,111 Q-75,84 -51,76 Z', '#34303d', INK, 2.5);
-  path(c, 'M-104,141 Q-112,154 -124,149 Q-144,167 -160,154 Q-151,176 -131,173 L-107,159 Z', '#22232e', INK, 2.3);
-  line(c,[[-116,151],[-125,157],[-119,163]],'#b89e7f',1.6);
   witchHead(c,state,-53,-149,1,-.1);
   c.restore();
 }
@@ -910,6 +976,9 @@ function flightScene(c, state) {
     for(const strand of getWitchTrails(state)) {
       const points=strand.points.map(point=>[point.x,point.y]);
       line(c,points,INK,strand.width+3);line(c,points,strand.color,strand.width);
+      c.setLineDash([strand.stripeLength,strand.stripeLength]);
+      c.lineDashOffset=state.reducedMotion?0:-(state.flightPhase??0)*5;
+      line(c,points,strand.stripe,strand.width);c.setLineDash([]);
     }
     c.restore();
   }
@@ -961,9 +1030,7 @@ function drawInstrumentMiniature(c,id,size=miniatureSize(id)) {
   if(!portrait.surface) {
     const surface=doc.createElement('canvas');surface.width=surface.height=160;
     const ink=surface.getContext('2d');
-    // Turn BLECH's copper artwork red while retaining the MIDI socket detail.
-    ink.filter=id==='blech'?'hue-rotate(-18deg) saturate(1.7)':'none';
-    ink.drawImage(portrait.image,0,0,160,160);ink.filter='none';
+    ink.drawImage(portrait.image,0,0,160,160);
     const pixels=ink.getImageData(0,0,160,160);removePortraitBackdrop(pixels);ink.putImageData(pixels,0,0);
     let left=160,top=160,right=-1,bottom=-1;
     for(let y=0;y<160;y++)for(let x=0;x<160;x++)if(pixels.data[(y*160+x)*4+3]>8) {
@@ -990,6 +1057,8 @@ function instrumentShelves(c) {
       path(c,`M${side},${y+8} L${side+8},${y+3} L${side+10},${y+h+9} L${side-2},${y+h+9} Z`,'#272333','#51404b',1.1);
       line(c,[[side+3,y+18],[side+5,y+h-14]],'#7260513d',1);
     }
+    path(c,`M${x-2},${y-1} L${x+w+2},${y-1} L${x+w+4},${y+10} L${x-4},${y+11} Z`,'#362b3a','#89725b',.9);
+    line(c,[[x+7,y+2],[x+w-6,y+2]],'#c39b726b',1.2);
     for(const row of shelf.rows) {
       path(c,`M${x+5},${row} L${x+w-4},${row-2} L${x+w-5},${row+10} L${x+4},${row+13} Z`,'#332837','#89725b',.8);
       line(c,[[x+10,row+3],[x+w-12,row+1]],'#b38f695c',1.1);
@@ -997,32 +1066,43 @@ function instrumentShelves(c) {
     }
   }
 }
-/** A small version of Fabric Filter's green-column / pink-row vector mesh. */
+/** Fabric Filter's taut green-column / pink-row mesh fills the flying sky.
+ * A local grab displaces the cloth while the four outer edges stay anchored.
+ * The controller supplies the damped release, so a resting mesh stays still. */
 function witchFabricPoint(u,v,state={}) {
-  const x=clamp(state.fabricX??.5),y=clamp(state.fabricY??.5);
-  const time=state.reducedMotion?0:(state.handTime??state.motionTime??0);
-  const pull=Math.exp(-((u-19/24)**2*6+(v-.12)**2*4));
-  return {x:610+u*370+(x-.5)*70*pull+Math.sin(v*6+time*.65)*Math.sin(u*Math.PI)*14,
-    y:22+v*310+(.5-y)*36*pull+Math.sin(u*7+v*5-time*.55)*Math.sin(v*Math.PI)*16};
+  const gx=clamp(state.fabricGrabX??.16,.015,.985),gy=clamp(state.fabricGrabY??.14,.015,.985);
+  const pullX=clamp(state.fabricPullX??0,-340,340),pullY=clamp(state.fabricPullY??0,-240,240);
+  const magnitude=Math.hypot(pullX,pullY),radius=145+magnitude*.22;
+  const x=u*1000,y=v*720,dx=x-gx*1000,dy=y-gy*720;
+  const edge=(a,b)=>Math.min(1,a/.085,(1-a)/.085)*Math.min(1,b/.085,(1-b)/.085);
+  const influence=Math.exp(-(dx*dx+dy*dy)/(radius*radius*2))*Math.min(1,edge(u,v)/Math.max(.025,edge(gx,gy)));
+  const pinch=clamp(magnitude/220)*.19*influence;
+  return {x:x+pullX*influence-dx*pinch,y:y+pullY*influence-dy*pinch};
+}
+function witchFabricTarget(state={}) {
+  // An idle diagnostic/keyboard target stays in exposed sky even when the
+  // last grab was released behind her body or across a delay strand.
+  if(!state.fabricHeld)return {x:80,y:24,r:18};
+  return {...witchFabricPoint(clamp(state.fabricGrabX??.16,.015,.985),clamp(state.fabricGrabY??.14,.015,.985),state),r:18};
 }
 export function getWitchFabric(state={}) {
   const strands=[],point=(u,v)=>witchFabricPoint(u,v,state);
-  for(let column=0;column<=24;column++)strands.push({color:'#68f7a49e',points:Array.from({length:41},(_,i)=>point(column/24,i/40))});
-  for(let row=0;row<=18;row++)strands.push({color:'#ff5cada8',points:Array.from({length:41},(_,i)=>point(i/40,row/18))});
-  return {strands,target:{...point(19/24,.05),r:18}};
+  for(let column=0;column<=32;column++)strands.push({color:'#68f7a49e',points:Array.from({length:41},(_,i)=>point(column/32,i/40))});
+  for(let row=0;row<=24;row++)strands.push({color:'#ff5cada8',points:Array.from({length:41},(_,i)=>point(i/40,row/24))});
+  return {strands,target:witchFabricTarget(state),bounds:{left:0,right:1000,top:0,bottom:720}};
 }
 function fabricCloth(c,state) {
   const lift=clamp(state.flightLift);if(lift<=0)return;
   const fabric=getWitchFabric(state);
-  c.save();c.globalAlpha*=lift;
+  c.save();c.globalAlpha*=lift*.72;
   for(const strand of fabric.strands)line(c,strand.points.map(p=>[p.x,p.y]),strand.color,.9);
-  const p=fabric.target;ellipse(c,p.x,p.y,3,3,'#bcebd4');
   c.restore();
 }
 function ingredientObjects(c,state,foreground=false) {
   for(const home of WITCH_LAYOUT.objects) {
     const color=home.color;
     const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
+    if(home.location==='web'&&!object.dropped&&!object.dragging)continue;
     if(Boolean(object.dropped||object.dragging)!==foreground)continue;
     if(object.dropped) {
       const age=Math.max(0,object.dropAge||0),envelope=Math.max(0,1-age/3.6);
@@ -1039,7 +1119,8 @@ function ingredientObjects(c,state,foreground=false) {
     }
     if(object.alpha<=0)continue;
     c.save();c.translate(object.x,object.y);c.rotate(object.rotation);c.scale(object.scale,object.scale);c.globalAlpha*=object.alpha;
-    drawInstrumentMiniature(c,home.id);
+    if(home.location==='web'&&state.spiderSurface)c.drawImage(state.spiderSurface,-56,-56,112,112);
+    else drawInstrumentMiniature(c,home.location==='web'?'web-spider':home.id,home.location==='web'?1.6:miniatureSize(home.id));
     c.restore();
   }
 }
@@ -1082,7 +1163,7 @@ function drawWorld(c,state) {
   if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime)) {
     c.save();c.globalAlpha*=(1-ground)*flyby.opacity;
     c.translate(flyby.x,flyby.y);c.rotate(flyby.angle);c.scale(flyby.scale,flyby.scale);
-    drawInstrumentMiniature(c,'blech',1.5);c.restore();
+    drawInstrumentMiniature(c,'blech',2.1);c.restore();
   }
   if(ground>0) {
     c.save();c.globalAlpha*=ground;
@@ -1098,8 +1179,9 @@ function drawWorld(c,state) {
   brewScene(c,state);
   if(state.flightLift>.001)broomWitch(c,state);
   reachingHand(c,state);
+  ingredientObjects(c,state,true);
   if(ground>0) {
-    c.save();c.globalAlpha*=ground;ingredientObjects(c,state,true);hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
+    c.save();c.globalAlpha*=ground;hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
   spellDie(c,state);
 }
@@ -1145,8 +1227,59 @@ export function renderWitch(ctx, width, height, state = {}) {
   ctx.restore();
 }
 
+function insideOutline(x,y,outline,padding=0) {
+  let inside=false;
+  for(let i=0,j=outline.length-1;i<outline.length;j=i++) {
+    const [ax,ay]=outline[i],[bx,by]=outline[j];
+    if((ay>y)!==(by>y)&&x<(bx-ax)*(y-ay)/(by-ay)+ax)inside=!inside;
+    if(padding) {
+      const dx=bx-ax,dy=by-ay,u=clamp(((x-ax)*dx+(y-ay)*dy)/Math.max(.01,dx*dx+dy*dy));
+      if(Math.hypot(x-ax-dx*u,y-ay-dy*u)<padding)return true;
+    }
+  }
+  return inside;
+}
+function unprojectWitchPoint(x,y,t) {
+  const dx=(x-t.x)/t.scale,dy=(y-t.y)/t.scale,cos=Math.cos(t.rotation),sin=Math.sin(t.rotation);
+  return {x:dx*cos+dy*sin,y:-dx*sin+dy*cos};
+}
+/** Solid foreground anatomy must not expose the fabric behind its silhouette.
+ * Control hits run first; untouched clothes and boots still steer the flight. */
+function witchBodyOccludes(x,y,state) {
+  const lift=clamp(state.flightLift);
+  const head=unprojectWitchPoint(x,y,headTransform(state));
+  if(insideOutline(head.x,head.y,[[-35,-30],[-10,-50],[33,-34],[43,2],[60,33],[61,65],[60,87],[68,105],[50,120],[37,139],[18,145],[-8,113],[-37,84],[-45,18]],4)||
+    insideOutline(head.x,head.y,[[-28,88],[11,91],[31,153],[-9,166],[-42,126]],3))return true;
+  if(lift>.01) {
+    const p=unprojectWitchPoint(x,y,broomTransform(state));
+    if(insideOutline(p.x,p.y,FLYING_ROBE_OUTLINE,4)||FLYING_LEGS.some(leg=>insideOutline(p.x,p.y,leg.outline,4)))return true;
+  }
+  if(lift<.85&&insideOutline(x,y,[[398,360],[360,372],[328,413],[310,460],[285,531],[272,605],[321,619],[379,617],[445,599],[481,461],[478,420],[454,382],[427,361]],4))return true;
+  const {shoulder,elbow,width}=getWitchSpellArm(state);
+  const dx=elbow.x-shoulder.x,dy=elbow.y-shoulder.y,u=clamp(((x-shoulder.x)*dx+(y-shoulder.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+  if(Math.hypot(x-shoulder.x-dx*u,y-shoulder.y-dy*u)<width*(1+u*.25)+3)return true;
+  // The ladle sleeve is a curved, broad ribbon behind her face.
+  const hand=handTransform(state,1),flyShoulder=broomPoint({x:-2,y:2},state);
+  const start={x:437*(1-lift)+flyShoulder.x*lift,y:408*(1-lift)+flyShoulder.y*lift};
+  const middle={x:(start.x+hand.wrist.x)/2,y:(start.y+hand.wrist.y)/2+34*(1-lift)+15.6*lift};
+  for(let i=0;i<=16;i++) {
+    const t=i/16,v=1-t,cx=v*v*start.x+2*v*t*middle.x+t*t*hand.wrist.x,cy=v*v*start.y+2*v*t*middle.y+t*t*hand.wrist.y;
+    if(Math.hypot(x-cx,y-cy)<(19*(1-lift)+11.7*lift)*(1-t)+42*hand.scale*t+3)return true;
+  }
+  for(let index=0;index<2;index++) {
+    const t=handTransform(state,index),tips=getFingerTips(state,index);
+    if(!tips.length)continue;
+    if(Math.hypot(x-t.palm.x,y-t.palm.y)<Math.max(11,t.scale*48))return true;
+    for(const tip of tips) {
+      const dx=tip.x-t.palm.x,dy=tip.y-t.palm.y,u=clamp(((x-t.palm.x)*dx+(y-t.palm.y)*dy)/Math.max(.01,dx*dx+dy*dy));
+      if(Math.hypot(x-t.palm.x-dx*u,y-t.palm.y-dy*u)<Math.max(5,t.scale*17))return true;
+    }
+  }
+  return false;
+}
+
 /** Input remains attached to the visible world through extension and ripples. */
-export function hitTestWitch(x, y, state = {}) {
+export function hitTestWitch(x, y, state = {}, prepared = null) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
   // The die stays in front of the walking visitors and the flight noodles.
@@ -1159,13 +1292,14 @@ export function hitTestWitch(x, y, state = {}) {
   const minRadius=Math.max(46,state.hitRadius||0);
   let nearestObject=null,objectDistance=Infinity,objectRadius=0;
   for(const [index,home] of (grounded?WITCH_LAYOUT.objects:[]).entries()) {
+    if(home.location==='web')continue;
     const object=getWitchObjectPosition(state.objects?.find(entry=>entry.id===home.id)||home,state);
     const distance=Math.hypot(x-object.x,y-object.y);
     if(!object.dropped&&distance<Math.max(home.r+8,minRadius)&&distance<objectDistance) {
       nearestObject={type:'object',id:home.id,kind:home.kind,index};objectDistance=distance;objectRadius=home.r+8;
     }
   }
-  const targets=getWitchTargets(state);
+  const targets=prepared?.targets||getWitchTargets(state);
   if(state.handReach>.65) {
     let nearest=null,distance=minRadius;
     for(const tip of getFingerTips(state)) {
@@ -1192,7 +1326,7 @@ export function hitTestWitch(x, y, state = {}) {
   }
   // Foreground silk and the spider remain playable over the moon and branches.
   if(grounded) {
-    if(Math.hypot(x-targets.spider.x,y-targets.spider.y)<Math.max(targets.spider.r,minRadius*.55))return {type:'spider'};
+    if(!state.spiderCaptured&&Math.hypot(x-targets.spider.x,y-targets.spider.y)<Math.max(targets.spider.r,minRadius*.55))return {type:'spider'};
     const web=getWitchWeb(),{left,right,top,bottom}=web.bounds;
     if(x>left-12&&x<right+12&&y>top-12&&y<bottom+12) {
       for(const strand of web.strands)for(let i=1;i<strand.length;i++) {
@@ -1240,21 +1374,16 @@ export function hitTestWitch(x, y, state = {}) {
   // their full gesture surfaces available throughout flight.
   const pot=WITCH_LAYOUT.cauldron;
   if(((x-pot.x)/(pot.rx+30))**2+((y-pot.y)/(pot.ry+33))**2<1) return {type:'stir'};
+  if(insideOutline(x,y,[[412,520],[416,570],[439,615],[477,643],[530,658],[595,662],[674,656],[734,632],[769,590],[788,540],[788,520]],4))return {type:'stir'};
+  if(insideOutline(x,y,[[454,679],[475,650],[722,650],[743,685],[732,704],[469,700]],4))return {type:'stir'};
+  if(clamp(state.flightLift)>.05&&witchBodyOccludes(x,y,state))return {type:'flight'};
   if(clamp(state.flightLift)>.05) {
-    for(const {points:trail} of getWitchTrails(state))for(let i=1;i<trail.length;i++) {
+    for(const {points:trail} of prepared?.trails||getWitchTrails(state))for(let i=1;i<trail.length;i++) {
       const a=trail[i-1],b=trail[i],dx=b.x-a.x,dy=b.y-a.y,along=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
       if(Math.hypot(x-a.x-dx*along,y-a.y-dy*along)<Math.max(12,minRadius*.35))return {type:'trail'};
     }
   }
-  if(clamp(state.flightLift)>.05) {
-    const fabric=getWitchFabric(state);
-    if(Math.hypot(x-fabric.target.x,y-fabric.target.y)<Math.max(fabric.target.r,minRadius*.45))return {type:'fabric'};
-    for(const {points} of fabric.strands)for(let i=1;i<points.length;i++) {
-      const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
-      if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<8)return {type:'fabric'};
-    }
-  }
-  if(!grounded)return {type:'flight'};
+  if(!grounded)return {type:'fabric'};
   for(const segment of getWitchTree(state).segments) {
     const {a,b}=segment,dx=b.x-a.x,dy=b.y-a.y,u=clamp(((x-a.x)*dx+(y-a.y)*dy)/Math.max(.01,dx*dx+dy*dy));
     if(Math.hypot(x-a.x-dx*u,y-a.y-dy*u)<12)return {type:'tree'};
@@ -1272,6 +1401,12 @@ export function hitTestWitch(x, y, state = {}) {
   }
   for(const spirit of WITCH_LAYOUT.spirits) if(Math.hypot(x-spirit.x,y-spirit.y)<Math.max(spirit.r,minRadius*.7))return {type:spirit.kind};
   if(nearestObject)return nearestObject;
+  // The mesh fills the sky, including the open space between its threads.
+  // It stays behind every visible control and the cupboard during takeoff.
+  if(clamp(state.flightLift)>.05) {
+    if(WITCH_LAYOUT.shelves.some(s=>x>s.x-4&&x<s.x+s.w+4&&y>s.y-2&&y<s.y+s.h+12))return null;
+    return {type:'fabric'};
+  }
   if(state.scene==='flight') return {type:'flight'};
   if(Math.hypot(x-ladle.hx,y-ladle.hy)<Math.max(35,minRadius*.8)) return {type:'spoon'};
   return null;

@@ -14,7 +14,8 @@ async function open(page) {
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
 const shelfIds=['glass','hyper-rubix','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
 const treeIds=['blech','syrinx','eyeball'];
-const ingredientIds=[...shelfIds,...treeIds];
+const topIds=['quadruped','monstroid','candy-coil'];
+const ingredientIds=[...shelfIds,...treeIds,...topIds,'spider'];
 const ghostIds=['creaturazoid','monstroid','hiccup'];
 async function selectScene(page,scene) {
   if((scene==='fingers'&&!(await state(page)).world.handOpen)||(scene!=='fingers'&&(await state(page)).config.scene!==scene)) {
@@ -109,7 +110,7 @@ async function clickWorld(page,key,{touch=false,index=0}={}) {
   await page.locator('#witchCanvas').scrollIntoViewIfNeeded();
   const session=await page.context().newCDPSession(page);
   const snapshot=await inputSnapshot(session,async({key,index})=>{
-    const {WITCH_LAYOUT,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    const {WITCH_LAYOUT,hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const mushroom=WITCH_LAYOUT.mushrooms[0];
     let target=key==='moon'?WITCH_LAYOUT.moon:key==='mushrooms'?{x:mushroom.x+34*mushroom.scale,y:mushroom.y+5*mushroom.scale}
@@ -122,9 +123,19 @@ async function clickWorld(page,key,{touch=false,index=0}={}) {
     };
     const visual={...current.config,eyeShock:current.eyeShock,
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
-    const targets=key==='tree'?[target,...current.tree.segments.map(segment=>({x:(segment.a.x+segment.b.x)/2,y:(segment.a.y+segment.b.y)/2})).filter(p=>p.x>810&&p.y>390&&p.y<610).toSorted((a,b)=>Math.hypot(a.x-855,a.y-510)-Math.hypot(b.x-855,b.y-510)).slice(0,60)]:[target];
+    let targets=[target];
+    if(key==='tree') {
+      const canvas=document.querySelector('#witchCanvas'),scale=Math.min(rect.width/1000,rect.height/720),seen=new Set();
+      const hitState={...visual,...current.world,time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects,spiderCaptured:current.spiderCaptured};
+      targets=[target,...current.tree.segments.flatMap(({a,b})=>[.25,.5,.75].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})))].filter(p=>{
+        const cell=`${Math.round(p.x/8)},${Math.round(p.y/8)}`;if(seen.has(cell))return false;seen.add(cell);
+        const q=warpWitchPoint(p,visual),x=rect.x+(rect.width-1000*scale)/2+q.x*scale,y=rect.y+(rect.height-720*scale)/2+q.y*scale;
+        return document.elementFromPoint(x,y)===canvas&&hitTestWitch(q.x,q.y,hitState)?.type==='tree';
+      }).slice(0,80);
+    }
     return {targets:targets.map(point=>warpWitchPoint(point,visual)),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
   },{key,index});
+  expect(snapshot.targets.length,`${key} has an exposed native target`).toBeGreaterThan(0);
   let from=stagePoint(snapshot.rect,snapshot.targets[0].x,snapshot.targets[0].y);
   if(key==='tree') {
     let exposed=false;
@@ -364,22 +375,57 @@ async function assertFrozen(page) {
   expect(clocks(await state(page))).toEqual(clocks(before));
   return before;
 }
-async function dragWorld(page,key,dx,dy,{cancel=false}={}) {
+async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
   const session=await page.context().newCDPSession(page);
-  const snapshot=await inputSnapshot(session,async({key,dx,dy})=>{
-    const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
-    const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-    const raw=key==='spoon'?{x:current.ladle.gx,y:current.ladle.gy}:current.targets[key];
-    const visual={...current.config,eyeShock:current.eyeShock,warpTime:current.warpTime,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches};
-    return {from:warpWitchPoint(raw,visual),to:warpWitchPoint({x:raw.x+dx,y:raw.y+dy},visual),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
-  },{key,dx,dy});
-  const from=stagePoint(snapshot.rect,snapshot.from.x,snapshot.from.y),to=stagePoint(snapshot.rect,snapshot.to.x,snapshot.to.y);
+  const snapshot=await inputSnapshot(session,async({key,dx,dy,turns})=>{
+    const {hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
+    const current=window.witchInstrument.state,canvas=document.querySelector('#witchCanvas'),rect=canvas.getBoundingClientRect();
+    const visual={...current.config,...current.world,...current.fabricGesture.visual,...current.fabricGesture.audio,
+      performanceTime:current.performanceTime,time:current.visualTime,warpTime:current.warpTime,handTime:current.handTime,trailStrands:current.trailGesture?.active?current.trailGesture.strands:undefined,
+      flightPhase:current.flightPhase,spoonHeight:current.spoonHeight,objects:current.objects,capturedAnimals:current.capturedAnimals,
+      spiderCaptured:current.spiderCaptured,eyeShock:current.eyeShock,phase:Math.atan2((current.ladle.ly-520)/.27,current.ladle.lx-600),
+      reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches};
+    let candidates=[key==='spoon'?{x:current.ladle.gx,y:current.ladle.gy}:current.targets[key]];
+    if(key==='fabric') {
+      // Find exposed cloth across the whole background, below the controls
+      // and noodles. The live native hover also checks the rendered hand mesh.
+      candidates=[];const scale=Math.min(rect.width/1000,rect.height/720);
+      for(let y=100;y<=620;y+=80)for(let x=80;x<=920;x+=80) {
+        if(x+dx<25||x+dx>975||y+dy<25||y+dy>695)continue;
+        const p=warpWitchPoint({x,y},visual);
+        const clientX=rect.x+(rect.width-1000*scale)/2+p.x*scale,clientY=rect.y+(rect.height-720*scale)/2+p.y*scale;
+        if(hitTestWitch(p.x,p.y,visual)?.type==='fabric'&&document.elementFromPoint(clientX,clientY)===canvas)candidates.push({x,y});
+      }
+    }
+    return {candidates:candidates.map(raw=>({from:warpWitchPoint(raw,visual),to:warpWitchPoint({x:raw.x+dx,y:raw.y+dy},visual),
+      orbit:Array.from({length:24*turns},(_,i)=>{
+        const angle=Math.atan2(dy,dx)+(i+1)/24*Math.PI*2,radius=Math.hypot(dx,dy);
+        return warpWitchPoint({x:raw.x+Math.cos(angle)*radius,y:raw.y+Math.sin(angle)*radius},visual);
+      })})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+  },{key,dx,dy,turns});
+  let target=snapshot.candidates[0];
+  if(key==='fabric') {
+    target=null;
+    for(const candidate of snapshot.candidates) {
+      const from=stagePoint(snapshot.rect,candidate.from.x,candidate.from.y);
+      await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...from});
+      const title=await inputSnapshot(session,()=>document.querySelector('#witchCanvas').title);
+      if(title.startsWith('Grab the cloth')){target=candidate;break;}
+    }
+    expect(target,'an exposed point on the full flight fabric remains draggable').toBeTruthy();
+  }
+  const from=stagePoint(snapshot.rect,target.from.x,target.from.y),to=stagePoint(snapshot.rect,target.to.x,target.to.y);
   await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+  const grabbed=key==='fabric'?await inputSnapshot(session,()=>window.witchInstrument.state.fabricGesture)
+    :key==='spoon'?await inputSnapshot(session,()=>({spoonHeight:window.witchInstrument.state.config.spoonHeight})):null;
   for(let step=1;step<=5;step++)await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5,button:'left',buttons:1});
-  const held=await state(page);
+  for(const p of target.orbit)await session.send('Input.dispatchMouseEvent',{type:'mouseMoved',...stagePoint(snapshot.rect,p.x,p.y),button:'left',buttons:1});
+  const moved=await state(page);
+  if(holdMs)await page.waitForTimeout(holdMs);
+  const held=holdMs?await state(page):moved;
   if(cancel)await page.locator('#witchCanvas').dispatchEvent('pointercancel',{pointerId:1});
   await session.send('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',buttons:0,clickCount:1});
-  await session.detach();return {from,to,held};
+  await session.detach();return {from,to,grabbed,moved,held};
 }
 async function audible(page) {
   await expect.poll(()=>page.evaluate(()=>Boolean(window.witchVisual?.brewLevel>.0001&&window.witchVisual?.handLevel>.0001))).toBe(true);
@@ -407,6 +453,11 @@ test('loads quiet and frozen with two model hands, real ingredients and no param
   });
   expect(icons.every(icon=>icon.loaded&&icon.instrumentId&&/^assets\/instruments\/.+\.webp$/.test(icon.imageHref))).toBe(true);
   expect(icons.filter(icon=>icon.location==='shelf')).toHaveLength(18);expect(icons.filter(icon=>icon.location==='tree')).toHaveLength(3);
+  expect(icons.filter(icon=>icon.location==='cupboard-top').map(icon=>icon.id)).toEqual(topIds);
+  expect(icons.filter(icon=>icon.location==='web').map(icon=>icon.id)).toEqual(['spider']);
+  expect(initial.objects.filter(object=>object.location==='cupboard-top').map(object=>object.id)).toEqual(topIds);
+  expect(initial.objects.filter(object=>object.location==='web').map(object=>object.id)).toEqual(['spider']);
+  expect(initial.spiderCaptured).toBe(false);
   const rows=Object.groupBy(initial.objects.filter(object=>object.location==='shelf'),object=>object.y);
   expect(Object.values(rows).map(row=>row.length)).toEqual([3,3,3,3,3,3]);
 });
@@ -470,7 +521,7 @@ test('the floor D20, header dice and D randomize complete settings without chang
       else if(action==='header')await page.locator('.header-preset-random').click();
       else await key(page,'d');
       const current=await state(page);
-      for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
+      for(const field of ['handRate','handDepth','spellBalance','catSpeed','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','ghostTempo','speed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight'])expect(current.config[field],field).not.toBe(before.config[field]);
       expect(current.config.fingers).not.toEqual(before.config.fingers);
       expect(spells.some(spell=>JSON.stringify(settings(spell.snapshot))===JSON.stringify(settings(current.config)))).toBe(false);
       expect(current).toMatchObject({playing:true,audioOn:true,config:{scene}});
@@ -522,7 +573,8 @@ test('the ladle, fingers, nose and burned hat are native controls with clean can
   const initial=await state(page);await dragWorld(page,'nose',55,0);expect((await state(page)).config.nose).toBeGreaterThan(initial.config.nose+.2);
   const beforeHat=await state(page),hatPull=await dragWorld(page,'hat',40,-50);expect((await state(page)).config.hat).toBeGreaterThan(beforeHat.config.hat);
   expect(Math.abs(hatPull.held.world.hatPullX)).toBeGreaterThan(5);
-  const beforeSpoon=await state(page);await dragWorld(page,'spoon',0,-55);expect((await state(page)).config.spoonHeight).toBeGreaterThan(beforeSpoon.spoonHeight+.15);
+  const beforeSpoon=await state(page),spoonDy=beforeSpoon.spoonHeight>.5?55:-55,spoon=await dragWorld(page,'spoon',0,spoonDy);
+  expect((await state(page)).config.spoonHeight).toBeCloseTo(Math.max(0,Math.min(1,spoon.grabbed.spoonHeight-spoonDy/180)),5);
   const tip=(await state(page)).hands[0].tips[2],from=await point(page,tip.x,tip.y),fingerBefore=(await state(page)).config.fingers[2];
   await page.mouse.move(from.x,from.y);await page.mouse.down();expect((await state(page)).manualFingerMask&4).toBe(4);
   await page.mouse.move(from.x+45,from.y+40,{steps:5});await page.mouse.up();
@@ -540,15 +592,24 @@ test('the ladle, fingers, nose and burned hat are native controls with clean can
 });
 
 test('mouth, tree, spider, web, eyes and ghost gestures play over the running ensemble',async({page})=>{
+  test.setTimeout(60000);
   await observeWorklet(page);await open(page);await wake(page);
   const voices=await page.evaluate(async()=>(await import('/src/instruments/witch/witch-model.js')).WITCH_VOICES);
-  await clickWorld(page,'mouth');const seen=new Set();
+  await clickWorld(page,'mouth');
+  await expect.poll(async()=>{const current=await state(page);return !current.config.spoonAuto&&current.activeVoice===current.config.voice;}).toBe(true);
+  const seen=new Set();
   for(let i=0;i<voices.length;i++) {const before=(await state(page)).activeVoice;await clickWorld(page,'mouth');await expect.poll(async()=>(await state(page)).activeVoice).toBe(voices[(voices.indexOf(before)+1)%voices.length]);seen.add((await state(page)).activeVoice);}
   expect([...seen].sort()).toEqual([...voices].sort());expect((await state(page)).config.spoonAuto).toBe(false);
   const treeBefore=(await state(page)).config.treeShape;await clickWorld(page,'tree');expect((await state(page)).config.treeShape).toBe((treeBefore+1)%6);
   await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('tree-l-system'))).toBe(true);
   await expect.poll(async()=>(await state(page)).treeLevel).toBeGreaterThan(.0001);
-  await clickWorld(page,'spider');await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('spider-groan'))).toBe(true);
+  await clickWorld(page,'spider');
+  const spiderTriggers=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>['spider-groan','drop-spider'].includes(kind)));
+  await expect.poll(spiderTriggers).toEqual(['spider-groan','drop-spider']);
+  expect((await state(page)).spiderCaptured).toBe(true);expect((await state(page)).objects.find(object=>object.id==='spider').dropped).toBe(true);
+  await key(page,'s');expect(await spiderTriggers()).toEqual(['spider-groan','drop-spider']);
+  await preset(page,'small-spell');expect((await state(page)).spiderCaptured).toBe(false);
+  expect((await state(page)).objects.find(object=>object.id==='spider').dropped).toBe(false);
   for(let index=0;index<7;index++){await clickWorld(page,'web',{index});await expect.poll(()=>page.evaluate(index=>window.witchTriggers.includes(`web-${index}`),index)).toBe(true);}
   const beforeGhost=await state(page);expect(beforeGhost.ghosts.map(ghost=>ghost.id)).toEqual(ghostIds);
   await dragGhost(page,'creaturazoid',-35);expect((await state(page)).config.ghostTempo).toBeGreaterThan(beforeGhost.config.ghostTempo+20);
@@ -565,14 +626,44 @@ test('broom and moon alone toggle flight while the fabric and hair noodles bend 
   await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
   expect((await state(page)).config.scene).toBe('flight');
   const flying=await state(page);expectHairInScene(flying);
-  for(const [targetName,xKey,yKey] of [['fabric','fabricX','fabricY'],['trail','trailPull','trailTwist']]) {
-    const before=await state(page);const {to}=await dragWorld(page,targetName,35,-32,{cancel:true});
-    const pulled=await state(page);expect(pulled.config[xKey]).toBeGreaterThan(before.config[xKey]);expect(pulled.config[yKey]).toBeGreaterThan(before.config[yKey]);
-    await page.mouse.move(to.x+30,to.y-30);expect((await state(page)).config[xKey]).toBe(pulled.config[xKey]);expect((await state(page)).config[yKey]).toBe(pulled.config[yKey]);
-  }
+  const fabric=await dragWorld(page,'fabric',100,-65,{holdMs:120});
+  expect(fabric.grabbed.held).toBe(true);
+  const anchor={fabricGrabX:fabric.grabbed.visual.fabricGrabX,fabricGrabY:fabric.grabbed.visual.fabricGrabY};
+  expect(fabric.held.fabricGesture).toMatchObject({held:true,visual:anchor});
+  for(const field of ['fabricPullX','fabricPullY'])expect(fabric.held.fabricGesture.visual[field]).toBe(fabric.moved.fabricGesture.visual[field]);
+  expect(fabric.held.fabricGesture.visual.fabricPullX).toBeCloseTo(100,1);expect(fabric.held.fabricGesture.visual.fabricPullY).toBeCloseTo(-65,1);
+  expect(fabric.held.config.fabricX).toBeCloseTo(anchor.fabricGrabX+.1,3);
+  expect(fabric.held.config.fabricY).toBeCloseTo(1-anchor.fabricGrabY+65/720,3);
+  expect(fabric.held.fabricGesture.audio.fabricPull).toBeGreaterThan(fabric.grabbed.audio.fabricPull);
+  await expect.poll(async()=>{
+    const current=(await state(page)).fabricGesture,v=current.visual,held=fabric.held.fabricGesture.visual;
+    return !current.held&&Math.hypot(v.fabricPullX-held.fabricPullX,v.fabricPullY-held.fabricPullY)>1&&
+      Math.hypot(v.fabricVelocityX,v.fabricVelocityY)>0&&current.audio.fabricPull+current.audio.fabricVelocity>0;
+  }).toBe(true);
+  const cancelled=await dragWorld(page,'fabric',70,-40,{cancel:true});
+  const still={held:false,visual:{fabricPullX:0,fabricPullY:0,fabricVelocityX:0,fabricVelocityY:0},audio:{fabricPull:0,fabricVelocity:0}};
+  expect((await state(page)).fabricGesture).toMatchObject(still);
+  await page.mouse.move(cancelled.to.x+30,cancelled.to.y-30);expect((await state(page)).fabricGesture).toMatchObject(still);
+  const beforeTrail=await state(page),trail=await dragWorld(page,'trail',35,-32,{turns:1}),pulled=await state(page);
+  const rope=trail.held.trailGesture,grab=rope.grab,points=rope.strands.find(strand=>strand.index===grab.index).points;
+  expect(rope.held).toBe(true);
+  for(const axis of ['x','y'])expect(points[grab.segment][axis]*(1-grab.fraction)+points[grab.segment+1][axis]*grab.fraction).toBeCloseTo(rope.point[axis]+grab.offset[axis],3);
+  expect(pulled.trailGesture).toMatchObject({held:false,active:true});
+  await expect.poll(async()=>{
+    const current=(await state(page)).trailGesture.strands.find(strand=>strand.index===grab.index)?.points;
+    return current?Math.hypot(current[grab.segment].x-points[grab.segment].x,current[grab.segment].y-points[grab.segment].y):0;
+  }).toBeGreaterThan(1);
+  expect(pulled.config.trailPull).toBeGreaterThan(beforeTrail.config.trailPull);expect(pulled.config.trailTwist).toBeGreaterThan(beforeTrail.config.trailTwist);
+  expect(pulled.config.trailFeedback).toBeGreaterThan(beforeTrail.config.trailFeedback+.3);
+  expect(Math.abs(pulled.config.trailSpace-beforeTrail.config.trailSpace)).toBeGreaterThan(.01);
+  await page.mouse.move(trail.to.x+30,trail.to.y-30);
+  for(const field of ['trailPull','trailTwist','trailFeedback','trailSpace'])expect((await state(page)).config[field]).toBe(pulled.config[field]);
   await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('fabric-wind'))).toBe(true);
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.delayWet??0)).toBeGreaterThan(.1);await audible(page);
   expect((await state(page)).catTargets).toBeNull();expect((await state(page)).visitorTargets).toEqual({});
+  await dragWorld(page,'fabric',100,-65,{holdMs:120});
+  expect((await state(page)).fabricGesture.audio.fabricPull).toBeGreaterThan(0);
+  await page.locator('#resetButton').click();expect(await state(page)).toMatchObject({quiet:true,config:{scene:'flight'},fabricGesture:still,trailGesture:{held:false,active:false,strands:[]}});
   await clickWorld(page,'moon');await expect.poll(async()=>(await state(page)).world.flightLift).toBe(0);
   expect((await state(page)).config.scene).toBe('brew');
 });
@@ -611,32 +702,40 @@ test('a tree phrase stays perched before its dive, and hush freezes the pending 
 
 test('real visitor routes and native captures work while a slow Audio startup catches up',async({page})=>{
   await observeWorklet(page);await page.clock.install();
-  let releaseModule;const moduleReady=new Promise(resolve=>{releaseModule=resolve;});
-  await page.route('**/witch-worklet.js',async route=>{await moduleReady;await route.continue();});
+  // Chromium's worklet fetch can bypass page routing. Hold the actual module
+  // promise so the native fallback clock is deterministically under test.
+  await page.addInitScript(()=>{
+    const addModule=AudioWorklet.prototype.addModule;
+    const ready=new Promise(resolve=>{window.releaseWitchModule=resolve;});
+    AudioWorklet.prototype.addModule=function(url,...args){
+      return String(url).includes('/witch-worklet.js')?ready.then(()=>addModule.call(this,url,...args)):addModule.call(this,url,...args);
+    };
+  });
   try {
     await open(page);const p=await point(page,24,704);await page.mouse.click(p.x,p.y);
     await expect.poll(async()=>(await state(page)).starting).toBe(true);
-    const advanceTo=async seconds=>{const elapsed=(await state(page)).performanceTime;await page.clock.fastForward(Math.max(1,(seconds-elapsed)*1000));};
+    const advanceBy=async milliseconds=>{await page.clock.fastForward(milliseconds);await page.clock.runFor(80);};
+    const advanceTo=async seconds=>{const elapsed=(await state(page)).performanceTime;await advanceBy(Math.max(1,(seconds-elapsed)*1000));expect((await state(page)).performanceTime).toBeGreaterThanOrEqual(seconds);};
     await advanceTo(19.5);
     const mouse=(await state(page)).visitors.find(visitor=>visitor.id==='mouse');
     expect(mouse).toMatchObject({source:'quadruped',behaviorId:'walk',visible:true,rotation:Math.PI/2});expect(mouse.x).toBe(10);
     await clickAnimal(page,'mouse',{touch:true});expect((await state(page)).visitorTargets.mouse).toBeUndefined();
-    await page.clock.fastForward(1100);expect((await state(page)).visitors.find(visitor=>visitor.id==='mouse').captureProgress).toBe(1);
+    await advanceBy(1100);expect((await state(page)).visitors.find(visitor=>visitor.id==='mouse').captureProgress).toBe(1);
     await advanceTo(32);
     expect((await state(page)).cat).toMatchObject({source:'quadruped',animalId:'cat',active:true});
     await clickAnimal(page,'cat',{part:'head'});expect((await state(page)).catTargets).toBeNull();
-    await page.clock.fastForward(1100);expect((await state(page)).cat.captureProgress).toBe(1);
+    await advanceBy(1100);expect((await state(page)).cat.captureProgress).toBe(1);
     await advanceTo(47);
     const lizard=(await state(page)).visitors.find(visitor=>visitor.id==='lizard');
     expect(lizard).toMatchObject({source:'quadruped',behaviorId:'lizard-scuttle',visible:true,rotation:Math.PI,y:14});
-    await clickAnimal(page,'lizard');await page.clock.fastForward(1100);
+    await clickAnimal(page,'lizard');await advanceBy(1100);
     expect((await state(page)).visitors.find(visitor=>visitor.id==='lizard').captureProgress).toBe(1);
     const captured=(await state(page)).capturedAnimals;expect(Object.keys(captured).sort()).toEqual(['cat','lizard','mouse']);
     await key(page,'c');await key(page,'n');await key(page,'l');expect((await state(page)).capturedAnimals).toEqual(captured);
-    releaseModule();await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
+    await page.evaluate(()=>window.releaseWitchModule());await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
     await expect.poll(()=>page.evaluate(()=>window.witchTriggers.filter(kind=>['drop-cat','drop-mouse','drop-lizard'].includes(kind)))).toEqual(['drop-mouse','drop-cat','drop-lizard']);
     await page.locator('#resetButton').click();expect(await state(page)).toMatchObject({playing:false,quiet:true,performanceTime:0,capturedAnimals:{}});
-  } finally {releaseModule();}
+  } finally {await page.evaluate(()=>window.releaseWitchModule?.());}
 });
 
 test('Space, reset and page lifecycle release gestures without losing the chosen flight mode',async({page})=>{

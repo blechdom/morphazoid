@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { witchBiteClips, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
 import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE } from '../src/instruments/witch/witch-scene-model.js';
+import { parseBlackMidiScore } from '../src/instruments/blech-midi/blech-midi-black-score.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 const difference = (a, b) => rms(a.map((value, i) => value - b[i]));
@@ -26,6 +28,12 @@ test('BLECH flybys share a sparse icon and native-phrase clock with two bounded 
   assert.ok(Math.abs(first.x - repeated.x) < 1e-9); assert.notEqual(first.id, repeated.id);
   const flyby = new WitchBlechFlyby(8000), pool = flyby.slots.slice(), controls = { mode: 'flight', ghostGate: true };
   assert.equal(flyby.clip, witchBiteClips()['drop-blech'], 'the actual BLECH phrase is shared, not synthesized again');
+  const midi = readFileSync(new URL('../assets/midiphoria/midi/black-lattice.mid', import.meta.url));
+  const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
+  let attacks = 0;
+  for (let i = 0; i < score.total; i++) if (score.ends[i] > 32 && score.starts[i] < 36.5) attacks++;
+  assert.equal(flyby.clip.events, attacks, 'every event in the actual BLACK MIDI excerpt is retained');
+  assert.ok(attacks > 1000); assert.match(WITCH_BITE_CLIPS['drop-blech'].source, /black-lattice\.mid.*native SpessaSynth/);
   let energy = 0, peak = 0, pairs = 0;
   for (let i = 0; i < 8000 * 27; i++) {
     flyby.next(controls, true); energy += flyby.left ** 2 + flyby.right ** 2;
@@ -64,19 +72,22 @@ test('BLECH flight sound follows the sample clock without potion solos, muted ba
 
 test('baked native instrument phrases form a bounded, shared source bank with distinct audible bites', () => {
   const clips = witchBiteClips(); assert.equal(witchBiteClips(), clips);
-  assert.deepEqual(Object.keys(clips), Object.keys(WITCH_BITE_CLIPS));
+  assert.deepEqual(Object.keys(clips), [...Object.keys(WITCH_BITE_CLIPS), 'drop-quadruped']);
+  assert.equal(clips['drop-quadruped'], clips['drop-cat'], 'the second Quadruped gesture shares PCM storage');
   let bytes = 0;
-  const signals = [];
+  const signals = [], unique = new Set();
   for (const [kind, clip] of Object.entries(clips)) {
-    bytes += clip.data.byteLength;
+    if (!unique.has(clip)) bytes += clip.data.byteLength;
     assert.equal(clip.frames, clip.data.length); assert.equal(clip.rate, 22050);
     assert.ok(clip.data.every(value => Number.isFinite(value) && Math.abs(value) <= .65001));
     assert.equal(clip.data[0], 0); assert.equal(clip.data.at(-1), 0);
     assert.ok(rms(clip.data) > .04, `${kind}: authored dynamics retain usable source level`);
     const dsp = playing({ gate: false }); assert.equal(dsp.trigger(kind === 'roach-wings' ? 'drop-roach' : kind), true);
-    const signal = render(dsp, .8); assert.ok(rms(signal) > .006, kind); signals.push(signal);
+    const signal = render(dsp, .8); assert.ok(rms(signal) > .006, kind);
+    if (!unique.has(clip)) signals.push(signal);
+    unique.add(clip);
   }
-  assert.ok(bytes < 3_000_000, 'finite mono excerpts stay within three MB decoded');
+  assert.ok(bytes < 4_000_000, 'three new 2.4-second native excerpts fit a four MB decoded budget; the cat alias adds no bytes');
   for (let i = 0; i < signals.length; i++) for (let j = 0; j < i; j++) assert.ok(difference(signals[i], signals[j]) > .015);
 });
 
@@ -117,14 +128,31 @@ test('tree click plays the native L-System phrase through the scene mix with bou
   assert.equal(plain.chantPhase, filtered.chantPhase); assert.equal(plain.visual.handTime, filtered.visual.handTime);
 });
 
-test('Rubix and FM Drums race through reusable hit pools and Rattlesnake has a falling cascade', () => {
+test('Rubix plays its native fast 3D Acid bank, FM Drums retains its pool and Rattlesnake cascades', () => {
   const dsp = playing({ gate: false }); dsp.trigger('drop-rubix'); render(dsp, 2.4);
-  assert.equal(dsp.drops.slots.find(s => s.kind === 'drop-rubix').event, 32);
+  const rubix = witchBiteClips()['drop-rubix'];
+  assert.equal(dsp.drops.slots.find(s => s.kind === 'drop-rubix').clip, rubix);
+  assert.equal(rubix.instrumentId, 'rubix'); assert.ok(rubix.events > 100);
+  assert.match(WITCH_BITE_CLIPS['drop-rubix'].source, /native RubixSimd303Processor.*Acid bank/);
+  assert.ok(rms(rubix.data.subarray(rubix.rate, rubix.rate * 2)) > .04, 'the fast Acid phrase continues through the fall');
   dsp.trigger('drop-oculoid'); render(dsp, 2.4);
   assert.equal(dsp.drops.slots.find(s => s.kind === 'drop-oculoid').event, 27);
   const snake = witchBiteClips()['drop-marimba'];
   assert.equal(snake.instrumentId, 'linear-drums'); assert.equal(snake.events, 36);
   assert.ok(rms(snake.data.subarray(snake.rate, snake.rate * 1.9)) > .04, 'the cascade continues through the fall');
+});
+
+test('new cupboard Monstroid and Candy Coil tastes use native authored excerpts and release independently', () => {
+  for (const [kind, instrument, source] of [
+    ['drop-monstroid', 'monstroid', /native ColonySyrinxPressureProcessor/],
+    ['drop-candy-coil', 'candy-coil-delay', /native MorphazoidBarberDelayProcessor.*Frozen Bog/],
+  ]) {
+    const clip = witchBiteClips()[kind]; assert.equal(clip.instrumentId, instrument);
+    assert.match(WITCH_BITE_CLIPS[kind].source, source);
+    const dsp = playing({ gate: false }, 8000); assert.equal(dsp.trigger(kind), true);
+    const signal = render(dsp, 1); assert.ok(rms(signal) > .02);
+    dsp.releaseAccents(); render(dsp, 1); assert.ok(rms(render(dsp, .1)) < 1e-6);
+  }
 });
 
 test('every web strand plucks a distinct finite low string; groan and web remain bounded through spam, Stop and mute', () => {
@@ -256,6 +284,20 @@ test('flight Fabric filters the ensemble and adds a bounded wind puff while the 
     render(puff, .1); assert.equal(puff.fabricWind, voice, 'drag refreshes reuse one voice');
     cancel(puff); render(puff, .4);
     assert.ok(puff.visual.fabricWindEnvelope < 1e-6, 'Stop, Reset, landing and mute release the puff');
+  }
+});
+
+test('anchored fabric pull and release velocity each change the shared flight spectrum without seeking performers', () => {
+  for (const gesture of [{ fabricPull: .9 }, { fabricVelocity: 1 }]) {
+    const controls = { mode: 'flight', fabricX: .56, fabricY: .45, trailPull: .08, trailSpace: .25 };
+    const held = playing(controls, 8000), pulled = playing(controls, 8000);
+    render(held, .4); render(pulled, .4);
+    pulled.setControls(gesture);
+    const a = render(held, .6), b = render(pulled, .6);
+    assert.ok(difference(a, b) > .005, JSON.stringify(gesture));
+    assert.equal(held.chantPhase, pulled.chantPhase); assert.equal(held.visual.handTime, pulled.visual.handTime);
+    assert.equal(held.visual.flightPhase, pulled.visual.flightPhase);
+    assert.ok(b.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
   }
 });
 

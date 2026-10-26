@@ -334,17 +334,22 @@ test('flight controls change the shared stereo delay while both original perform
   const slow = playing({ mode: 'flight', speed: .05 }), fast = playing({ mode: 'flight', speed: .95 });
   // Longer flight delays take three seconds to reach their slewed targets.
   render(slow, 3); render(fast, 3);
-  assert.ok(fast.delay.feedback > slow.delay.feedback + .18);
-  assert.ok(slow.visual.delayTime > fast.visual.delayTime + .05);
+  assert.equal(fast.delay.feedback, slow.delay.feedback, 'stirring speed no longer changes echo regeneration');
+  assert.equal(slow.visual.delayTime, fast.visual.delayTime, 'noodle time is independent of stirring speed');
+  fast.setControls({ trailFeedback: 1, trailPull: .08 }); render(fast, 3); render(slow, 3);
+  assert.ok(fast.delay.feedback > slow.delay.feedback + .3);
+  assert.ok(slow.visual.delayTime > fast.visual.delayTime + .5);
   assert.ok(fast.visual.brewLevel > .001 && fast.visual.handLevel > .001);
   assert.ok(fast.visual.flightPulse >= 0 && fast.visual.flightPulse <= 1);
   const low = playing({ mode: 'flight', altitude: .05 }), high = playing({ mode: 'flight', altitude: .95 });
-  // The longer pulled string needs time for its bounded read-head slew.
-  assert.ok(difference(render(low, 3), render(high, 3)) > .01);
-  assert.ok(high.visual.delayTime > low.visual.delayTime + .3);
+  // Fill the older cloud before comparing the actual changed echoes.
+  render(low, 4); render(high, 4);
+  assert.ok(difference(render(low, 1), render(high, 1)) > .01);
+  assert.ok(high.visual.delayTime > low.visual.delayTime + .08);
   const left = playing({ mode: 'flight', flightX: 0 }), right = playing({ mode: 'flight', flightX: 1 });
-  assert.ok(difference(render(left, 3), render(right, 3)) > .005);
-  assert.ok(right.delay.delayR > left.delay.delayR * 1.4);
+  render(left, 4); render(right, 4);
+  assert.ok(difference(render(left, 1), render(right, 1)) > .005);
+  assert.ok(right.delay.delayR > left.delay.delayR * 1.3);
 });
 
 test('flight scenery produces bounded musical effects and releases with no vocal mouth', () => {
@@ -384,10 +389,14 @@ test('takeoff does not restart or automatically repeat over either ongoing perfo
   withLaunch.trigger('launch');
   assert.ok(difference(render(withLaunch, .6), render(musicOnly, .6)) > .02);
   render(withLaunch, WITCH_LAUNCH_DURATION); render(musicOnly, WITCH_LAUNCH_DURATION);
-  // The stronger, longer flight feedback deliberately keeps audible echoes
-  // longer; they still converge while the underlying performance continues.
-  render(withLaunch, 12); render(musicOnly, 12);
-  assert.ok(difference(render(withLaunch, 1), render(musicOnly, 1)) < .00001, 'the finite accent and echoes decay');
+  // A live Candy cloud keeps several seconds of history on each circulation.
+  // Verify audible early repeats and their subsequent decay while music runs;
+  // Stop's much shorter release is tested separately.
+  const earlyEcho = difference(render(withLaunch, 4), render(musicOnly, 4));
+  assert.ok(earlyEcho > .001, 'the launched phrase remains in the long history');
+  render(withLaunch, 26); render(musicOnly, 26);
+  const lateEcho = difference(render(withLaunch, 1), render(musicOnly, 1));
+  assert.ok(lateEcho < earlyEcho * .001 && lateEcho < .00001, 'live repeats decay without retriggering the accent');
   assert.equal(withLaunch.visual.launchEnvelope, 0); assert.ok(withLaunch.visual.mouth > 0, 'singing continues');
   assert.equal(withLaunch.visual.handTime, musicOnly.visual.handTime);
   assert.equal(withLaunch.chantPhase, musicOnly.chantPhase);
@@ -418,6 +427,9 @@ test('muting and Stop cancel takeoff without a stale phrase or echo on return', 
   stopped.setControls({ gate: false }); render(stopped, .07);
   assert.equal(stopped.visual.launchActive, false); assert.equal(stopped.visual.launchEnvelope, 0);
   render(stopped, 9); assert.ok(rms(render(stopped, .3)) < .000001);
+  assert.equal(stopped.trigger('launch'), true);
+  assert.ok(rms(render(stopped, .3)) > .015, 'a new explicit accent sounds after Stop');
+  assert.ok(stopped.delay.wet > .1, 'the new accent reopens the shared delay');
   const cauldron = playing(); assert.equal(cauldron.trigger('launch'), true);
 });
 
@@ -473,7 +485,12 @@ test('all ingredients add distinct softer bites while the continuing ensemble st
     assert.ok(dsp.visual.dropEnvelope < 1e-6); assert.equal(dsp.visual.dropKind, '');
     assert.ok(difference(render(dsp, .2), render(reference, .2)) < 1e-6, 'the original mix returns without restarting it');
   }
-  for (let i = 1; i < sounds.length; i++) for (let j = 0; j < i; j++) assert.ok(difference(sounds[j], sounds[i]) > .01, `${WITCH_DROP_EFFECTS[j]} / ${WITCH_DROP_EFFECTS[i]}`);
+  for (let i = 1; i < sounds.length; i++) for (let j = 0; j < i; j++) {
+    const a = WITCH_DROP_EFFECTS[j], b = WITCH_DROP_EFFECTS[i];
+    if ([a, b].includes('drop-quadruped') && [a, b].includes('drop-cat')) {
+      assert.deepEqual(sounds[j], sounds[i], 'the cupboard Quadruped intentionally shares the walking cat call');
+    } else assert.ok(difference(sounds[j], sounds[i]) > .01, `${a} / ${b}`);
+  }
 });
 
 test('all four layers coexist in flight; fixed solo slots and the complete mix release on Stop', () => {

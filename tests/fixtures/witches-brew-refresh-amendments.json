@@ -41,6 +41,18 @@
         {
           "before": "",
           "after": "copy+require\tdocs/witch-sound-bites.md\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-fabric-gesture.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tassets/witch/hiccup-head-bloody.webp\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-trail-gesture.js\n"
         }
       ]
     },

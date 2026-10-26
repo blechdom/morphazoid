@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WITCH_DEFAULTS, WITCH_PRESETS, WITCH_SETTING_PRESETS, normalizeWitchPreset, witchPresetSettings, randomizeWitchPreset, WITCH_PALETTES } from '../src/instruments/witch/witch-presets.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
-import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
+import { WITCH_VOICES, witchVoiceAtHeight, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_WEB_OBJECTS, WITCH_INGREDIENTS, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, WITCH_CAT_GAITS, witchHandConfig } from '../src/instruments/witch/witch-model.js';
 import { TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { existsSync } from 'node:fs';
 import { instrumentById } from '../src/site/instrument-catalog.js';
@@ -13,6 +13,7 @@ test('every complete Witch scene survives recall without bringing transport or o
     assert.deepEqual(normalizeWitchPreset(snapshot),snapshot);
     assert.equal('volume' in snapshot,false);assert.equal('gate' in snapshot,false);assert.equal('playing' in snapshot,false);
     assert.equal('ghostPhase' in snapshot,false);assert.equal('performanceTime' in snapshot,false);
+    assert.equal('fabricPull' in snapshot,false);assert.equal('fabricVelocity' in snapshot,false);
     assert.ok(snapshot.ghostTempo>=36&&snapshot.ghostTempo<=180);
     const recalled=normalizeWitchPreset(snapshot);recalled.fingers[0]=.123;
     assert.notEqual(recalled.fingers[0],snapshot.fingers[0]);
@@ -64,7 +65,7 @@ test('randomization preserves the chosen mode and reaches every character, direc
   assert.ok(scenes.filter(s=>s.visualMode===0).length>scenes.length*.5,'dice favor a steady picture');
   assert.ok(scenes.filter(s=>s.visualMode>=4).length<scenes.length*.25,'glitch scenes remain occasional');
   assert.equal(new Set(scenes.map(s=>s.treeShape)).size,6);
-  for(const key of ['speed','flightSpeed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','spellBalance']) {
+  for(const key of ['speed','flightSpeed','radius','glass','hair','altitude','flightX','tone','nose','hat','spoonHeight','handDepth','fabricX','fabricY','trailPull','trailTwist','trailFeedback','trailSpace','spellBalance']) {
     assert.ok(new Set(scenes.map(s=>s[key])).size>100,key);
     assert.ok(scenes.every(s=>s[key]>=0&&s[key]<=1),key);
   }
@@ -88,6 +89,8 @@ test('every shelf miniature is an actual catalogue icon and selects its own comp
   assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,WITCH_SHELF.length);
   const sounds=new Set();
   assert.equal(WITCH_SHELF.length,18);assert.equal(WITCH_TREE_OBJECTS.length,3);
+  assert.equal(WITCH_CUPBOARD_TOP.length,3);assert.equal(WITCH_WEB_OBJECTS.length,1);
+  assert.equal(WITCH_INGREDIENTS.filter(item=>item.instrumentId==='hybrinx').length,1);
   assert.deepEqual(WITCH_TREE_OBJECTS.map(item=>item.instrumentId),['blech-midi','syrinx','creaturazoid']);
   assert.equal(WITCH_INGREDIENTS.filter(item=>item.instrumentId==='throatazoid').length,1);
   assert.ok(WITCH_INGREDIENTS.every(item=>item.instrumentId!=='breath-atlas'));

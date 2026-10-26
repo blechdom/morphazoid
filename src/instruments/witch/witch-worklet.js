@@ -489,17 +489,6 @@ class WitchHandDSP extends HandDSP {
   }
 }
 
-// Short Color Kit voices follow Rubix's red/green/yellow/blue/white/orange
-// assignments (rubix.js), shortened envelopes (rubix-percussion.js), and the
-// FM Drum carrier/modulator trajectories. This small scalar rendering omits
-// Rubix's sequencer, native-node filters, and optional synthesis banks.
-const RUBIX_TASTE_KIT = Object.freeze([
-  [0, .30], [2, .16], [7, .05], [10, .15], [11, .22], [14, .20],
-].map(([index, decay]) => {
-  const voice = DEFAULT_FM_DRUM_VOICES[index];
-  return Object.freeze([voice.frequency, decay, voice.modRatio, voice.modIndex, voice.pitchBend, voice.noise,
-    voice.family === 'hat' || voice.family === 'metal' ? 'square' : 'sine']);
-}));
 const SPIDER_TASTE_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .28, decay: 1.2,
   texture: .3, slide: .18, coupling: 0, pluckRegister: 5, pluckSpread: 1,
   pluckAttack: .006, pluckHold: .015, pluckRelease: .75 });
@@ -817,7 +806,7 @@ class PotionTasteDSP {
       duration: ['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(kind) ? 5 : 2.4,
       clip: this.clips[kind] ?? null,
       phase: 0, phase2: 0, phase3: 0, low: 0, band: 0, random: 0x37c4a9,
-      eventAge: 0, kit: RUBIX_TASTE_KIT[0], control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
+      control: 0, lastL: 0, lastR: 0, tailL: 0, tailR: 0,
       formants: Array.from({ length: kind === 'drop-choir' ? 4 : 3 }, () => new Resonator(this.rate)),
       source: SOURCE_TASTE_FRAMES[kind] ? new SyrinxSourceEngine({ sampleRate: this.rate, seed: 0xa37d,
         model: SOURCE_TASTE_FRAMES[kind][0].model, parameters: SOURCE_TASTE_FRAMES[kind][0] }) : null,
@@ -827,7 +816,7 @@ class PotionTasteDSP {
   }
   trigger(slot) {
     slot.tailL = slot.lastL; slot.tailR = slot.lastR;
-    slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.eventAge = 0; slot.control = 0;
+    slot.age = 0; slot.event = 0; slot.nextEvent = 0; slot.control = 0;
     if (slot.kind === 'drop-oculoid') this.fmDrums.reset();
     if (slot.kind === 'drop-hyper-rubix') this.hyperRubix.reset();
   }
@@ -909,23 +898,6 @@ class PotionTasteDSP {
       this.hyperRubix.next();
       this.finish(slot, this.hyperRubix.left * slot.gain * fade, this.hyperRubix.right * slot.gain * fade);
       return;
-    } else if (slot.kind === 'drop-rubix') {
-      if (active && t >= slot.nextEvent && slot.event < 32) {
-        slot.kit = RUBIX_TASTE_KIT[slot.event++ % 6]; slot.eventAge = 0;
-        slot.nextEvent += .058 + (slot.event % 3) * .009;
-      }
-      const [base, decay, ratio, index, bend, hiss, shape] = slot.kit;
-      const age = slot.eventAge++ * this.dt;
-      const envelope = Math.min(1, age / .002) * Math.exp(-6.9078 * age / decay);
-      slot.phase2 = (slot.phase2 + Math.min(this.rate * .32, base * ratio) * this.dt) % 1;
-      const modulation = shape === 'sine' && base === 784 ? Math.sin(slot.phase2 * TAU) : 1 - 4 * Math.abs(slot.phase2 - .5);
-      const carrierHz = base * Math.max(.15, 1 + bend) ** Math.max(0, 1 - age / Math.max(.018, decay * .42));
-      frequency = witchClamp(carrierHz + base * index * Math.exp(-12 * age / Math.max(.025, decay)) * modulation, -this.rate * .35, this.rate * .35);
-      slot.phase = ((slot.phase + frequency * this.dt) % 1 + 1) % 1;
-      const step = Math.max(.00001, Math.abs(frequency) * this.dt);
-      const carrier = shape === 'square' ? (slot.phase < .5 ? 1 : -1) + polyBlep(slot.phase, step) - polyBlep((slot.phase + .5) % 1, step) : Math.sin(slot.phase * TAU);
-      slot.low += .2 * (noise - slot.low);
-      sample = (carrier * (1 - hiss * .45) + (noise - slot.low) * hiss) * envelope * .5;
     } else if (slot.kind === 'drop-hiccup') {
       const local = t % .54, progress = Math.min(1, local / HICCUP_TASTE_PLAN.durationSeconds);
       const position = progress * 128, index = Math.min(127, Math.floor(position)), mix = position - index;
@@ -1100,17 +1072,24 @@ class DroppedInstrumentDSP {
   }
 }
 
-/** One fractional stereo delay after the complete mix. Slewed read positions
- * make pitch bends; bounded feedback and a final mute keep every layer finite. */
+/** Candy Coil's windowed read-head cloud after the complete mix. A long fixed
+ * history, cross-channel dub feedback and slewed reads keep noodle edits audible
+ * without changing the singer, hand or independent flight clocks. */
 export class FlightMixDelay {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate; this.controls = normalizeWitchControls();
-    this.buffers = [new Float32Array(Math.ceil(rate * 3)), new Float32Array(Math.ceil(rate * 3))];
+    this.buffers = [new Float32Array(Math.ceil(rate * 10.5)), new Float32Array(Math.ceil(rate * 10.5))];
     this.writeIndex = 0; this.ridePhase = 0; this.wet = 0; this.feedback = 0; this.master = 0;
     this.delayL = rate * .32; this.delayR = rate * .39; this.lowL = 0; this.lowR = 0;
-    this.pull = .5; this.twist = .5; this.headPhase = 0;
+    this.dcL = 0; this.dcR = 0; this.pull = .5; this.twist = .5; this.space = .5; this.headPhase = 0; this.activityHold = 0;
+    this.stopping = false; this.previousGate = false; this.previousGhostGate = false;
     this.left = 0; this.right = 0; this.wetLeft = 0; this.wetRight = 0; this.cleared = true;
     this.smooth = 1 - Math.exp(-1 / (rate * .08)); this.fade = 1 - Math.exp(-1 / (rate * .025));
+    this.release = 1 - Math.exp(-1 / (rate * .09)); this.dcCut = 1 - Math.exp(-TAU * 24 / rate);
+  }
+  resume() {
+    this.stopping = false;
+    this.previousGate = this.controls.gate; this.previousGhostGate = this.controls.ghostGate;
   }
   read(buffer, delay) {
     const position = (this.writeIndex - delay + buffer.length) % buffer.length;
@@ -1119,87 +1098,119 @@ export class FlightMixDelay {
   }
   next(left, right, enabled) {
     const c = this.controls, flying = c.mode === 'flight';
+    if ((this.previousGate && !c.gate && !c.ghostGate)
+      || (this.previousGhostGate && !c.ghostGate && !c.gate)) this.stopping = true;
+    if ((!this.previousGate && c.gate) || (!this.previousGhostGate && c.ghostGate)) this.stopping = false;
+    this.previousGate = c.gate; this.previousGhostGate = c.ghostGate;
+    this.activityHold = Math.abs(left) + Math.abs(right) > 1e-5 ? 2.5 : Math.max(0, this.activityHold - this.dt);
+    // An explicit Stop fades history even while source release envelopes are
+    // still audible. A fresh manual accent can reopen the delay while stopped.
+    const running = !this.stopping && (c.gate || c.ghostGate || this.activityHold > 0);
     this.pull += (c.trailPull - this.pull) * this.smooth;
     this.twist += (c.trailTwist - this.twist) * this.smooth;
-    const wetTarget = flying ? .46 + c.altitude * .18 + this.pull * .22 : 0;
-    this.wet += (wetTarget - this.wet) * this.smooth;
-    this.feedback += ((flying && c.gate ? Math.min(.8, .29 + c.speed * .22 + this.pull * .37) : .025) - this.feedback) * this.smooth;
-    const ride = (.012 + Math.abs(this.twist - .5) * .09) * Math.sin(this.ridePhase);
-    const seconds = .08 + c.altitude * .5 + (1 - c.speed) * .1 + this.pull * 1.05 + ride;
+    this.space += (witchClamp(c.trailSpace, 0, 1, .5) - this.space) * this.smooth;
+    const regeneration = witchClamp(c.trailFeedback, 0, 1, .55);
+    const wetTarget = flying && running ? .24 + this.space * .7 : 0;
+    this.wet += (wetTarget - this.wet) * (running ? this.smooth : this.release);
+    this.feedback += ((flying && running ? .18 + regeneration * .75 : 0) - this.feedback) * this.smooth;
+    const ride = (.01 + Math.abs(this.twist - .5) * .04) * Math.sin(this.ridePhase);
+    const seconds = .065 + this.pull * 3 + c.altitude * .1 + ride;
     // A bounded read-head slope avoids abrupt discontinuities on pointer edits.
-    this.delayL += witchClamp(seconds * this.rate - this.delayL, -.24, .24);
-    this.delayR += witchClamp(seconds * (.74 + c.flightX * .48) * this.rate - this.delayR, -.24, .24);
-    // Two complementary Candy Coil heads use its actual centered hump/window;
-    // Sandy Syrup's exponential rate map gives the string twist its pitch range.
-    const up = this.twist >= .5, range = .04 + Math.abs(this.twist - .5) * .34;
-    const phase = this.headPhase, other = (phase + .5) % 1;
-    const window = barberDelayWindow(phase), windowOther = barberDelayWindow(other);
-    const span = range * this.rate;
-    const movingL = this.read(this.buffers[0], this.delayL + barberDelayCurve('candy', phase, up) * span) * window
-      + this.read(this.buffers[0], this.delayL + barberDelayCurve('candy', other, up) * span) * windowOther;
-    const movingR = this.read(this.buffers[1], this.delayR + barberDelayCurve('candy', phase, up) * span) * windowOther
-      + this.read(this.buffers[1], this.delayR + barberDelayCurve('candy', other, up) * span) * window;
-    const coil = Math.min(.98, .15 + Math.abs(this.twist - .5) * 1.75);
-    const echoL = this.read(this.buffers[0], this.delayL) * (1 - coil) + movingL * coil;
-    const echoR = this.read(this.buffers[1], this.delayR) * (1 - coil) + movingR * coil;
-    if (c.gate) this.headPhase = (phase + this.dt * (.2 + c.speed * .9)
+    this.delayL += witchClamp(seconds * this.rate - this.delayL, -.38, .38);
+    this.delayR += witchClamp(seconds * (.83 + c.flightX * .34) * this.rate - this.delayR, -.38, .38);
+    // Native Candy curve/window and fractional head activation. Smoothly morph
+    // direction through the center instead of switching an occupied read head.
+    const heads = 4 + this.space * 8, span = (.08 + this.space * 5.8) * this.rate;
+    const direction = (1 + Math.tanh((this.twist - .5) * 7)) * .5;
+    const tilt = (this.twist - .5) * 1.6;
+    let movingL = 0, movingR = 0, weightSum = 0;
+    for (let i = 0; i < Math.ceil(heads); i++) {
+      const phase = (this.headPhase + i / heads) % 1;
+      const weight = barberDelayWindow(phase, tilt) * Math.min(1, heads - i) * 2 / heads;
+      const curve = barberDelayCurve('candy', phase, true);
+      const delay = (curve * direction + (1 - curve) * (1 - direction)) * span;
+      movingL += this.read(this.buffers[0], this.delayL + delay) * weight;
+      movingR += this.read(this.buffers[1], this.delayR + delay * (.86 + this.space * .14)) * weight;
+      weightSum += weight;
+    }
+    const headGain = 1 / Math.max(1, weightSum), coil = .2 + this.space * .72;
+    const echoL = this.read(this.buffers[0], this.delayL) * (1 - coil) + movingL * headGain * coil;
+    const echoR = this.read(this.buffers[1], this.delayR) * (1 - coil) + movingR * headGain * coil;
+    if (running) this.headPhase = (this.headPhase + this.dt
+      * (.012 + Math.abs(this.twist - .5) * .14 + this.space * .025)
       * sandySyrupTargetRate(4.5, this.twist, true)) % 1;
-    this.lowL += .26 * (echoL - this.lowL); this.lowR += .26 * (echoR - this.lowR);
-    this.buffers[0][this.writeIndex] = Math.tanh((left + this.lowR * this.feedback) / .8) * .8;
-    this.buffers[1][this.writeIndex] = Math.tanh((right + this.lowL * this.feedback) / .8) * .8;
+    const lowpass = 1 - Math.exp(-TAU * (600 + (1 - this.space) * 2200 + (1 - regeneration) * 900) / this.rate);
+    this.lowL += lowpass * (echoL - this.lowL); this.lowR += lowpass * (echoR - this.lowR);
+    this.dcL += this.dcCut * (this.lowL - this.dcL); this.dcR += this.dcCut * (this.lowR - this.dcR);
+    this.buffers[0][this.writeIndex] = enabled && running ? Math.tanh((left + (this.lowR - this.dcR) * this.feedback) / .8) * .8 : 0;
+    this.buffers[1][this.writeIndex] = enabled && running ? Math.tanh((right + (this.lowL - this.dcL) * this.feedback) / .8) * .8 : 0;
     this.writeIndex = (this.writeIndex + 1) % this.buffers[0].length;
     this.master += ((enabled ? 1 : 0) - this.master) * this.fade;
     this.wetLeft = Math.tanh(echoL / .54) * .54 * this.wet * this.master;
     this.wetRight = Math.tanh(echoR / .54) * .54 * this.wet * this.master;
     this.left = left * (1 - this.wet) * this.master + this.wetLeft;
     this.right = right * (1 - this.wet) * this.master + this.wetRight;
-    if (enabled) this.cleared = false;
-    else if (!this.cleared && this.master < 1e-7) {
+    if (enabled && running) this.cleared = false;
+    else if (!this.cleared && ((!enabled && this.master < 1e-7) || (!running && this.wet < 1e-7))) {
       for (const buffer of this.buffers) buffer.fill(0);
-      this.lowL = this.lowR = 0; this.cleared = true;
+      this.lowL = this.lowR = this.dcL = this.dcR = 0; this.cleared = true;
     }
     if(c.gate) this.ridePhase += (1 + c.flightSpeed * 5) * this.dt;
   }
 }
 
-/** Four pairs from Fabric Filter's actual lattice/fabric mapping. The center
- * rests dry; in flight, displacement morphs the whole delayed mix through notches.
- * Targets update only on control edits; fixed TPT states slew sample by sample. */
+/** Eight pairs from Fabric Filter's actual lattice, planar pull and Q mapping.
+ * The centered fabric rests dry; displacement reveals its parallel resonators
+ * across the whole flight mix. Fixed TPT states slew without seeking audio. */
 export class WitchFabricFilter {
   constructor(rate) {
     this.rate = rate; this.wet = 0; this.targetWet = 0; this.left = 0; this.right = 0;
     this.smooth = 1 - Math.exp(-1 / (rate * .045));
-    this.filters = Array.from({ length: 8 }, () => ({ ic1: 0, ic2: 0, a1: 1, a2: 0, a3: 0, k: 1, target: null }));
+    this.filters = Array.from({ length: 16 }, () => ({ ic1: 0, ic2: 0, a1: 1, a2: 0, a3: 0, k: 1,
+      gainL: 0, gainR: 0, targetGainL: 0, targetGainR: 0, target: null }));
     this.setControls(.5, .5);
   }
-  setControls(x, y) {
-    const a = (x - .5) * 2, b = (y - .5) * 2;
-    this.targetWet = Math.min(1, Math.hypot(a, b));
-    for (let i = 0; i < 8; i++) {
-      const target = moireFilterTarget({ index: i % 4, bank: i >> 2, sampleRate: this.rate,
-        phaseA: a * .3, phaseB: .37 + b * .3, fabricVectorAX: a, fabricVectorAY: b,
-        fabricVectorBX: -b, fabricVectorBY: a,
-        parameters: { filterPairs: 4, lowFrequency: 130, highFrequency: 6400,
-          resonance: .36 + Math.abs(b) * .42, fabricDepth: 2.4, fieldADepth: .7, fieldBDepth: .8 } });
-      this.filters[i].target = stableSvfCoefficients(target.frequency, target.q, this.rate);
+  setControls(x, y, pull = 0, velocity = 0) {
+    const a = (witchClamp(x, 0, 1, .5) - .5) * 2, b = (witchClamp(y, 0, 1, .5) - .5) * 2;
+    pull = witchClamp(pull); velocity = witchClamp(velocity);
+    const amount = Math.min(1, Math.hypot(a, b) * .85 + pull * .65 + velocity * .2);
+    this.targetWet = 1 - (1 - amount) ** 2;
+    for (let i = 0; i < 16; i++) {
+      const target = moireFilterTarget({ index: i % 8, bank: i >> 3, sampleRate: this.rate,
+        phaseA: a * .38, phaseB: .37 + b * .38,
+        fabricVectorAX: a * (1 + pull * .7), fabricVectorAY: b,
+        fabricVectorBX: -b, fabricVectorBY: a * (1 + pull * .7),
+        fabricVectorVelocityAX: Math.sign(a) * velocity * 12,
+        fabricVectorVelocityBY: Math.sign(b) * velocity * 12,
+        parameters: { filterPairs: 8, lowFrequency: 85, highFrequency: 7800,
+          resonance: .3 + pull * .48 + velocity * .12 + Math.abs(b) * .09,
+          resonanceMotion: .76, fabricDepth: 3.4, fieldADepth: .85, fieldBDepth: 1.05,
+          pluckCut: 0, stereoWidth: .84 } });
+      const f = this.filters[i], pan = (target.pan + 1) * Math.PI / 4;
+      // Keep native lattice/collision gain, without applying the source page's
+      // extra fabric-cut fade to this already mixed external performance.
+      const gain = target.gain / Math.max(.08, target.fabricCut);
+      f.target = stableSvfCoefficients(target.frequency, target.q, this.rate);
+      f.targetGainL = gain * Math.cos(pan); f.targetGainR = gain * Math.sin(pan);
     }
   }
   next(left, right) {
     this.wet += (this.targetWet - this.wet) * this.smooth;
-    for (let channel = 0; channel < 2; channel++) {
-      const dry = channel ? right : left; let sample = dry;
-      for (let i = 0; i < 4; i++) {
-        const f = this.filters[channel * 4 + i], t = f.target;
-        f.a1 += (t.a1 - f.a1) * this.smooth; f.a2 += (t.a2 - f.a2) * this.smooth;
-        f.a3 += (t.a3 - f.a3) * this.smooth; f.k += (t.k - f.k) * this.smooth;
-        const v3 = sample - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3;
-        const v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
-        f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
-        sample -= f.k * v1 * .92;
-      }
-      const output = dry + (sample - dry) * this.wet;
-      if (channel) this.right = output; else this.left = output;
+    let bandL = 0, bandR = 0;
+    for (let i = 0; i < 16; i++) {
+      const f = this.filters[i], t = f.target, source = i < 8 ? left : right;
+      f.a1 += (t.a1 - f.a1) * this.smooth; f.a2 += (t.a2 - f.a2) * this.smooth;
+      f.a3 += (t.a3 - f.a3) * this.smooth; f.k += (t.k - f.k) * this.smooth;
+      f.gainL += (f.targetGainL - f.gainL) * this.smooth;
+      f.gainR += (f.targetGainR - f.gainR) * this.smooth;
+      const v3 = source - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3;
+      const v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
+      f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
+      const band = v1 * f.k;
+      bandL += band * f.gainL; bandR += band * f.gainR;
     }
+    this.left = left * (1 - this.wet * .89) + bandL * this.wet * 1.8;
+    this.right = right * (1 - this.wet * .89) + bandR * this.wet * 1.8;
   }
 }
 
@@ -1264,7 +1275,10 @@ export class WitchDSP {
     this.brew.setControls({ ...c, mode: 'brew', fingers: this.brew.controls.fingers });
     this.flight.setControls({ ...c, gate: false }); // flight is the shared delay; accents remain explicit.
     this.delay.controls = c;
-    if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY) this.fabric.setControls(c.fabricX, c.fabricY);
+    if (c.fabricX !== previous.fabricX || c.fabricY !== previous.fabricY
+      || c.fabricPull !== previous.fabricPull || c.fabricVelocity !== previous.fabricVelocity) {
+      this.fabric.setControls(c.fabricX, c.fabricY, c.fabricPull, c.fabricVelocity);
+    }
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.blechFlyby.release(); this.scene.tree.release(); }
@@ -1295,16 +1309,18 @@ export class WitchDSP {
   }
   trigger(kind) {
     if (!this.enabled) return false;
+    let accepted;
     if (kind === 'fabric-wind') {
       if (this.controls.mode !== 'flight') return false;
-      this.fabricWind.trigger(); return true;
-    }
-    if (kind === 'meow') return this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
-    if (kind === 'eye-shock') { this.shock.trigger(); return true; }
-    if (this.scene.trigger(kind)) return true;
-    if (WITCH_DROP_EFFECTS.includes(kind)) return this.drops.trigger(kind);
-    if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) return this.flight.trigger(kind);
-    return this.brew.trigger(kind);
+      this.fabricWind.trigger(); accepted = true;
+    } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
+    else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
+    else if (this.scene.trigger(kind)) accepted = true;
+    else if (WITCH_DROP_EFFECTS.includes(kind)) accepted = this.drops.trigger(kind);
+    else if (WITCH_FLIGHT_EFFECTS.includes(kind) && (this.controls.mode === 'flight' || !WITCH_VOCAL_EFFECTS.includes(kind))) accepted = this.flight.trigger(kind);
+    else accepted = this.brew.trigger(kind);
+    if (accepted) this.delay.resume();
+    return accepted;
   }
   process(left, right = left) {
     const c = this.controls, focusedVoice = .72 - c.handFocus * .54;

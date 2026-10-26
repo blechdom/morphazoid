@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS} from '../src/instruments/witch/witch-model.js';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTree, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '../src/instruments/witch/witch-model.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
   let distance=Infinity;
@@ -90,8 +90,8 @@ test('spoon and nose remain separate drag targets throughout automatic stirring'
   }
 });
 
-test('eighteen shelf and three branch instruments remain pickable through all visual modes',()=>{
-  assert.deepEqual(WITCH_LAYOUT.objects.map(object=>object.id),[...WITCH_SHELF,...WITCH_TREE_OBJECTS].map(object=>object.id));
+test('shelf, cupboard-top, branch and web instruments remain pickable through all visual modes',()=>{
+  assert.deepEqual(WITCH_LAYOUT.objects.map(object=>object.id),WITCH_INGREDIENTS.map(object=>object.id));
   assert.equal(WITCH_SHELF.length,18);assert.equal(WITCH_TREE_OBJECTS.length,3);
   assert.equal(WITCH_LAYOUT.shelves.length,1);
   assert.equal(WITCH_LAYOUT.shelves[0].rows.length,6);
@@ -100,7 +100,7 @@ test('eighteen shelf and three branch instruments remain pickable through all vi
     for(const [index,object] of WITCH_LAYOUT.objects.entries()) {
       const visible=getWitchObjectPosition(object,state),point=warpWitchPoint(visible,state);
       assert.ok(point.x>20&&point.x<990&&point.y>75&&point.y<705,`${object.id} remains inside the scene`);
-      assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'object',id:object.id,kind:object.kind,index});
+      assert.deepEqual(hitTestWitch(point.x,point.y,state),object.location==='web'?{type:'spider'}:{type:'object',id:object.id,kind:object.kind,index});
       assert.notEqual(hitTestWitch(point.x,point.y,{...state,flightLift:1})?.type,'object','hidden ground objects cannot intercept flight gestures');
     }
   }
@@ -129,8 +129,6 @@ test('shelf solos fly immediately while branch solos sing before travelling into
 });
 
 test('parked broom, flying fabric and hair delay strands have direct gesture targets',()=>{
-  const lowered=getWitchTargets({fabricY:0}).fabric,raised=getWitchTargets({fabricY:1}).fabric;
-  assert.ok(raised.y<lowered.y,'an upward pull raises both the filter setting and visible cloth');
   for(const trip of [0,1,2,3])for(const warpTime of [0,.7,2.8]) {
     const state={trip,warpTime};
     const broom=warpWitchPoint(getWitchTargets(state).broom,state);
@@ -150,6 +148,47 @@ test('parked broom, flying fabric and hair delay strands have direct gesture tar
       assert.deepEqual(hitTestWitch(visible.x,visible.y,current),{type:'trail'});
       assert.notDeepEqual(getWitchTrail({...current,trailPull:0,trailTwist:0}),getWitchTrail({...current,trailPull:1,trailTwist:1}));
     }
+  }
+});
+
+test('the full-frame fabric stays taut at rest and follows a local anchored pull',()=>{
+  const state={flightLift:1,fabricGrabX:.5,fabricGrabY:.5},rest=getWitchFabric(state);
+  const points=rest.strands.flatMap(strand=>strand.points);
+  assert.equal(Math.min(...points.map(p=>p.x)),0);assert.equal(Math.max(...points.map(p=>p.x)),1000);
+  assert.equal(Math.min(...points.map(p=>p.y)),0);assert.equal(Math.max(...points.map(p=>p.y)),720);
+  assert.deepEqual(new Set(rest.strands.map(strand=>strand.color)),new Set(['#68f7a49e','#ff5cada8']));
+  assert.deepEqual(getWitchFabric({...state,handTime:99,motionTime:120}),rest,'released cloth has no independent ambient waving');
+  for(const [fabricGrabX,fabricGrabY] of [[.25,.25],[.5,.5],[.7,.6]]) {
+    const held={...state,fabricHeld:true,fabricGrabX,fabricGrabY,fabricPullX:150,fabricPullY:-90};
+    const pulled=getWitchFabric(held);
+    assert.equal(pulled.target.x,fabricGrabX*1000+150);assert.equal(pulled.target.y,fabricGrabY*720-90);
+    assert.deepEqual(getWitchTargets(held).fabric,pulled.target,'the held gesture stays at the same deformed mesh point');
+    let localMovement=0;
+    for(const [i,strand] of rest.strands.entries())for(const [j,p] of strand.points.entries()) {
+      const q=pulled.strands[i].points[j];
+      assert.ok(Number.isFinite(q.x)&&Number.isFinite(q.y));
+      if(p.x===0||p.x===1000||p.y===0||p.y===720)assert.deepEqual(q,p,'the complete cloth perimeter stays anchored');
+      if(Math.hypot(p.x-fabricGrabX*1000,p.y-fabricGrabY*720)<35)localMovement=Math.max(localMovement,Math.hypot(q.x-p.x,q.y-p.y));
+    }
+    assert.ok(localMovement>120,'grabbing the cloth produces substantial local deformation');
+  }
+});
+
+test('fabric stays behind the witch body, larger boots and complete cauldron silhouette',()=>{
+  for(const flightPhase of [0,2,8,17])for(const visualMode of [0,1,2,3,4,5,6,7])for(const hitRadius of [46,80]) {
+    const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase,handReach:1,hitRadius,fabricGrabX:.5,fabricGrabY:.5};
+    const body=broomTransform(state),project=([x,y])=>({
+      x:body.x+(Math.cos(body.rotation)*x-Math.sin(body.rotation)*y)*body.scale,
+      y:body.y+(Math.sin(body.rotation)*x+Math.cos(body.rotation)*y)*body.scale,
+    });
+    const points=[[-55,30],[-120,178],[-175,194],[-200,190]].map(project);
+    points.push({x:600,y:610},{x:600,y:685},{x:476,y:680});
+    for(const point of points) {
+      const p=warpWitchPoint(point,state),hit=hitTestWitch(p.x,p.y,state);
+      assert.ok(hit&&!['fabric','trail'].includes(hit.type),'solid foreground anatomy and fire never pluck an obscured sky layer');
+    }
+    const idle=warpWitchPoint(getWitchTargets(state).fabric,state);
+    assert.equal(hitTestWitch(idle.x,idle.y,state)?.type,'fabric','an exposed fabric target survives every visual distortion');
   }
 });
 
@@ -213,10 +252,12 @@ function captureWitchPaint() {
     if(tag==='img')return {complete:true,naturalWidth:512,src:''};
     const canvas={ownerDocument:document,width:0,height:0,cloneNode:()=>document.createElement('canvas')};
     const calls=[],stack=[];
-    const context=new Proxy({canvas,calls,globalAlpha:1,save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
+    const context=new Proxy({canvas,calls,globalAlpha:1,dash:[],save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
       beginPath(){this.lastEllipse=null;},ellipse(x,y,rx,ry){this.lastEllipse={x,y,rx,ry};},
       fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle,ellipse:shape?null:this.lastEllipse});},
+      setLineDash(dash){this.dash=[...dash];},
+      stroke(){calls.push({kind:'stroke',color:this.strokeStyle,width:this.lineWidth,dash:[...(this.dash||[])]});},
       fillText(value){calls.push({kind:'text',value});},
       fillRect(...args){calls.push({kind:'rect',args,alpha:this.globalAlpha,color:this.fillStyle});},
       clearRect(...args){calls.push({kind:'clear',args});},
@@ -237,6 +278,58 @@ function captureWitchPaint() {
 }
 
 const portraitUrl=call=>call.kind==='image'?(call.source.src||call.source?.getContext?.('2d').calls.find(entry=>entry.kind==='image'&&entry.source.src)?.source.src):null;
+
+test('flying fabric paints behind the scene and both long hair locks carry Candy Coil stripes',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const state={flightLift:1,flightPhase:2,trailFeedback:.8};
+    const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,state);
+    const world=canvases[1].getContext('2d').calls;
+    const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
+    assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
+    const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===800&&call.ellipse?.y===164&&call.ellipse?.rx===78);
+    const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
+    assert.ok(grid.at(-1).index<moon&&grid.at(-1).index<body,'moon and flying witch occlude the background cloth');
+    const red=world.filter(call=>call.kind==='stroke'&&call.color==='#dc2f3f');
+    assert.equal(red.length,2);assert.equal(world.filter(call=>call.kind==='stroke'&&call.color==='#fff7ea').length,2);
+    assert.ok(red.every(call=>call.dash.length===2&&call.dash.every(value=>value>0)),'each cream lock has a repeated red stripe');
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+test('BLECH flybys use the larger actual instrument portrait',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    for(const [flybyTime,count] of [[0,0],[7,1],[18.8,2]]) {
+      const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,{flightLift:1,flybyTime});
+      const flybys=canvases[1].getContext('2d').calls.filter(call=>call.args?.length===8&&portraitUrl(call)?.endsWith('/blech-midi.webp'));
+      assert.equal(flybys.length,count,'the same sparse phrase schedule controls the visible logos');
+      for(const call of flybys) {
+        const [, , , , , ,width,height]=call.args;
+        assert.ok(Math.abs(width-54*2.1)<1e-10&&Math.abs(height-54*2.1)<1e-10,'airborne artwork is forty percent larger than its former 1.5 scale');
+      }
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+test('capturing the native spider leaves its web and carries one model into the potion',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const spiderSurface={},home=getWitchObjectPosition('spider'),target=getWitchTargets({}).spider;
+    for(const [spiderCaptured,dropAge,flightLift,count] of [[false,0,0,1],[true,.6,0,1],[true,.6,1,1],[true,5,0,0]]) {
+      const objects=WITCH_LAYOUT.objects.map(object=>object.id==='spider'?{...object,x:home.x,y:home.y,dropped:spiderCaptured,dropAge}:object);
+      const state={spiderSurface,spiderCaptured,objects,flightLift};
+      const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,state);
+      const world=canvases[1].getContext('2d').calls;
+      assert.equal(world.filter(call=>call.kind==='image'&&call.source===spiderSurface).length,count,'no static duplicate stays in the tree during the dive');
+      if(!flightLift)assert.ok(world.some(call=>call.kind==='stroke'&&call.color==='#adc7d47a'),'the catching threads remain after their spider is consumed');
+      if(spiderCaptured)assert.notEqual(hitTestWitch(target.x,target.y,state)?.type,'spider');
+      else assert.equal(hitTestWitch(target.x,target.y,state)?.type,'spider');
+    }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
 
 test('spectral instrument portraits always paint behind witch, pot, hands and solo ingredients',()=>{
   const previousPath=globalThis.Path2D;
@@ -318,9 +411,10 @@ test('the ladle sleeve stays behind both faces and all instrument minis use thei
       for(const {index} of faces)assert.ok(index>sleeve,'face occludes the sleeve at every flight transition');
       assert.equal(world.filter(call=>call.kind==='image'&&call.source===hand1).length,1,'one continuous ladle hand, without a duplicate flight copy');
       const portraits=world.map((call,index)=>({call,index,url:portraitUrl(call)})).filter(({call,url})=>url&&call.args.length===8&&!url.endsWith('/spider-synth.webp'));
-      assert.equal(portraits.length,flightLift===1?0:WITCH_LAYOUT.objects.length,'grounded shelf and branch objects use their catalogue portraits');
+      const restingPortraits=WITCH_LAYOUT.objects.filter(object=>object.location!=='web');
+      assert.equal(portraits.length,flightLift===1?0:restingPortraits.length,'grounded shelf and branch objects use their catalogue portraits');
       const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith(flightLift===1?'M-67,-32':'M398,360'));
-      for(const object of flightLift===1?[]:WITCH_LAYOUT.objects) {
+      for(const object of flightLift===1?[]:restingPortraits) {
         const matching=portraits.filter(({url})=>url.endsWith('/'+object.imageHref));
         assert.equal(matching.length,1,object.name+' uses its actual instrument icon');
         assert.ok(matching[0].index<body,'stationary instruments paint behind the witch');
@@ -445,7 +539,7 @@ test('the enlarged flying rig follows longer returning loops while its grounded 
 
 test('the enlarged flying hat, hair, broom and boots remain inside the warped scene at extremes',()=>{
   // Inspect the current burned panels, rather than the former intact hat.
-  const broomPoints=[[-295,120],[-265,126],[-310,152],[162,96],[20,187],[45,202],[75,181]];
+  const broomPoints=[[-295,120],[-265,126],[-310,152],[162,96],[-207,177],[-200,193],[-187,188],[-159,216],[-117,193]];
   const turn=(p,rotation,scale=1)=>({x:(Math.cos(rotation)*p.x-Math.sin(rotation)*p.y)*scale,y:(Math.sin(rotation)*p.x+Math.cos(rotation)*p.y)*scale});
   for(let phase=0;phase<Math.PI*20;phase+=.2)for(const hat of [0,.5,1])for(const altitude of [0,1])for(const flightX of [0,1]) {
     const state={flightLift:1,flightPhase:phase,hat,altitude,flightX,hair:1,handTime:phase,trip:3,warpTime:phase,energy:1,time:phase};
@@ -492,6 +586,7 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
     const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,{});
     const world=canvases[1].getContext('2d').calls;
     for(const [index,object] of WITCH_LAYOUT.objects.entries()) {
+      if(object.location==='web')continue; // the web owns the native spider model at rest
       const image=world.find(call=>call.kind==='image'&&call.args.length===8&&portraitUrl(call)?.endsWith('/'+object.imageHref));
       assert.ok(image,object.id);
       const [sx,sy,sw,sh,dx,dy,dw,dh]=image.args;
@@ -501,6 +596,7 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
       assert.ok(dw<=56*size+1e-10&&dh<=54*size+1e-10&&dx===-dw/2);
       const position=getWitchObjectPosition(object,{});
       if(index<18)assert.equal(position.y+dy+dh,WITCH_LAYOUT.shelves[0].rows[Math.floor(index/3)]);
+      else if(object.location==='cupboard-top')assert.equal(position.y+dy+dh,147);
       else assert.ok(getWitchTree({}).segments.some(({a,b})=>distanceToPolyline({x:position.x,y:position.y+27*size},[a,b])<1e-10),'tree icons sit on actual turtle branches');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
@@ -514,7 +610,9 @@ test('six upright L-system trees have deterministic bounded branches and reachab
     assert.ok(tree.segments.length>=63&&tree.segments.length<=512);
     assert.equal(tree.root.y,692);
     assert.ok(tree.segments.every(segment=>[segment.a,segment.b].every(p=>p.x>=710&&p.x<=980&&p.y>=20&&p.y<=692)));
-    assert.deepEqual(Object.keys(tree.objects),WITCH_TREE_OBJECTS.map(object=>object.id));
+    assert.deepEqual(new Set(Object.keys(tree.objects)),new Set(WITCH_TREE_OBJECTS.map(object=>object.id)));
+    const creature=getWitchObjectPosition('eyeball',state);
+    assert.ok(creature.y<300&&creature.y+creature.r<400,'Creaturazoid rests on an upper branch well above the mushroom controls');
     for(const hitRadius of [46,80])assert.equal(hitTestWitch(tree.target.x,tree.target.y,{...state,hitRadius})?.type,'tree');
     shapes.add(JSON.stringify(tree.segments));
   }
@@ -591,12 +689,18 @@ test('all eight visual modes have bounded exact inverse picking and respect redu
   assert.equal(patterns.size,8);
 });
 
-test('full flight preserves broom, moon and die gestures and a bounded screen-wide noodle trail',()=>{
+test('full flight preserves controls and two separate bounded striped hair trails',()=>{
   for(let flightPhase=0;flightPhase<20;flightPhase+=.8)for(const visualMode of [0,3,7]) {
-    const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase},trail=getWitchTrail(state);
-    assert.equal(trail.length,257);
-    assert.ok(trail.every(p=>p.x>=24&&p.x<=976&&p.y>=38&&p.y<=674));
-    assert.ok(Math.max(...trail.map(p=>p.x))-Math.min(...trail.map(p=>p.x))>700);
+    const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase,trailSpace:1},trails=getWitchTrails(state),hair=getWitchHair(state);
+    assert.equal(trails.length,2,'two long locks leave open cloth between their loops');
+    assert.equal(new Set(trails.map(trail=>trail.index)).size,2);assert.notDeepEqual(trails[0].points,trails[1].points);
+    for(const trail of trails) {
+      assert.equal(trail.points.length,257);
+      assert.ok(trail.points.every(p=>p.x>=24&&p.x<=976&&p.y>=38&&p.y<=674));
+      assert.ok(Math.max(...trail.points.map(p=>p.x))-Math.min(...trail.points.map(p=>p.x))>700);
+      assert.deepEqual(trail.points.at(-1),hair.strands[trail.index].points.at(-1),'each delay strand stays joined to its own visible hair lock');
+      assert.equal(trail.color,'#fff7ea');assert.equal(trail.stripe,'#dc2f3f');
+    }
     for(const type of ['broom','moon','dice']) {
       const target=type==='moon'?WITCH_LAYOUT.moon:getWitchTargets(state)[type==='dice'?'die':'broom'],p=warpWitchPoint(target,state);
       assert.equal(hitTestWitch(p.x,p.y,state)?.type,type);
@@ -606,6 +710,55 @@ test('full flight preserves broom, moon and die gestures and a bounded screen-wi
       assert.notEqual(hitTestWitch(p.x,p.y,state)?.type,type);
     }
   }
+  const state={flightLift:1,flightPhase:2};
+  const extent=trails=>{const xs=trails.flatMap(trail=>trail.points.map(p=>p.x));return Math.max(...xs)-Math.min(...xs);};
+  assert.ok(extent(getWitchTrails({...state,trailSpace:1}))>extent(getWitchTrails({...state,trailSpace:0}))*3,'stretching the delay space opens compact coils across the sky');
+  assert.ok(getWitchTrails({...state,trailFeedback:1})[0].stripeLength<getWitchTrails({...state,trailFeedback:0})[0].stripeLength,'feedback winding visibly tightens the stripe spacing');
+  const frozen={...state,reducedMotion:true};
+  assert.deepEqual(getWitchTrails({...frozen,flightPhase:1,handTime:1}),getWitchTrails({...frozen,flightPhase:999,handTime:999}));
+});
+
+test('hair noodles coil into quarter, half and full-stage shapes with an exposed grab point',()=>{
+  for(const [trailSpace,minWidth,maxWidth,minHeight,maxHeight] of [[0,170,220,110,145],[.0625,220,270,145,180],[.375,440,510,295,345],[1,900,960,600,640]]) {
+    for(const flightPhase of [0,2,8,17])for(const visualMode of [0,3,7]) {
+      const state={flightLift:1,flightPhase,visualMode,warpTime:flightPhase,handReach:1,trailSpace};
+      for(const trail of getWitchRestTrails(state)) {
+        const xs=trail.points.map(p=>p.x),ys=trail.points.map(p=>p.y),width=Math.max(...xs)-Math.min(...xs),height=Math.max(...ys)-Math.min(...ys);
+        assert.ok(width>=minWidth&&width<=maxWidth&&height>=minHeight&&height<=maxHeight,'reach changes both dimensions from a small coil to the whole sky');
+        assert.ok(trail.points.every(p=>p.x>=24-1e-9&&p.x<=976+1e-9&&p.y>=38-1e-9&&p.y<=674+1e-9));
+      }
+      const target=warpWitchPoint(getWitchTargets(state).trail,state);
+      assert.equal(hitTestWitch(target.x,target.y,state)?.type,'trail','a compact coil remains reachable beside her hair and foreground anatomy');
+    }
+  }
+  const normalized=state=>getWitchRestTrails(state).map(({points})=>{
+    const xs=points.map(p=>p.x),ys=points.map(p=>p.y),left=Math.min(...xs),top=Math.min(...ys),width=Math.max(...xs)-left,height=Math.max(...ys)-top;
+    return points.map(p=>({x:(p.x-left)/width,y:(p.y-top)/height}));
+  });
+  const distance=(a,b)=>a.flatMap((points,j)=>points.map((p,i)=>Math.hypot(p.x-b[j][i].x,p.y-b[j][i].y))).reduce((sum,d)=>sum+d,0)/(a.length*a[0].length);
+  const base={flightLift:1,flightPhase:2,trailSpace:.375,trailPull:.3,trailTwist:.4,trailFeedback:.5};
+  for(const control of ['trailPull','trailTwist','trailFeedback'])assert.ok(distance(normalized({...base,[control]:0}),normalized({...base,[control]:1}))>.08,`${control} changes the shape beyond just translating or scaling it`);
+  assert.ok(distance(normalized({...base,flightPhase:0}),normalized({...base,flightPhase:2}))>.08,'travelling bends whip the resting worm shape on the flight clock');
+});
+
+test('simulated noodles share drawing and hit geometry while keeping their own hair attachments',()=>{
+  const state={flightLift:1,flightPhase:2,trailSpace:.375},rest=getWitchRestTrails(state);
+  const trailStrands=rest.map(strand=>({index:strand.index,points:strand.points.filter((p,i)=>i%2===0).map(p=>({...p}))}));
+  trailStrands[0].points[12]={x:80,y:240};
+  trailStrands[0].points[20]={x:-60,y:225};
+  trailStrands[0].points[128]={x:0,y:0};
+  const current={...state,trailStrands},trails=getWitchTrails(current),hair=getWitchHair(current);
+  assert.deepEqual(getWitchRestTrails(current),rest,'the simulation target never feeds its deformed points back into its resting shape');
+  for(const [i,trail] of trails.entries()) {
+    assert.equal(trail.points.length,129,'the rope controller can use a smaller fixed simulation budget');
+    assert.deepEqual(trail.points.slice(0,-1),trailStrands[i].points.slice(0,-1));
+    assert.deepEqual(trail.points.at(-1),hair.strands[trail.index].points.at(-1));
+  }
+  assert.deepEqual(trails[0].points[20],{x:-60,y:225},'captured pointer coordinates are not clamped away from the real grab');
+  assert.deepEqual(trailStrands[0].points[128],{x:0,y:0},'the renderer never mutates the rope controller state');
+  assert.equal(hitTestWitch(80,240,current)?.type,'trail','picking follows a directly displaced rope node');
+  const target=warpWitchPoint(getWitchTargets(current).trail,current);
+  assert.equal(hitTestWitch(target.x,target.y,current)?.type,'trail');
 });
 
 test('the catalogue face icon paints anatomy over a cleared transparent surface',()=>{

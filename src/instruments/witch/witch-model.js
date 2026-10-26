@@ -44,7 +44,14 @@ export const WITCH_SHELF = Object.freeze([
 export const WITCH_TREE_OBJECTS = Object.freeze([
   ['blech','blech-midi','BLECH MIDI'], ['syrinx','syrinx','Syrinx'], ['eyeball','creaturazoid','Creaturazoid'],
 ].map(entry=>miniature(entry,'tree')));
-export const WITCH_INGREDIENTS = Object.freeze([...WITCH_SHELF,...WITCH_TREE_OBJECTS]);
+export const WITCH_CUPBOARD_TOP = Object.freeze([
+  ['quadruped','quadruped','Quadruped'], ['monstroid','monstroid','Monstroid','colony-syrinx'],
+  ['candy-coil','candy-coil-delay','Candy Coil Delay'],
+].map(entry=>miniature(entry,'cupboard-top')));
+export const WITCH_WEB_OBJECTS = Object.freeze([
+  miniature(['spider','spider-synth','Spider Synth'],'web'),
+]);
+export const WITCH_INGREDIENTS = Object.freeze([...WITCH_SHELF,...WITCH_TREE_OBJECTS,...WITCH_CUPBOARD_TOP,...WITCH_WEB_OBJECTS]);
 export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
   ...WITCH_INGREDIENTS.map(item=>item.kind),
   // Old sound IDs stay valid for existing saved/test integrations.
@@ -56,7 +63,8 @@ export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,
   ghostTempo: 72, ghostGate: false,
   handMotion: 'finger-roll', handRate: 1, handDepth: .66, handAuto: true, handSound: 'glass-and-wire', spellBalance: .5,
-  catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, trailPull: .5, trailTwist: .5,
+  catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, fabricPull: 0, fabricVelocity: 0,
+  trailPull: .5, trailTwist: .5, trailFeedback: .55, trailSpace: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
@@ -67,7 +75,7 @@ export const witchClamp = (value, min = 0, max = 1, fallback = min) => (
 export function normalizeWitchControls(value = {}) {
   const input = value && typeof value === 'object' ? value : {};
   const result = {};
-  for (const name of ['speed', 'flightSpeed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'trailPull', 'trailTwist']) {
+  for (const name of ['speed', 'flightSpeed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'fabricPull', 'fabricVelocity', 'trailPull', 'trailTwist', 'trailFeedback', 'trailSpace']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
   result.direction = Number(input.direction) < 0 ? -1 : 1;

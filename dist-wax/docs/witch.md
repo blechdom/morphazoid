@@ -22,11 +22,11 @@ Brightness remains on the **+ / −** keys.
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
-| Touch or pull the flying fabric | The green-and-pink Fabric Filter mesh appears behind the moon during flight. Touch it for a gust of wind noise; pull it to shape the wind and filter the ensemble. Grounded sound bypasses the fabric. |
+| Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to send an elastic ripple through the cloth and the ensemble. The witch, moon, pot, mushrooms and hair noodles keep priority. Grounded sound bypasses the fabric. |
 | Touch a branch | Plays a short phrase from the native L-system synth while reshaping its branches. |
-| Touch the spider or web | The actual Spider Synth specimen wiggles and groans; seven web strings play low, unsettling plucks. |
+| Touch the spider or web | The actual Spider Synth groans and dives into the potion, returning with the other ingredients. Seven quieter web strings creak in a menacing scale. |
 | Click the broom or moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
-| Pull her long flying hair noodles | Large changes to the Sandy Syrup / Candy Coil delay processing of the whole ensemble. |
+| Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the giant right mushrooms | Chooses the next complete settings preset and refills the ingredients, preserving whether she is flying or stirring. |
 | Click the twenty-sided die | Randomizes every musical and visual setting using the same full randomizer as the preset dice. Refills ingredients and preserves flight/stirring. The die stays beside the pot in both modes. |
 | Catch the cat, mouse or lizard | The visitor dives into the potion with a short sound. The cat meows as it goes. |
@@ -35,15 +35,19 @@ The left cupboard has six shelves with three real instrument icons on each:
 Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
 Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
-and Dentaphone. BLECH MIDI, Syrinx and Creaturazoid occupy separate branches.
+and Dentaphone. Quadruped, Monstroid and Candy Coil sit on the cupboard top.
+BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
+on an upper branch. Hybrinx appears once.
 The full-height tree uses the L-system Delay instrument's seven generation colors,
 with the moon behind its branches. The three visitors use enlarged portraits
 and remain seated directly on the branches.
+Enlarged transparent red BLECH logos sometimes pass through the flying sky,
+playing an excerpt from its bundled Black MIDI demo.
 The spider lives in a broad top-right corner web, with radial spokes and bowed
 silk threads in front of the tree.
 
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
-and authored sources. They include fast Rubix rhythms, cascading Rattlesnake
+and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnake
 notes, and Puggler's punk drums and Oi. These bites sit within the ongoing mix;
 they do not instantiate each instrument's complete interface. See
 [Sound bite sources](witch-sound-bites.md) for generation and provenance.
