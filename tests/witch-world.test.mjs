@@ -74,9 +74,9 @@ test('spoon and nose remain separate drag targets throughout automatic stirring'
   }
 });
 
-test('all eighteen shelf instruments stay pickable through flight and mushroom warping',()=>{
+test('all shelf instruments stay pickable through flight and mushroom warping',()=>{
   assert.deepEqual(WITCH_LAYOUT.objects.map(object=>object.id),[
-    'glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir','blowhole','syrinx','throat-singing','julie-saw',
+    'glass','tail','earwax','eyeball','newt','hair','roach','spider','oculoid','rubix','hiccup','gesticules','marimba','choir','blowhole','syrinx','throat-singing','julie-saw','puggler',
   ]);
   for(const scene of ['brew','flight'])for(const hitRadius of [46,67,80])for(let trip=0;trip<4;trip++)for(const time of [0,1,4,17,39]) {
     const state={scene,handReach:1,flightLift:scene==='flight'?1:0,hitRadius,trip,time,warpTime:time};
@@ -309,7 +309,7 @@ test('the ladle sleeve stays behind both faces and all instrument minis use thei
       for(const {index} of faces)assert.ok(index>sleeve,'face occludes the sleeve at every flight transition');
       assert.equal(world.filter(call=>call.kind==='image'&&call.source===hand1).length,1,'one continuous ladle hand, without a duplicate flight copy');
       const portraits=world.map((call,index)=>({call,index,url:portraitUrl(call)})).filter(({call,url})=>url&&call.args[2]<=64);
-      assert.equal(portraits.length,18,'only eighteen catalogue portraits occupy the shelf');
+      assert.equal(portraits.length,WITCH_LAYOUT.objects.length,'every shelf object uses its catalogue portrait');
       const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith(flightLift===1?'M-67,-32':'M398,360'));
       for(const object of WITCH_LAYOUT.objects) {
         const matching=portraits.filter(({url})=>url.endsWith('/'+object.imageHref));

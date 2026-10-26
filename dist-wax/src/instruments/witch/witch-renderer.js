@@ -23,10 +23,10 @@ export const WITCH_LAYOUT = Object.freeze({
   ]),
   bats: Object.freeze([{ x: 705, y: 287, r: 34 }, { x: 285, y: 145, r: 30 }, { x: 955, y: 260, r: 28 }]),
   spirits:Object.freeze([Object.freeze({kind:'spark',x:590,y:66,r:25}),Object.freeze({kind:'gust',x:795,y:425,r:28})]),
-  shelves:Object.freeze([{x:35,y:150,w:235,h:407,rows:[232,334,436,538]},{x:818,y:344,w:135,h:307,rows:[426,529,632]}]),
+  shelves:Object.freeze([{x:35,y:150,w:235,h:485,rows:[232,334,436,538,616]},{x:818,y:344,w:135,h:307,rows:[426,529,632]}]),
   objects: Object.freeze(WITCH_SHELF.map((entry,index)=>Object.freeze({...entry,
-    x:index<12?[80,154,228][index%3]:[850,916][(index-12)%2],
-    y:index<12?[196,298,400,502][Math.floor(index/3)]:[390,493,596][Math.floor((index-12)/2)],
+    x:entry.id==='puggler'?80:index<12?[80,154,228][index%3]:[850,916][(index-12)%2],
+    y:entry.id==='puggler'?580:index<12?[196,298,400,502][Math.floor(index/3)]:[390,493,596][Math.floor((index-12)/2)],
     r:29,color:['#a1def0','#dda5c2','#d9ab58','#a7cc69','#af9ed8','#c99b65'][index%6],
   }))),
 });

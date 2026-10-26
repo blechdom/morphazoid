@@ -6,7 +6,7 @@ moving with **Audio off**; enable Audio to hear it. Stir the potion, play her
 fingers, click a miniature instrument on the shelf, or take the whole
 ensemble on a broom ride. **Stop** releases the sound and pauses the performance.
 Presets and playback stay visible; **Parameters** starts closed and contains
-the native controls and a complete ingredient list for keyboard access. The 50
+the native controls and a complete ingredient list for keyboard access. The 51
 complete presets are the main way to change the spell: singing, fingers, ghost
 beat, flight, eight night palettes and crooked lines recall together. Preset
 changes keep Audio, Play and the live clocks running.
@@ -57,10 +57,10 @@ marimba sources. Presets recall motion, rate, depth and sound together. Holding
 a digit takes over its bend while the others keep moving. Touching the right
 palm features the fingers over the quieter continuing singer.
 
-Eighteen actual catalogue icons occupy shelves behind the witch: Alien Larynx,
+Nineteen actual catalogue icons occupy shelves behind the witch: Alien Larynx,
 Tongued Beasts, Digestazoid, Creaturazoid, Monstroid, Hybrinx, Roach Synth,
 Spider Synth, FM Drums, Rubix Cube Sequencer, Hiccup Head, Gesticules,
-Rattlesnake, Throatazoid, Blowhole, Syrinx, Throat Singer and Julie Saw.
+Rattlesnake, Throatazoid, Blowhole, Syrinx, Throat Singer, Julie Saw and Puggler.
 Clicking an icon recalls its complete spell and sends it into the cauldron for
 a short featured sound. These are bounded synthesized excerpts using the
 instruments’ source engines, factory voices or authored gesture parameters,

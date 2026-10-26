@@ -7,6 +7,7 @@ import { RoachZing } from '../src/instruments/roach-synth/roach-synth-textures.j
 import { SpiderStrings } from '../src/instruments/spider-synth/spider-synth-string.js';
 import { DEFAULT_FM_DRUM_VOICES } from '../src/instruments/fm-drums/fm-drums.js';
 import { voicePresetState, glottalHarmonics, throatVoiceParameters } from '../src/families/tract/throatazoid.js';
+import { objectSoundProfile, OBJECT_SOUND_RATE } from '../src/instruments/puggler/puggler-object-sounds.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
 function render(dsp, seconds, block = 128) {
@@ -17,7 +18,7 @@ function render(dsp, seconds, block = 128) {
 
 test('every potion ingredient speaks alone without transport and finishes at low and normal sample rates', () => {
   assert.deepEqual(WITCH_DROP_EFFECTS.map(kind => kind.slice(5)).sort(),
-    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw'].sort());
+    ['gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair', 'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler'].sort());
   for (const rate of [8000, 48000]) for (const kind of WITCH_DROP_EFFECTS) {
     const dsp = new WitchDSP(rate); dsp.setEnabled(true);
     assert.equal(dsp.controls.gate, false); assert.equal(dsp.trigger(kind), true);
@@ -85,4 +86,30 @@ test('Throatazoid and FM Drums excerpts retain their actual authored source iden
   assert.deepEqual(new Set(hits.map(hit => hit.voice.id)), new Set(['rim-shot', 'glass-bell', 'laser-zap', 'soft-chime']));
   assert.ok(rms(voice.map((value, index) => value - drums[index])) > .04, 'the two instrument bites have distinct signals');
   render(dsp, 5); assert.ok(rms(render(dsp, .1)) < 1e-6);
+});
+
+test('Puggler uses its native instrumental punk profiles and one reusable finite PCM excerpt', () => {
+  const dsp = new WitchDSP(24000), taste = dsp.drops.tastes.puggler, data = taste.data;
+  assert.equal(new WitchDSP(48000).drops.tastes.puggler, taste, 'equal source rates reuse the prepared PCM');
+  assert.equal(new WitchDSP(8000).drops.tastes.puggler.sampleRate, 8000, 'low-rate engines prepare a matching bank');
+  assert.equal(taste.sampleRate, OBJECT_SOUND_RATE); assert.equal(data.length, Math.ceil(2.4 * OBJECT_SOUND_RATE));
+  for (const [index, id] of ['club', 'balloon', 'bottle'].entries()) {
+    assert.equal(taste.profiles[index], objectSoundProfile('punk', id));
+    assert.equal(taste.profiles[index].speech, false);
+  }
+  assert.deepEqual(taste.profiles.map(profile => profile.family), ['guitar', 'feedback', 'glass']);
+  assert.ok(data.every(value => Number.isFinite(value) && Math.abs(value) <= .680001));
+  assert.equal(data[0], 0); assert.equal(data.at(-1), 0);
+  assert.ok(rms(data.subarray(0, OBJECT_SOUND_RATE / 2)) > .06);
+  assert.ok(rms(data.subarray(OBJECT_SOUND_RATE * 1.5, OBJECT_SOUND_RATE * 2)) > .06);
+  assert.equal(dsp.trigger('drop-puggler'), false, 'an ingredient never arms Audio');
+  dsp.setEnabled(true); assert.equal(dsp.trigger('drop-puggler'), true);
+  assert.ok(rms(render(dsp, .5)) > .04);
+  const slot = dsp.drops.slots.find(slot => slot.kind === 'drop-puggler');
+  assert.equal(slot.mask, 0, 'Puggler has its own excerpt rather than a generic hand sound');
+  for (let i = 0; i < 100; i++) { dsp.trigger('drop-puggler'); render(dsp, .002); }
+  assert.equal(dsp.drops.tastes.puggler, taste); assert.equal(taste.data, data);
+  assert.equal(dsp.drops.slots.find(item => item.kind === 'drop-puggler'), slot);
+  dsp.setEnabled(false); render(dsp, 2); assert.ok(rms(render(dsp, .1)) < 1e-7);
+  dsp.setEnabled(true); assert.ok(rms(render(dsp, .1)) < 1e-7, 'muted excerpts never restart on rearming');
 });

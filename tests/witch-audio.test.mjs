@@ -389,7 +389,7 @@ test('all four layers coexist in flight; fixed solo slots and the complete mix r
   render(dsp, .5);
   for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]), true);
   for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .840001);
-  assert.equal(dsp.drops.slots.length, 18); assert.equal(dsp.drops.hand.voices.length, 5);
+  assert.equal(dsp.drops.slots.length, WITCH_DROP_EFFECTS.length); assert.equal(dsp.drops.hand.voices.length, 5);
   assert.equal(dsp.drops.tastes.spider.voices.length, 24); assert.equal(dsp.drops.tastes.roach.slots.length, 8);
   for (const key of ['brewLevel', 'handLevel', 'dropLevel', 'delayLevel']) assert.ok(dsp.visual[key] > .001, key);
   assert.ok(dsp.visual.delayWet > .5); assert.ok(dsp.delay.feedback <= .68);

@@ -57,13 +57,14 @@ export const WITCH_PRESETS = [
     speed:[.27,.64,.88,.4,.16,.73][index%6], radius:[.91,.26,.6,.44,.78][index%5],
     handMotion:WITCH_HAND_MOTIONS[(index*3+5)%WITCH_HAND_MOTIONS.length],
     handSound:WITCH_HAND_SOUNDS[(index*3+2)%WITCH_HAND_SOUNDS.length].id,
-    handRate:[3.1,1.7,4.6,2.3,.64,6,5.6,4.2,3.8,2.7,1.4,5.2,.8,1.1,2.1,3.4,.52,4.9][index],
+    handRate:[3.1,1.7,4.6,2.3,.64,6,5.6,4.2,3.8,2.7,1.4,5.2,.8,1.1,2.1,3.4,.52,4.9,5.8][index],
     handDepth:.65+(index%4)*.1, ghostTempo:48+(index%9)*14,
     fingers:Array.from({length:5},(_,finger)=>.12+((index*7+finger*11)%17)/20),
     nose:.15+((index*7)%11)*.07, hat:.18+((index*3)%9)*.08,
     tone:.2+((index*5)%9)*.08, glass:(index%5)*.13, hair:((index+2)%6)*.12,
     fabricX:.22+(index%5)*.14, fabricY:.3+(index%4)*.13,
     trailPull:.2+(index%6)*.13, trailTwist:.17+(index%5)*.16,
+    ...(item.id==='puggler'?{handMotion:'frantic-orbit',handSound:'iron-claws',palette:6,ghostTempo:156}:{}),
   })),
 ];
 const unit = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;

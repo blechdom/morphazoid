@@ -23,6 +23,8 @@ import { throatSingingState, ventricularFoldSupercycle, dualFocusTargets } from 
 import { JULIE_SAW_DEFAULTS, bendToFrequency, julieSawBlade } from '../julie-saw/julie-saw.js';
 import { buildPhysicalModalBank } from '../../physical-sounds.js';
 import { WitchCatDSP } from './witch-cat-audio.js';
+import { objectSoundProfile, renderObjectSound, OBJECT_SOUND_RATE } from '../puggler/puggler-object-sounds.js';
+import { copyClip, finishVoice } from '../puggler/puggler-voice-dsp.js';
 
 const TAU = WITCH_TAU;
 const VOICE = Object.freeze({
@@ -632,7 +634,7 @@ const BLOWHOLE_TASTE_FRAMES = Array.from({ length: 129 }, (_, i) => createBlowho
 const TASTE_LEVELS = Object.freeze({ 'drop-choir': .45, 'drop-glass': .8, 'drop-tail': .075,
   'drop-earwax': .26, 'drop-eyeball': .3, 'drop-newt': .13, 'drop-hair': .07,
   'drop-roach': .75, 'drop-spider': .44, 'drop-oculoid': 1.1, 'drop-rubix': 1,
-  'drop-hiccup': .33, 'drop-blowhole': .5, 'drop-syrinx': .4, 'drop-throat-singing': .22, 'drop-julie-saw': .42 });
+  'drop-hiccup': .33, 'drop-blowhole': .5, 'drop-syrinx': .4, 'drop-throat-singing': .22, 'drop-julie-saw': .42, 'drop-puggler': .75 });
 const TASTE_FORMANT_KEYS = ['f1', 'f2', 'f3'];
 const DIGEST_TASTE_PROFILES = [DIGESTAZOID_EVENT_PROFILES.MB, DIGESTAZOID_EVENT_PROFILES.BURP, DIGESTAZOID_EVENT_PROFILES.HS];
 const DIGEST_TASTE_STARTS = [0, 1.45, 1.8];
@@ -682,6 +684,24 @@ function spectrumSample(spectrum, phase, frequency, rate) {
   return sum;
 }
 
+let pugglerTasteCache = null;
+function preparePugglerTaste(rate) {
+  const sampleRate = Math.min(rate, OBJECT_SOUND_RATE);
+  if (pugglerTasteCache?.sampleRate === sampleRate) return pugglerTasteCache;
+  const profiles = ['club', 'balloon', 'bottle'].map(id => objectSoundProfile('punk', id));
+  // Reuse Puggler's original fuzz strings, amp feedback and procedural glass
+  // percussion. No recordings or vocal fallback enter this instrumental bite.
+  const clips = profiles.map(profile => ({ data: renderObjectSound('punk', profile.propId, 'air', sampleRate, {}), rate: sampleRate }));
+  const data = new Float32Array(Math.ceil(sampleRate * 2.4));
+  for (const [voice, at, gain] of [[0,0,1], [2,.18,.6], [0,.42,.85], [2,.65,.55],
+    [1,.76,.55], [0,.9,1], [2,1.14,.7], [0,1.47,.85], [2,1.7,.55], [0,1.93,1]]) {
+    copyClip(data, sampleRate, clips[voice], { at, gain });
+  }
+  // One cached rate keeps repeated node construction cheap without an
+  // unbounded bank. Existing engines retain their own immutable PCM reference.
+  return pugglerTasteCache = { sampleRate, profiles, data: finishVoice(data, sampleRate, .15) };
+}
+
 class PotionTasteDSP {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate;
@@ -689,6 +709,7 @@ class PotionTasteDSP {
     this.roach.configure(141, .64, .52, 1.3, .4); this.zing.tune(141, .7, .6, .3);
     this.spider = new SpiderStrings(rate); this.spiderLevels = new Float64Array(8).fill(.9);
     this.fmDrums = new FmTasteDSP(rate);
+    this.puggler = preparePugglerTaste(rate); // PCM is prepared once, never at trigger/process time.
     this.throatProfiles = THROAT_TASTE_PROFILES.map(profile => ({ ...profile, body: throatVoiceParameters(profile.state, 0, rate) }));
     this.alienBody = throatVoiceParameters(ALIEN_TASTE, 0, rate);
     this.sawBank = buildPhysicalModalBank('bowed-things', { presetId: 'musical-saw', baseFrequencyHz: bendToFrequency(JULIE_SAW_DEFAULTS),
@@ -898,6 +919,10 @@ class PotionTasteDSP {
         this.fmDrums.strike(FM_TASTE_VOICES[slot.event++]); slot.nextEvent += .32;
       }
       sample = this.fmDrums.next();
+    } else if (slot.kind === 'drop-puggler') {
+      const { data, sampleRate } = this.puggler;
+      const position = t * sampleRate, index = Math.floor(position), mix = position - index;
+      if (index + 1 < data.length) sample = data[index] + (data[index + 1] - data[index]) * mix;
     }
     sample *= slot.gain * fade;
     const pan = slot.kind === 'drop-oculoid' ? Math.sin(t * 5.3) * .8 : Math.sin(t * 2.7) * .22;
@@ -905,7 +930,7 @@ class PotionTasteDSP {
   }
 }
 
-/** Eighteen fixed ingredient slots share a five-voice Gesticules engine and
+/** Fixed ingredient slots share a five-voice Gesticules engine and
  * bounded miniature components. A retrigger reuses the same slot and clocks;
  * every phrase finishes, leaving the continuing singer and fingers audible. */
 class DroppedInstrumentDSP {

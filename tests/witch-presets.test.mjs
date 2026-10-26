@@ -43,9 +43,8 @@ test('randomization reaches every scene, character, direction and continuous mus
 });
 
 test('every shelf miniature is an actual catalogue icon and selects its own complete playable spell',()=>{
-  assert.equal(WITCH_SHELF.length,18);
-  assert.equal(WITCH_PRESETS.length,50);
-  assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,18);
+  assert.ok(WITCH_SHELF.some(item=>item.id==='puggler'&&item.instrumentId==='puggler'));
+  assert.equal(new Set(WITCH_SHELF.map(item=>item.instrumentId)).size,WITCH_SHELF.length);
   const sounds=new Set();
   for(const item of WITCH_SHELF) {
     const instrument=instrumentById(item.instrumentId);
@@ -58,8 +57,8 @@ test('every shelf miniature is an actual catalogue icon and selects its own comp
     assert.equal('volume' in preset.snapshot,false);
     assert.equal('performanceTime' in preset.snapshot,false);
   }
-  assert.equal(sounds.size,18,'each shelf spell changes the authored hand sound or articulation');
-  assert.equal(new Set(WITCH_PRESETS.map(({snapshot:s})=>`${s.catGait}:${s.catSpeed}`)).size,50);
+  assert.equal(sounds.size,WITCH_SHELF.length,'each shelf spell changes the authored hand sound or articulation');
+  assert.equal(new Set(WITCH_PRESETS.map(({snapshot:s})=>`${s.catGait}:${s.catSpeed}`)).size,WITCH_PRESETS.length);
   assert.ok(WITCH_PRESETS.some(({snapshot:s})=>s.handRate>=5&&s.handDepth>=.8));
   assert.ok(WITCH_PRESETS.some(({snapshot:s})=>s.handRate<.6));
   for(const bank of WITCH_HAND_SOUNDS)assert.ok(bank.sources.every(source=>!['vowel','choir'].includes(source)),'finger banks keep instrumental identity');

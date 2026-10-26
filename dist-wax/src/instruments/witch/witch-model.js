@@ -35,10 +35,11 @@ export const WITCH_SHELF = Object.freeze([
   ['marimba','linear-drums','Rattlesnake'], ['choir','throatazoid','Throatazoid'],
   ['blowhole','blowhole','Blowhole'], ['syrinx','syrinx','Syrinx'],
   ['throat-singing','throat-singing','Throat Singer'], ['julie-saw','julie-saw','Julie Saw'],
+  ['puggler','puggler','Puggler the Punk Rock Jugger'],
 ].map(([id,instrumentId,name,icon=instrumentId])=>Object.freeze({id,instrumentId,name,kind:`drop-${id}`,imageHref:`assets/instruments/${icon}.webp`,presetId:`shelf-${instrumentId}`})));
 export const WITCH_DROP_EFFECTS = Object.freeze([
   'gesticules', 'marimba', 'choir', 'glass', 'tail', 'earwax', 'eyeball', 'newt', 'hair',
-  'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw',
+  'roach', 'spider', 'oculoid', 'rubix', 'hiccup', 'blowhole', 'syrinx', 'throat-singing', 'julie-saw', 'puggler',
 ].map(id => `drop-${id}`));
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
