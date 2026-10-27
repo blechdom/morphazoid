@@ -1,4 +1,5 @@
 import { createWitchCatClock, snapshotWitchCatClock } from './witch-cat-model.js';
+import { witchTasteVariantCount } from './witch-blech-phrases.js';
 import { unlockAudioContext } from '../../audio.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { normalizeWitchControls, witchClamp, witchSpoonHeight, WITCH_EFFECTS, WITCH_DROP_EFFECTS, WITCH_TAU } from './witch-model.js';
@@ -145,7 +146,7 @@ export class WitchAudio {
     if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
     const variant = WITCH_DROP_EFFECTS.includes(kind) ? this.nextDropVariants[kind] ?? 0 : undefined;
     this.post({ type: 'trigger', kind, variant, ...(['unicorn-escape','shape-charm','blech-frenzy','web-strum','ghost-scream'].includes(kind)&&detail?{detail}:{}), at: this.context.currentTime });
-    if (variant !== undefined) this.nextDropVariants[kind] = (variant + 1) % 3;
+    if (variant !== undefined) this.nextDropVariants[kind] = (variant + 1) % witchTasteVariantCount(kind);
     return true;
   }
   /** Release manual accents even when primary Play is already stopped. */

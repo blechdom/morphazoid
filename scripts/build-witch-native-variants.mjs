@@ -3,6 +3,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-native-variants.js';
+import { WITCH_BLECH_PHRASES } from '../src/instruments/witch/witch-blech-phrases.js';
 import { parseMidi, beatsToSeconds } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { SpessaSynthProcessor, SoundBankLoader, SpessaLog } from '../src/instruments/midi-mixer/vendor/spessasynth-core.js';
 import { createSolvedRubixCube, turnRubixLayer, createRubixSequenceSnapshot } from '../src/instruments/rubix/rubix.js';
@@ -79,39 +80,60 @@ function add(kind, instrumentId, label, source, samples, events, details = {}) {
   return data;
 }
 
-// Full rin-w note-art patterns already bundled in BLECH's library. Every
-// original attack/controller is sent at 1.6x speed and repeated, with native
-// voice stealing. Two complete preroll periods retain overlapping releases.
-const blechPatterns = [
-  { id: 'black-pattern-3-beat-funnel-128', label: 'rin-w · Funnel 128' },
-  { id: 'black-pattern-4-beat-funnel-88', label: 'rin-w · Funnel 88' },
-  { id: 'black-pattern-webs-volcanic', label: 'rin-w · Volcanic web' },
-];
+// Full geometric patterns alternate with dense ending windows. Keep one
+// source period plus crossfade/fade margins instead of baking five seconds
+// of repeated PCM per choice. All readers loop this same compact bank.
 const collection = JSON.parse(await readFile(new URL('../assets/midiphoria/collection.json', import.meta.url), 'utf8'));
 const font = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
 SpessaLog.setLogLevel(false, false, false);
-for (const pattern of blechPatterns) {
-  const entry = collection.find(song => song.id === pattern.id);
-  if (!entry || entry.artist !== 'rin-w' || entry.licenseId !== 'LicenseRef-Black-MIDI-Patterns-Public-Use')
-    throw new Error(`Missing bundled rin-w BLECH source: ${pattern.id}`);
+for (const phrase of WITCH_BLECH_PHRASES) {
+  const entry = collection.find(song => song.id === phrase.id), excerpt = phrase.start !== undefined;
+  const license = excerpt ? 'CC0-1.0' : 'LicenseRef-Black-MIDI-Patterns-Public-Use';
+  if (!entry || entry.visualOnly || entry.licenseId !== license)
+    throw new Error(`Missing bundled BLECH source: ${phrase.id}`);
   const bytes = await readFile(new URL(`../assets/midiphoria/${entry.file}`, import.meta.url));
-  if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw new Error(`${pattern.id}: source hash mismatch`);
+  if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw new Error(`${phrase.id}: source hash mismatch`);
   const midi = parseMidi(bytes);
-  if (midi.warnings.length) throw new Error(`${pattern.id}: ${midi.warnings.join('; ')}`);
-  const sourcePlayRate = 1.6, loopFrames = Math.round(midi.durationSeconds / sourcePlayRate * RATE);
-  const prerollFrames = loopFrames * 2, outputFrames = RATE * 5, totalFrames = prerollFrames + outputFrames;
+  if (midi.warnings.length) throw new Error(`${phrase.id}: ${midi.warnings.join('; ')}`);
+  const sourceStart = phrase.start ?? 0, sourceEnd = phrase.end ?? midi.durationSeconds, sourcePlayRate = phrase.speed;
+  if (!(sourceStart >= 0 && sourceEnd > sourceStart && sourceEnd <= midi.durationSeconds + .001))
+    throw new Error(`${phrase.id}: source window outside MIDI`);
+  const loopFrames = Math.round((sourceEnd - sourceStart) / sourcePlayRate * RATE);
+  const loopStartFrame = Math.round(RATE * .02);
+  const outputFrames = loopStartFrame + loopFrames + Math.round(RATE * .025) + Math.ceil(RATE * .12) + 2;
+  const prerollFrames = loopFrames * 2, totalFrames = prerollFrames + outputFrames;
+  const events = midi.events.map(event => ({ ...event, seconds: beatsToSeconds(event.beat, midi.tempoMap) }));
+  // Full patterns often release their final block exactly at the file end.
+  // Retain those releases before the following cycle's attacks; excerpts use
+  // explicit boundary release/reset and therefore keep a half-open window.
+  const region = events.filter(event => event.seconds >= sourceStart
+    && (excerpt ? event.seconds < sourceEnd : event.seconds <= sourceEnd));
+  const state = new Map();
+  for (const event of events) if (event.seconds < sourceStart && event.kind >= 10)
+    state.set(`${event.channel}:${event.kind}:${event.kind === 11 ? event.a : ''}`, event);
+  const held = excerpt ? midi.notes.filter(note => beatsToSeconds(note.beat, midi.tempoMap) < sourceStart
+    && beatsToSeconds(note.beat + note.duration, midi.tempoMap) > sourceStart) : [];
   const selected = [];
-  for (let cycle = 0; cycle * loopFrames < totalFrames; cycle++) for (const event of midi.events) {
-    const frame = cycle * loopFrames + Math.round(beatsToSeconds(event.beat, midi.tempoMap) / sourcePlayRate * RATE);
-    if (frame < totalFrames) selected.push({ ...event, frame });
+  for (let cycle = 0; cycle * loopFrames < totalFrames; cycle++) {
+    const boundary = cycle * loopFrames;
+    if (excerpt) {
+      selected.push({ frame: boundary, reset: true });
+      for (const event of [...state.values()].sort((a, b) => a.seconds - b.seconds)) selected.push({ ...event, frame: boundary });
+      for (const note of held) selected.push({ kind: 9, channel: note.channel, a: note.note, b: note.velocity, frame: boundary, restored: true });
+    }
+    for (const event of region) {
+      const frame = boundary + Math.round((event.seconds - sourceStart) / sourcePlayRate * RATE);
+      if (frame < totalFrames) selected.push({ ...event, frame });
+    }
   }
   selected.sort((a, b) => a.frame - b.frame);
-  const attacks = selected.filter(event => event.kind === 9 && event.b > 0 && event.frame >= prerollFrames).length;
+  const attacks = selected.filter(event => event.kind === 9 && event.b > 0 && !event.restored && event.frame >= prerollFrames).length;
   const synth = new SpessaSynthProcessor(RATE, { eventsEnabled: false });
   await synth.processorInitialized;
-  synth.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(font.buffer.slice(font.byteOffset, font.byteOffset + font.length)), 'witch-rin-w-patterns');
+  synth.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(font.buffer.slice(font.byteOffset, font.byteOffset + font.length)), 'witch-blech-phrases');
   synth.setSystemParameter('voiceCap', 128);
-  const send = event => synth.processMessage([event.kind * 16 + event.channel % 16, event.a, event.b], event.channel - event.channel % 16);
+  const send = event => event.reset ? synth.stopAllChannels(false)
+    : synth.processMessage([event.kind * 16 + event.channel % 16, event.a, event.b], event.channel - event.channel % 16);
   const pcm = new Float32Array(totalFrames);
   let cursor = 0, at = 0;
   while (at < pcm.length) {
@@ -122,14 +144,15 @@ for (const pattern of blechPatterns) {
     for (let i = 0; i < count; i++) pcm[at + i] = (left[i] + right[i]) * .5;
     at += count;
   }
-  // Flight readers repeat the exact source period, inside the boundary fades
-  // of the five-second ingredient taste. The extra PCM after the loop supplies
-  // the tail for a 25 ms overlap; no event sorting happens in the audio thread.
-  add('drop-blech', 'blech-midi', pattern.label,
-    `${entry.title} by rin-w / complete bundled MIDI repeated at 1.6x / native SpessaSynth + TimGM6mb`,
+  // Two preroll periods establish the repeated phrase and its release tails.
+  // The final extra margin supplies the overlap without entering boundary fades.
+  add('drop-blech', 'blech-midi', phrase.label,
+    `${entry.title} by ${entry.artist} / ${excerpt ? `ending ${sourceStart}–${sourceEnd} s` : 'complete bundled MIDI'} repeated at ${sourcePlayRate}x / native SpessaSynth + TimGM6mb`,
     pcm.slice(prerollFrames), attacks, { midiFile: `assets/midiphoria/${entry.file}`,
-      sourceStart: 0, sourceEnd: midi.durationSeconds, sourceEvents: midi.noteCount, sourcePlayRate,
-      loopStartFrame: Math.round(RATE * .02), loopFrames, sourceSha256: entry.sha256,
+      sourceStart, sourceEnd, sourceEvents: region.filter(event => event.kind === 9 && event.b > 0).length,
+      sourceReleases: region.filter(event => event.kind === 8 || event.kind === 9 && event.b === 0).length,
+      sourceTotalEvents: midi.noteCount, sourcePlayRate, phraseType: excerpt ? 'ending' : 'pattern',
+      loopStartFrame, loopFrames, sourceSha256: entry.sha256,
       voiceCap: 128, artist: entry.artist, license: entry.licenseId });
   synth.destroySynthProcessor();
 }

@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { witchBiteClips, witchBiteVariants, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WITCH_BLECH_FRENZY_DURATION, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-native-variants.js';
+import { WITCH_BLECH_PHRASES } from '../src/instruments/witch/witch-blech-phrases.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
@@ -114,7 +115,7 @@ test('the Hiccup scream joins witch flight echoes, bypasses Fabric and releases 
   }
 });
 
-test('BLECH flybys loop complete rin-w patterns with the icon clock and two bounded voices', t => {
+test('BLECH flybys loop geometric patterns and chromatic endings with two bounded voices', t => {
   assert.deepEqual(getWitchBlechFlyby(4.99), []);
   assert.equal(getWitchBlechFlyby(5.3).length, 1);
   assert.equal(getWitchBlechFlyby(18.5).length, 2);
@@ -123,19 +124,36 @@ test('BLECH flybys loop complete rin-w patterns with the icon clock and two boun
   assert.ok(Math.abs(first.x - repeated.x) < 1e-9); assert.notEqual(first.id, repeated.id);
   const flyby = new WitchBlechFlyby(8000), pool = flyby.slots.slice(), controls = { mode: 'flight', ghostGate: true };
   assert.equal(flyby.clip, witchBiteClips()['drop-blech'], 'the actual BLECH phrase is shared, not synthesized again');
+  assert.equal(WITCH_NATIVE_BITE_VARIANTS['drop-blech'].length,WITCH_BLECH_PHRASES.length);
   for (const [index, clip] of WITCH_NATIVE_BITE_VARIANTS['drop-blech'].entries()) {
     const midi = readFileSync(new URL(`../${clip.midiFile}`, import.meta.url));
     const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
     assert.equal(clip.sourceSha256, createHash('sha256').update(midi).digest('hex'));
-    assert.equal(clip.sourceEvents, score.total, 'the complete original pattern is retained');
+    assert.equal(clip.sourceTotalEvents, score.total);
+    const starts=[],classes=new Set();
+    for(let i=0;i<score.total;i++)if(score.starts[i]>=clip.sourceStart&&score.starts[i]<clip.sourceEnd) {
+      starts.push(score.starts[i]-clip.sourceStart);classes.add(score.pitches[i]%12);
+    }
+    assert.equal(clip.sourceEvents,starts.length,'every original attack in the selected window is retained');
+    if(clip.phraseType==='ending') {
+      let soundingEnd=0;for(const end of score.ends)soundingEnd=Math.max(soundingEnd,end);
+      assert.ok(clip.sourceStart>soundingEnd*.9,'ending excerpts come from the final tenth of the notes, excluding trailing file silence');
+      assert.ok(starts.length>1000);assert.equal(classes.size,12,'ending clusters span all pitch classes');
+      assert.equal(clip.license,'CC0-1.0');
+    } else {
+      assert.equal(clip.sourceEvents,score.total);
+      assert.equal(clip.sourceReleases,score.total+score.diagnostics.unmatchedOffs-score.diagnostics.unclosed,
+        'full patterns retain every original note-off, including final boundary releases and redundant offs');
+      assert.equal(clip.license,'LicenseRef-Black-MIDI-Patterns-Public-Use');
+    }
     let attacks = 0;
-    for (let cycle = 0; cycle * clip.loopFrames < clip.frames; cycle++) for (let i = 0; i < score.total; i++) {
-      if (cycle * clip.loopFrames + Math.round(score.starts[i] / clip.sourcePlayRate * clip.rate) < clip.frames) attacks++;
+    for (let cycle = 0; cycle * clip.loopFrames < clip.frames; cycle++) for (const start of starts) {
+      if (cycle * clip.loopFrames + Math.round(start / clip.sourcePlayRate * clip.rate) < clip.frames) attacks++;
     }
     assert.equal(clip.events, attacks, 'all original attacks repeat at the declared source rate');
     assert.equal(witchBiteVariants()['drop-blech'][index].events, attacks);
-    assert.ok(score.total > 1000); assert.match(clip.source, /by rin-w.*native SpessaSynth/);
-    assert.equal(clip.license, 'LicenseRef-Black-MIDI-Patterns-Public-Use');
+    assert.match(clip.source, /native SpessaSynth/);
+    assert.equal(clip.loopFrames,Math.round((clip.sourceEnd-clip.sourceStart)/clip.sourcePlayRate*clip.rate));
     assert.ok(clip.loopStartFrame >= clip.rate * .008);
     assert.ok(clip.loopStartFrame + clip.loopFrames + clip.rate * .025 + 1 < clip.frames - clip.rate * .12,
       'the crossfaded native loop stays inside the ingredient boundary fades');
@@ -146,7 +164,7 @@ test('BLECH flybys loop complete rin-w patterns with the icon clock and two boun
     peak = Math.max(peak, Math.abs(flyby.left), Math.abs(flyby.right));
     if (flyby.slots.every(slot => slot.age >= 0)) pairs++;
   }
-  t.diagnostic(`automatic rin-w visits: stereo energy ${energy.toFixed(3)}, peak ${peak.toFixed(5)}`);
+  t.diagnostic(`automatic BLECH visits: stereo energy ${energy.toFixed(3)}, peak ${peak.toFixed(5)}`);
   assert.ok(energy > 1 && peak < .3 && pairs > 8000, 'the louder pair overlaps within fixed source headroom');
   assert.ok(flyby.slots.every(slot => slot.loops >= 1), 'each five-second visitor repeats its complete source period');
   assert.ok(flyby.slots.every((slot, i) => slot === pool[i]));
@@ -178,9 +196,9 @@ test('BLECH flight sound follows the sample clock without potion solos, muted ba
   assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
 });
 
-test('clicked BLECH visitors repeat their rin-w pattern in one bounded accelerated three-reader burst', t => {
+test('clicked BLECH visitors repeat every geometric pattern and ending in one bounded three-reader burst', t => {
   const rate = 8000, controls = { mode: 'flight', ghostGate: true };
-  for (let variant = 0; variant < 3; variant++) {
+  for (let variant = 0; variant < WITCH_BLECH_PHRASES.length; variant++) {
     const flyby = new WitchBlechFlyby(rate), readers = flyby.frenzyReaders.slice();
     flyby.nextVariant = variant; flyby.syncTime(4.99);
     for (let i = 0; i < rate * .15; i++) flyby.next(controls, true);

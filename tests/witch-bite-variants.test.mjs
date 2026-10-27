@@ -5,6 +5,7 @@ import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { WITCH_CHARACTER_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-character-variants.js';
 import { WITCH_INGREDIENTS } from '../src/instruments/witch/witch-model.js';
+import { witchTasteVariantCount } from '../src/instruments/witch/witch-blech-phrases.js';
 import { witchBiteClips, witchBiteVariants, WitchBlechFlyby } from '../src/instruments/witch/witch-scene-audio.js';
 
 const RATE = 12000;
@@ -22,13 +23,13 @@ function render(dsp, seconds = .75) {
   return data;
 }
 
-for (const kind of kinds) test(`${kind} has three audible, finite and distinct native tastes`, t => {
+for (const kind of kinds) test(`${kind} has audible, finite and distinct native tastes`, t => {
   // Fresh engines prevent a preceding phrase, random stream or delay history
   // from creating false separation between otherwise identical variants.
   const bank = witchBiteVariants()[kind] ?? [];
   const seconds = Math.max(['drop-blech', 'drop-eyeball', 'drop-syrinx'].includes(kind) ? 5 : 2.4,
     ...bank.map(clip => clip.frames / clip.rate));
-  const sounds = [0, 1, 2].map(variant => {
+  const sounds = Array.from({length:witchTasteVariantCount(kind)},(_,variant) => {
     const dsp = armed();
     assert.equal(dsp.trigger(kind, variant), true);
     const data = render(dsp, seconds), level = rms(data);
@@ -60,14 +61,15 @@ test('Spider cycles three complete native calls without the old accusation', () 
   }
 });
 
-test('accepted drops cycle independently through 0, 1, 2, 0 and muted gestures consume no taste', () => {
+test('accepted drops cycle independently through every choice and muted gestures consume no taste', () => {
   const dsp = armed(), slots = dsp.drops.slots;
   for (const kind of kinds) {
     const slot = slots.find(item => item.kind === kind);
     const untouched = slots.filter(item => item !== slot).map(item => item.nextVariant);
-    for (const expected of [0, 1, 2, 0]) {
+    const count=witchTasteVariantCount(kind);
+    for (const expected of [...Array(count).keys(),0]) {
       assert.equal(dsp.trigger(kind), true); assert.equal(slot.variant, expected);
-      assert.equal(slot.nextVariant, (expected + 1) % 3);
+      assert.equal(slot.nextVariant, (expected + 1) % count);
     }
     assert.deepEqual(slots.filter(item => item !== slot).map(item => item.nextVariant), untouched);
   }
@@ -94,7 +96,7 @@ test('variant readers share decoded banks, original clips and Quadruped aliases 
   assert.equal(base['drop-cat'], base['drop-quadruped']);
   const unique = new Set(Object.values(base));
   for (const [kind, bank] of Object.entries(variants)) {
-    assert.equal(bank.length, 3); assert.ok(Object.isFrozen(bank));
+    assert.equal(bank.length, witchTasteVariantCount(kind)); assert.ok(Object.isFrozen(bank));
     assert.equal(bank[0], base[kind], `${kind}: the initial taste does not decode twice`);
     for (const clip of bank) {
       unique.add(clip);
@@ -175,7 +177,14 @@ test('BLECH flybys cycle only audible entrances and overlapping passes retain th
   assert.ok(flyby.slots.every(slot => slot.age >= 0), 'the two native phrases overlap');
   assert.equal(flyby.slots[0].clip, continuing, 'the new visitor cannot replace an already sounding reader');
   assert.equal(flyby.slots[1].variant, 2); assert.equal(flyby.slots[1].clip, bank[2]);
-  assert.equal(flyby.nextVariant, 0);
+  assert.equal(flyby.nextVariant, 3);
+  for(let variant=3;variant<bank.length;variant++) {
+    const start=flyby.nextAt,slotIndex=flyby.nextEvent===2?1:0;
+    flyby.syncTime(start-.01);assert.ok(until(start+.3)>0);
+    assert.equal(flyby.slots[slotIndex].variant,variant);
+    assert.equal(flyby.slots[slotIndex].clip,bank[variant]);
+  }
+  assert.equal(flyby.nextVariant,0,'every choice is visited before the bank wraps');
   flyby.syncTime(30.99); until(31.3);
   assert.equal(flyby.slots[0].variant, 0); assert.equal(flyby.nextVariant, 1);
   flyby.syncTime(41.99); until(42.08, false);
@@ -185,4 +194,24 @@ test('BLECH flybys cycle only audible entrances and overlapping passes retain th
   assert.ok(until(44.5) > 0); assert.equal(flyby.slots[1].variant, 1);
   assert.equal(flyby.slots[1].clip, bank[1]); assert.equal(flyby.nextVariant, 2);
   assert.ok(flyby.slots.every((slot, i) => slot === pool[i]));
+});
+
+test('BLECH drop choices survive an Audio rebuild and manual flybys have their own full rotation',async()=>{
+  const {runtime,messages}=audioRuntime(),audio=new WitchAudio(runtime),count=witchTasteVariantCount('drop-blech');
+  try {
+    await audio.start();audio.setAudible(true);
+    for(let i=0;i<=count;i++) {
+      if(i===4){audio.detach();await audio.start();audio.setAudible(true);}
+      assert.equal(audio.trigger('drop-blech'),true);
+    }
+    assert.deepEqual(messages.filter(m=>m.kind==='drop-blech').map(m=>m.variant),[...Array(count).keys(),0]);
+    const flyby=new WitchBlechFlyby(RATE),bank=witchBiteVariants()['drop-blech'];
+    for(let i=0;i<=count;i++) {
+      assert.equal(flyby.triggerFrenzy(0),true);
+      // Finish a previous click's short replacement fade, keeping automation asleep.
+      for(let frame=0;frame<RATE*.03;frame++)flyby.next({mode:'flight',ghostGate:false},false,true);
+      assert.equal(flyby.frenzy.clip,bank[i%count]);
+      assert.equal(flyby.nextVariant,0,'manual-only exploration preserves the autonomous rotation');
+    }
+  } finally {await audio.dispose();}
 });

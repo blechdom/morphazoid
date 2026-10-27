@@ -41,7 +41,7 @@ export function witchBiteClips() {
   return Object.freeze(decodedClips);
 }
 
-/** All three authored sounds share fixed decoded storage across Witch engines. */
+/** Authored choices share fixed decoded storage across Witch engines. */
 export function witchBiteVariants() {
   if (decodedVariants) return decodedVariants;
   const base = witchBiteClips();
@@ -55,7 +55,7 @@ export const WITCH_BLECH_FRENZY_DURATION = 5.2;
 
 // Read a crossfaded source period from the shared native PCM. Loop metadata
 // stays inside the ingredient clip's boundary fades; no voices are created.
-function blechLoopSample(clip, position) {
+export function sampleWitchBlechLoop(clip, position) {
   const crossfade = Math.round(clip.rate * .025), loopLength = clip.loopFrames ?? clip.frames - crossfade - 1;
   const start = clip.loopStartFrame ?? 0, index = Math.floor(position), blend = position - index;
   let source = clip.data[start + index] + (clip.data[start + index + 1] - clip.data[start + index]) * blend;
@@ -68,19 +68,19 @@ function blechLoopSample(clip, position) {
   return source;
 }
 
-/** Two fixed PCM readers for sparse BLECH visitors. Three full, dense rin-w
- * note-art patterns repeat through BLECH's SoundFont engine, without using a
+/** Two fixed PCM readers for sparse BLECH visitors. Geometric patterns and
+ * chromatic ending excerpts repeat through BLECH's SoundFont engine, without using a
  * potion slot or its solo ducking.
  * Muted events are consumed; a seek or resume never replays a stale entrance. */
 export class WitchBlechFlyby {
   constructor(rate) {
     this.dt = 1 / rate; this.time = 0; this.left = this.right = 0;
     this.clips = witchBiteVariants()['drop-blech'] ?? [witchBiteClips()['drop-blech']];
-    this.clip = this.clips[0]; this.nextVariant = 0;
+    this.clip = this.clips[0]; this.nextVariant = 0; this.nextManualVariant = 0;
     this.slots = Array.from({ length: 2 }, () => ({ age: -1, release: 1, releasing: false, direction: 1, clip: this.clip, variant: 0, position: 0, loops: 0 }));
     this.nextEvent = 0; this.nextCycle = 0; this.nextAt = WITCH_BLECH_FLYBY_EVENTS[0].at;
     // One reusable manual burst, with three faster, offset readers of the
-    // clicked visitor's native rin-w pattern. It never occupies a potion
+    // clicked visitor's native phrase. It never occupies a potion
     // slot, wakes backing performers or allocates voices on a click.
     this.frenzy = { age: -1, gain: 0, releasing: false, pendingIndex: -1, pendingClip: null,
       index: 0, clip: this.clip, loops: 0 };
@@ -109,8 +109,9 @@ export class WitchBlechFlyby {
   }
   triggerFrenzy(index = 0) {
     if (index !== 0 && index !== 1) return false;
-    const slot = this.slots[index], clip = slot.age >= 0 && !slot.releasing
-      ? slot.clip : this.clips[this.nextVariant % this.clips.length];
+    const slot = this.slots[index], live = slot.age >= 0 && !slot.releasing;
+    const clip = live ? slot.clip : this.clips[this.nextManualVariant];
+    if (!live) this.nextManualVariant = (this.nextManualVariant + 1) % this.clips.length;
     if (this.frenzy.age >= 0) {
       // Busy clicks replace one pending burst behind a 12 ms release rather
       // than stack more sample readers or cut the currently sounding wave.
@@ -141,7 +142,7 @@ export class WitchBlechFlyby {
     const envelope = burst.gain * Math.min(1, (WITCH_BLECH_FRENZY_DURATION - burst.age) / .22);
     this.frenzyEnvelope = envelope;
     for (const reader of this.frenzyReaders) {
-      const sample = blechLoopSample(clip, reader.position) * .125 * envelope;
+      const sample = sampleWitchBlechLoop(clip, reader.position) * .125 * envelope;
       this.frenzyLeft += sample * reader.left; this.frenzyRight += sample * reader.right;
       reader.position += clip.rate * this.dt * reader.speed;
       if (reader.position >= loopLength) { reader.position -= loopLength; burst.loops++; }
@@ -169,7 +170,7 @@ export class WitchBlechFlyby {
       if (slot.releasing) slot.release = Math.max(0, slot.release - this.dt / .035);
       if (slot.release === 0 || slot.age >= WITCH_BLECH_FLYBY_DURATION) { slot.age = -1; continue; }
       const clip = slot.clip, loopLength = clip.loopFrames ?? clip.frames - Math.round(clip.rate * .025) - 1;
-      const source = blechLoopSample(clip, slot.position);
+      const source = sampleWitchBlechLoop(clip, slot.position);
       const envelope = Math.min(1, slot.age / .025, (WITCH_BLECH_FLYBY_DURATION - slot.age) / .08) * slot.release;
       const pan = slot.direction * (slot.age / WITCH_BLECH_FLYBY_DURATION * 2 - 1) * .9;
       const sample = source * .22 * envelope * (1 - this.frenzyEnvelope * .85);

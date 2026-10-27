@@ -1,5 +1,6 @@
 import { normalizeWitchControls, sampleChant, witchClamp, witchHandConfig, applyWitchManualFingers, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_DROP_EFFECTS, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
 import { WITCH_GHOST_SCARE_DURATION, getWitchGhostScream } from './witch-scene-model.js';
+import { witchTasteVariantCount } from './witch-blech-phrases.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
 import { RoachPercussion } from '../roach-synth/roach-synth-percussion.js';
@@ -29,7 +30,7 @@ import { WitchUnicornDSP } from './witch-unicorn-audio.js';
 import { WitchShapeCharmDSP, WITCH_SHAPE_CHARM_DURATION } from './witch-shape-audio.js';
 import { WitchVisitorDSP } from './witch-visitors-audio.js';
 import { witchCatMeowEnvelope, WITCH_CAT_UNICORN_DURATION } from './witch-cat-model.js';
-import { witchBiteClips, witchBiteVariants, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
+import { witchBiteClips, witchBiteVariants, sampleWitchBlechLoop, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
 const GROUND_ANIMAL_DROPS = new Set(['drop-cat', 'drop-mouse', 'drop-lizard']);
@@ -880,7 +881,7 @@ const SOURCE_TASTE_FRAMES = Object.fromEntries(Object.entries(SOURCE_TASTE_VARIA
 
 // Authored variants use fixed source trims, preserving the established base mix.
 const TASTE_VARIANT_TRIMS = Object.freeze({
-  'drop-blech': [.831, .831, .831], 'drop-rubix': [1, .755, .755],
+  'drop-blech': Array(witchTasteVariantCount('drop-blech')).fill(.831), 'drop-rubix': [1, .755, .755],
   'drop-candy-coil': [1, .73, .73],
   'drop-glass': [1, .8, .25], 'drop-hair': [1, 1.7, .9],
   'drop-oculoid': [1, .6, .63], 'drop-hiccup': [1, .31, .265],
@@ -974,7 +975,8 @@ class PotionTasteDSP {
     const fade = Math.min(1, Math.max(0, (slot.duration - t) / .23));
     if (slot.clip) {
       const { data, rate } = slot.clip, position = t * rate, index = Math.floor(position), mix = position - index;
-      if (index + 1 < data.length) sample = data[index] + (data[index + 1] - data[index]) * mix;
+      if (slot.kind === 'drop-blech') sample = sampleWitchBlechLoop(slot.clip, position % slot.clip.loopFrames);
+      else if (index + 1 < data.length) sample = data[index] + (data[index + 1] - data[index]) * mix;
     } else if (slot.kind === 'drop-choir') {
       // An excerpt of Throatazoid's authored Clear / Deep / Bright voices.
       // Its source harmonics and body resonances are reused directly; a fixed
@@ -1168,8 +1170,9 @@ class DroppedInstrumentDSP {
   trigger(kind, variant) {
     const slot = this.slots.find(slot => slot.kind === kind);
     if (!this.enabled || !slot) return false;
-    slot.variant = Number.isInteger(variant) && variant >= 0 && variant < 3 ? variant : slot.nextVariant;
-    slot.nextVariant = (slot.variant + 1) % 3;
+    const count = witchTasteVariantCount(kind);
+    slot.variant = Number.isInteger(variant) && variant >= 0 && variant < count ? variant : slot.nextVariant;
+    slot.nextVariant = (slot.variant + 1) % count;
     this.tastes.trigger(slot);
     if (slot.mask) {
       this.hand.setConfig(this.handConfigs[slot.variant]);

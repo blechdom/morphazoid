@@ -33,7 +33,7 @@ Brightness remains on the **+ / −** keys.
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
-| Catch a flying BLECH MIDI logo (or I while one passes) | Its Rin-W Black MIDI pattern accelerates into a dense, layered five-second loop, then releases into the flight delay. The caught logo shudders; repeated clicks renew one burst rather than piling up voices. It can play alone after a hush. |
+| Catch a flying BLECH MIDI logo (or I while one passes) | Its geometric Black MIDI pattern or dense ending excerpt accelerates into a layered five-second loop, then releases into the flight delay. The caught logo shudders; repeated clicks renew one burst rather than piling up voices. It can play alone after a hush. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play one L-system PM phrase with a pulse travelling through the branches. Drag outward to widen the turn angle, inward to close it, or up/down for asymmetric curling. Those changes alter the live modulation and stereo image; a held drag never restarts the phrase. Mushrooms and the SHAPES charm choose new tree settings. |
 | Touch the spider or web | The actual Spider Synth cycles “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” as it dives into the potion, returning with the other ingredients. Tap for one sharp, creaky pluck; sweep or scrub across the silk for successive plucks, including multiple rings in the same note area. Fast swipes follow the crossed threads through seven menacing pitches. The web can wake on its own without starting the voice, fingers or background performers. |
@@ -82,7 +82,7 @@ authored iris color and lighting; [source and modifications](../assets/oculoid/S
 The three visitors use enlarged portraits
 and remain seated directly on the branches.
 Enlarged transparent red BLECH logos sometimes pass through the flying sky,
-looping dense patterns from its bundled Rin-W Black MIDI collection.
+looping geometric patterns and dense ending excerpts from its bundled Black MIDI collection.
 Spider Synth's bulky King Baboon tarantula lives in a broad top-right corner web,
 with radial spokes and bowed silk threads in front of the tree.
 The model is based on [King Baboon Tarantula](https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381)
@@ -94,11 +94,12 @@ describe the modifications. Its placement in this web is artistic.
 Ingredient sounds are bounded excerpts of the actual instruments' sound engines
 and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnake
 notes, SIMD chip and acid phrases, and Puggler’s fast punk guitar, drums and Oi.
-Every Morphazoid ingredient has three sounds, cycling on each accepted click.
+Every Morphazoid ingredient has three sounds; BLECH has eight. They cycle on each accepted click.
 The next sound survives refills and preset changes; consumed icons still wait
-for the next refill. BLECH's tree and flying appearances use Rin-W's
-3-Beat Funnel 128, 4-Beat Funnel 88 and Webs Volcanic, with separate cycling for
-the flying visitors. Flying patterns loop through each pass and sit louder in
+for the next refill. BLECH alternates Rin-W's two Funnels, two Block Glisses
+and Volcanic web with ending clusters from Chasing Wind, Lightstorm and SWMG,
+with separate rotations for tree drops, flying visitors and manual-only sky
+clicks. Flying phrases loop through each pass and sit louder in
 the mix; they retain their short fade when the witch lands or rests.
 
 Roach Synth combines its percussion with fluttering wings. These bites sit within
