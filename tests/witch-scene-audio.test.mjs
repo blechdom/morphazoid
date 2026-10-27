@@ -361,6 +361,79 @@ test('every web strand plucks a distinct finite low string; groan and web remain
   dsp.trigger('web-4'); render(dsp, .1); dsp.setEnabled(false); render(dsp, 2); assert.ok(rms(render(dsp, .1)) < 1e-7);
 });
 
+test('web plucks put their energy into the first stroke while retaining a quieter creaking tail', () => {
+  for (const rate of [12000, 48000]) for (const seed of [0x3453b719, 0x615a7b9, 0x1548991]) {
+    for (const strand of [0, 3, 6]) {
+      const scene = new WitchSceneDSP(rate); scene.web.randomState = seed;
+      assert.equal(scene.trigger(`web-${strand}`), true);
+      const sound = new Float32Array(rate);
+      let peak = 0;
+      for (let frame = 0; frame < sound.length; frame++) {
+        scene.next(true); sound[frame] = (scene.left + scene.right) * .5;
+        peak = Math.max(peak, Math.abs(scene.left), Math.abs(scene.right));
+        assert.ok(Number.isFinite(scene.left) && Number.isFinite(scene.right));
+      }
+      const stroke = rms(sound.subarray(0, rate * .035));
+      const tail = rms(sound.subarray(rate * .12, rate * .2));
+      assert.ok(stroke > tail * 1.5, 'short strokes have an immediate attack instead of a delayed swell');
+      assert.ok(tail > .008 && peak < .22, 'the low native string remains audible with restrained headroom');
+    }
+  }
+});
+
+test('web strums schedule every crossing, including repeated strands, as overlapping sample-clock plucks', () => {
+  for (const rate of [8000, 48000]) {
+    const queued = new WitchSceneDSP(rate), reference = new WitchSceneDSP(rate);
+    const strands = [0, 1, 1, 3, 4, 4, 6, 2], interval = .0125;
+    const pool = queued.web.voices.slice();
+    assert.equal(queued.trigger('web-strum', { indices: strands, interval }), true);
+    let peak = 0, overlapped = false;
+    for (let frame = 0; frame < rate * 1.5; frame++) {
+      const index = frame / Math.round(interval * rate);
+      if (Number.isInteger(index) && index < strands.length) reference.trigger(`web-${strands[index]}`);
+      queued.next(true); reference.next(true);
+      assert.equal(queued.left, reference.left); assert.equal(queued.right, reference.right);
+      assert.ok(Number.isFinite(queued.left) && Number.isFinite(queued.right));
+      peak = Math.max(peak, Math.abs(queued.left), Math.abs(queued.right));
+      overlapped ||= queued.web.active > 1;
+    }
+    assert.equal(queued.web.attackOrder, strands.length, 'no adjacent or repeated strand is coalesced');
+    assert.ok(overlapped && peak > .05 && peak < .5);
+    assert.equal(queued.webQueueCount, 0); assert.equal(queued.web.active, 0);
+    assert.ok(queued.web.voices.every((voice, index) => voice === pool[index]));
+  }
+});
+
+test('web strum backlog is short and bounded; release or mute cancels every pending crossing', () => {
+  const rate = 8000, scene = new WitchSceneDSP(rate), pool = scene.web.voices.slice();
+  for (const detail of [undefined, {}, { indices: '123' }, { indices: [-1, 7, .5, NaN] }]) {
+    assert.equal(scene.trigger('web-strum', detail), false);
+  }
+  const gesture = { indices: [0, 1, 2, 3, 4, 5, 6, 0], interval: .008 };
+  for (let i = 0; i < 1000; i++) scene.trigger('web-strum', gesture);
+  let peak = 0;
+  for (let frame = 0; frame < rate * .15; frame++) {
+    scene.next(true); peak = Math.max(peak, Math.abs(scene.left), Math.abs(scene.right));
+    assert.ok(Number.isFinite(scene.left) && Number.isFinite(scene.right));
+  }
+  const attacks = scene.web.attackOrder;
+  assert.ok(attacks >= 8 && attacks <= 24); assert.equal(scene.webQueueCount, 0);
+  for (let frame = 0; frame < rate * .5; frame++) scene.next(true);
+  assert.equal(scene.web.attackOrder, attacks, 'an overloaded drag cannot leave a delayed flurry');
+  assert.ok(peak < .5); assert.ok(scene.web.voices.every((voice, index) => voice === pool[index]));
+  for (const muted of [false, true]) {
+    const stopped = new WitchSceneDSP(rate);
+    stopped.trigger('web-strum', gesture);
+    for (let frame = 0; frame < rate * .02; frame++) stopped.next(true);
+    const started = stopped.web.attackOrder;
+    if (muted) stopped.next(false); else stopped.releaseAll();
+    for (let frame = 0; frame < rate * .6; frame++) stopped.next(!muted);
+    assert.equal(stopped.web.attackOrder, started); assert.equal(stopped.webQueueCount, 0);
+    assert.ok(Math.abs(stopped.left) < 1e-7 && Math.abs(stopped.right) < 1e-7);
+    stopped.next(true); assert.equal(stopped.web.attackOrder, started, 'Audio resume cannot replay canceled crossings');
+  }
+});
+
 test('eye shock tears the complete mix for a finite gesture while retaining clocks and exact unaffected audio afterward', () => {
   for (const controls of [{}, { mode: 'flight' }, { fabricX: .05, fabricY: .95 }]) {
     const shocked = playing(controls), held = playing(controls);

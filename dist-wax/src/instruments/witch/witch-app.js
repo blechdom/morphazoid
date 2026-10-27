@@ -2,7 +2,7 @@ import { WitchAudio } from './witch-audio.js';
 import { createWitchTrailGesture, beginWitchTrailGesture, moveWitchTrailGesture, releaseWitchTrailGesture, advanceWitchTrailGesture, witchTrailSpaceAtPoint, witchHairDelayControls } from './witch-trail-gesture.js';
 import { createWitchFabricGesture, beginWitchFabricGesture, moveWitchFabricGesture, releaseWitchFabricGesture, advanceWitchFabricGesture } from './witch-fabric-gesture.js';
 import { WITCH_VOICES, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
-import { blendWitchSpell, witchAccentEnvelope, getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
+import { blendWitchSpell, witchAccentEnvelope, witchWebCrossings, getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
 import { createWitchSpider } from './witch-spider.js';
 import { createWitchEye } from './witch-eye.js';
 import { getWitchVisitors, getWitchVisitorTargets } from './witch-visitors.js';
@@ -36,6 +36,7 @@ let wakeFadeSeconds=.85;
 let selectedIngredient = -1, quietVisual=null;
 let shapeCharm={from:0,to:0,startedAt:-Infinity};
 let blechFrenzyIndex=0;
+let webStrumDetail=null;
 const pendingAccents=[];
 let performanceTime=0,lastPerformanceTick=performance.now();
 const catClock=createWitchCatClock(0,config);
@@ -126,7 +127,7 @@ function cue(kind) {
   if(kind==='blech-frenzy'&&config.scene!=='flight')return;
   if(starting&&!audio.running) {
     // Only the latest form matters while the worklet is loading.
-    if(['shape-charm','blech-frenzy'].includes(kind)&&pendingAccents.includes(kind))return;
+    if(['shape-charm','blech-frenzy','web-strum'].includes(kind)&&pendingAccents.includes(kind))return;
     pendingAccents.push(kind);
     if(pendingAccents.length>4&&pendingAccents.shift()==='ghost-scream')clearGhostScare();
     return;
@@ -134,6 +135,7 @@ function cue(kind) {
   const capture=kind==='unicorn-escape'?capturedAnimals.cat:null;
   const detail=kind==='shape-charm'?{form:getWitchShapeForm(shapeCharm.to).id,startedAt:shapeCharm.startedAt}:
     kind==='blech-frenzy'?{flybyIndex:blechFrenzyIndex}:
+    kind==='web-strum'?webStrumDetail:
     capture?{startedAt:capture.startedAt,direction:capture.from.direction}:undefined;
   const accepted=audio.trigger(kind,detail);
   if(kind==='ghost-scream'&&ghostScare) {
@@ -377,6 +379,22 @@ function ghostScareState() {
 function pluckWeb(index) {
   advancePerformanceTime();webIndex=Math.round(clamp(index,0,6));webAt=performanceTime;cue(`web-${webIndex}`);
 }
+function strumWeb(e) {
+  const samples=e.getCoalescedEvents?.(),events=samples?.length?samples.slice(-8):[e];
+  const web=getWitchWeb(),crossings=[],occludedRadius=visualState().spiderCaptured?0:56;
+  for(const sample of events) {
+    const p=canonical(sample,true,pointer.webWarp);
+    if(Math.hypot(p.x-pointer.webPoint.x,p.y-pointer.webPoint.y)<2)continue;
+    crossings.push(...witchWebCrossings(web,pointer.webPoint,p,occludedRadius));
+    pointer.webPoint=p;
+  }
+  if(!crossings.length)return;
+  const plucks=crossings.length<=8?crossings:Array.from({length:8},(_,i)=>crossings[Math.round(i*(crossings.length-1)/7)]);
+  const now=performance.now(),interval=clamp((now-pointer.webTime)/1000/plucks.length,.008,.018);
+  pointer.webTime=now;
+  webStrumDetail={indices:plucks.map(pluck=>pluck.index),interval};
+  advancePerformanceTime();webIndex=plucks.at(-1).index;webAt=performanceTime;cue('web-strum');
+}
 function setSpoonHeight(value) {
   spellTransition=null;
   config.spoonHeight=clamp(value);config.voice=witchVoiceAtHeight(config.spoonHeight);
@@ -475,7 +493,12 @@ listen(canvas,'pointerdown',e => {
     send();cue('tree-l-system');e.preventDefault();return;
   }
   if(hit.type==='cat'||hit.type==='animal'){captureAnimal(hit.type==='cat'?'cat':hit.id);e.preventDefault();return;}
-  if(hit.type==='web'){pluckWeb(hit.index??0);pointer={id:e.pointerId,type:'web',lastWeb:hit.index??0};canvas.setPointerCapture(e.pointerId);e.preventDefault();return;}
+  if(hit.type==='web'){
+    pluckWeb(hit.index??0);
+    pointer={id:e.pointerId,type:'web',webPoint:p,webTime:performance.now(),
+      webWarp:{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
+    canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
+  }
   if(['bat','spark','gust'].includes(hit.type)) { trigger(hit.type); return; }
   if(hit.type==='ghost') {
     pointer={id:e.pointerId,type:'ghost',index:hit.index,start:p,ghostTempo:config.ghostTempo,moved:false,origin:getWitchGhostPosition(hit.index,initial)};
@@ -528,7 +551,7 @@ listen(canvas,'pointermove',e => {
     canvas.dataset.hoverTarget=hit?.type??'';
     return;
   }
-  if(pointer.type==='web'){const p=canonical(e),hit=hitTestWitch(p.x,p.y,visualState());if(hit?.type==='web'&&hit.index!==pointer.lastWeb){pluckWeb(hit.index);pointer.lastWeb=hit.index;}e.preventDefault();return;}
+  if(pointer.type==='web'){strumWeb(e);e.preventDefault();return;}
   const p=canonical(e,true,['hair','hat','fabric','trail','tree'].includes(pointer.type)?pointer.hairWarp:undefined), now=performance.now();
   if(pointer.type==='tree') {
     const dx=p.x-pointer.start.x,dy=p.y-pointer.start.y;

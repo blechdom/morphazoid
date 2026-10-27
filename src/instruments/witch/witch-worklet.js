@@ -1510,7 +1510,7 @@ export class WitchDSP {
       }
     } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
-    else if (this.scene.trigger(kind)) accepted = true;
+    else if (this.scene.trigger(kind, detail)) accepted = true;
     else if (WITCH_DROP_EFFECTS.includes(kind)) {
       accepted = this.drops.trigger(kind, variant);
       if (accepted && (kind === 'drop-mouse' || kind === 'drop-lizard')) this.visitors.capture(kind.slice(5));

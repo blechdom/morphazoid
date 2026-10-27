@@ -29,6 +29,30 @@ export function witchAccentEnvelope(age,duration=1.5) {
   return Math.min(1,age/.035)*Math.pow(1-age/duration,.75);
 }
 
+/** Intersect the swept pointer with real silk, including catching rings within
+ * one note sector. Shared vertices count once; a still pointer never plucks. */
+export function witchWebCrossings(web,from,to,occludedRadius=0) {
+  if(!web?.strands||![from?.x,from?.y,to?.x,to?.y].every(Number.isFinite))return [];
+  const dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy);
+  if(length<2)return [];
+  const crossings=[];
+  for(const strand of web.strands)for(let i=1;i<strand.length;i++) {
+    const a=strand[i-1],b=strand[i],sx=b.x-a.x,sy=b.y-a.y,cross=dx*sy-dy*sx;
+    if(Math.abs(cross)<1e-8)continue;
+    const ax=a.x-from.x,ay=a.y-from.y,t=(ax*sy-ay*sx)/cross,u=(ax*dy-ay*dx)/cross;
+    if(t<=1e-6||t>1||u<0||u>1)continue;
+    const x=from.x+dx*t,y=from.y+dy*t;
+    if(Math.hypot(x-web.center.x,y-web.center.y)<occludedRadius)continue;
+    const angle=(Math.atan2(y-web.center.y,x-web.center.x)+Math.PI*2)%(Math.PI*2);
+    crossings.push({x,y,t,index:Math.min(6,Math.floor(angle/(Math.PI*2)*7))});
+  }
+  crossings.sort((a,b)=>a.t-b.t);
+  const distinct=[];
+  for(const crossing of crossings)if(!distinct.length||(crossing.t-distinct.at(-1).t)*length>=3)distinct.push(crossing);
+  // Sparse/coalesced input still traverses the whole swipe with bounded work.
+  return distinct.length<=8?distinct:Array.from({length:8},(_,i)=>distinct[Math.round(i*(distinct.length-1)/7)]);
+}
+
 // The same sparse flight score drives the icons and the native BLECH phrase.
 // Its five-second passes need at most two voices, even at a cycle boundary.
 export const WITCH_BLECH_FLYBY_CYCLE = 26;

@@ -174,11 +174,13 @@ export class WitchBlechFlyby {
 }
 
 export const WITCH_WEB_RATIOS = Object.freeze([1, 1.071, Math.SQRT2, 1.493, Math.sqrt(3), 2.031, Math.sqrt(5)]);
-// Halfway between the original picked strings and the slower displaced silk:
-// a clearer pluck still bends and rasps into pitch, at the restrained web level.
+// Short force and a clear onset let individual silk crossings read as plucks.
+// The lower strike strength keeps overlapping sweeps at the restrained web
+// level; dispersion and strain retain the low, creaking tail.
 const WEB_SOUND = Object.freeze({ tune: 1, tension: 1, damping: .38, decay: 1.95,
   texture: .715, slide: .49, coupling: .08, pluckRegister: 1, pluckSpread: .93,
-  pluckAttack: .0295, pluckHold: .0825, pluckRelease: 1.325 });
+  pluckAttack: .003, pluckHold: .006, pluckRelease: 1.08 });
+const WEB_STRUM_CAPACITY = 24;
 
 const CHARM_BELLS = Object.freeze([
   [0, 1175, -.55], [.049, 988, .1], [.103, 784, .5],
@@ -400,6 +402,12 @@ export class WitchSceneDSP {
     this.active = 0; this.gain = 0; this.groanAge = 2; this.groan = 0; this.low = 0;
     this.webControl = 0; this.webDormant = true; this.webLowL = this.webLowR = 0;
     this.webLowpass = 1 - Math.exp(-TAU * 1250 / rate);
+    // Sparse pointer updates may cross several silk lines. Spread those
+    // attacks on the audio clock; a busy gesture can never build a long queue.
+    this.webFrame = 0; this.webQueueHead = 0; this.webQueueCount = 0;
+    this.webQueueIndices = new Uint8Array(WEB_STRUM_CAPACITY);
+    this.webQueueFrames = new Float64Array(WEB_STRUM_CAPACITY);
+    this.webQueueHorizon = Math.round(rate * .12);
     this.groanRelease = 1; this.groanReleasing = false;
     this.attack = 1 - Math.exp(-this.dt / .006); this.release = 1 - Math.exp(-this.dt / .035);
     this.source = new SyrinxSourceEngine({ sampleRate: rate, seed: 0x4a61, model: 'twoMass', parameters: {
@@ -407,14 +415,34 @@ export class WitchSceneDSP {
       asymmetry: .4, sourceScale: .8, sourceBalance: .48, coupling: .5, feedback: .4, outputGain: .65, pulseRateHz: 14,
     } });
   }
-  trigger(kind) {
+  pluckWeb(index) {
+    this.web.pluck(69 * WITCH_WEB_RATIOS[index], .48, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
+    this.webDormant = false;
+    this.active = 2.8;
+  }
+  queueWebStrum(detail) {
+    if (!Array.isArray(detail?.indices)) return false;
+    const seconds = Number.isFinite(detail.interval) ? detail.interval : .012;
+    const interval = Math.max(1, Math.round(this.rate * Math.max(.006, Math.min(.025, seconds))));
+    const last = (this.webQueueHead + this.webQueueCount - 1 + WEB_STRUM_CAPACITY) % WEB_STRUM_CAPACITY;
+    let frame = this.webQueueCount ? Math.max(this.webFrame, this.webQueueFrames[last] + interval) : this.webFrame;
+    let accepted = false;
+    for (let i = 0; i < Math.min(8, detail.indices.length); i++) {
+      const index = detail.indices[i];
+      if (!Number.isInteger(index) || index < 0 || index > 6) continue;
+      if (this.webQueueCount >= WEB_STRUM_CAPACITY || frame > this.webFrame + this.webQueueHorizon) break;
+      const tail = (this.webQueueHead + this.webQueueCount) % WEB_STRUM_CAPACITY;
+      this.webQueueIndices[tail] = index; this.webQueueFrames[tail] = frame;
+      this.webQueueCount++; frame += interval; accepted = true;
+    }
+    return accepted;
+  }
+  trigger(kind, detail) {
     if (this.pictureAccents.trigger(kind)) return true;
     if (kind === 'tree-l-system') return this.tree.trigger();
+    if (kind === 'web-strum') return this.queueWebStrum(detail);
     if (/^web-[0-6]$/.test(kind)) {
-      const index = Number(kind.at(-1));
-      this.web.pluck(69 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);
-      this.webDormant = false;
-      this.active = 2.8; return true;
+      this.pluckWeb(Number(kind.at(-1))); return true;
     }
     if (kind === 'spider-groan') {
       this.groanAge = 0; this.groanRelease = 1; this.groanReleasing = false;
@@ -422,8 +450,14 @@ export class WitchSceneDSP {
     }
     return false;
   }
-  releaseAll() { this.active = 0; this.web.release(); this.groanReleasing = true; this.tree.release(); this.pictureAccents.release(); }
+  releaseAll() { this.active = 0; this.webQueueCount = 0; this.web.release(); this.groanReleasing = true; this.tree.release(); this.pictureAccents.release(); }
   next(enabled) {
+    if (!enabled) this.webQueueCount = 0;
+    while (this.webQueueCount > 0 && this.webQueueFrames[this.webQueueHead] <= this.webFrame) {
+      this.pluckWeb(this.webQueueIndices[this.webQueueHead]);
+      this.webQueueHead = (this.webQueueHead + 1) % WEB_STRUM_CAPACITY; this.webQueueCount--;
+    }
+    this.webFrame++;
     this.active = Math.max(0, this.active - this.dt);
     const active = enabled && this.active > 0;
     this.gain += ((active ? 1 : 0) - this.gain) * (active ? this.attack : this.release);

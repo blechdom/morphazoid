@@ -144,7 +144,7 @@ export class WitchAudio {
   trigger(kind, detail) {
     if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
     const variant = WITCH_DROP_EFFECTS.includes(kind) ? this.nextDropVariants[kind] ?? 0 : undefined;
-    this.post({ type: 'trigger', kind, variant, ...(['unicorn-escape','shape-charm','blech-frenzy'].includes(kind)&&detail?{detail}:{}), at: this.context.currentTime });
+    this.post({ type: 'trigger', kind, variant, ...(['unicorn-escape','shape-charm','blech-frenzy','web-strum'].includes(kind)&&detail?{detail}:{}), at: this.context.currentTime });
     if (variant !== undefined) this.nextDropVariants[kind] = (variant + 1) % 3;
     return true;
   }

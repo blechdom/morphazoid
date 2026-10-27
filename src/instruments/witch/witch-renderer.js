@@ -533,14 +533,67 @@ function cauldron(c, state) {
   ellipse(c, 756, 619, 1.6, 2.2, '#353a33'); ellipse(c, 762, 619, 1.6, 2.2, '#353a33');
 }
 
+// Fixed perspective, like the Shapes wireframes: back edges are dimmer than
+// front edges. Cache the projected meshes once; no geometry or blur per frame.
+let mushroomMeshes;
+function mushroomMesh(lean = 0, yaw = 0) {
+  const mesh = Object.fromEntries(['capBack','capFront','stemBack','stemFront','rimBack','rimFront','gills'].map(key => [key, '']));
+  const project = ([x,y,z]) => {
+    const rx = x * Math.cos(yaw) - z * Math.sin(yaw);
+    const rz = x * Math.sin(yaw) + z * Math.cos(yaw);
+    const depth = rz * .965 - y * .262, perspective = 180 / (180 - depth);
+    return {x: (rx + y * lean) * perspective, y: (y * .965 + rz * .262) * perspective, facing: rz};
+  };
+  const add = (points, kind) => {
+    for (let i = 1; i < points.length; i++) {
+      const a = project(points[i - 1]), b = project(points[i]);
+      const key = kind === 'gills' ? 'gills' : kind + ((a.facing + b.facing) / 2 >= 0 ? 'Front' : 'Back');
+      mesh[key] += `M${a.x.toFixed(3)},${a.y.toFixed(3)} L${b.x.toFixed(3)},${b.y.toFixed(3)} `;
+    }
+  };
+  const cap = (angle, latitude) => {
+    const radius = 25 * Math.sin(latitude);
+    return [Math.cos(angle) * radius, -22 * Math.cos(latitude), Math.sin(angle) * radius * .82];
+  };
+  // Latitude contours and sparse meridians reveal the dome without a filled cap.
+  for (const latitude of [.48,.94,1.28,Math.PI / 2]) {
+    add(Array.from({length:33}, (_,i) => cap(i * TAU / 32, latitude)), latitude === Math.PI / 2 ? 'rim' : 'cap');
+  }
+  for (let rib = 0; rib < 10; rib++) {
+    add(Array.from({length:9}, (_,i) => cap(rib * TAU / 10, i * Math.PI / 16)), 'cap');
+  }
+  // The open underside and curved stem remain volumes, with visible front gills.
+  for (let rib = 0; rib < 10; rib++) {
+    const angle = rib * TAU / 10, points = [];
+    for (let i = 0; i <= 4; i++) {
+      const r = 4.8 + i / 4 * 20.2;
+      points.push([Math.cos(angle) * r, 3.1 - i / 4 * 1.8, Math.sin(angle) * r * .82]);
+    }
+    if (project(points[4]).facing > 0) add(points, 'gills');
+  }
+  const stem = (angle, t) => {
+    const r = 4.6 - Math.sin(t * Math.PI) * 1.3 + t * 1.1;
+    return [Math.cos(angle) * r - Math.sin(t * Math.PI) * 2, 2 + t * 28, Math.sin(angle) * r];
+  };
+  for (const t of [0,.48,1]) add(Array.from({length:17}, (_,i) => stem(i * TAU / 16, t)), 'stem');
+  for (let rib = 0; rib < 6; rib++) add(Array.from({length:9}, (_,i) => stem(rib * TAU / 6, i / 8)), 'stem');
+  return Object.fromEntries(Object.entries(mesh).map(([key,d])=>[key,new Path2D(d)]));
+}
 function mushrooms(c, x, y, scale = 1) {
+  mushroomMeshes ??= [mushroomMesh(-.055,.18),mushroomMesh(.1,-.22),mushroomMesh(-.12,.4)];
   c.save(); c.translate(x, y); c.scale(scale, scale);
-  for (const [mx, my, s] of [[0,0,1],[34,12,.67],[-23,15,.48]]) {
+  for (const [index,mx,my,s,color,accent] of [[0,0,0,1,'#ff64d8','#74f3ff'],[1,34,12,.67,'#a28aff','#e59cff'],[2,-23,15,.48,'#55e5f4','#bdffad']]) {
+    const mesh=mushroomMeshes[index];
     c.save(); c.translate(mx,my); c.scale(s,s);
-    path(c, 'M-4,0 Q-8,17 -3,30 L7,30 Q4,13 7,0 Z', '#aaa68e', '#282c2b', 1.5);
-    path(c, 'M-23,2 C-21,-24 15,-32 26,-2 Q9,10 -23,2 Z', mx===0?'#bc5c9f':mx>0?'#7a79bf':'#cf896d', '#2b2732', 2);
-    curve(c, [-22,1,-8,-3,9,8,24,-2], '#d4bcac', 1.2);
-    ellipse(c,-6,-11,3,2,'#d3b9b0'); ellipse(c,9,-14,3.8,2.5,'#d3b9b0'); ellipse(c,16,-5,2,2,'#d3b9b0');
+    const stroke = (key, ink, width, opacity) => {
+      c.save(); c.globalAlpha *= opacity; c.strokeStyle = ink; c.lineWidth = width;
+      c.stroke(mesh[key]); c.restore();
+    };
+    stroke('capBack',color,.65,.24); stroke('stemBack',accent,.65,.2); stroke('rimBack',accent,.9,.36);
+    // A wider faint stroke gives the laser core a halo without shadowBlur.
+    stroke('rimFront',accent,3.6,.12); stroke('stemFront',accent,2.7,.09);
+    stroke('capFront',color,.9,.83); stroke('gills',accent,.7,.52);
+    stroke('stemFront',accent,.85,.8); stroke('rimFront',accent,1.15,.96);
     c.restore();
   }
   c.restore();
