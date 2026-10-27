@@ -2312,6 +2312,7 @@ copy+require	src/instruments/witch/witch-presets.js
 copy+require	src/instruments/witch/witch-renderer.js
 copy+require	src/instruments/witch/witch-scene-model.js
 copy+require	src/instruments/witch/witch-scene-audio.js
+copy+require	src/instruments/witch/witch-tree-model.js
 copy+require	src/instruments/witch/witch-bite-clips.js
 copy+require	src/instruments/witch/witch-bite-native-variants.js
 copy+require	src/instruments/witch/witch-bite-character-variants.js

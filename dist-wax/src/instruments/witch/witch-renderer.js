@@ -4,7 +4,8 @@ import { drawWitchShapeCharm } from './witch-shape.js';
 import { renderWitchColor, disposeWitchColor } from './witch-color.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby, getWitchGhostScream } from './witch-scene-model.js';
-import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
+import { branchingSnapshotAtPhase } from '../l-system/l-system.js';
+import { witchTreeSettings, traceWitchTree } from './witch-tree-model.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
 const TAU = Math.PI * 2;
@@ -765,18 +766,14 @@ const treeShapes=new Map(),neutralTrees=new Map(),treeTraces=new WeakMap();
 const TREE_CACHE_LIMIT=48;
 /** The upright tree is the actual L-system turtle trace, bounded and cached. */
 export function getWitchTree(state={}) {
-  const shape=Math.round(clamp(state.treeShape,0,5));
-  const spread=clamp(state.treeSpread??.5),curl=clamp(state.treeCurl??.5),isNeutral=spread===.5&&curl===.5;
+  const {shape,spread,curl,angle,turnAsymmetry}=witchTreeSettings(state),isNeutral=spread===.5&&curl===.5;
   if(isNeutral&&neutralTrees.has(shape))return neutralTrees.get(shape);
   const key=`${shape}:${spread}:${curl}`;
   if(treeShapes.has(key)) {
     const cached=treeShapes.get(key);treeShapes.delete(key);treeShapes.set(key,cached);return cached;
   }
   const neutral=isNeutral?null:getWitchTree({treeShape:shape});
-  const source=L_SYSTEM_PRESETS[[0,1,2,0,1,2][shape]];
-  const baseAngle=[31,25,29,41,36,18][shape],baseAsymmetry=shape%2?.15:-.08;
-  const angle=isNeutral?baseAngle:baseAngle*(.76+.48*spread),turnAsymmetry=baseAsymmetry+(curl-.5)*.36;
-  const trace=traceLSystem({...source,iterations:[5,3,3,6,3,3][shape],angle,turnAsymmetry,maxSymbols:6000});
+  const trace=traceWitchTree(state);
   const b=trace.bounds,wide=Math.max(.01,b.maxY-b.minY),tall=Math.max(.01,b.maxX-b.minX);
   // Keep the original neutral projection byte-for-byte. Deformation uses its
   // scale and rooted trunk instead of renormalizing every crown to 270 pixels.
@@ -828,10 +825,11 @@ export function getWitchTree(state={}) {
   else {if(treeShapes.size>=TREE_CACHE_LIMIT)treeShapes.delete(treeShapes.keys().next().value);treeShapes.set(key,result);}
   return result;
 }
-/** Follow the excerpt's audio playhead along the native branching frontier. */
+/** Follow the sounding score's sample clock along the same visible branches. */
 export function getWitchTreePulse(state={}) {
   if(!(state.treeEnvelope>0)||state.treeProgress>=1)return [];
   const tree=getWitchTree(state),trace=treeTraces.get(tree);
+  if(Number.isFinite(state.treeSoundShape)&&state.treeSoundShape!==tree.shape)return [];
   return branchingSnapshotAtPhase(trace,clamp(state.treeProgress)).heads.map(head=>{
     const {a,b}=tree.segments[head.index],t=head.progress,tail=Math.max(0,t-.65);
     return {index:head.index,generation:head.generation,x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,
@@ -843,8 +841,8 @@ function livingTree(c,state) {
   cachedScenery(c,state,'tree',tree,{x:700,y:10,width:290,height:694},paintTree);
   c.save();c.globalAlpha*=clamp(state.treeEnvelope);
   for(const head of getWitchTreePulse(state)) {
-    line(c,[[head.from.x,head.from.y],[head.x,head.y]],TREE_COLORS[head.generation%TREE_COLORS.length],5);
-    c.fillStyle='#f4ffe7';c.beginPath();c.arc(head.x,head.y,3.2,0,TAU);c.fill();
+    line(c,[[head.from.x,head.from.y],[head.x,head.y]],TREE_COLORS[head.generation%TREE_COLORS.length],5.6);
+    c.fillStyle='#f4ffe7';c.beginPath();c.arc(head.x,head.y,4.2,0,TAU);c.fill();
   }
   c.restore();
 }

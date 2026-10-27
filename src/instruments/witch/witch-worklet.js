@@ -1408,7 +1408,7 @@ export class WitchDSP {
       ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       ghostScreamActive: false, ghostScreamAge: WITCH_GHOST_SCARE_DURATION, ghostScreamEnvelope: 0,
       ghostScreamDuration: WITCH_GHOST_SCARE_DURATION, ghostScreamVariant: 0,
-      flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0, treeEnvelope: 0, treeLevel: 0,
+      flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0, treeEnvelope: 0, treeLevel: 0, treeShape: 0, treeOnsets: 0, treeBranchCount: this.scene.tree.branchCount,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
@@ -1454,8 +1454,8 @@ export class WitchDSP {
       || c.fabricPull !== previous.fabricPull || c.fabricVelocity !== previous.fabricVelocity) {
       this.fabric.setControls(c.fabricX, c.fabricY, c.fabricPull, c.fabricVelocity);
     }
-    if (c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
-      this.scene.tree.setControls(c.treeSpread, c.treeCurl);
+    if (c.treeShape !== previous.treeShape || c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
+      this.scene.tree.setControls(c.treeSpread, c.treeCurl, c.treeShape);
     }
     if (previous.gate && !c.gate) { this.blechFlyby.release(); this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); this.unicorn.cancel(); this.shapeCharm.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
@@ -1650,6 +1650,9 @@ export class WitchDSP {
     this.visual.flybyFrenzyIndex = this.blechFlyby.frenzy.index;
     this.visual.treeEnvelope = this.scene.tree.envelope;
     this.visual.treeProgress = this.scene.tree.progress;
+    this.visual.treeShape = this.scene.tree.shape;
+    this.visual.treeOnsets = this.scene.tree.onsets;
+    this.visual.treeBranchCount = this.scene.tree.branchCount;
     this.visual.treeLevel = Math.sqrt(treeEnergy / Math.max(1, left.length));
     this.ghosts.updateVisual(); this.visual.ghostPhase = this.ghosts.phase;
     this.visual.ghostLevel = Math.sqrt(ghostEnergy / Math.max(1, left.length));

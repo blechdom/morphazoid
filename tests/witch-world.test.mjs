@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '../src/instruments/witch/witch-model.js';
 import {WITCH_GHOST_SCARE_DURATION, WITCH_GHOST_SCREAMS, getWitchBlechFlyby} from '../src/instruments/witch/witch-scene-model.js';
 import {traceLSystem,L_SYSTEM_PRESETS} from '../src/instruments/l-system/l-system.js';
+import { traceWitchTree } from '../src/instruments/witch/witch-tree-model.js';
 import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
@@ -953,17 +954,25 @@ test('visible hair in front of the leaning broom keeps the pull gesture',()=>{
 });
 
 test('tree sound travels up the native branches without changing their shape',()=>{
-  const state={treeShape:2,treeSpread:.63,treeCurl:.4},tree=getWitchTree(state);
-  assert.deepEqual(getWitchTreePulse({...state,treeProgress:.3,treeEnvelope:0}),[]);
-  const start=getWitchTreePulse({...state,treeProgress:0,treeEnvelope:1});
-  assert.equal(start.length,1);assert.equal(start[0].x,tree.root.x);assert.equal(start[0].y,tree.root.y);
-  const later=getWitchTreePulse({...state,treeProgress:.65,treeEnvelope:1});
-  assert.ok(later.length>1,'the sound frontier splits into the branches');
-  assert.notDeepEqual(later,start);
-  for(const head of later) {
-    const {a,b}=tree.segments[head.index];
-    assert.ok(distanceToPolyline(head,[a,b])<1e-7,'every light follows a visible branch');
+  for(let treeShape=0;treeShape<6;treeShape++) {
+    const state={treeShape,treeSpread:.63,treeCurl:.4,treeSoundShape:treeShape},tree=getWitchTree(state),trace=traceWitchTree(state);
+    assert.equal(tree.segments.length,trace.segments.length,'picture and score use every branch of the same grammar');
+    assert.deepEqual(getWitchTreePulse({...state,treeProgress:.3,treeEnvelope:0}),[]);
+    const start=getWitchTreePulse({...state,treeProgress:0,treeEnvelope:1});
+    assert.equal(start.length,1);assert.equal(start[0].x,tree.root.x);assert.equal(start[0].y,tree.root.y);
+    for(const progress of [.1,.3,.65,.9]) {
+      const heads=getWitchTreePulse({...state,treeProgress:progress,treeEnvelope:1});
+      const distance=progress*trace.duration;
+      const notes=trace.segments.filter(segment=>segment.startDistance<=distance&&segment.endDistance>distance).map(segment=>segment.index);
+      assert.deepEqual(heads.map(head=>head.index).sort((a,b)=>a-b),notes.sort((a,b)=>a-b),'playheads follow the exact native note windows');
+      for(const head of heads) {
+        const {a,b}=tree.segments[head.index];
+        assert.ok(distanceToPolyline(head,[a,b])<1e-7,'every light follows a visible branch');
+      }
+    }
+    assert.equal(getWitchTree(state),tree,'playback leaves the tree geometry untouched');
+    assert.deepEqual(getWitchTreePulse({...state,treeProgress:1,treeEnvelope:1}),[]);
+    assert.deepEqual(getWitchTreePulse({...state,treeSoundShape:(treeShape+1)%6,treeProgress:.3,treeEnvelope:1}),[],
+      'an old phrase cannot light a newly selected tree');
   }
-  assert.equal(getWitchTree(state),tree,'playback leaves the tree geometry untouched');
-  assert.deepEqual(getWitchTreePulse({...state,treeProgress:1,treeEnvelope:1}),[]);
 });

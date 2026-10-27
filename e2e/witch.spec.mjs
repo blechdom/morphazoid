@@ -988,6 +988,37 @@ test('all lurking faces rush forward with varied screams, return promptly and ca
   expect(await cues()).toBe(0);expect((await state(page)).ghostScare).toBeNull();
 });
 
+test('each tree shape plays every visible branch and keeps its playheads on the sounding score',async({page})=>{
+  test.setTimeout(60000);await observeWorklet(page);await open(page);await wake(page);
+  const spells=await bank(page);
+  for(let shape=0;shape<6;shape++) {
+    const spell=spells.find(item=>item.snapshot.treeShape===shape);
+    if((await state(page)).presetId!==spell.id)await preset(page,spell.id);
+    await key(page,'Escape');
+    const before=await state(page),count=before.tree.segments.length;
+    await clickWorld(page,'tree');
+    await expect.poll(async()=>{
+      const current=await state(page);
+      return current.treeSoundShape===shape&&current.treeBranchCount===count&&current.treeOnsets>0&&current.treePlayheads.length>0;
+    }).toBe(true);
+    const active=await state(page);
+    expect(active.config.treeShape).toBe(shape);
+    expect(active.tree.segments).toEqual(before.tree.segments);
+    for(const head of active.treePlayheads) {
+      const segment=active.tree.segments[head.index];
+      expect(segment).toBeTruthy();
+      expect(head.x).toBeGreaterThanOrEqual(Math.min(segment.a.x,segment.b.x)-.001);
+      expect(head.x).toBeLessThanOrEqual(Math.max(segment.a.x,segment.b.x)+.001);
+      expect(head.y).toBeGreaterThanOrEqual(Math.min(segment.a.y,segment.b.y)-.001);
+      expect(head.y).toBeLessThanOrEqual(Math.max(segment.a.y,segment.b.y)+.001);
+    }
+    expect(active.parts).toEqual({brew:false,hand:false});expect(active.backingAwake).toBe(false);
+    await expect.poll(async()=>(await state(page)).treeOnsets).toBe(count);
+    await expect.poll(async()=>(await state(page)).treeEnvelope).toBe(0);
+    expect((await state(page)).treePlayheads).toEqual([]);
+  }
+});
+
 test('mouth, tree, spider, web, eyes and ghost gestures play over the running ensemble',async({page})=>{
   test.setTimeout(60000);
   await observeWorklet(page);await open(page);await wake(page);

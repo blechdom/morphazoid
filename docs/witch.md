@@ -33,7 +33,7 @@ Brightness remains on the **+ / −** keys.
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
-| Catch a flying BLECH MIDI logo (or I while one passes) | Its hardcore MIDI demo accelerates into a dense, layered five-second loop, then releases into the flight delay. The caught logo shudders; repeated clicks renew one burst rather than piling up voices. It can play alone after a hush. |
+| Catch a flying BLECH MIDI logo (or I while one passes) | Its Rin-W Black MIDI pattern accelerates into a dense, layered five-second loop, then releases into the flight delay. The caught logo shudders; repeated clicks renew one burst rather than piling up voices. It can play alone after a hush. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play one L-system PM phrase with a pulse travelling through the branches. Drag outward to widen the turn angle, inward to close it, or up/down for asymmetric curling. Those changes alter the live modulation and stereo image; a held drag never restarts the phrase. Mushrooms and the SHAPES charm choose new tree settings. |
 | Touch the spider or web | The actual Spider Synth cycles “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” as it dives into the potion, returning with the other ingredients. Tap for one sharp, creaky pluck; sweep or scrub across the silk for successive plucks, including multiple rings in the same note area. Fast swipes follow the crossed threads through seven menacing pitches. The web can wake on its own without starting the voice, fingers or background performers. |
@@ -59,11 +59,15 @@ Monstroid, Candy Coil Delay and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
 The full-height tree uses uniform branch thickness and the L-system Delay
-instrument's seven generation colors. Each click plays one 2.4-second PM phrase
-with a sustained ADSR envelope. Branch spread changes its turn angle and
+instrument's seven generation colors. Each click plays one PM note for every
+visible branch, with a higher 294 Hz starting note. Sound and playheads follow
+the same native branch distances and forks over one 2.05-second traversal,
+followed by short release tails. Each branch has a sustained ADSR envelope
+adapted to its length. Branch spread changes its turn angle and
 modulation index from 3 to 8; curl changes asymmetry, modulator ratio and stereo
 position. Live edits do not restart the phrase, and clicks during a phrase do
-not queue another one.
+not queue another one. Changing the tree shape releases the old phrase; click
+the new tree to play its own branches.
 
 Behind its branches, [Oculoid](../oculoid.html)'s actual lidless eye globe turns
 in three dimensions with the ladle. It sits a little farther right, with no
@@ -78,7 +82,7 @@ authored iris color and lighting; [source and modifications](../assets/oculoid/S
 The three visitors use enlarged portraits
 and remain seated directly on the branches.
 Enlarged transparent red BLECH logos sometimes pass through the flying sky,
-playing an excerpt from its bundled Black MIDI demo.
+looping dense patterns from its bundled Rin-W Black MIDI collection.
 Spider Synth's bulky King Baboon tarantula lives in a broad top-right corner web,
 with radial spokes and bowed silk threads in front of the tree.
 The model is based on [King Baboon Tarantula](https://sketchfab.com/3d-models/king-baboon-tarantula-92c84c9dac9043ee81e87173e2ee0381)
@@ -92,9 +96,10 @@ and authored sources. They include fast Rubix Acid rhythms, cascading Rattlesnak
 notes, SIMD chip and acid phrases, and Puggler’s fast punk guitar, drums and Oi.
 Every Morphazoid ingredient has three sounds, cycling on each accepted click.
 The next sound survives refills and preset changes; consumed icons still wait
-for the next refill. BLECH's tree and flying appearances use dense passages from
-Lightstorm, Seven Red Suns and A Soul Of Steel, with separate cycling for the
-flying visitors.
+for the next refill. BLECH's tree and flying appearances use Rin-W's
+3-Beat Funnel 128, 4-Beat Funnel 88 and Webs Volcanic, with separate cycling for
+the flying visitors. Flying patterns loop through each pass and sit louder in
+the mix; they retain their short fade when the witch lands or rests.
 
 Roach Synth combines its percussion with fluttering wings. These bites sit within
 the ongoing mix; they do not instantiate each instrument's complete interface. See

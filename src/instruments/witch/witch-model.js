@@ -66,7 +66,7 @@ export const WITCH_DEFAULTS = Object.freeze({
   handMotion: 'finger-roll', handRate: 1, handDepth: .66, handAuto: true, handSound: 'glass-and-wire', spellBalance: .5,
   catCaptured: false, catSpeed: 1, catGait: 'cat-prowl', fabricX: .5, fabricY: .5, fabricPull: 0, fabricVelocity: 0,
   trailPull: .5, trailTwist: .5, trailFeedback: .55, trailSpace: .5,
-  treeSpread: .5, treeCurl: .5,
+  treeShape: 0, treeSpread: .5, treeCurl: .5,
   fingers: Object.freeze([.5, .5, .5, .5, .5]), fingerMask: 0, manualFingerMask: 0, handFocus: 0,
   nose: .5, hat: .5, spoonHeight: .5, spoonAuto: false, altitude: .5, flightX: .5, tone: .5, glass: 0, hair: 0, volume: .6,
 });
@@ -80,6 +80,7 @@ export function normalizeWitchControls(value = {}) {
   for (const name of ['speed', 'flightSpeed', 'radius', 'altitude', 'flightX', 'tone', 'glass', 'hair', 'nose', 'hat', 'spoonHeight', 'volume', 'handDepth', 'spellBalance', 'fabricX', 'fabricY', 'fabricPull', 'fabricVelocity', 'trailPull', 'trailTwist', 'trailFeedback', 'trailSpace', 'treeSpread', 'treeCurl']) {
     result[name] = witchClamp(input[name], 0, 1, WITCH_DEFAULTS[name]);
   }
+  result.treeShape = Math.round(witchClamp(input.treeShape, 0, 5, WITCH_DEFAULTS.treeShape));
   result.direction = Number(input.direction) < 0 ? -1 : 1;
   result.gate = input.gate === true;
   result.stirring = input.stirring === true;

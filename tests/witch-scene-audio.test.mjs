@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { witchBiteClips, witchBiteVariants, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WITCH_BLECH_FRENZY_DURATION, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-native-variants.js';
@@ -113,7 +114,7 @@ test('the Hiccup scream joins witch flight echoes, bypasses Fabric and releases 
   }
 });
 
-test('BLECH flybys share a sparse icon and native-phrase clock with two bounded voices', () => {
+test('BLECH flybys loop complete rin-w patterns with the icon clock and two bounded voices', t => {
   assert.deepEqual(getWitchBlechFlyby(4.99), []);
   assert.equal(getWitchBlechFlyby(5.3).length, 1);
   assert.equal(getWitchBlechFlyby(18.5).length, 2);
@@ -125,12 +126,19 @@ test('BLECH flybys share a sparse icon and native-phrase clock with two bounded 
   for (const [index, clip] of WITCH_NATIVE_BITE_VARIANTS['drop-blech'].entries()) {
     const midi = readFileSync(new URL(`../${clip.midiFile}`, import.meta.url));
     const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
+    assert.equal(clip.sourceSha256, createHash('sha256').update(midi).digest('hex'));
+    assert.equal(clip.sourceEvents, score.total, 'the complete original pattern is retained');
     let attacks = 0;
-    for (let i = 0; i < score.total; i++) if (score.starts[i] >= clip.sourceStart && score.starts[i] < clip.sourceEnd) attacks++;
-    assert.equal(clip.events, attacks, 'every original attack in the dense passage is retained');
+    for (let cycle = 0; cycle * clip.loopFrames < clip.frames; cycle++) for (let i = 0; i < score.total; i++) {
+      if (cycle * clip.loopFrames + Math.round(score.starts[i] / clip.sourcePlayRate * clip.rate) < clip.frames) attacks++;
+    }
+    assert.equal(clip.events, attacks, 'all original attacks repeat at the declared source rate');
     assert.equal(witchBiteVariants()['drop-blech'][index].events, attacks);
-    assert.ok(attacks > 4000); assert.match(clip.source, /BLEEDING EDGE MONOTONE.*native SpessaSynth/);
-    assert.equal(clip.license, 'CC0-1.0');
+    assert.ok(score.total > 1000); assert.match(clip.source, /by rin-w.*native SpessaSynth/);
+    assert.equal(clip.license, 'LicenseRef-Black-MIDI-Patterns-Public-Use');
+    assert.ok(clip.loopStartFrame >= clip.rate * .008);
+    assert.ok(clip.loopStartFrame + clip.loopFrames + clip.rate * .025 + 1 < clip.frames - clip.rate * .12,
+      'the crossfaded native loop stays inside the ingredient boundary fades');
   }
   let energy = 0, peak = 0, pairs = 0;
   for (let i = 0; i < 8000 * 27; i++) {
@@ -138,7 +146,9 @@ test('BLECH flybys share a sparse icon and native-phrase clock with two bounded 
     peak = Math.max(peak, Math.abs(flyby.left), Math.abs(flyby.right));
     if (flyby.slots.every(slot => slot.age >= 0)) pairs++;
   }
-  assert.ok(energy > 1 && peak < .13 && pairs > 8000, 'the pair overlaps at a quiet, finite level');
+  t.diagnostic(`automatic rin-w visits: stereo energy ${energy.toFixed(3)}, peak ${peak.toFixed(5)}`);
+  assert.ok(energy > 1 && peak < .3 && pairs > 8000, 'the louder pair overlaps within fixed source headroom');
+  assert.ok(flyby.slots.every(slot => slot.loops >= 1), 'each five-second visitor repeats its complete source period');
   assert.ok(flyby.slots.every((slot, i) => slot === pool[i]));
   assert.equal(flyby.left, 0); assert.equal(flyby.right, 0);
 });
@@ -168,7 +178,7 @@ test('BLECH flight sound follows the sample clock without potion solos, muted ba
   assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
 });
 
-test('clicked BLECH visitors repeat their actual hardcore demo in one bounded accelerated three-reader burst', () => {
+test('clicked BLECH visitors repeat their rin-w pattern in one bounded accelerated three-reader burst', t => {
   const rate = 8000, controls = { mode: 'flight', ghostGate: true };
   for (let variant = 0; variant < 3; variant++) {
     const flyby = new WitchBlechFlyby(rate), readers = flyby.frenzyReaders.slice();
@@ -186,7 +196,8 @@ test('clicked BLECH visitors repeat their actual hardcore demo in one bounded ac
       energy += left * left + right * right; peak = Math.max(peak, Math.abs(left), Math.abs(right));
       if (i > (WITCH_BLECH_FRENZY_DURATION + .02) * rate) tail += left * left + right * right;
     }
-    assert.ok(energy > .1 && peak < .13, 'dense layers retain the existing flyby headroom');
+    t.diagnostic(`${clip.label}: frenzy RMS ${Math.sqrt(energy / ((WITCH_BLECH_FRENZY_DURATION + .1) * rate * 2)).toFixed(5)}, peak ${peak.toFixed(5)}, loops ${flyby.frenzy.loops}`);
+    assert.ok(energy > .1 && peak < .3, 'louder dense layers retain bounded flyby headroom');
     assert.ok(flyby.frenzy.loops >= 7, 'three accelerated native readers repeatedly traverse the actual demo');
     assert.equal(tail, 0); assert.equal(flyby.frenzyEnvelope, 0); assert.equal(flyby.frenzy.age, -1);
     assert.equal(flyby.time, clock); assert.equal(flyby.nextVariant, nextVariant, 'manual looping cannot consume the next autonomous demo');
