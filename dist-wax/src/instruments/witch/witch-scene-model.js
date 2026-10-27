@@ -85,8 +85,8 @@ export const WITCH_BLECH_FLYBY_EVENTS = Object.freeze([
 ]);
 
 /** Flight elapsed seconds -> zero, one or two background visitors. Audio and
- * silent preview own the clock; this function never schedules or advances it. */
-export function getWitchBlechFlyby(time) {
+ * silent preview own the clock; optional scene bounds only project the path. */
+export function getWitchBlechFlyby(time,{left=0,top=0,width=1000,height=720}={}) {
   if (!Number.isFinite(time) || time < 0) return [];
   const cycle = Math.floor(time / WITCH_BLECH_FLYBY_CYCLE);
   const phase = time - cycle * WITCH_BLECH_FLYBY_CYCLE;
@@ -96,8 +96,8 @@ export function getWitchBlechFlyby(time) {
     if (age < 0 || age >= WITCH_BLECH_FLYBY_DURATION) continue;
     const progress = age / WITCH_BLECH_FLYBY_DURATION;
     visitors.push({ id: cycle * WITCH_BLECH_FLYBY_EVENTS.length + i, slotIndex: i === 2 ? 1 : 0, age, progress,
-      direction: event.direction, x: event.direction > 0 ? -60 + progress * 1120 : 1060 - progress * 1120,
-      y: event.y + Math.sin(progress * Math.PI * 2) * 16, scale: event.scale,
+      direction: event.direction, x: left + (event.direction > 0 ? -60 + progress * 1120 : 1060 - progress * 1120) * width / 1000,
+      y: top + (event.y + Math.sin(progress * Math.PI * 2) * 16) * height / 720, scale: event.scale,
       opacity: Math.min(1, age / .2, (WITCH_BLECH_FLYBY_DURATION - age) / .3),
       angle: event.direction * (.12 + Math.sin(progress * Math.PI * 2) * .2) });
   }

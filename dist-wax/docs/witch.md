@@ -271,3 +271,6 @@ same tap-to-cauldron gestures. The witch's scene is up to 25% taller beneath
 them, capped to the available screen height, with the broom beside her back
 and the mouse following the new left edge. Rotating to landscape restores the
 six-row cupboard without resetting the music, presets or consumed ingredients.
+During flight, BLECH visitors and the hair noodles use the taller sky above the
+witch, including the space vacated by the shelves. The upper noodles remain
+grabbable and the passing logos remain clickable there.

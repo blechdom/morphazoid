@@ -732,12 +732,13 @@ export function getWitchRestTrails(state={}) {
   const phase=state.reducedMotion?0:(state.flightPhase??state.motionTime??0);
   const pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5),hair=getWitchHair(state);
   const feedback=clamp(state.trailFeedback??.55),space=clamp(state.trailSpace??.5);
-  const samples=256,join=Math.round(samples*.85),layout=getWitchLayout(state),leftEdge=layout.left+24;
+  const samples=256,join=Math.round(samples*.85),layout=getWitchLayout(state);
+  const leftEdge=layout.left+24,rightEdge=layout.left+layout.width-24,topEdge=layout.top+38,bottomEdge=layout.top+layout.height-46;
   return TRAIL_LOCKS.map((index,strandIndex)=>{
     const lock=hair.strands[index],anchor=lock.points.at(-1),prior=lock.points.at(-2),points=[];
-    const reach=.20+.80*space,width=(layout.width-48)*reach,height=636*reach;
-    const cx=clamp((anchor.x-width*.37)*(1-space)+(layout.left+layout.width/2)*space,leftEdge+width/2,976-width/2);
-    const cy=clamp((anchor.y-height*.38)*(1-space)+356*space,38+height/2,674-height/2);
+    const reach=.20+.80*space,width=(rightEdge-leftEdge)*reach,height=(bottomEdge-topEdge)*reach;
+    const cx=clamp((anchor.x-width*.37)*(1-space)+(leftEdge+rightEdge)/2*space,leftEdge+width/2,rightEdge-width/2);
+    const cy=clamp((anchor.y-height*.38)*(1-space)+(topEdge+bottomEdge)/2*space,topEdge+height/2,bottomEdge-height/2);
     const bounds={left:cx-width/2,right:cx+width/2,top:cy-height/2,bottom:cy+height/2};
     const raw=[{x:0,y:0}],direction=strandIndex?-1:1;
     const orientation=(strandIndex?1.27:-.85)+phase*(.19+.31*pull)+(twist-.5)*Math.PI*1.5;
@@ -763,8 +764,8 @@ export function getWitchRestTrails(state={}) {
     const b={x:clamp(end.x+(end.x-next.x)*4,bounds.left,bounds.right),y:clamp(end.y+(end.y-next.y)*4,bounds.top,bounds.bottom)};
     // The sky coil remains bounded, but a pulled hair tip can reach beyond
     // the frame. Let only its short joining curve travel with that real tip.
-    const joinBounds={left:Math.min(leftEdge,anchor.x),right:Math.max(976,anchor.x),
-      top:Math.min(38,anchor.y),bottom:Math.max(674,anchor.y)};
+    const joinBounds={left:Math.min(leftEdge,anchor.x),right:Math.max(rightEdge,anchor.x),
+      top:Math.min(topEdge,anchor.y),bottom:Math.max(bottomEdge,anchor.y)};
     for(let i=join;i<=samples;i++) {
       const t=(samples-i)/(samples-join),v=1-t;
       points[i]={x:clamp(v*v*v*anchor.x+3*v*v*t*a.x+3*v*t*t*b.x+t*t*t*end.x,joinBounds.left,joinBounds.right),
@@ -1441,7 +1442,7 @@ function drawWorld(c,state) {
   const layout=getWitchLayout(state);
   c.clearRect(0,layout.top,1000,layout.height);c.lineCap='round';c.lineJoin='round';background(c,state);
   const ground=1-clamp(state.flightLift);
-  if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime)) {
+  if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime,layout)) {
     const frenzy=flyby.slotIndex===state.flybyFrenzyIndex?clamp(state.flybyFrenzy):0;
     const shudder=state.reducedMotion?0:Math.sin((state.time??0)*49)*.16*frenzy;
     const size=flyby.scale*(1+.18*frenzy);
@@ -1716,7 +1717,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
     }
   }
   // The passing MIDI logos sit behind the witch and her hair, above the cloth.
-  if(!grounded)for(const flyby of getWitchBlechFlyby(state.flybyTime).toReversed()) {
+  if(!grounded)for(const flyby of getWitchBlechFlyby(state.flybyTime,getWitchLayout(state)).toReversed()) {
     const frenzy=flyby.slotIndex===state.flybyFrenzyIndex?clamp(state.flybyFrenzy):0;
     if(flyby.opacity>.1&&Math.hypot(x-flyby.x,y-flyby.y)<Math.max(59*flyby.scale*(1+.18*frenzy),minRadius)) {
       return {type:'blech-flyby',index:flyby.slotIndex,id:flyby.id};

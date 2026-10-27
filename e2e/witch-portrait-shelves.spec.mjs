@@ -57,9 +57,17 @@ test('portrait cupboard reflows above the hat with live taps, drops and rotation
   await tap('broom','target');
   await expect.poll(()=>page.evaluate(()=>window.witchInstrument.state.config.scene)).toBe('flight');
   await expect.poll(()=>page.evaluate(()=>window.witchInstrument.state.world.flightLift)).toBe(1);
-  const cloth=await page.evaluate(()=>{
+  const cloth=await page.evaluate(async()=>{
+    const {hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const state=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-    return {x:rect.x+state.viewport.x+500*state.viewport.scale,y:rect.y+state.viewport.y-180*state.viewport.scale};
+    const visual={...state.config,...state.world,portraitLayout:state.portraitLayout,flybyTime:state.flybyTime,reducedMotion:true};
+    // The noodles now share the upper sky; find a gap in front of the cloth.
+    for(let x=state.viewport.left+60;x<state.viewport.left+state.viewport.width-60;x+=30) {
+      const p=warpWitchPoint({x,y:-180},visual);
+      if(hitTestWitch(p.x,p.y,visual)?.type==='fabric')return {
+        x:rect.x+state.viewport.x+p.x*state.viewport.scale,y:rect.y+state.viewport.y+p.y*state.viewport.scale};
+    }
+    throw new Error('No exposed upper-sky fabric point');
   });
   await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[cloth]});
   await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cloth.x+24,y:cloth.y+32}]});
