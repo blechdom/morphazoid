@@ -88,6 +88,7 @@ export const WITCH_BLECH_FLYBY_EVENTS = Object.freeze([
  * silent preview own the clock; optional scene bounds only project the path. */
 export function getWitchBlechFlyby(time,{left=0,top=0,width=1000,height=720}={}) {
   if (!Number.isFinite(time) || time < 0) return [];
+  const skyHeight=height>width?height*.55:height;
   const cycle = Math.floor(time / WITCH_BLECH_FLYBY_CYCLE);
   const phase = time - cycle * WITCH_BLECH_FLYBY_CYCLE;
   const visitors = [];
@@ -97,7 +98,7 @@ export function getWitchBlechFlyby(time,{left=0,top=0,width=1000,height=720}={})
     const progress = age / WITCH_BLECH_FLYBY_DURATION;
     visitors.push({ id: cycle * WITCH_BLECH_FLYBY_EVENTS.length + i, slotIndex: i === 2 ? 1 : 0, age, progress,
       direction: event.direction, x: left + (event.direction > 0 ? -60 + progress * 1120 : 1060 - progress * 1120) * width / 1000,
-      y: top + (event.y + Math.sin(progress * Math.PI * 2) * 16) * height / 720, scale: event.scale,
+      y: top + (event.y + Math.sin(progress * Math.PI * 2) * 16) * skyHeight / 720, scale: event.scale,
       opacity: Math.min(1, age / .2, (WITCH_BLECH_FLYBY_DURATION - age) / .3),
       angle: event.direction * (.12 + Math.sin(progress * Math.PI * 2) * .2) });
   }
