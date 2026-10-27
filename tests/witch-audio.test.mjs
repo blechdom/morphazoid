@@ -576,7 +576,8 @@ test('all ingredients add distinct softer bites while the continuing ensemble st
   for (let i = 1; i < sounds.length; i++) for (let j = 0; j < i; j++) {
     const a = WITCH_DROP_EFFECTS[j], b = WITCH_DROP_EFFECTS[i];
     if ([a, b].includes('drop-quadruped') && [a, b].includes('drop-cat')) {
-      assert.deepEqual(sounds[j], sounds[i], 'the cupboard Quadruped intentionally shares the walking cat call');
+      const clips = new WitchDSP(RATE).drops.tastes.clips;
+      assert.equal(clips['drop-quadruped'], clips['drop-cat'], 'the same native call feeds two routes: cupboard instrument and ground animal');
     } else assert.ok(difference(sounds[j], sounds[i]) > .01, `${a} / ${b}`);
   }
 });
@@ -584,7 +585,10 @@ test('all ingredients add distinct softer bites while the continuing ensemble st
 test('all four layers coexist in flight; fixed solo slots and the complete mix release on Stop', () => {
   const dsp = playing({ mode: 'flight', handFocus: 1, speed: 1, altitude: 1 });
   render(dsp, .5);
-  for (let i = 0; i < 300; i++) assert.equal(dsp.trigger(WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length]), true);
+  for (let i = 0; i < 300; i++) {
+    const kind = WITCH_DROP_EFFECTS[i % WITCH_DROP_EFFECTS.length];
+    assert.equal(dsp.trigger(kind), !['drop-cat', 'drop-mouse', 'drop-lizard'].includes(kind), kind);
+  }
   for (const sample of render(dsp, 1)) assert.ok(Number.isFinite(sample) && Math.abs(sample) <= .840001);
   assert.equal(dsp.drops.slots.length, WITCH_DROP_EFFECTS.length); assert.equal(dsp.drops.hand.voices.length, 5);
   assert.equal(dsp.drops.tastes.clips['drop-spider'].instrumentId, 'spider-synth'); assert.equal(dsp.drops.tastes.roach.slots.length, 8);

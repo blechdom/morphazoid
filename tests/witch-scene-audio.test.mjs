@@ -152,10 +152,10 @@ test('the falling spider speaks through its native clip while the web stays sile
   const dsp = playing({ gate: false }, 8000);
   const clip = witchBiteClips()['drop-spider'];
   assert.equal(clip.instrumentId, 'spider-synth');
-  assert.equal(WITCH_BITE_CLIPS['drop-spider'].text, 'Nooooo! Bad witch!');
+  assert.equal(WITCH_BITE_CLIPS['drop-spider'].text, 'NOOOOOOOOO !!!!!');
   assert.equal(dsp.trigger('drop-spider'), true);
   assert.ok(rms(render(dsp, 1.18)) > .02, 'the stretched protest is present');
-  assert.ok(rms(render(dsp, 1.1)) > .02, 'the accusation remains audible after the protest');
+  assert.ok(rms(render(dsp, 1.1)) > .02, 'the long protest remains audible through the fall');
   assert.equal(dsp.scene.groan, 0);
   assert.ok(dsp.scene.web.voices.every(voice => voice.remaining <= 0));
   render(dsp, 2);

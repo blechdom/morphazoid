@@ -38,7 +38,7 @@ Variant sources and exact generation details:
 | `drop-monstroid` | Monstroid's full native `ColonySyrinxPressureProcessor`, Many-mouth rough call (`air-many-mouth-freak`) |
 | `drop-candy-coil` | Native `MorphazoidBarberDelayProcessor`, Frozen Bog factory preset: 12 heads, eight-second history range and 0.9 feedback, fed by the native Rubix Acid excerpt; a 2.4-second section after six seconds of history |
 | `drop-puggler` | Puggler's actual drum recordings, Oi recording and punk-character vocal DSP, plus its native string-model fuzz-guitar voices; two bars at 224 BPM with choked eighth-note riffs, sixteenth-note drums and two Oi shouts |
-| `drop-spider` | Spider Synth's Silk buzz/croak speech character, rendered by the bundled Voicesaurus eSpeak NG engine and `SpiderSpeechPlayer`; “Nooooo! Bad witch!” with the first word slowed, while the accusation retains native consonant timing |
+| `drop-spider` | Spider Synth's native speech characters, rendered by bundled Voicesaurus eSpeak NG and `SpiderSpeechPlayer`; “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” cycle across clicks |
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat`, `drop-quadruped` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow; the cupboard icon shares that PCM |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
@@ -149,8 +149,9 @@ shader ancestry and credits remain documented with the instrument in
 The spider protest is original fictional dialogue rendered offline with the
 actual [`Spider Synth speech preset`](../src/instruments/spider-synth/spider-synth-speech.js)
 and [`native text renderer`](../src/families/speech/native-text.js). The source
-words are “No!” and “Bad witch!”; slowing only the first word creates the long
-protest. It is synthetic speech, with no actor recording or runtime speech
+words are “No!”, “Spider!” and “I love you mom and dad!”. The first two clips
+stretch their stressed vowel while preserving consonants; the last retains
+complete-sentence timing. It is synthetic speech, with no actor recording or runtime speech
 service. The bundled eSpeak NG/Echogarden engine's upstream sources, GPL-3.0-or-later
 license and component notices remain in
 [`vendor/espeak-ng/README.md`](../vendor/espeak-ng/README.md) and
@@ -184,6 +185,8 @@ reauthors the actual MIDI, Rubix Acid, Monstroid and Candy Coil excerpts. The
 second reauthors Puggler, SIMD Chiptune, SIMD303 and the spider protest. Run
 `node scripts/build-witch-character-bites.mjs` to update only those four clips;
 both follow-ups preserve every other existing PCM byte.
+Add `--spider-only` to the character-bites and character-variants scripts to
+regenerate just the three Spider calls without changing other instruments.
 Append `--tree-only` to the base script to rebuild the legacy tree PCM excerpt;
 the live PM tree does not use that recording. This is a source-asset authoring
 command, separate from normal site/WAX builds. Mechanical audio tests cover

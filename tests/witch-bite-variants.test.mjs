@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
+import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
+import { WITCH_CHARACTER_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-character-variants.js';
 import { WITCH_INGREDIENTS } from '../src/instruments/witch/witch-model.js';
 import { witchBiteClips, witchBiteVariants, WitchBlechFlyby } from '../src/instruments/witch/witch-scene-audio.js';
 
@@ -42,6 +44,19 @@ for (const kind of kinds) test(`${kind} has three audible, finite and distinct n
   for (let i = 0; i < sounds.length; i++) for (let j = 0; j < i; j++) {
     assert.ok(difference(sounds[i].data, sounds[j].data) > Math.max(.002, Math.min(sounds[i].level, sounds[j].level) * .08),
       `${kind}: tastes ${j} and ${i} change the actual rendered phrase`);
+  }
+});
+
+test('Spider cycles three complete native calls without the old accusation', () => {
+  const calls = [WITCH_BITE_CLIPS['drop-spider'], ...WITCH_CHARACTER_BITE_VARIANTS['drop-spider'].slice(1)];
+  assert.deepEqual(calls.map(clip => clip.text), ['NOOOOOOOOO !!!!!', 'SPIIIIIIDER!!!!!!', 'I love you mom and dad!']);
+  for (const clip of calls) {
+    assert.match(clip.source, /native SpiderSpeechPlayer/);
+    assert.doesNotMatch(clip.source, /bad witch/i);
+    assert.equal(clip.frames, clip.rate * 2.4);
+    const samples = Buffer.from(clip.pcm, 'base64');
+    assert.equal(samples.readInt16LE(0), 0);
+    assert.equal(samples.readInt16LE(samples.length - 2), 0);
   }
 });
 

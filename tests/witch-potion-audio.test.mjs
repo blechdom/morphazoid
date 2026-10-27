@@ -36,7 +36,7 @@ test('the complete miniature palette shares exact sample-clock timing and bounde
   const a = new WitchDSP(24000), b = new WitchDSP(24000);
   for (const dsp of [a, b]) {
     dsp.setControls({ gate: true, mode: 'flight', speed: .6 }); dsp.setEnabled(true);
-    for (const kind of WITCH_DROP_EFFECTS) assert.equal(dsp.trigger(kind), true);
+    for (const kind of WITCH_DROP_EFFECTS) assert.equal(dsp.trigger(kind), !['drop-cat', 'drop-mouse', 'drop-lizard'].includes(kind), kind);
   }
   assert.deepEqual(render(a, 1), render(b, 1, 24000));
   assert.ok(a.drops.tastes.roach instanceof RoachPercussion);

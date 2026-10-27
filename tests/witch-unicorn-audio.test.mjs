@@ -94,7 +94,7 @@ test('late Audio joins the current sparkle or stride, while expired cues and can
   }
 });
 
-test('unicorn output follows the sample clock, preserves the cat schedule and bypasses Fabric through the flight mix', () => {
+test('unicorn output follows the sample clock and stays with the ground animals at takeoff', () => {
   const off = new WitchDSP(8000); assert.equal(off.trigger('unicorn-escape'), false);
   const a = engine(), b = engine(), reference = engine();
   assert.equal(a.trigger('unicorn-escape'), true); assert.equal(b.trigger('unicorn-escape'), true);
@@ -106,14 +106,13 @@ test('unicorn output follows the sample clock, preserves the cat schedule and by
   assert.ok(Math.abs(a.visual.unicornAge - 1.15) < 1 / a.rate && a.visual.unicornLevel > .001);
   assert.equal(a.visual.brewLevel, 0); assert.equal(a.visual.handLevel, 0); assert.equal(a.visual.ghostLevel, 0);
   assert.equal(a.cat.triggerCount, 0, 'the captured cat has no footsteps underneath its replacement');
-  const plain = engine({ mode: 'flight', trailPull: .04, trailSpace: .2 });
-  const cloth = engine({ mode: 'flight', trailPull: .04, trailSpace: .2, fabricX: .04, fabricY: .97, fabricPull: 1 });
-  plain.trigger('unicorn-escape'); cloth.trigger('unicorn-escape');
-  const sound = render(plain, 2.1);
-  assert.deepEqual(sound, render(cloth, 2.1), 'Fabric continues to process only the separate wind');
-  assert.ok(plain.visual.delayLevel > .0001, 'the escaping unicorn reaches Candy Coil and Sandy Syrup');
-  assert.equal(plain.visual.fabricWindEnvelope, 0);
-  assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  const beforeFlight = a.cat.time;
+  a.setControls({ mode: 'flight', trailPull: .04, trailSpace: .2 });
+  assert.equal(a.trigger('unicorn-escape'), false);
+  assert.ok(rms(render(a, .008)) > .0001, 'the visible escape fades on takeoff');
+  render(a, .06); assert.equal(rms(render(a, 1)), 0, 'neither hooves nor captured calls linger in flight delay');
+  assert.equal(a.visual.unicornActive, false); assert.equal(a.visual.unicornLevel, 0); assert.equal(a.visual.delayLevel, 0);
+  assert.ok(a.cat.time > beforeFlight + 1);
 });
 
 test('Stop, mute, reset and explicit cancellation release the unicorn and do not resume its pending sequence', () => {

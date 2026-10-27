@@ -1,6 +1,7 @@
 // Offline alternates for the Witch's character ingredients. Index zero stays
 // null: the original taste remains in witch-bite-clips.js, unchanged.
 import { readFile, writeFile } from 'node:fs/promises';
+import { WITCH_CHARACTER_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-character-variants.js';
 import { renderObjectSound } from '../src/instruments/puggler/puggler-object-sounds.js';
 import { renderCharacterVocal, vocalCharacter } from '../src/instruments/puggler/puggler-vocals.js';
 import { copyClip } from '../src/instruments/puggler/puggler-voice-dsp.js';
@@ -13,8 +14,10 @@ import { spiderSpeechRequest, SPIDER_SPEECH_PRESETS } from '../src/instruments/s
 import { SpiderSpeechPlayer } from '../src/instruments/spider-synth/spider-synth-speech-player.js';
 import { renderNativeText } from '../src/families/speech/native-text.js';
 
+const spiderOnly = process.argv.includes('--spider-only');
 const RATE = 22050, SECONDS = 2.4, FRAMES = Math.round(RATE * SECONDS);
-const variants = Object.fromEntries(['drop-puggler', 'drop-chiptune', 'drop-acid-303', 'drop-spider'].map(kind => [kind, [null]]));
+const variants = spiderOnly ? { ...WITCH_CHARACTER_BITE_VARIANTS, 'drop-spider': [null] }
+  : Object.fromEntries(['drop-puggler', 'drop-chiptune', 'drop-acid-303', 'drop-spider'].map(kind => [kind, [null]]));
 const processors = new Map(), signals = new Map();
 globalThis.sampleRate = RATE; globalThis.currentTime = 0; globalThis.currentFrame = 0;
 globalThis.AudioWorkletProcessor = class { constructor() { this.port = { postMessage(message) {
@@ -107,6 +110,8 @@ async function wav(id) {
   return { data, rate };
 }
 
+// --spider-only preserves the other authored PCM and metadata byte-for-byte.
+if (!spiderOnly) {
 // Different native prop voices, drum rhythms and vocal characters distinguish
 // these riffs from the base's straight 224 BPM fuzz-guitar eighths.
 const drums = Object.fromEntries(await Promise.all(['kick', 'snare', 'hat', 'tom', 'crash', 'oi'].map(async id => [id, await wav(id)])));
@@ -223,35 +228,47 @@ for (const [id, timeScale] of [['sixteen-ratchet', 15.4], ['foldstorm', 14.8]]) 
     data, Math.ceil(SECONDS * timeScale), { presetId: id });
 }
 
-// Native Spider speech characters, without any silk string sound. Retain each
-// complete word, stretch the protest only, and finish the accusation before the
-// clip's release edge. This is local synthetic speech, not an actor recording.
-async function spiderWord(text, preset, rate, pitch, range) {
-  const request = spiderSpeechRequest(text, { preset, rate, pitch, range });
-  const result = await renderNativeText(request.engine, request.text, request.values);
-  let first = 0, last = result.samples.length - 1;
-  while (first < last && Math.abs(result.samples[first]) < .00015) first++;
-  while (last > first && Math.abs(result.samples[last]) < .00015) last--;
-  const margin = Math.round(result.sampleRate * .018);
-  const data = result.samples.slice(Math.max(0, first - margin), Math.min(result.samples.length, last + margin + 1));
-  return { data, rate: result.sampleRate };
 }
+
+// Native Spider speech characters, without any silk string sound. The long
+// Spider call stretches its stressed vowel, retaining the normal consonants.
+// The final sentence keeps native whole-sentence timing and complete words.
 for (const settings of [
-  { preset: 'silk-whisper', label: 'Silk whisper protest', rate: 155, pitch: 42, range: 24, noSeconds: .86, accusationAt: 1.02 },
-  { preset: 'cellar-rasp', label: 'Cellar rasp protest', rate: 173, pitch: 22, range: 12, noSeconds: 1, accusationAt: 1.12 },
+  { preset: 'silk-whisper', label: 'Spiiiider scream', words: 'Spider!', text: 'SPIIIIIIDER!!!!!!', rate: 110, pitch: 55, range: 24, stretchVowel: true },
+  { preset: 'cellar-rasp', label: 'Love you mom and dad', words: 'I love you mom and dad!', text: 'I love you mom and dad!', rate: 115, pitch: 32, range: 24 },
 ]) {
-  const no = await spiderWord('No!', settings.preset, 100, settings.pitch, settings.range);
-  const accusation = await spiderWord('Bad witch!', settings.preset, settings.rate, settings.pitch, settings.range);
-  const data = new Float32Array(FRAMES), noSpeed = no.data.length / no.rate / settings.noSeconds;
-  const accusationSpeed = Math.max(1, accusation.data.length / accusation.rate / (2.22 - settings.accusationAt));
-  copyClip(data, RATE, no, { at: .025, speed: noSpeed });
-  copyClip(data, RATE, accusation, { at: settings.accusationAt, speed: accusationSpeed });
+  const request = spiderSpeechRequest(settings.words, settings);
+  const utterance = await renderNativeText(request.engine, request.text, request.values);
+  let first = 0, last = utterance.samples.length - 1;
+  while (first < last && Math.abs(utterance.samples[first]) < .00015) first++;
+  while (last > first && Math.abs(utterance.samples[last]) < .00015) last--;
+  const margin = Math.round(utterance.sampleRate * .018);
+  first = Math.max(0, first - margin); last = Math.min(utterance.samples.length, last + margin + 1);
+  const data = new Float32Array(FRAMES);
+  if (settings.stretchVowel) {
+    const phones = utterance.events.filter(event => event.type === 'phoneme');
+    const vowelIndex = phones.findIndex(event => event.phone.includes('aɪ'));
+    if (vowelIndex < 0 || !phones[vowelIndex + 1]) throw new Error('Spider call is missing its native vowel timing');
+    const from = Math.round(phones[vowelIndex].start * utterance.sampleRate);
+    const to = Math.round(phones[vowelIndex + 1].start * utterance.sampleRate);
+    const startSeconds = (from - first) / utterance.sampleRate, endingSeconds = (last - to) / utterance.sampleRate;
+    const vowelSeconds = 2.17 - startSeconds - endingSeconds;
+    copyClip(data, RATE, { data: utterance.samples.subarray(first, from), rate: utterance.sampleRate }, { at: .025 });
+    copyClip(data, RATE, { data: utterance.samples.subarray(from, to), rate: utterance.sampleRate },
+      { at: .025 + startSeconds, speed: (to - from) / utterance.sampleRate / vowelSeconds });
+    copyClip(data, RATE, { data: utterance.samples.subarray(to, last), rate: utterance.sampleRate },
+      { at: .025 + startSeconds + vowelSeconds });
+  } else {
+    const sentence = { data: utterance.samples.subarray(first, last), rate: utterance.sampleRate };
+    if (sentence.data.length / sentence.rate > 2.17) throw new Error('Spider farewell exceeds its complete-word budget');
+    copyClip(data, RATE, sentence, { at: .025 });
+  }
   const preset = SPIDER_SPEECH_PRESETS.find(item => item.id === settings.preset), player = new SpiderSpeechPlayer(RATE);
   if (!player.speak(data, RATE, preset.gain)) throw new Error('Native Spider speech player rejected its clip');
   save('drop-spider', 'spider-synth', settings.label,
-    `Spider Synth / ${preset.label} (${preset.variant}), bundled Voicesaurus ${preset.engine} + native SpiderSpeechPlayer / Nooooo! Bad witch!`,
-    render((left, right) => { for (let i = 0; i < left.length; i++) left[i] = right[i] = player.sample(); }), 3,
-    { text: 'Nooooo! Bad witch!', speechPreset: settings.preset });
+    `Spider Synth / ${preset.label} (${preset.variant}), bundled Voicesaurus ${preset.engine} + native SpiderSpeechPlayer / ${settings.text}`,
+    render((left, right) => { for (let i = 0; i < left.length; i++) left[i] = right[i] = player.sample(); }), settings.stretchVowel ? 1 : 6,
+    { text: settings.text, speechPreset: settings.preset });
 }
 
 for (const [kind, bank] of Object.entries(variants)) if (bank.length !== 3 || bank[0] !== null) throw new Error(`${kind}: expected original plus two alternates`);

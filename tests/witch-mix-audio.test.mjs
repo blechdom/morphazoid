@@ -180,17 +180,17 @@ test('fixed makeup retains voice dynamics and remains finite through maximum ove
   assert.ok(rms(render(dsp, .1)) < 1e-6);
 });
 
-test('cat owns primary Play transport and joins the same delayed mix; phase snapshots publish synchronously', () => {
+test('cat owns primary Play transport on the ground; phase snapshots publish synchronously', () => {
   const clock = createWitchCatClock(30.2, { catSpeed: 1, catGait: 'cat-prowl' });
   const audio = new WitchAudio({}); audio.syncPhase(0, 0, 0, .5, 0, 0, clock);
   assert.deepEqual(audio.visual.catClock, clock); assert.notEqual(audio.visual.catClock, clock);
   assert.deepEqual(audio.pendingPhase.catClock, clock);
-  const dsp = playing({ gate: false, ghostGate: true, mode: 'flight', trailPull: .08, trailSpace: .15 });
+  const dsp = playing({ gate: false, ghostGate: true, trailPull: .08, trailSpace: .15 });
   dsp.syncPhase(0, 0, 0, .5, 0, 0, clock);
   assert.deepEqual(dsp.visual.catClock, clock);
   const signal = render(dsp, 1);
   assert.ok(rms(signal) > .0001); assert.ok(dsp.cat.triggerCount > 0);
-  assert.ok(dsp.visual.delayLevel > 0); assert.ok(dsp.visual.catLevel > 0);
+  assert.equal(dsp.visual.delayLevel, 0); assert.ok(dsp.visual.catLevel > 0);
   dsp.setControls({ ghostGate: false }); const paused = dsp.cat.time; render(dsp, .2);
   assert.equal(dsp.cat.time, paused); assert.equal(dsp.cat.activeVoiceCount, 0);
   dsp.setEnabled(false); dsp.setControls({ ghostGate: true }); render(dsp, .2);
@@ -219,27 +219,37 @@ test('meow accepts only Audio-on primary Play visits and releases on Stop, Audio
   assert.equal(dsp.trigger('meow'), false, 'no voice from an absent cat');
 });
 
-test('meow enters the flight delay but bypasses the wind filter without disturbing performer clocks', () => {
-  const make = controls => {
-    const dsp = playing({ gate: false, ghostGate: true, ...controls });
-    dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(31)); return dsp;
-  };
-  const feet = make(), dry = make(), flight = make({ mode: 'flight', trailPull: .12, trailTwist: .6, trailSpace: .2 });
-  const windy = make({ mode: 'flight', trailPull: .12, trailTwist: .6, trailSpace: .2, fabricX: .02, fabricY: .94 });
-  dry.trigger('meow'); flight.trigger('meow'); windy.trigger('meow');
-  const quiet = render(feet, .9), plain = render(dry, .9), delayed = render(flight, .9), filtered = render(windy, .9);
-  assert.ok(difference(plain, quiet) > .04, 'clicked head is audible above its feet');
-  assert.ok(difference(plain, delayed) > .01, 'flight processes the meow');
-  assert.deepEqual(delayed, filtered, 'Fabric leaves the meow unchanged during flight');
-  assert.deepEqual(dry.cat.clock, feet.cat.clock); assert.deepEqual(flight.cat.clock, feet.cat.clock);
-  assert.equal(dry.visual.handTime, feet.visual.handTime); assert.equal(dry.chantPhase, feet.chantPhase);
-  for(const dsp of [dry, flight, windy]) {
-    assert.equal(dsp.visual.catMeow, 0); assert.equal(dsp.cat.meow.active, false);
-    dsp.setControls({ ghostGate: false }); render(dsp, .08);
+test('ground animals release at takeoff without leaving footsteps or calls in flight history', () => {
+  for (const [id, time] of [['cat', 31], ['mouse', 18.1], ['lizard', 44.1]]) {
+    const dsp = playing({ gate: false, ghostGate: true, trailPull: .12, trailTwist: .6, trailSpace: .2 });
+    dsp.syncPhase(0, 0, 0, .5, 0, 0, createWitchCatClock(time));
+    if (id === 'cat') assert.equal(dsp.trigger('meow'), true);
+    assert.ok(rms(render(dsp, .15)) > .001, `${id} sounds on the ground`);
+    const voice = id === 'cat' ? dsp.cat : dsp.visitors.visitors.find(visitor => visitor.id === id);
+    const attacks = voice.triggerCount, before = dsp.cat.time;
+    dsp.setControls({ mode: 'flight' });
+    assert.equal(dsp.trigger('meow'), false); assert.equal(dsp.trigger(`drop-${id}`), false);
+    render(dsp, .06);
+    assert.equal(rms(render(dsp, .6)), 0, `${id} has no remaining call, footsteps or flight echoes`);
+    assert.equal(dsp.visual.delayLevel, 0); assert.equal(dsp.visual.catLevel, 0); assert.equal(dsp.visual.catMeowLevel, 0);
+    assert.equal(voice.triggerCount, attacks); assert.ok(dsp.cat.time > before + .65, 'visits keep their original clock');
+    const atLanding = dsp.cat.time;
+    dsp.setControls({ mode: 'brew' }); assert.equal(dsp.cat.time, atLanding);
+    assert.ok(rms(render(dsp, .2)) > .001, `${id} returns at the current stride after landing`);
+    assert.ok(voice.triggerCount > attacks);
   }
-  const tail = render(flight, .5), direct = render(dry, .5);
-  assert.ok(rms(tail) > .002, 'shared flight echoes outlast the head envelope');
-  assert.ok(rms(direct) < 1e-7, 'direct voice has released');
-  assert.ok(tail.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
-  flight.setEnabled(false); render(flight, 2); assert.ok(rms(render(flight, .1)) < 1e-7);
+});
+
+test('captured animals fade at takeoff while shelf instruments remain playable through flight delay', () => {
+  for (const kind of ['drop-cat', 'drop-mouse', 'drop-lizard']) {
+    const dsp = playing({ gate: false, ghostGate: true, backingEnabled: false, trailPull: .12, trailSpace: .2 });
+    assert.equal(dsp.trigger(kind), true); assert.ok(rms(render(dsp, .06)) > .001);
+    dsp.setControls({ mode: 'flight' });
+    assert.ok(rms(render(dsp, .008)) > .00001, 'takeoff fades the call rather than cutting the waveform');
+    render(dsp, .06); assert.equal(rms(render(dsp, .3)), 0);
+    assert.equal(dsp.visual.dropLevel, 0); assert.equal(dsp.visual.delayLevel, 0);
+    assert.equal(dsp.trigger(kind), false);
+    assert.equal(dsp.trigger('drop-quadruped'), true, 'the explicit cupboard instrument stays playable');
+    assert.ok(rms(render(dsp, .7)) > .001); assert.ok(dsp.visual.delayLevel > .0001);
+  }
 });

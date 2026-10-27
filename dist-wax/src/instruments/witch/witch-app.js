@@ -326,7 +326,7 @@ function advanceSpell() {
 function captureAnimal(id) {
   advancePerformanceTime();
   const state=visualState(),animal=id==='cat'?getWitchCatFrame(state):getWitchVisitors(state).find(frame=>frame.id===id||frame.animalId===id);
-  if(!animal||!animal.active||animal.captured||state.flightLift>.1)return;
+  if(!animal||!animal.active||animal.captured||config.scene==='flight'||state.flightLift>.1)return;
   const unicorn=id==='cat'&&++catCaptureCount===3;
   capturedAnimals[id]={startedAt:performanceTime,from:{x:animal.x,y:animal.y,rotation:animal.rotation,direction:animal.direction},...(unicorn?{unicorn:true}:{})};
   if(id==='cat')catMeowAt=performance.now();

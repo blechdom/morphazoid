@@ -35,7 +35,7 @@ Brightness remains on the **+ / −** keys.
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play one L-system PM phrase with a pulse travelling through the branches. Drag outward to widen the turn angle, inward to close it, or up/down for asymmetric curling. Those changes alter the live modulation and stereo image; a held drag never restarts the phrase. Mushrooms and the SHAPES charm choose new tree settings. |
-| Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
+| Touch the spider or web | The actual Spider Synth cycles “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
 | Click the broom or Oculoid moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
 | Click the right mushrooms | Chooses the next complete settings preset with a bubbling gloop and refills the ingredients, preserving whether she is flying or stirring. |
@@ -132,7 +132,10 @@ pixel and angular shifts have half their earlier horizontal displacement;
 Pixel rot uses finer blocks so the scene stays readable.
 
 Flight keeps the moon, clouds and cauldron while the cupboard, tree,
-ghosts and animal visitors fade into the sky. The mushrooms remain playable. The witch remains
+ghosts and animal visitors fade into the sky. The cat, mouse, lizard and escaping
+unicorn fall silent at takeoff; their footsteps and capture calls stay out of
+the flight delay. Their visit clocks continue, so landing resumes the current
+visit without replaying missed steps. The mushrooms remain playable. The witch remains
 30% larger than her earlier flight form, and her spoon can still reach the pot.
 A longer sweeping route carries smaller returning loops; twisting the hair
 deepens those loops. Denser hair noodles cross the sky and bend the shared delay.

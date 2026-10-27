@@ -32,6 +32,7 @@ import { witchCatMeowEnvelope, WITCH_CAT_UNICORN_DURATION } from './witch-cat-mo
 import { witchBiteClips, witchBiteVariants, WitchSceneDSP, WitchEyeShock, WitchFabricWind, WitchBlechFlyby } from './witch-scene-audio.js';
 
 const TAU = WITCH_TAU;
+const GROUND_ANIMAL_DROPS = new Set(['drop-cat', 'drop-mouse', 'drop-lizard']);
 const VOICE = Object.freeze({
   mutter: { hz: 139, air: .13, rasp: .23, vibrato: .009, sustain: .24 },
   whisper: { hz: 164, air: .94, rasp: .05, vibrato: .003, sustain: .34 },
@@ -1138,7 +1139,7 @@ class DroppedInstrumentDSP {
     this.rate = rate; this.clock = 0; this.enabled = false; this.dormant = true;
     this.hand = new HandDSP(rate); this.tastes = new PotionTasteDSP(rate);
     this.solo = 0; this.kind = ''; this.handTrim = this.handTrimTarget = 1; this.handMakeup = 1.4; this.handMakeupTarget = 1.4; this.levels = new Float32Array(128);
-    this.slots = WITCH_DROP_EFFECTS.map(kind => ({ ...this.tastes.createSlot(kind), mask: kind === 'drop-gesticules' ? 19 : 0 }));
+    this.slots = WITCH_DROP_EFFECTS.map(kind => ({ ...this.tastes.createSlot(kind), groundAnimal: GROUND_ANIMAL_DROPS.has(kind), mask: kind === 'drop-gesticules' ? 19 : 0 }));
     this.handConfigs = [0, 1, 2].map(variant => ({
       motion: { id: ['flourish', 'scatter', 'flick'][variant], tempo: [90, 176, 246][variant], amount: [.48, .82, .94][variant] }, tremor: { amount: [0, .3, .58][variant] },
       pose: { fingers: [.12, .28, .18, .38, .22].map(bend => ({ mcp: bend * 50, pip: bend * 60, dip: bend * 40, spread: 0 })) },
@@ -1155,6 +1156,7 @@ class DroppedInstrumentDSP {
     if (!this.enabled) this.releaseAll();
   }
   releaseAll() { for (const slot of this.slots) slot.until = -1; this.tastes.releaseAll(); }
+  releaseGroundAnimals() { for (const slot of this.slots) if (slot.groundAnimal) slot.until = -1; }
   trigger(kind, variant) {
     const slot = this.slots.find(slot => slot.kind === kind);
     if (!this.enabled || !slot) return false;
@@ -1170,7 +1172,8 @@ class DroppedInstrumentDSP {
     for (let i = 0; i < 5; i++) if (slot.mask & (1 << i)) this.hand.auditionFinger(i, .08, this.clock / this.rate);
     return true;
   }
-  process(left, right) {
+  process(left, right, groundLeft, groundRight) {
+    groundLeft?.fill(0); groundRight?.fill(0);
     if (this.dormant) { left.fill(0); right.fill(0); this.levels.fill(0); this.clock += left.length; return; }
     let offset = 0;
     while (offset < left.length) {
@@ -1190,7 +1193,9 @@ class DroppedInstrumentDSP {
         left[i] *= this.handMakeup * this.handTrim; right[i] *= this.handMakeup * this.handTrim;
         for (const slot of this.slots) if (!slot.mask && (slot.until > this.clock || slot.gain > 1e-8)) {
           this.tastes.sample(slot, this.enabled && slot.until > this.clock);
-          left[i] += this.tastes.left; right[i] += this.tastes.right;
+          if (slot.groundAnimal && groundLeft && groundRight) {
+            groundLeft[i] += this.tastes.left; groundRight[i] += this.tastes.right;
+          } else { left[i] += this.tastes.left; right[i] += this.tastes.right; }
         }
         this.solo += ((active ? 1 : 0) - this.solo) * (active ? this.attack : this.release);
         this.levels[i] = this.solo; this.clock++;
@@ -1376,6 +1381,7 @@ export class WitchDSP {
     // Mute after each engine's resonators so waking the other source cannot
     // bring back the sleeping source's release; ordinary Stop keeps its tail.
     this.sourceGains = new Float64Array([1, 1, 1]); this.sourceGainStep = 1 / (.025 * this.rate);
+    this.groundAnimalGain = 1; this.groundAnimalStep = 1 / (.035 * this.rate);
     this.drops = new DroppedInstrumentDSP(this.rate); this.delay = new FlightMixDelay(this.rate);
     this.catDropSlot = this.drops.slots.find(slot => slot.kind === 'drop-cat');
     this.cat = new WitchCatDSP(this.rate); this.unicorn = new WitchUnicornDSP(this.rate); this.shapeCharm = new WitchShapeCharmDSP(this.rate);
@@ -1386,7 +1392,7 @@ export class WitchDSP {
     this.scene = new WitchSceneDSP(this.rate); this.shock = new WitchEyeShock(this.rate);
     this.ghosts = new WitchGhostDSP(this.rate); this.ghostScream = new WitchGhostScream(this.rate); this.backingEnergy = 0;
     this.backingFollow = 1 - Math.exp(-this.dt / .025);
-    this.buffers = Array.from({ length: 8 }, () => new Float32Array(128));
+    this.buffers = Array.from({ length: 10 }, () => new Float32Array(128));
     this.visual = { ...this.brew.visual, handTime: 0, flightPhase: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0,
       catClock: this.cat.clock, catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0,
       unicornActive: false, unicornAge: WITCH_CAT_UNICORN_DURATION, unicornLevel: 0,
@@ -1444,6 +1450,9 @@ export class WitchDSP {
     }
     if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); this.unicorn.cancel(); this.shapeCharm.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
+    if (previous.mode !== 'flight' && c.mode === 'flight') {
+      this.cat.release(); this.visitors.release(); this.unicorn.cancel(); this.drops.releaseGroundAnimals();
+    }
     if (previous.ghostGate && !c.ghostGate) { this.cat.release(); this.visitors.release(); this.blechFlyby.release(); this.scene.tree.release(); this.unicorn.cancel(); this.shapeCharm.cancel(); }
     if (c.handAuto !== previous.handAuto || c.handMotion !== previous.handMotion || c.handRate !== previous.handRate || c.handDepth !== previous.handDepth || c.handSound !== previous.handSound || c.tone !== previous.tone || c.manualFingerMask !== previous.manualFingerMask || c.fingers.some((v, i) => v !== previous.fingers[i])) {
       this.hand.setWitchControls(c);
@@ -1473,6 +1482,7 @@ export class WitchDSP {
   }
   trigger(kind, variant, detail) {
     if (!this.enabled) return false;
+    if (this.controls.mode === 'flight' && (kind === 'meow' || kind === 'unicorn-escape' || GROUND_ANIMAL_DROPS.has(kind))) return false;
     let accepted;
     if (kind === 'fabric-wind') {
       if (this.controls.mode !== 'flight') return false;
@@ -1520,7 +1530,7 @@ export class WitchDSP {
       const count = Math.min(128, left.length - offset);
       const b = count === 128 ? this.buffers : this.buffers.map(buffer => buffer.subarray(0, count));
       this.brew.process(b[0], b[1]);
-      this.hand.process(b[2], b[3], this.time); this.flight.process(b[4], b[5]); this.drops.process(b[6], b[7]);
+      this.hand.process(b[2], b[3], this.time); this.flight.process(b[4], b[5]); this.drops.process(b[6], b[7], b[8], b[9]);
       for (let i = 0; i < count; i++) {
         const fade = Math.min(1, ++this.fadePosition / this.fadeSamples);
         this.weights[0] = this.fadeFrom[0] * (1 - fade) + voiceWeight * fade;
@@ -1528,6 +1538,7 @@ export class WitchDSP {
         this.sourceGains[0] = c.brewEnabled ? Math.min(1, this.sourceGains[0] + this.sourceGainStep) : Math.max(0, this.sourceGains[0] - this.sourceGainStep);
         this.sourceGains[1] = c.handEnabled ? Math.min(1, this.sourceGains[1] + this.sourceGainStep) : Math.max(0, this.sourceGains[1] - this.sourceGainStep);
         this.sourceGains[2] = c.backingEnabled ? Math.min(1, this.sourceGains[2] + this.sourceGainStep) : Math.max(0, this.sourceGains[2] - this.sourceGainStep);
+        this.groundAnimalGain = c.mode === 'flight' ? Math.max(0, this.groundAnimalGain - this.groundAnimalStep) : Math.min(1, this.groundAnimalGain + this.groundAnimalStep);
         // Limit each engine before crossfading: changing scenes never changes
         // the transfer curve underneath a ringing sound.
         const brewL = b[0][i] * this.weights[0] * this.sourceGains[0], brewR = b[1][i] * this.weights[0] * this.sourceGains[0];
@@ -1536,6 +1547,8 @@ export class WitchDSP {
         const soloMix = this.drops.levels[i] * .58, backing = 1 - this.drops.levels[i] * .28;
         const dropL = Math.tanh(b[6][i] * 1.7 / .54) * .54 * soloMix;
         const dropR = Math.tanh(b[7][i] * 1.7 / .54) * .54 * soloMix;
+        const groundDropL = Math.tanh(b[8][i] * 1.7 / .54) * .54 * soloMix * this.groundAnimalGain;
+        const groundDropR = Math.tanh(b[9][i] * 1.7 / .54) * .54 * soloMix * this.groundAnimalGain;
         const bedL = brewL + handL, bedR = brewR + handR;
         this.backingEnergy += ((bedL * bedL + bedR * bedR) * .5 - this.backingEnergy) * this.backingFollow;
         // A manual sound can wake without the automatic visitors. Consume
@@ -1543,10 +1556,11 @@ export class WitchDSP {
         // or BLECH passages that happened while this backing was asleep.
         const backingEnabled = this.enabled && c.backingEnabled, backingGain = this.sourceGains[2];
         this.ghosts.next(c, backingEnabled);
-        this.cat.next(c, backingEnabled && c.ghostGate && !c.catCaptured, c.ghostGate);
-        this.unicorn.next(this.cat.time, this.enabled, c.ghostGate);
+        const groundEnabled = backingEnabled && c.ghostGate && c.mode !== 'flight';
+        this.cat.next(c, groundEnabled && !c.catCaptured, c.ghostGate);
+        this.unicorn.next(this.cat.time, this.enabled && c.mode !== 'flight', c.ghostGate);
         this.shapeCharm.next(this.cat.time, this.enabled, c.ghostGate);
-        this.visitors.next(this.cat.time, backingEnabled && c.ghostGate && c.mode !== 'flight');
+        this.visitors.next(this.cat.time, groundEnabled);
         this.scene.next(this.enabled);
         this.ghostScream.next(this.enabled);
         this.fabricWind.next(c, this.enabled && c.mode === 'flight');
@@ -1555,19 +1569,21 @@ export class WitchDSP {
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
         const ghostL = this.ghosts.left * ghostCeiling * backing * backingGain, ghostR = this.ghosts.right * ghostCeiling * backing * backingGain;
-        // The clicked head is featured above its feet, through the same flight
-        // delay as every other performer.
+        // Ground animals keep their clocks while absent. Their feet, calls and
+        // captures bypass flight history, so takeoff cannot echo an unseen visit.
         const catL = (this.cat.left * .85 + this.cat.meowLeft * .9) * backing * backingGain;
         const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing * backingGain;
         const visitorL = this.visitors.left * backing * backingGain, visitorR = this.visitors.right * backing * backingGain;
         const flybyL = this.blechFlyby.left * backingGain, flybyR = this.blechFlyby.right * backingGain;
-        const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + catL + visitorL + this.unicorn.left + this.shapeCharm.left + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
-        const dryR = Math.tanh((bedR * backing + ghostR + this.ghostScream.right + catR + visitorR + this.unicorn.right + this.shapeCharm.right + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
+        const groundL = Math.tanh(((catL + visitorL + this.unicorn.left) * this.groundAnimalGain + groundDropL) / .54) * .54;
+        const groundR = Math.tanh(((catR + visitorR + this.unicorn.right) * this.groundAnimalGain + groundDropR) / .54) * .54;
+        const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + this.shapeCharm.left + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
+        const dryR = Math.tanh((bedR * backing + ghostR + this.ghostScream.right + this.shapeCharm.right + dropR + this.scene.right + flybyR + b[5][i] * .85) / .54) * .54;
         this.delay.next(dryL, dryR, this.enabled);
         this.fabric.next(this.fabricWind.left, this.fabricWind.right);
         this.fabricMix += ((this.enabled && c.mode === 'flight' ? 1 : 0) - this.fabricMix) * this.fabric.smooth;
-        this.shock.next(this.delay.left + this.fabric.left * this.fabricMix,
-          this.delay.right + this.fabric.right * this.fabricMix, this.enabled);
+        this.shock.next(this.delay.left + groundL * this.delay.master + this.fabric.left * this.fabricMix,
+          this.delay.right + groundR * this.delay.master + this.fabric.right * this.fabricMix, this.enabled);
         // Fixed makeup preserves relative whispers and decays. This memoryless
         // soft peak ceiling cannot raise a tail or chase silence like AGC.
         const outL = Math.tanh(this.shock.left * 2.9 / .84) * .84;
@@ -1577,12 +1593,12 @@ export class WitchDSP {
         energy += (outL * outL + outR * outR) * .5;
         brewEnergy += (brewL * brewL + brewR * brewR) * .5 * backing ** 2;
         handEnergy += (handL * handL + handR * handR) * .5 * backing ** 2;
-        dropEnergy += (dropL * dropL + dropR * dropR) * .5;
+        dropEnergy += ((dropL + groundDropL) ** 2 + (dropR + groundDropR) ** 2) * .5;
         delayEnergy += (this.delay.wetLeft ** 2 + this.delay.wetRight ** 2) * .5;
         ghostEnergy += (ghostL * ghostL + ghostR * ghostR) * .5;
         flybyEnergy += (flybyL ** 2 + flybyR ** 2) * .5;
         treeEnergy += (this.scene.tree.left ** 2 + this.scene.tree.right ** 2) * .5;
-        unicornEnergy += (this.unicorn.left ** 2 + this.unicorn.right ** 2) * .5;
+        unicornEnergy += (this.unicorn.left ** 2 + this.unicorn.right ** 2) * .5 * this.groundAnimalGain ** 2;
         shapeCharmEnergy += (this.shapeCharm.left ** 2 + this.shapeCharm.right ** 2) * .5;
       }
       this.time += count * this.dt;
@@ -1592,11 +1608,11 @@ export class WitchDSP {
     this.visual.brewLevel = Math.sqrt(brewEnergy / Math.max(1, left.length));
     this.visual.handLevel = Math.sqrt(handEnergy / Math.max(1, left.length));
     this.visual.dropLevel = Math.sqrt(dropEnergy / Math.max(1, left.length));
-    this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; this.visual.catLevel = this.cat.level * this.sourceGains[2];
+    this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time; this.visual.catLevel = this.cat.level * this.sourceGains[2] * this.groundAnimalGain;
     this.visual.catMeow = Math.max(this.cat.meowEnvelope,
       this.catDropSlot?.gain > .01 && this.catDropSlot.until > this.drops.clock
         ? witchCatMeowEnvelope(this.catDropSlot.age / this.rate) * this.catDropSlot.gain : 0);
-    this.visual.catMeowLevel = this.cat.meowLevel * this.sourceGains[2];
+    this.visual.catMeowLevel = this.cat.meowLevel * this.sourceGains[2] * this.groundAnimalGain;
     this.visual.unicornActive = this.unicorn.active; this.visual.unicornAge = this.unicorn.age;
     this.visual.unicornLevel = Math.sqrt(unicornEnergy / Math.max(1, left.length));
     this.visual.shapeCharmActive = this.shapeCharm.active; this.visual.shapeCharmAge = this.shapeCharm.age;

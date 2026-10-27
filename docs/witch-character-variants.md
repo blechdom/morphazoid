@@ -17,9 +17,10 @@ automatic gain adjustment.
 | SIMD303 | Native **Sixteen Ratchet** factory voice, sequence and expression at 15.4 steps/second | Native **Foldstorm** factory voice, sequence and expression accelerated to 14.8 steps/second |
 | Spider Synth | Native **Silk whisper** / eSpeak NG `whisperf` character | Native **Cellar rasp** / eSpeak NG Klatt `robosoft3` character |
 
-Both Spider characters say “Nooooo! Bad witch!” through the native
-`SpiderSpeechPlayer`. The complete first word is stretched; the accusation
-retains its full syllables and finishes before the release fade. They contain
+The second Spider character says “SPIIIIIIDER!!!!!!” through the native
+`SpiderSpeechPlayer`, stretching the stressed vowel while retaining its consonants.
+The third says “I love you mom and dad!” with complete native sentence timing.
+They follow the base clip's long “NOOOOOOOOO !!!!!” and finish before the release fade. They contain
 no web plucks. The voices are fictional synthesized characters, not recordings
 or imitations of people.
 
