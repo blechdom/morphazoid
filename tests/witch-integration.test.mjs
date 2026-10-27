@@ -14,6 +14,7 @@ import { restoreSelectedInstrumentRecovery } from "./helpers/selected-instrument
 import { restoreQuadrupedFaves } from "./helpers/quadruped-faves-reference.mjs";
 import { restoreTimeLoomSite } from "./helpers/time-loom-site-reference.mjs";
 import { restoreWitchesBrewFaves, witchesBrewFavesAmendment } from "./helpers/witches-brew-faves-reference.mjs";
+import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
 import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -106,4 +107,33 @@ test("Witches Brew promotion preserves the prior registry and rejects incomplete
   assert.notEqual(digest(restoreOculoidSite(
     restoreWitchesBrewFaves(source + drift, change.file), change.file,
   )), change.sha256);
+});
+
+test("Witch runtime proofs require the exact tree and BLECH phrase rows and retain unknown drift", () => {
+  const file = "scripts/site/runtime-files.tsv", source = readFileSync(new URL(file, root), "utf8");
+  // These modules shipped in 994ead1c and dbf04724. Both historical restore
+  // paths recognize their complete inventory while keeping the old hashes.
+  const rows = ["tree-model", "blech-phrases"].map(name => `copy+require\tsrc/instruments/witch/witch-${name}.js\n`);
+  for (const row of rows) assert.equal(source.split(row).length - 1, 1);
+  assert.ok(source.includes(rows.join("")), "the published module order stays exact");
+  for (const restore of [restoreWitchSite, restoreWitchesBrewRefresh]) {
+    const restored = restore(source, file);
+    for (const row of rows) {
+      assert.equal(restored.includes(row), false);
+      for (const changed of [source.replace(row, ""), source.replace(row, row + row),
+        row + source.replace(row, ""), source.replace(row, row.replace("copy+require", "copy")),
+        source.replace(row, row.replace("witch-", "unreviewed-"))]) {
+        assert.throws(() => restore(changed, file), /exact (?:Witch site|Witches Brew refresh) amendment/);
+        // Optional restoration must either reject a partial amendment or
+        // leave it detectable by the independently captured hash.
+        let normalized;
+        try { normalized = restore(changed, file, { allowRestored: true }); }
+        catch (error) { assert.match(error.message, /exact Witch/); continue; }
+        assert.notEqual(digest(normalized), digest(restored));
+      }
+      assert.equal(restore(source + row, file), restored + row, "an extra copy outside the block remains visible");
+      assert.notEqual(digest(restore(source + row, file)), digest(restored));
+    }
+    assert.throws(() => restore(source.replace(rows.join(""), [...rows].reverse().join("")), file), /exact Witch/);
+  }
 });

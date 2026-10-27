@@ -253,6 +253,33 @@ tablet resizing, independent source wake, hair hush, flight, cancellation,
 asset-ready repaint and cached-page resume. Physical-device feel and listening
 still need a human pass.
 
+A second pass against `7c39d986` batches both posed hands into one GPU snapshot
+before copying their independent surfaces. The fabric reuses its geometry and
+raster until its pull, flight opacity, layout or resolution changes; thread
+overlaps retain their original blending. Fully hidden grounded anatomy is
+skipped in flight, and hair/noodle paths are traced once for their layered strokes.
+Meshes, touch coordinates, synthesis and animation presets are unchanged.
+
+Using the same Chromium version and 4× CPU throttle, phone 390×844/DPR 3 and
+tablet 768×1024/DPR 2 produced these measurements (the final scene rotates each
+viewport):
+
+| Device / scene | Painted frames/second before → after | Mean paint time before → after |
+| --- | ---: | ---: |
+| Phone / brewing | 8.0 → 10.5 | 112.0 → 84.3 ms |
+| Phone / flying | 8.9 → 11.5 | 99.7 → 76.1 ms |
+| Phone / static distortion | 9.5 → 9.8 | 91.9 → 89.4 ms |
+| Phone / landscape distortion | 9.8 → 10.0 | 89.8 → 87.3 ms |
+| Tablet / brewing | 6.1 → 7.9 | 140.3 → 105.1 ms |
+| Tablet / flying | 7.6 → 10.3 | 110.5 → 76.4 ms |
+| Tablet / static distortion | 6.7 → 8.9 | 122.0 → 89.3 ms |
+| Tablet / landscape distortion | 7.4 → 9.0 | 113.5 → 87.8 ms |
+
+Both resting scenes still perform zero repeated paints. All eight active samples
+advanced the audio clock without browser errors. These short, throttled profiles
+show relative rendering cost; long frames remain under this heavy throttle and
+the measurements do not establish physical-device smoothness or audible quality.
+
 To repeat the profile against a running source preview, use its exact origin:
 
 ```sh
@@ -260,8 +287,10 @@ MORPHAZOID_QA_BASE_URL=http://localhost:3517 node scripts/qa/witch-mobile-profil
 ```
 
 `WITCH_PROFILE_CPU=1` disables CPU throttling; `WITCH_PROFILE_OUTPUT` selects the
-JSON artifact (default `/tmp/witch-mobile-profile.json`). Keep other benchmarks
-idle during measurement. The script checks the served app/renderer bytes and
+JSON artifact (default `/tmp/witch-mobile-profile.json`). Set
+`WITCH_PROFILE_VIEWPORT=768x1024 WITCH_PROFILE_DPR=2` for the tablet profile;
+the defaults are `390x844` and `3`. Keep other benchmarks idle during measurement.
+The script waits for all three native models, checks served app/renderer bytes and
 records frame times, long tasks, audio-clock progress, graphics budgets and
 browser errors. It does not install quality controls in the instrument.
 

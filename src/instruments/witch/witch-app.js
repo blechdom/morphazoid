@@ -787,7 +787,7 @@ function draw(now) {
     state.spiderSurface=spiderSurface;
   }
   if(handReady) {
-    handSurfaces=[hand.render(state,0),hand.render(state,1)]; handSurface=handSurfaces[0];
+    handSurfaces=hand.renderPair(state); handSurface=handSurfaces[0];
     state.handSurface=handSurface;state.handSurfaces=handSurfaces;
     state.handPalms=[hand.getPalm(0),hand.getPalm(1)];
     state.handsTips=[hand.getTips(0),hand.getTips(1)];state.handWrists=[hand.getWrist(0),hand.getWrist(1)];

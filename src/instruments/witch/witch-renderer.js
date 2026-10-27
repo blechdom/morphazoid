@@ -102,6 +102,10 @@ function line(c, points, color, width = 1) {
   c.beginPath(); points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
   c.strokeStyle = color; c.lineWidth = width; c.stroke();
 }
+function tracePoints(c,points) {
+  c.beginPath();
+  for(let i=0;i<points.length;i++) {const p=points[i];if(i)c.lineTo(p.x,p.y);else c.moveTo(p.x,p.y);}
+}
 function curve(c, p, color, width = 1) {
   c.beginPath(); c.moveTo(p[0], p[1]); c.bezierCurveTo(...p.slice(2));
   c.strokeStyle = color; c.lineWidth = width; c.stroke();
@@ -352,9 +356,9 @@ function drawWitchHair(c,state) {
   const {strands,pullAmount}=witchHairLocal(state),amount=clamp(state.hair),lift=clamp(state.flightLift);
   const colors=['#bcc5ac','#81758e','#6c7286','#92b9ae','#bb9cb9'];
   for(const strand of strands) {
-    const points=strand.points.map(point=>[point.x,point.y]);
-    line(c,points,INK,strand.width+3.5);
-    line(c,points,colors[strand.index%colors.length],strand.width);
+    tracePoints(c,strand.points);
+    c.strokeStyle=INK;c.lineWidth=strand.width+3.5;c.stroke();
+    c.strokeStyle=colors[strand.index%colors.length];c.lineWidth=strand.width;c.stroke();
     // Fine split ends become tangled and electrically wiry when pulled.
     if(amount>.01||lift>.01||pullAmount>.01) {
       const end=strand.points[17],tip=strand.points.at(-1),curl=(amount*12+lift*18+pullAmount*(16+lift*25))*(strand.index%2?1:-1);
@@ -654,20 +658,20 @@ function ladleArm(c,state) {
 }
 
 function brewScene(c, state) {
-  const time = state.time || 0, energy = clamp(state.energy);
+  const time = state.time || 0, energy = clamp(state.energy),ground=1-clamp(state.flightLift);
   glow(c, 556, 418, 200, '#bbdb8b12');
-  c.save(); c.globalAlpha *= 1 - clamp(state.flightLift);
-  robe(c, time, energy);
-  c.restore();
+  if(ground>0) {c.save();c.globalAlpha*=ground;robe(c,time,energy);c.restore();}
   ladleArm(c,state);
-  c.save();c.globalAlpha*=1-clamp(state.flightLift);
-  const head=headTransform(state,false);
-  witchHead(c,state,head.x,head.y,head.scale,head.rotation);
-  // Far hand is poised over the rising vapor.
-  path(c, 'M391,411 Q358,407 341,438 L381,483 Q411,462 421,443 Z', '#4b3650', INK, 3);
-  line(c, [[365,436],[386,464]], '#80637a', 1.1);
-  if (!state.handSurface) smallHand(c, 388, 450, .68, .77, .45 + Math.sin(time * 1.7) * energy * .12);
-  c.restore();
+  if(ground>0) {
+    c.save();c.globalAlpha*=ground;
+    const head=headTransform(state,false);
+    witchHead(c,state,head.x,head.y,head.scale,head.rotation);
+    // Far hand is poised over the rising vapor.
+    path(c, 'M391,411 Q358,407 341,438 L381,483 Q411,462 421,443 Z', '#4b3650', INK, 3);
+    line(c, [[365,436],[386,464]], '#80637a', 1.1);
+    if (!state.handSurface) smallHand(c, 388, 450, .68, .77, .45 + Math.sin(time * 1.7) * energy * .12);
+    c.restore();
+  }
   smoke(c, state);
   cauldron(c, state);
   const {lx,ly,hx,hy,gx,gy,tx,ty}=getWitchLadle(state);
@@ -874,23 +878,23 @@ function livingTree(c,state) {
   c.restore();
 }
 const sceneryLayers=new WeakMap();
-/** Two tightly cropped, reusable layers per world. Geometry and resolution
- * invalidate them; flight opacity, palette and musical pulses stay outside. */
-function cachedScenery(c,state,id,geometry,bounds,paint) {
+/** Bounded scenery layers per world. Bake strand opacity when overlapping
+ * strokes need it; palette, musical pulses and other fades stay outside. */
+function cachedScenery(c,state,id,geometry,bounds,paint,alpha=1) {
   const doc=c.canvas?.ownerDocument;
-  if(!doc){paint(c,geometry);return;}
+  if(!doc){c.save();c.globalAlpha*=alpha;paint(c,geometry);c.restore();return;}
   let layers=sceneryLayers.get(c);
   if(!layers){layers={};sceneryLayers.set(c,layers);}
   let layer=layers[id];
   if(!layer){const surface=doc.createElement('canvas');layer={surface,ink:surface.getContext('2d')};layers[id]=layer;}
   const scale=renderScale(state);
-  if(layer.geometry!==geometry||layer.scale!==scale) {
+  if(layer.geometry!==geometry||layer.scale!==scale||layer.alpha!==alpha) {
     const width=Math.ceil(bounds.width*scale),height=Math.ceil(bounds.height*scale);
     if(layer.surface.width!==width||layer.surface.height!==height){layer.surface.width=width;layer.surface.height=height;}
     layer.ink.setTransform(scale,0,0,scale,-bounds.x*scale,-bounds.y*scale);
     layer.ink.clearRect(bounds.x,bounds.y,bounds.width,bounds.height);
-    layer.ink.lineCap='round';layer.ink.lineJoin='round';paint(layer.ink,geometry);
-    layer.geometry=geometry;layer.scale=scale;
+    layer.ink.lineCap='round';layer.ink.lineJoin='round';layer.ink.globalAlpha=alpha;paint(layer.ink,geometry);
+    layer.geometry=geometry;layer.scale=scale;layer.alpha=alpha;
   }
   c.drawImage(layer.surface,0,0,bounds.width*scale,bounds.height*scale,bounds.x,bounds.y,bounds.width,bounds.height);
 }
@@ -1245,11 +1249,12 @@ function flightScene(c, state) {
   if(state.flightLift>.01) {
     c.save();c.globalAlpha=clamp(state.flightLift)*(.7+clamp(state.flightPulse)*.18);
     for(const strand of getWitchTrails(state)) {
-      const points=strand.points.map(point=>[point.x,point.y]);
-      line(c,points,INK,strand.width+3);line(c,points,strand.color,strand.width);
+      tracePoints(c,strand.points);
+      c.strokeStyle=INK;c.lineWidth=strand.width+3;c.stroke();
+      c.strokeStyle=strand.color;c.lineWidth=strand.width;c.stroke();
       c.setLineDash([strand.stripeLength,strand.stripeLength]);
       c.lineDashOffset=state.reducedMotion?0:-(state.flightPhase??0)*5;
-      line(c,points,strand.stripe,strand.width);c.setLineDash([]);
+      c.strokeStyle=strand.stripe;c.stroke();c.setLineDash([]);
     }
     c.restore();
   }
@@ -1340,36 +1345,49 @@ function instrumentShelves(c,state) {
 /** Fabric Filter's taut green-column / pink-row mesh fills the flying sky.
  * A local grab displaces the cloth while the four outer edges stay anchored.
  * The controller supplies the damped release, so a resting mesh stays still. */
-function witchFabricPoint(u,v,state={}) {
-  const gx=clamp(state.fabricGrabX??.16,.015,.985),gy=clamp(state.fabricGrabY??.14,.015,.985);
+let fabricGeometry;
+function getWitchFabricGeometry(state={}) {
   const layout=getWitchLayout(state);
+  const gx=clamp(state.fabricGrabX??.16,.015,.985),gy=clamp(state.fabricGrabY??.14,.015,.985);
   const pullX=clamp(state.fabricPullX??0,-340,340)*layout.width/1000,pullY=clamp(state.fabricPullY??0,-240,240)*layout.height/720;
+  if(fabricGeometry?.layout===layout&&fabricGeometry.gx===gx&&fabricGeometry.gy===gy&&fabricGeometry.pullX===pullX&&fabricGeometry.pullY===pullY)return fabricGeometry;
   const magnitude=Math.hypot(pullX,pullY),radius=145+magnitude*.22;
-  const x=layout.left+u*layout.width,y=layout.top+v*layout.height,dx=(u-gx)*layout.width,dy=(v-gy)*layout.height;
   const edge=(a,b)=>Math.min(1,a/.085,(1-a)/.085)*Math.min(1,b/.085,(1-b)/.085);
-  const influence=Math.exp(-(dx*dx+dy*dy)/(radius*radius*2))*Math.min(1,edge(u,v)/Math.max(.025,edge(gx,gy)));
-  const pinch=clamp(magnitude/220)*.19*influence;
-  return {x:x+pullX*influence-dx*pinch,y:y+pullY*influence-dy*pinch};
-}
-function witchFabricTarget(state={}) {
-  // An idle diagnostic/keyboard target stays in exposed sky even when the
-  // last grab was released behind her body or across a delay strand.
-  if(!state.fabricHeld)return {x:getWitchLayout(state).left+80,y:getWitchLayout(state).top+24,r:18};
-  return {...witchFabricPoint(clamp(state.fabricGrabX??.16,.015,.985),clamp(state.fabricGrabY??.14,.015,.985),state),r:18};
-}
-export function getWitchFabric(state={}) {
-  const strands=[],point=(u,v)=>witchFabricPoint(u,v,state);
+  const denominator=radius*radius*2,grabEdge=Math.max(.025,edge(gx,gy)),pinchScale=clamp(magnitude/220)*.19;
+  const point=(u,v)=>{
+    const x=layout.left+u*layout.width,y=layout.top+v*layout.height;
+    if(!magnitude)return {x,y};
+    const dx=(u-gx)*layout.width,dy=(v-gy)*layout.height;
+    const influence=Math.exp(-(dx*dx+dy*dy)/denominator)*Math.min(1,edge(u,v)/grabEdge),pinch=pinchScale*influence;
+    return {x:x+pullX*influence-dx*pinch,y:y+pullY*influence-dy*pinch};
+  };
+  const strands=[];
   for(let column=0;column<=32;column++)strands.push({color:'#68f7a49e',points:Array.from({length:41},(_,i)=>point(column/32,i/40))});
   for(let row=0;row<=24;row++)strands.push({color:'#ff5cada8',points:Array.from({length:41},(_,i)=>point(i/40,row/24))});
-  const layout=getWitchLayout(state);
-  return {strands,target:witchFabricTarget(state),bounds:{left:layout.left,right:1000,top:layout.top,bottom:720}};
+  fabricGeometry={layout,gx,gy,pullX,pullY,point,strands,bounds:{left:layout.left,right:1000,top:layout.top,bottom:720}};
+  return fabricGeometry;
+}
+function witchFabricTarget(state={}) {
+  // A held target moves with the cloth; releasing it keeps the same cached
+  // mesh and returns the keyboard handle to an exposed corner of the sky.
+  if(!state.fabricHeld)return {x:getWitchLayout(state).left+80,y:getWitchLayout(state).top+24,r:18};
+  const fabric=getWitchFabricGeometry(state);
+  return {...fabric.point(fabric.gx,fabric.gy),r:18};
+}
+export function getWitchFabric(state={}) {
+  const {strands,bounds}=getWitchFabricGeometry(state);
+  return {strands,bounds,target:witchFabricTarget(state)};
+}
+function paintFabric(c,fabric) {
+  c.lineWidth=.9;
+  for(const strand of fabric.strands) {tracePoints(c,strand.points);c.strokeStyle=strand.color;c.stroke();}
 }
 function fabricCloth(c,state) {
   const lift=clamp(state.flightLift);if(lift<=0)return;
-  const fabric=getWitchFabric(state);
-  c.save();c.globalAlpha*=lift*.72;
-  for(const strand of fabric.strands)line(c,strand.points.map(p=>[p.x,p.y]),strand.color,.9);
-  c.restore();
+  const fabric=getWitchFabricGeometry(state),layout=fabric.layout,pad=1/renderScale(state);
+  // One raster pixel of padding keeps thin edge strands aligned with the
+  // world raster. Per-strand alpha preserves the green/pink intersections.
+  cachedScenery(c,state,'fabric',fabric,{x:layout.left-pad,y:layout.top-pad,width:layout.width+2*pad,height:layout.height+2*pad},paintFabric,lift*.72);
 }
 function ingredientObjects(c,state,foreground=false) {
   for(const home of WITCH_LAYOUT.objects) {

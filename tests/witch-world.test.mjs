@@ -165,6 +165,8 @@ test('the full-frame fabric stays taut at rest and follows a local anchored pull
   assert.equal(Math.min(...points.map(p=>p.y)),0);assert.equal(Math.max(...points.map(p=>p.y)),720);
   assert.deepEqual(new Set(rest.strands.map(strand=>strand.color)),new Set(['#68f7a49e','#ff5cada8']));
   assert.deepEqual(getWitchFabric({...state,handTime:99,motionTime:120}),rest,'released cloth has no independent ambient waving');
+  assert.equal(getWitchFabric({...state,handTime:99,fabricHeld:true,fabricVelocityX:20}).strands,rest.strands,
+    'time, holding and release velocity reuse geometry until the actual pull changes');
   for(const [fabricGrabX,fabricGrabY] of [[.25,.25],[.5,.5],[.7,.6]]) {
     const held={...state,fabricHeld:true,fabricGrabX,fabricGrabY,fabricPullX:150,fabricPullY:-90};
     const pulled=getWitchFabric(held);
@@ -310,7 +312,7 @@ function captureWitchPaint() {
       beginPath(){this.lastEllipse=null;},ellipse(x,y,rx,ry){this.lastEllipse={x,y,rx,ry};},
       fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle,ellipse:shape?null:this.lastEllipse});},
       setLineDash(dash){this.dash=[...dash];},
-      stroke(){calls.push({kind:'stroke',color:this.strokeStyle,width:this.lineWidth,dash:[...(this.dash||[])]});},
+      stroke(){calls.push({kind:'stroke',color:this.strokeStyle,width:this.lineWidth,alpha:this.globalAlpha,dash:[...(this.dash||[])]});},
       fillText(value){calls.push({kind:'text',value});},
       fillRect(...args){calls.push({kind:'rect',args,alpha:this.globalAlpha,color:this.fillStyle});},
       clearRect(...args){calls.push({kind:'clear',args});},
@@ -332,6 +334,36 @@ function captureWitchPaint() {
 
 const portraitUrl=call=>call.kind==='image'?(call.source.src||call.source?.getContext?.('2d').calls.find(entry=>entry.kind==='image'&&entry.source.src)?.source.src):null;
 
+test('fabric reuses its raster until pull, lift, layout or density changes',()=>{
+  const previousPath=globalThis.Path2D;
+  globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const state={flightLift:1,renderScale:.5},capture=captureWitchPaint();
+    const paint=()=>renderWitch(capture.context,390,844,state);
+    const meshStrokes=canvas=>canvas.getContext('2d').calls.filter(call=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
+    paint();
+    const surface=capture.canvases.find(canvas=>meshStrokes(canvas).length===58);
+    assert.ok(surface);assert.ok(meshStrokes(surface).every(call=>call.alpha===.72));
+    state.time=42;state.palette=3;state.fabricHeld=true;paint();
+    assert.equal(meshStrokes(surface).length,58,'animation and palette reuse the mesh bitmap');
+    for(const change of [{fabricPullX:120},{flightLift:.5},{renderScale:.65},{portraitLayout:true}]) {
+      const count=meshStrokes(surface).length;Object.assign(state,change);paint();
+      assert.equal(meshStrokes(surface).length,count+58,'only one bounded bitmap is repainted');
+    }
+    assert.equal(meshStrokes(surface).at(-1).alpha,.36,'opacity is applied to each crossing thread before compositing');
+    const world=capture.canvases[1].getContext('2d').calls;
+    for(const call of world.filter(call=>call.kind==='image'&&call.source===surface)) {
+      const [, ,sw,sh,x,y,width,height]=call.args,scale=sw/width;
+      assert.ok(Math.abs(x*scale-Math.round(x*scale))<1e-9);
+      assert.ok(Math.abs(y*scale-Math.round(y*scale))<1e-9);
+      assert.ok(Math.abs(sh/height-scale)<1e-9,'cache pixels stay aligned with world pixels');
+    }
+    const portrait=getWitchFabric(state);
+    assert.equal(portrait.bounds.top,-320);assert.equal(portrait.strands[0].points[0].x,200);
+    assert.equal(capture.canvases.filter(canvas=>meshStrokes(canvas).length>0).length,1);
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
 test('flying fabric paints behind the scene and both long hair locks carry Candy Coil stripes',()=>{
   const previousPath=globalThis.Path2D;
   globalThis.Path2D=class {constructor(d){this.d=d;}};
@@ -339,11 +371,11 @@ test('flying fabric paints behind the scene and both long hair locks carry Candy
     const state={flightLift:1,flightPhase:2,trailFeedback:.8};
     const {context,canvases}=captureWitchPaint();renderWitch(context,1000,720,state);
     const world=canvases[1].getContext('2d').calls;
-    const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
-    assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
+    const grid=world.findIndex(call=>call.kind==='image'&&call.source?.getContext?.('2d').calls.filter(entry=>entry.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(entry.color)).length===58);
+    assert.ok(grid>=0,'the cached native colored mesh spans the entire sky');
     const eye=world.findIndex(call=>portraitUrl(call)?.endsWith('/oculoid-moon.webp'));
     const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
-    assert.ok(grid.at(-1).index<eye&&eye<body,'the floating Oculoid globe occludes the cloth behind the flying witch');
+    assert.ok(grid<eye&&eye<body,'the floating Oculoid globe occludes the cloth behind the flying witch');
     assert.ok(!world.some(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r),
       'no moon disc or outline sits behind the transparent eye');
     const {x,y,r}=WITCH_LAYOUT.moon;

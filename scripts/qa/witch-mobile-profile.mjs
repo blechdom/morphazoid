@@ -7,9 +7,14 @@ await verifyPreviewSource(baseURL,{files:['src/instruments/witch/witch-app.js','
 const cpu=Number(process.env.WITCH_PROFILE_CPU||4);
 if(!Number.isFinite(cpu)||cpu<1||cpu>20)throw new Error('WITCH_PROFILE_CPU must be between 1 and 20.');
 const output=process.env.WITCH_PROFILE_OUTPUT||'/tmp/witch-mobile-profile.json';
+const viewportText=process.env.WITCH_PROFILE_VIEWPORT||'390x844';
+const dimensions=/^(\d+)x(\d+)$/.exec(viewportText);
+if(!dimensions)throw new Error('WITCH_PROFILE_VIEWPORT must be WIDTHxHEIGHT.');
+const viewport={width:Number(dimensions[1]),height:Number(dimensions[2])},pixelRatio=Number(process.env.WITCH_PROFILE_DPR||3);
+if(Object.values(viewport).some(value=>value<320||value>2560)||!Number.isFinite(pixelRatio)||pixelRatio<1||pixelRatio>4)throw new Error('Profile viewport must be 320–2560 pixels per side, with DPR 1–4.');
 const browser=await chromium.launch({channel:'chromium',headless:true});
 try {
-const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true,reducedMotion:'no-preference'});
+const context=await browser.newContext({viewport,deviceScaleFactor:pixelRatio,isMobile:true,hasTouch:true,reducedMotion:'no-preference'});
 const page=await context.newPage(),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 await page.addInitScript(()=>{
@@ -34,7 +39,7 @@ await page.addInitScript(()=>{
 const cdp=await context.newCDPSession(page);
 await cdp.send('Emulation.setCPUThrottlingRate',{rate:cpu});
 await page.goto(new URL('witch.html',baseURL).href);
-await page.waitForFunction(()=>window.witchInstrument?.state.handReady&&window.witchInstrument.state.spiderReady,{},{timeout:60000});
+await page.waitForFunction(()=>window.witchInstrument?.state.handReady&&window.witchInstrument.state.spiderReady&&window.witchInstrument.state.eyeReady,{},{timeout:60000});
 await page.waitForTimeout(600);
 const outputs=[];
 async function sample(name,ms=4000){
@@ -62,8 +67,8 @@ await page.keyboard.press('m');await page.waitForTimeout(500);
 const steps=await page.evaluate(async()=>{const {WITCH_PRESETS}=await import('/src/instruments/witch/witch-presets.js');return WITCH_PRESETS.findIndex(p=>p.snapshot.visualMode===5);});
 for(let i=0;i<steps;i++)await page.keyboard.press('w');
 await page.waitForTimeout(700);await sample('static-distortion');
-await page.setViewportSize({width:844,height:390});await page.waitForTimeout(500);await sample('landscape-distortion');
+await page.setViewportSize({width:viewport.height,height:viewport.width});await page.waitForTimeout(500);await sample('landscape-distortion');
 const resources=await page.evaluate(()=>performance.getEntriesByType('resource').map(r=>({name:r.name.split('/').at(-1),bytes:r.decodedBodySize,duration:r.duration})).sort((a,b)=>b.bytes-a.bytes).slice(0,15));
-await writeFile(output,JSON.stringify({baseURL,cpu,viewport:'390x844 DPR3; then844x390',browser:await browser.version(),errors,outputs,resources},null,2));
+await writeFile(output,JSON.stringify({baseURL,cpu,viewport:`${viewportText} DPR${pixelRatio}; then ${viewport.height}x${viewport.width}`,browser:await browser.version(),errors,outputs,resources},null,2));
 if(errors.length)process.exitCode=1;
 } finally {await browser.close();}

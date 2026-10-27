@@ -55,15 +55,17 @@ function clawGeometry() {
   return geometry;
 }
 
-/** One source rig and WebGL context serve both hands. Each independently posed
- * result is copied into its own transparent canvas, so drawing the second hand
- * cannot change the first hand's pixels or picking coordinates. The caller owns
- * the sample-clock time, placement and mirroring; points are 1000×720 pixels. */
+/** One source rig and WebGL context serve both hands. A batched atlas takes one
+ * GPU snapshot before cropping each independently posed hand into its own 2D
+ * canvas. The second pose cannot change the first hand's pixels or picking
+ * coordinates. The caller owns time and placement; points are 1000×720 pixels. */
 export function createWitchHand({onStatus = () => {},quality:initialQuality={}} = {}) {
   let quality=witchHandQuality(initialQuality);
   const modelURL=quality.textureSize<=512?PHONE_MODEL:MODEL;
   const canvas = document.createElement('canvas');
   canvas.width = 128; canvas.height = 92;
+  const atlas=document.createElement('canvas'),atlasContext=atlas.getContext('2d');
+  atlas.width=128;atlas.height=184;
   const hands = Array.from({length:2},(_,index)=>{
     const surface=document.createElement('canvas'); surface.width=index===0?360:320; surface.height=Math.round(surface.width*HEIGHT/WIDTH);
     return {surface,context:surface.getContext('2d'),paint:createWitchHandPaintCache(),pose:createHandPose(),lastRender:0,renderCount:0,state:{},tips:[],wrist:{x:590,y:590},palm:{x:590,y:510}};
@@ -88,7 +90,7 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
   ];
   const projected = new THREE.Vector3(), temporary = new THREE.Vector3();
   let renderer = null, rig = null, loaded = false, disposed = false, lost = false;
-  let vertices = 0, triangles = 0, sourceRoot = null,texturePixels=0,sourceTexturePixels=0;
+  let vertices = 0, triangles = 0, sourceRoot = null,texturePixels=0,sourceTexturePixels=0,atlasCopies=0;
   const claws = [], anchors = [], manualThumb = [];
 
   function status(message) { if (!disposed) onStatus(message); }
@@ -162,30 +164,52 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
     placement.position.set(90-temporary.x,-230-temporary.y,-temporary.z);
     scene.updateMatrixWorld(true);
   }
+  function paintHands(indices) {
+    if (!loaded || disposed || lost || !renderer) return;
+    const sizes=hands.map((slot,index)=>witchHandSurfaceSize(handTransform(slot.state,index).scale,slot.state.renderScale,quality.maxWidth));
+    const now=performance.now(),pending=[];
+    for(const handIndex of indices) {
+      const slot=hands[handIndex],state=slot.state,{width,height}=sizes[handIndex];
+      const interval=state.manualFingerMask?Math.min(quality.frameInterval,1000/30):quality.frameInterval;
+      if(now-slot.lastRender<interval && slot.paint.valid && slot.surface.width===width)continue;
+      const pose=state.handPoses?.[handIndex]??evaluateWitchHandPose(state,
+        state.handTime??state.incantationPhase??state.motionTime??0,handIndex,slot.pose);
+      const levels=state.handFingerLevels?.[handIndex]??state.fingerLevels;
+      if(slot.paint.update(pose,levels,width,state.manualFingerMask))pending.push({handIndex,slot,state,pose,width,height});
+    }
+    if(!pending.length)return;
+    const bufferWidth=Math.max(...sizes.map(size=>size.width)),bufferHeight=sizes[0].height+sizes[1].height;
+    if(canvas.width!==bufferWidth||canvas.height!==bufferHeight)renderer.setSize(bufferWidth,bufferHeight,false);
+    renderer.setScissorTest(true);
+    for(const frame of pending) {
+      const {handIndex,state,pose,width,height}=frame;
+      frame.top=handIndex===0?0:sizes[0].height;
+      const bottom=bufferHeight-frame.top-height;
+      update(state,handIndex,pose);
+      renderer.setViewport(0,bottom,width,height);renderer.setScissor(0,bottom,width,height);
+      renderer.render(scene,camera);
+    }
+    if(atlas.width!==bufferWidth||atlas.height!==bufferHeight) {atlas.width=bufferWidth;atlas.height=bufferHeight;}
+    else atlasContext.clearRect(0,0,bufferWidth,bufferHeight);
+    // Finish all GPU drawing before the only WebGL→2D copy. The individual
+    // crops below read this ordinary 2D atlas, avoiding a second GPU flush.
+    atlasContext.drawImage(canvas,0,0);atlasCopies++;
+    for(const {slot,width,height,top} of pending) {
+      if(slot.surface.width!==width||slot.surface.height!==height) {slot.surface.width=width;slot.surface.height=height;}
+      else slot.context.clearRect(0,0,width,height);
+      slot.context.drawImage(atlas,0,top,width,height,0,0,width,height);
+      slot.lastRender=now;slot.renderCount++;
+    }
+  }
+  function renderPair(state={}) {
+    for(const slot of hands)slot.state=state;
+    paintHands([0,1]);
+    return hands.map(slot=>slot.surface);
+  }
   function render(state = {},handIndex=0) {
     handIndex=handIndex===1?1:0;
-    const slot=handSlot(handIndex); slot.state=state;
-    if (!loaded || disposed || lost || !renderer) return slot.surface;
-    const sizes=hands.map((_,index)=>witchHandSurfaceSize(handTransform(state,index).scale,state.renderScale,quality.maxWidth));
-    const {width,height}=sizes[handIndex],now=performance.now();
-    const interval=state.manualFingerMask?Math.min(quality.frameInterval,1000/30):quality.frameInterval;
-    if(now-slot.lastRender<interval && slot.paint.valid && slot.surface.width===width) return slot.surface;
-    const pose=state.handPoses?.[handIndex]??evaluateWitchHandPose(state,
-      state.handTime??state.incantationPhase??state.motionTime??0,handIndex,slot.pose);
-    const levels=state.handFingerLevels?.[handIndex]??state.fingerLevels;
-    if(!slot.paint.update(pose,levels,width,state.manualFingerMask)) return slot.surface;
-    update(state,handIndex,pose);
-    const bufferWidth=Math.max(...sizes.map(size=>size.width)),bufferHeight=Math.round(bufferWidth*HEIGHT/WIDTH);
-    if(canvas.width!==bufferWidth)renderer.setSize(bufferWidth,bufferHeight,false);
-    renderer.setViewport(0,0,width,height); renderer.setScissor(0,0,width,height); renderer.setScissorTest(true);
-    renderer.render(scene,camera);
-    if(slot.surface.width!==width) { slot.surface.width=width;slot.surface.height=height; }
-    else slot.context.clearRect(0,0,width,height);
-    // WebGL viewports start at the lower left; Canvas source rectangles start
-    // at the upper left. Projection/picking always stays in canonical pixels.
-    slot.context.drawImage(canvas,0,canvas.height-height,width,height,0,0,width,height);
-    slot.lastRender=now;slot.renderCount++;
-    return slot.surface;
+    const slot=hands[handIndex];slot.state=state;
+    paintHands([handIndex]);return slot.surface;
   }
   function setQuality(value={}) {
     quality=witchHandQuality({...quality,...value});
@@ -213,7 +237,7 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
       vertices,triangles,deformBones:rig?.deformMap.size??0,
       runtimeAdapted:true,claws:claws.length,
       modelInstances:hands.length,webglContexts:renderer?1:0,wristTwists:hands.map(slot=>slot.wristTwist??0),
-      quality:{...quality},bufferSize:[canvas.width,canvas.height],surfaceSizes:hands.map(slot=>[slot.surface.width,slot.surface.height]),
+      quality:{...quality},bufferSize:[canvas.width,canvas.height],atlasCopies,atlasSize:[atlas.width,atlas.height],surfaceSizes:hands.map(slot=>[slot.surface.width,slot.surface.height]),
       renderCounts:hands.map(slot=>slot.renderCount),sourceTexturePixels,texturePixels,
     };
   }
@@ -224,6 +248,7 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
     placement.clear();
     for (const slot of hands) { slot.tips=[];slot.state={};slot.surface.width=slot.surface.height=1; }
     renderer?.dispose(); renderer?.forceContextLoss(); renderer=null;
+    canvas.width=canvas.height=atlas.width=atlas.height=1;
   }
   const ready = (async () => {
     try {
@@ -234,7 +259,7 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
       canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();lost=true;status('The hand view was interrupted. Finger controls remain available.');},{signal:abort.signal});
       canvas.addEventListener('webglcontextrestored',()=>{
         lost=false;
-        hands.forEach((slot,index)=>{slot.paint.invalidate();render(slot.state,index);}); status('');
+        hands.forEach(slot=>slot.paint.invalidate());paintHands([0,1]);status('');
       },{signal:abort.signal});
       status('Loading her Gesticules hands…');
       const [modelResponse,reportResponse] = await Promise.all([
@@ -287,7 +312,7 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
         const anchor=new THREE.Object3D(); anchor.position.set(-.062,.253,0); tip.add(anchor); anchors.push(anchor);
       }
       frame(); loaded=true;
-      hands.forEach((slot,index)=>render(slot.state,index)); status('');
+      paintHands([0,1]);status('');
       return true;
     } catch (error) {
       loaded=false;
@@ -298,5 +323,5 @@ export function createWitchHand({onStatus = () => {},quality:initialQuality={}} 
       return false;
     }
   })();
-  return {ready,render,setQuality,getTips,getWrist,getPalm,pick,getMetadata,dispose};
+  return {ready,render,renderPair,setQuality,getTips,getWrist,getPalm,pick,getMetadata,dispose};
 }

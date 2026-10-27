@@ -32,7 +32,7 @@
         },
         {
           "before": "",
-          "after": "copy+require\tsrc/instruments/witch/witch-scene-model.js\ncopy+require\tsrc/instruments/witch/witch-scene-audio.js\ncopy+require\tsrc/instruments/witch/witch-bite-clips.js\ncopy+require\tsrc/instruments/witch/witch-bite-native-variants.js\ncopy+require\tsrc/instruments/witch/witch-bite-character-variants.js\ncopy+require\tsrc/instruments/witch/witch-bite-source-variants.js\ncopy+require\tsrc/instruments/witch/witch-spider.js\n"
+          "after": "copy+require\tsrc/instruments/witch/witch-scene-model.js\ncopy+require\tsrc/instruments/witch/witch-scene-audio.js\ncopy+require\tsrc/instruments/witch/witch-tree-model.js\ncopy+require\tsrc/instruments/witch/witch-blech-phrases.js\ncopy+require\tsrc/instruments/witch/witch-bite-clips.js\ncopy+require\tsrc/instruments/witch/witch-bite-native-variants.js\ncopy+require\tsrc/instruments/witch/witch-bite-character-variants.js\ncopy+require\tsrc/instruments/witch/witch-bite-source-variants.js\ncopy+require\tsrc/instruments/witch/witch-spider.js\n"
         },
         {
           "before": "",
