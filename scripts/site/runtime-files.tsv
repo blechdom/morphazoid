@@ -2305,6 +2305,7 @@ copy+require	src/instruments/witch/witch-worklet.js
 copy+require	src/instruments/witch/witch-model.js
 copy+require	src/instruments/witch/witch-model-display.js
 copy+require	src/instruments/witch/witch-performance.js
+copy+require	src/instruments/witch/witch-color.js
 copy+require	src/instruments/witch/witch-fabric-gesture.js
 copy+require	src/instruments/witch/witch-trail-gesture.js
 copy+require	src/instruments/witch/witch-presets.js
@@ -2330,6 +2331,7 @@ copy+require	src/instruments/witch/witch-shape-audio.js
 copy+require	src/instruments/witch/witch.css
 copy+require	assets/instruments/witch.webp
 copy+require	assets/witch/hiccup-head-bloody.webp
+copy+require	assets/witch/oculoid-moon.webp
 copy+require	assets/witch/hand-512.glb
 copy+require	assets/witch/hand-1024.glb
 copy+require	assets/witch/tarantula-512.glb

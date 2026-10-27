@@ -1,6 +1,7 @@
 import { drawWitchCat, hitTestWitchCat } from './witch-cat.js';
 import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
 import { drawWitchShapeCharm } from './witch-shape.js';
+import { renderWitchColor, disposeWitchColor } from './witch-color.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
 import { getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
 import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
@@ -32,7 +33,7 @@ export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   die: Object.freeze({ x: 344, y: 657, r: 38 }),
-  moon: Object.freeze({ x: 720, y: 164, r: 78 }),
+  moon: Object.freeze({ x: 660, y: 110, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:52.5,scale:1.29}]),
   ghosts: Object.freeze([
@@ -89,9 +90,14 @@ function star(c, x, y, r, color, alpha = 1) {
   c.restore();
 }
 const moonImages=new WeakMap();
-const moonSource=new URL('../../../assets/instruments/oculoid.webp',import.meta.url).href;
+const moonSource=new URL('../../../assets/witch/oculoid-moon.webp',import.meta.url).href;
+export function getWitchMoon(state={}) {
+  const home=WITCH_LAYOUT.moon,angle=state.ladleAngle??state.phase??0;
+  const sway=state.reducedMotion?0:10*clamp(state.speed)*(0.3+0.7*clamp(state.radius))*(1-clamp(state.flightLift));
+  return {...home,x:home.x+Math.sin(angle)*sway,y:home.y+Math.cos(angle)*sway*.65};
+}
 function moon(c, state, flight) {
-  const { x, y, r } = WITCH_LAYOUT.moon;
+  const { x, y, r } = getWitchMoon(state);
   const doc=c.canvas?.ownerDocument;
   let eye=doc?moonImages.get(doc):null;
   if(doc&&!eye) {
@@ -102,8 +108,8 @@ function moon(c, state, flight) {
   glow(c, x, y, 156 + active * 20, `rgba(209,219,172,${.09 + active * .16})`);
   ellipse(c, x, y, r, r, '#d4d7b1', '#e8e4c6', 1.2);
   c.save(); c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.clip();
-  // Use Oculoid's actual eye portrait. The lunar crop removes the square
-  // backdrop and corner lettering without altering its iris or chrome lids.
+  // Oculoid's real globe, captured with its lids hidden. A small orbit follows
+  // the ladle in either direction; drawing and picking share that position.
   if(eye?.complete&&eye.naturalWidth)c.drawImage(eye,x-r,y-r,r*2,r*2);
   else for (const [dx, dy, rx, ry, a] of [[-32,-25,23,17,.11],[28,12,19,29,.1],[-15,39,21,12,.1],[38,-41,13,9,.09],[-48,26,12,16,.08],[4,-43,9,13,.08],[6,6,20,15,.06]]) {
     ellipse(c, x + dx, y + dy, rx, ry, `rgba(104,120,105,${a})`);
@@ -128,8 +134,12 @@ function background(c,state) {
   const gradient=c.createLinearGradient(0,0,0,720);
   gradient.addColorStop(0,'#090c18');gradient.addColorStop(.55,'#152136');gradient.addColorStop(1,'#17102a');
   c.fillStyle=gradient;c.fillRect(0,0,1000,720);
-  glow(c,730,250,370,'#343c6a1a');fabricCloth(c,state);moon(c,state,false);
+  glow(c,730,250,370,'#343c6a1a');fabricCloth(c,state);
   const grounded=1-clamp(state.flightLift);
+  if(grounded>0) {
+    c.save();c.globalAlpha*=grounded;backgroundGhosts(c,state);c.restore();
+  }
+  moon(c,state,false);
   if(grounded<=0)return;
   c.save();c.globalAlpha*=grounded;
   glow(c,310,260,300,'#a43aa51f');glow(c,740,420,300,'#1db6ae1b');
@@ -893,7 +903,7 @@ export function getWitchTargets(state = {}, resolveTrail = true) {
   }).sort((a,b)=>Math.hypot(a.x-145,a.y-270)-Math.hypot(b.x-145,b.y-270));
   const ladle=getWitchLadle(state);
   const targets={nose:point(87+(clamp(state.nose??.5)-.5)*80,57,20),mouth:point(46,97+clamp(state.mouth)*5,23),eyes:point(22,26,19),spoon:{x:ladle.gx,y:ladle.gy,r:27},
-    die:{...WITCH_LAYOUT.die},
+    die:{...WITCH_LAYOUT.die},moon:getWitchMoon(state),
     hat:getWitchHat(state).target,
     fabric:witchFabricTarget(state),
     tree:{...getWitchTree(state).target,r:35},web:{...getWitchWeb().targets[4],r:30},spider:{...getWitchWeb().center,r:38},
@@ -1351,6 +1361,13 @@ function hauntedMist(c,state) {
 // One bounded offscreen world lets mushroom ripples bend all of the artwork,
 // including the actual skinned hand. Input uses the exact inverse below.
 const worlds = new WeakMap();
+export function disposeWitchRenderer(ctx) {
+  const world=worlds.get(ctx);
+  if(!world)return;
+  disposeWitchColor(world.surface);
+  paintInvalidators.delete(ctx);paintInvalidators.delete(world.ctx);
+  sceneryLayers.delete(world.ctx);worlds.delete(ctx);
+}
 function visualMode(state) {return Math.round(clamp(state.visualMode??state.trip,0,7));}
 export function witchWarpX(y,state={}) {
   const mode=visualMode(state),shock=clamp(state.eyeShock);
@@ -1380,7 +1397,7 @@ function drawWorld(c,state) {
   }
   if(ground>0) {
     c.save();c.globalAlpha*=ground;
-    backgroundGhosts(c,state);instrumentShelves(c);livingTree(c,state);spiderWeb(c,state);
+    instrumentShelves(c);livingTree(c,state);spiderWeb(c,state);
     c.restore();
   }
   flightScene(c,state);
@@ -1411,7 +1428,10 @@ export function renderWitch(ctx, width, height, state = {}) {
   if(!world) {
     const surface=ctx.canvas.ownerDocument.createElement('canvas'); surface.width=1000;surface.height=720;
     const colored=surface.cloneNode();
-    world={surface,ctx:surface.getContext('2d',{alpha:false}),colored,color:colored.getContext('2d',{alpha:false})}; worlds.set(ctx,world);
+    world={surface,ctx:surface.getContext('2d',{alpha:false}),colored,color:colored.getContext('2d',{alpha:false})};
+    // Cache support before any assignment: Safari accepts .filter as an inert
+    // expando, so checking again after a write would falsely imply support.
+    world.hasCanvasFilter='filter' in world.color;worlds.set(ctx,world);
   }
   const pixelWidth=Math.round(1000*density),pixelHeight=Math.round(720*density);
   if(world.surface.width!==pixelWidth||world.surface.height!==pixelHeight||world.colored.width!==pixelWidth||world.colored.height!==pixelHeight) {
@@ -1433,7 +1453,14 @@ export function renderWitch(ctx, width, height, state = {}) {
   // The default clear scene is deliberately unfiltered. Do not calculate a
   // full-frame color pass whose pixels would immediately be discarded.
   if(useColor) {
-    world.color.filter=`hue-rotate(${hue}deg) saturate(${mode?1.6:1.25})`;world.color.drawImage(world.surface,0,0);
+    const saturation=mode?1.6:1.25;
+    if(world.hasCanvasFilter) {
+      world.color.filter=`hue-rotate(${hue}deg) saturate(${saturation})`;
+      world.color.drawImage(world.surface,0,0);
+    } else {
+      const colored=renderWitchColor(world.surface,hue,saturation,state.onInvalidate);
+      world.color.drawImage(colored||world.surface,0,0);
+    }
   }
   if(mode===6) {
     if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=250;world.pixel.height=180;world.pixelInk=world.pixel.getContext('2d');}
@@ -1589,7 +1616,7 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
       }
     }
   }
-  const moon=WITCH_LAYOUT.moon;
+  const moon=getWitchMoon(state);
   if(Math.hypot(x-moon.x,y-moon.y)<Math.max(moon.r+12,minRadius)) return {type:'moon'};
   for(const m of WITCH_LAYOUT.mushrooms)for(const [mx,my,size] of [[0,0,1],[34,12,.67],[-23,15,.48]]) {
     const scale=m.scale*size,cx=m.x+mx*m.scale,cy=m.y+my*m.scale,halo=Math.min(12,minRadius*.18);

@@ -15,6 +15,18 @@ physical buffer size change. The source instruments keep their original assets.
 
 ## Attribution and licenses
 
+`oculoid-moon.webp` is a transparent 512-pixel render of Oculoid's
+[Realistic Human Eye](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362)
+by [DEGUIDER](https://sketchfab.com/DEGUIDER), licensed under
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+The source is [eye.glb](../oculoid/eye.glb); its
+[source license and modifications](../oculoid/SOURCE.LICENSE.txt) remain available.
+This derivative uses Oculoid's native viewer with hidden lids, neutral gaze,
+violet natural iris, natural sclera, and default pupil/veins. Only the capture's
+renderer background is transparent. The globe is cropped to its alpha bounds,
+resized with eight pixels of padding, and encoded as WebP at quality 97.
+It retains the model's textures with Oculoid's iris tint, vessels and lighting.
+
 `hand-512.glb` and `hand-1024.glb` are texture-resized derivatives of
 [Rigged hand](https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e)
 by [Elena FF](https://sketchfab.com/elenaferfor), and remain licensed under

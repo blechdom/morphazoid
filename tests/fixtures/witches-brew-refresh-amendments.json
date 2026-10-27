@@ -48,7 +48,7 @@
         },
         {
           "before": "",
-          "after": "copy+require\tassets/witch/hiccup-head-bloody.webp\n"
+          "after": "copy+require\tassets/witch/hiccup-head-bloody.webp\ncopy+require\tassets/witch/oculoid-moon.webp\n"
         },
         {
           "before": "",
@@ -56,7 +56,7 @@
         },
         {
           "before": "",
-          "after": "copy+require\tsrc/instruments/witch/witch-model-display.js\ncopy+require\tsrc/instruments/witch/witch-performance.js\n"
+          "after": "copy+require\tsrc/instruments/witch/witch-model-display.js\ncopy+require\tsrc/instruments/witch/witch-performance.js\ncopy+require\tsrc/instruments/witch/witch-color.js\n"
         },
         {
           "before": "",

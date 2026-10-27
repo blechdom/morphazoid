@@ -303,7 +303,7 @@ function captureWitchPaint() {
     if(tag==='img')return {complete:true,naturalWidth:512,src:''};
     const canvas={ownerDocument:document,width:0,height:0,cloneNode:()=>document.createElement('canvas')};
     const calls=[],stack=[];
-    const context=new Proxy({canvas,calls,globalAlpha:1,dash:[],save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
+    const context=new Proxy({canvas,calls,globalAlpha:1,filter:'none',dash:[],save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
       beginPath(){this.lastEllipse=null;},ellipse(x,y,rx,ry){this.lastEllipse={x,y,rx,ry};},
       fill(shape){calls.push({kind:'fill',path:shape?.d,alpha:this.globalAlpha,color:this.fillStyle,ellipse:shape?null:this.lastEllipse});},
@@ -340,10 +340,10 @@ test('flying fabric paints behind the scene and both long hair locks carry Candy
     const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
     assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
     const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r);
-    const eye=world.findIndex(call=>portraitUrl(call)?.endsWith('/oculoid.webp'));
+    const eye=world.findIndex(call=>portraitUrl(call)?.endsWith('/oculoid-moon.webp'));
     const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
     assert.ok(grid.at(-1).index<moon&&grid.at(-1).index<body,'moon and flying witch occlude the background cloth');
-    assert.ok(eye>moon&&eye<body,'the moon uses the real Oculoid portrait behind the flying witch');
+    assert.ok(eye>moon&&eye<body,'the moon uses the lidless Oculoid globe behind the flying witch');
     const {x,y,r}=WITCH_LAYOUT.moon;
     assert.deepEqual(world[eye].args,[x-r,y-r,r*2,r*2],'Oculoid retains the lunar size and hit target');
     const red=world.filter(call=>call.kind==='stroke'&&call.color==='#dc2f3f');

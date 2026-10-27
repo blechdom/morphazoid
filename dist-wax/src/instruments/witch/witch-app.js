@@ -10,7 +10,7 @@ import { getWitchCatFrame, getWitchCatTargets } from './witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, witchCatMeowEnvelope } from './witch-cat-model.js';
 import { WITCH_SHAPE_FORMS, getWitchShapeForm, getWitchShapeFrame, retargetWitchShapeCharm } from './witch-shape-model.js';
 import { createWitchRenderBudget, resizeWitchRenderBudget, sampleWitchRenderBudget } from './witch-performance.js';
-import { renderWitch, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchHatDrop, getWitchTree, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { renderWitch, disposeWitchRenderer, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchHatDrop, getWitchTree, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, WITCH_SETTING_PRESETS, witchPresetSettings, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -756,7 +756,7 @@ listen(window,'pageshow',e => {
 listen(window,'pagehide',e => {
   clearGhostScare();
   if(e.persisted) { pageSuspended=true;stopGesture(); audio.setAudible(false); cancelAnimationFrame(frame);frame=0;clearTimeout(clock);clock=0; return; }
-  if(disposed) return; disposed=true; ++request; clearTimeout(clock); cancelAnimationFrame(frame); observer.disconnect(); abort.abort(); presets?.destroy(); hand.dispose();spider.dispose();audio.dispose();delete window.witchInstrument;
+  if(disposed) return; disposed=true; ++request; clearTimeout(clock); cancelAnimationFrame(frame); observer.disconnect(); abort.abort(); presets?.destroy(); hand.dispose();spider.dispose();disposeWitchRenderer(ctx);audio.dispose();delete window.witchInstrument;
 });
 // Keep shared preset transactions for the picture without mounting a menu.
 presets=registerHeaderPresets({id:'witch',host:document.createElement('div'),presets:WITCH_SETTING_PRESETS,capture:()=>witchPresetSettings(config),apply:snapshot=>applySpell(snapshot),randomize:(previous,random)=>witchPresetSettings(randomizeWitchPreset(previous,random))});

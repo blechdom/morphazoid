@@ -57,11 +57,13 @@ BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
 The full-height tree uses the L-system Delay instrument's seven generation colors,
 with the moon behind its branches. The moon uses [Oculoid](../oculoid.html)'s
-actual eye portrait, cropped to the lunar circle with its glow retained.
+actual lidless eye globe, rendered as a transparent sprite with its lunar glow
+retained. It sits farther left and gently follows the ladle's stirring circle;
+its click target follows it. Reduced motion keeps it stationary.
 The eye model in that portrait is DEGUIDER's
 [Realistic Human Eye](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362),
 licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with Oculoid's
-authored chrome lids and lighting; [source and modifications](../assets/oculoid/SOURCE.LICENSE.txt).
+authored iris color and lighting; [source and modifications](../assets/oculoid/SOURCE.LICENSE.txt).
 The three visitors use enlarged portraits
 and remain seated directly on the branches.
 Enlarged transparent red BLECH logos sometimes pass through the flying sky,
@@ -183,6 +185,12 @@ mechanical behavior, while listening and physical touchscreen feel require a
 human pass.
 
 ## Mobile rendering
+
+Safari's missing Canvas 2D color filter is handled by a reusable GPU color pass.
+It preserves the hue/saturation palette, including mushroom changes, without
+reading pixels back every frame or recoloring the foreground Hiccup scare.
+The pass follows resize and context restoration and releases its resources on
+page teardown. Browsers with native canvas filters keep using them.
 
 The quiet picture paints only when something changes, including an image finishing
 loading. Playing uses a capped graphics clock independent of audio; hidden and

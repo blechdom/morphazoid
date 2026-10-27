@@ -8,7 +8,7 @@ function paintProbe() {
     if(tag==='img'){const image={complete:false,naturalWidth:0,src:''};images.push(image);return image;}
     const calls=[],stack=[];
     const canvas={ownerDocument:document,width:0,height:0,cloneNode(){const copy=document.createElement('canvas');copy.width=this.width;copy.height=this.height;return copy;}};
-    const context=new Proxy({canvas,calls,globalAlpha:1,
+    const context=new Proxy({canvas,calls,globalAlpha:1,filter:'none',
       save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
     },{get(target,key){return key in target?target[key]:(...args)=>calls.push({type:key,args,color:target.strokeStyle,fill:target.fillStyle,alpha:target.globalAlpha});}});

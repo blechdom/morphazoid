@@ -125,7 +125,7 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
     const {WITCH_LAYOUT,hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     const mushroom=WITCH_LAYOUT.mushrooms[0];
-    let target=key==='moon'?WITCH_LAYOUT.moon:key==='mushrooms'?{x:mushroom.x+34*mushroom.scale,y:mushroom.y+5*mushroom.scale}
+    let target=key==='moon'?current.targets.moon:key==='mushrooms'?{x:mushroom.x+34*mushroom.scale,y:mushroom.y+5*mushroom.scale}
       :key==='web'?current.web.targets[index]:current.targets[key];
     // Touch the same note sector farther down the upper radial strings.
     if(key==='web'&&[4,5].includes(index))target={
@@ -136,7 +136,7 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
     let targets=[target];
     if(key==='moon') {
-      const moon=WITCH_LAYOUT.moon,scale=Math.min(rect.width/1000,rect.height/720);
+      const moon=current.targets.moon,scale=Math.min(rect.width/1000,rect.height/720);
       const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects};
       targets=[target,...Array.from({length:12},(_,i)=>({x:moon.x+Math.cos(i*Math.PI/6)*moon.r*.7,y:moon.y+Math.sin(i*Math.PI/6)*moon.r*.7}))].filter(p=>{
         const q=warpWitchPoint(p,visual);return hitTestWitch(q.x,q.y,hitState)?.type==='moon';
@@ -1108,7 +1108,7 @@ test.describe('mobile rendering lifecycle',()=>{
     test.setTimeout(60000);
     let releaseMoon;
     const moonGate=new Promise(resolve=>{releaseMoon=resolve;});
-    await page.route('**/assets/instruments/oculoid.webp',async route=>{await moonGate;await route.continue();});
+    await page.route('**/assets/witch/oculoid-moon.webp',async route=>{await moonGate;await route.continue();});
     try {
       await open(page,{waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady);
