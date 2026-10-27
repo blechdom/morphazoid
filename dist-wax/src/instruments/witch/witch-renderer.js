@@ -1273,10 +1273,10 @@ export function getWitchObjectPosition(object, state = {}) {
   const y=live.dropped||live.dragging?(Number.isFinite(live.y)?live.y:home.y):(branch?.y??home.y);
   if(live.dropped) {
     const age=Math.max(0,live.dropAge||0),hold=home.phraseDuration||0,fall=clamp((age-hold)/(home.flightDuration||1.5));
-    const travel=fall*fall*(3-2*fall),singing=age<hold;
+    const travel=fall*fall*(3-2*fall),fade=clamp((fall-.6)/.4),singing=age<hold;
     return {...home,...live,x:x+(600-x)*travel+(singing?Math.sin(age*11)*3:0),
       y:y+(544-y)*travel-Math.sin(fall*Math.PI)*118+(singing?Math.sin(age*7)*2:0),
-      alpha:1-clamp((fall-.76)/.24),rotation:singing?Math.sin(age*8)*.05:fall*2.4,scale:1-fall*.55,r:home.r};
+      alpha:1-fade*fade*(3-2*fade),rotation:singing?Math.sin(age*8)*.05:fall*2.4,scale:1-fall*.55,r:home.r};
   }
   return {...home,...live,x,y,alpha:1,rotation:0,scale:1,r:home.r};
 }
