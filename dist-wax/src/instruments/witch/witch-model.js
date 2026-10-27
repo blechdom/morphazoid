@@ -36,7 +36,7 @@ export const WITCH_SHELF = Object.freeze([
   ['roach','roach-synth','Roach Synth'], ['oculoid','fm-drums','FM Drums'],
   ['rubix','rubix','Rubix Cube Sequencer'], ['hiccup','hiccup-head','Hiccup Head'],
   ['gesticules','gesticulating-hand','Gesticules'], ['marimba','linear-drums','Rattlesnake'],
-  ['choir','throatazoid','Throatazoid'], ['julie-saw','julie-saw','Julie Saw'],
+  ['chiptune','simd-chiptune','SIMD Chiptune'], ['julie-saw','julie-saw','Julie Saw'],
   ['puggler','puggler','Puggler the Punk Rock Jugger'], ['fractal','fractal-signals','Fractal Synthesis'],
   ['synthesaurus','synthesis','Synthesaurus'], ['jaw-harp','jaw-harp','Jaw Harp'],
   ['harmonicazoid','harmonica','Harmonicazoid'], ['dentaphone','object-forge','Dentaphone','dentaphone'],
@@ -47,7 +47,7 @@ export const WITCH_TREE_OBJECTS = Object.freeze([
 export const WITCH_CUPBOARD_TOP = Object.freeze([
   ['quadruped','quadruped','Quadruped'], ['monstroid','monstroid','Monstroid','colony-syrinx'],
   ['candy-coil','candy-coil-delay','Candy Coil Delay'],
-  ['chiptune','simd-chiptune','SIMD Chiptune'], ['acid-303','simd-303','SIMD 303'],
+  ['acid-303','simd-303','SIMD 303'],
 ].map(entry=>miniature(entry,'cupboard-top')));
 export const WITCH_WEB_OBJECTS = Object.freeze([
   miniature(['spider','spider-synth','Spider Synth'],'web'),
@@ -56,9 +56,9 @@ export const WITCH_INGREDIENTS = Object.freeze([...WITCH_SHELF,...WITCH_TREE_OBJ
 export const WITCH_DROP_EFFECTS = Object.freeze([...new Set([
   ...WITCH_INGREDIENTS.map(item=>item.kind),
   // Old sound IDs stay valid for existing saved/test integrations.
-  ...['tail','newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
+  ...['choir','tail','newt','spider','blowhole','throat-singing','cat','mouse','lizard'].map(id=>`drop-${id}`),
 ])]);
-export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','ghost-scream','unicorn-escape','tree-l-system','dice-charm','shape-charm','mushroom-gloop',...Array.from({length:7},(_,i)=>`web-${i}`)]);
+export const WITCH_SCENE_EFFECTS = Object.freeze(['spider-groan','eye-shock','fabric-wind','blech-frenzy','ghost-scream','unicorn-escape','tree-l-system','dice-charm','shape-charm','mushroom-gloop',...Array.from({length:7},(_,i)=>`web-${i}`)]);
 export const WITCH_EFFECTS = Object.freeze([...new Set([...WITCH_VOCAL_EFFECTS, ...WITCH_FLIGHT_EFFECTS, ...WITCH_DROP_EFFECTS, ...WITCH_SCENE_EFFECTS, 'meow'])]);
 export const WITCH_DEFAULTS = Object.freeze({
   speed: 0, flightSpeed: .4, radius: .5, direction: 1, gate: false, brewEnabled: true, handEnabled: true, backingEnabled: true, mode: 'brew', voice: 'mutter', stirAuto: true, stirring: false,

@@ -33,6 +33,7 @@ Brightness remains on the **+ / −** keys.
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
+| Catch a flying BLECH MIDI logo (or I while one passes) | Its hardcore MIDI demo accelerates into a dense, layered five-second loop, then releases into the flight delay. The caught logo shudders; repeated clicks renew one burst rather than piling up voices. It can play alone after a hush. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
 | Click or drag a branch | Click to play one L-system PM phrase with a pulse travelling through the branches. Drag outward to widen the turn angle, inward to close it, or up/down for asymmetric curling. Those changes alter the live modulation and stereo image; a held drag never restarts the phrase. Mushrooms and the SHAPES charm choose new tree settings. |
 | Touch the spider or web | The actual Spider Synth cycles “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
@@ -51,10 +52,10 @@ crossfade between forms.
 
 The left cupboard has six shelves with three real instrument icons on each:
 Alien Larynx, Hyper Rubix (4D), Digestazoid, Hybrinx, Roach Synth, FM Drums,
-Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, Throatazoid,
+Rubix Cube Sequencer, Hiccup Head, Gesticules, Rattlesnake, SIMD Chiptune,
 Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
-and Dentaphone. Five real instrument icons sit on the cupboard top: Quadruped,
-Monstroid, Candy Coil Delay, SIMD Chiptune and SIMD 303.
+and Dentaphone. Four real instrument icons sit on the cupboard top: Quadruped,
+Monstroid, Candy Coil Delay and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
 The full-height tree uses uniform branch thickness and the L-system Delay
@@ -182,7 +183,7 @@ With the picture focused: **A** cycles hand animations, **O** changes stirring p
 **W** chooses the next whole spell, **D** morphs the SHAPES charm and randomizes the spell, **F** catches wind in the flying fabric, **V** changes her phrase, **X** shocks her eyes,
 **T** plays the tree; hold **T** with arrow keys to spread or curl branches. **S** wakes the spider and **P** plucks the next web string. **J** calls the bloody face forward with a scream.
 **C/N/L** catch the cat, mouse or lizard when present. Hold **1–5** and use the
-arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or Throatazoid.
+arrows for individual fingers. **Q/E/R** add Gesticules, Rattlesnake or SIMD Chiptune.
 **[ / ]** select an ingredient and **Enter** sends it into the pot.
 **G / Shift+G** adjusts the ghost tempo. **Backspace** resets the brew;
 **Space** wakes/hushes; **Escape** hushes and releases.

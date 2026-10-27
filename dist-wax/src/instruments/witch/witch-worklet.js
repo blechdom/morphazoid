@@ -1399,7 +1399,7 @@ export class WitchDSP {
       shapeCharmActive: false, shapeCharmAge: WITCH_SHAPE_CHARM_DURATION, shapeCharmLevel: 0, shapeCharmForm: this.shapeCharm.form,
       ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       ghostScreamActive: false, ghostScreamAge: WITCH_GHOST_SCARE_DURATION, ghostScreamEnvelope: 0,
-      flybyTime: 0, flybyLevel: 0, treeEnvelope: 0, treeLevel: 0,
+      flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0, treeEnvelope: 0, treeLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
   }
@@ -1408,7 +1408,7 @@ export class WitchDSP {
   get effects() { return this.brew.effects; }
   syncPhase(phase, speed = 0, handTime, spoonHeight, flightPhase, ghostPhase, catClock, flybyTime, visitorCaptures) {
     this.brew.syncPhase(phase, speed);
-    if (Number.isFinite(flybyTime)) { this.blechFlyby.syncTime(flybyTime); this.visual.flybyTime = this.blechFlyby.time; this.visual.flybyLevel = 0; }
+    if (Number.isFinite(flybyTime)) { this.blechFlyby.syncTime(flybyTime); this.visual.flybyTime = this.blechFlyby.time; this.visual.flybyLevel = 0; this.visual.flybyFrenzy = 0; }
     if (catClock && typeof catClock === 'object') {
       this.unicorn.cancel(); this.shapeCharm.cancel();
       this.cat.syncTime(catClock); this.visual.catClock = this.cat.clock; this.visual.catTime = this.cat.time;
@@ -1448,7 +1448,7 @@ export class WitchDSP {
     if (c.treeSpread !== previous.treeSpread || c.treeCurl !== previous.treeCurl) {
       this.scene.tree.setControls(c.treeSpread, c.treeCurl);
     }
-    if (previous.gate && !c.gate) { this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); this.unicorn.cancel(); this.shapeCharm.cancel(); }
+    if (previous.gate && !c.gate) { this.blechFlyby.release(); this.drops.releaseAll(); this.flight.launch.cancel(); this.scene.releaseAll(); this.shock.cancel(); this.fabricWind.cancel(); this.ghostScream.cancel(); this.unicorn.cancel(); this.shapeCharm.cancel(); }
     if (previous.mode === 'flight' && c.mode !== 'flight') { this.fabricWind.cancel(); this.blechFlyby.release(); }
     if (previous.mode !== 'flight' && c.mode === 'flight') {
       this.cat.release(); this.visitors.release(); this.unicorn.cancel(); this.drops.releaseGroundAnimals();
@@ -1484,7 +1484,10 @@ export class WitchDSP {
     if (!this.enabled) return false;
     if (this.controls.mode === 'flight' && (kind === 'meow' || kind === 'unicorn-escape' || GROUND_ANIMAL_DROPS.has(kind))) return false;
     let accepted;
-    if (kind === 'fabric-wind') {
+    if (kind === 'blech-frenzy') {
+      if (this.controls.mode !== 'flight') return false;
+      accepted = this.blechFlyby.triggerFrenzy(detail?.flybyIndex ?? 0);
+    } else if (kind === 'fabric-wind') {
       if (this.controls.mode !== 'flight') return false;
       // Wind has its own channel; it must not reopen stopped witch echoes.
       this.fabricWind.trigger(); return true;
@@ -1564,7 +1567,7 @@ export class WitchDSP {
         this.scene.next(this.enabled);
         this.ghostScream.next(this.enabled);
         this.fabricWind.next(c, this.enabled && c.mode === 'flight');
-        this.blechFlyby.next(c, backingEnabled);
+        this.blechFlyby.next(c, backingEnabled, this.enabled);
         // The visitors stay below the singer/fingers even in very quiet
         // patches. Featured potion objects duck them with the other backing.
         const ghostCeiling = Math.min(.028, Math.sqrt(Math.max(0, this.backingEnergy)) * .3);
@@ -1574,7 +1577,11 @@ export class WitchDSP {
         const catL = (this.cat.left * .85 + this.cat.meowLeft * .9) * backing * backingGain;
         const catR = (this.cat.right * .85 + this.cat.meowRight * .9) * backing * backingGain;
         const visitorL = this.visitors.left * backing * backingGain, visitorR = this.visitors.right * backing * backingGain;
-        const flybyL = this.blechFlyby.left * backingGain, flybyR = this.blechFlyby.right * backingGain;
+        // A clicked visitor is a manual accent even when hair hush has left
+        // all automatic performers asleep. Its native PCM still joins flight
+        // echoes and the normal master ceiling, never Fabric's wind channel.
+        const flybyL = this.blechFlyby.left * backingGain + this.blechFlyby.frenzyLeft;
+        const flybyR = this.blechFlyby.right * backingGain + this.blechFlyby.frenzyRight;
         const groundL = Math.tanh(((catL + visitorL + this.unicorn.left) * this.groundAnimalGain + groundDropL) / .54) * .54;
         const groundR = Math.tanh(((catR + visitorR + this.unicorn.right) * this.groundAnimalGain + groundDropR) / .54) * .54;
         const dryL = Math.tanh((bedL * backing + ghostL + this.ghostScream.left + this.shapeCharm.left + dropL + this.scene.left + flybyL + b[4][i] * .85) / .54) * .54;
@@ -1626,6 +1633,8 @@ export class WitchDSP {
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.visual.flybyTime = this.blechFlyby.time;
     this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));
+    this.visual.flybyFrenzy = this.blechFlyby.frenzyEnvelope;
+    this.visual.flybyFrenzyIndex = this.blechFlyby.frenzy.index;
     this.visual.treeEnvelope = this.scene.tree.envelope;
     this.visual.treeProgress = this.scene.tree.progress;
     this.visual.treeLevel = Math.sqrt(treeEnergy / Math.max(1, left.length));

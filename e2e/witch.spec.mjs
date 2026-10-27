@@ -12,9 +12,9 @@ async function open(page,gotoOptions={}) {
   await page.waitForFunction(()=>Boolean(window.witchInstrument?.state));
 }
 const state=page=>page.evaluate(()=>window.witchInstrument.state);
-const shelfIds=['glass','hyper-rubix','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','choir','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
+const shelfIds=['glass','hyper-rubix','earwax','hair','roach','oculoid','rubix','hiccup','gesticules','marimba','chiptune','julie-saw','puggler','fractal','synthesaurus','jaw-harp','harmonicazoid','dentaphone'];
 const treeIds=['blech','syrinx','eyeball'];
-const topIds=['quadruped','monstroid','candy-coil','chiptune','acid-303'];
+const topIds=['quadruped','monstroid','candy-coil','acid-303'];
 const ingredientIds=[...shelfIds,...treeIds,...topIds,'spider'];
 const ghostIds=['creaturazoid','monstroid','hiccup'];
 async function selectScene(page,scene) {

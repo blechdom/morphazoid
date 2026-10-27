@@ -5,9 +5,12 @@ export const WITCH_DEFAULTS = Object.freeze({ scene: 'brew', voice: 'mutter', st
 const voices = WITCH_VOICES;
 // Most spells keep the picture steady; glitches belong to a few authored scenes.
 const ingredientVisualModes = Object.freeze({ hair:2, roach:1, rubix:6, hiccup:1, marimba:1, puggler:7, fractal:3, blech:5 });
-// Append new chip spells so the earlier ordinal-authored ingredient scenes stay intact.
+// Keep the ordinal-authored spells stable when Chiptune moves onto the shelf.
+// The former choir still has its saved preset and legacy sound trigger.
 const chipIngredients=new Set(['chiptune','acid-303']);
-const presetIngredients=WITCH_INGREDIENTS.toSorted((a,b)=>Number(chipIngredients.has(a.id))-Number(chipIngredients.has(b.id)));
+const presetIngredients=WITCH_INGREDIENTS.filter(item=>!chipIngredients.has(item.id));
+presetIngredients.splice(10,0,{id:'choir',name:'Throatazoid',presetId:'shelf-throatazoid'});
+presetIngredients.push(...WITCH_INGREDIENTS.filter(item=>chipIngredients.has(item.id)));
 const visualTrip = [0,1,2,3,1,2,2,3];
 function randomVisualMode(value) {
   if(value<.6)return 0;

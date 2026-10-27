@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '../src/instruments/witch/witch-model.js';
-import {WITCH_GHOST_SCARE_DURATION} from '../src/instruments/witch/witch-scene-model.js';
+import {WITCH_GHOST_SCARE_DURATION, getWitchBlechFlyby} from '../src/instruments/witch/witch-scene-model.js';
 import {traceLSystem,L_SYSTEM_PRESETS} from '../src/instruments/l-system/l-system.js';
 import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
@@ -368,6 +368,18 @@ test('BLECH flybys use the larger actual instrument portrait',()=>{
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
 
+test('flying BLECH logos can be caught above Fabric while foreground gestures keep priority',()=>{
+  for(const visualMode of [0,3,6])for(const hitRadius of [46,80]) {
+    const state={flightLift:1,flybyTime:6.4,visualMode,warpTime:1.2,hitRadius};
+    const visitor=getWitchBlechFlyby(state.flybyTime)[0],point=warpWitchPoint(visitor,state);
+    assert.deepEqual(hitTestWitch(point.x,point.y,state),{type:'blech-flyby',index:0,id:visitor.id});
+    assert.notEqual(hitTestWitch(point.x,point.y,{...state,flybyTime:0})?.type,'blech-flyby','empty sky does not trigger MIDI');
+    assert.notEqual(hitTestWitch(point.x,point.y,{...state,flightLift:0})?.type,'blech-flyby','grounded scenes have no airborne targets');
+    const moon=warpWitchPoint(WITCH_LAYOUT.moon,state);
+    assert.equal(hitTestWitch(moon.x,moon.y,{...state,flybyTime:8.37})?.type,'moon','passing logos cannot intercept the moon');
+  }
+});
+
 test('a native 3D eye snapshot replaces the sprite without a moon backing',()=>{
   const previousPath=globalThis.Path2D;globalThis.Path2D=class {constructor(d){this.d=d;}};
   try {
@@ -700,11 +712,11 @@ test('visible portrait alpha rests directly on the shelf boards and tree branche
       }
       else assert.ok(getWitchTree({}).segments.some(({a,b})=>distanceToPolyline({x:position.x,y:position.y+27*size},[a,b])<1e-10),'tree icons sit on actual turtle branches');
     }
-    assert.equal(cupboardTop.length,5);
+    assert.equal(cupboardTop.length,4);
     const shelf=WITCH_LAYOUT.shelves[0];
     for(const [index,portrait] of cupboardTop.entries()) {
-      assert.ok(portrait.left>=shelf.x&&portrait.right<=shelf.x+shelf.w,'all five portraits fit on the cupboard top');
-      if(index)assert.ok(portrait.left>cupboardTop[index-1].right,'the five visible portraits do not overlap');
+      assert.ok(portrait.left>=shelf.x&&portrait.right<=shelf.x+shelf.w,'the portraits fit on the cupboard top');
+      if(index)assert.ok(portrait.left>cupboardTop[index-1].right,'the visible portraits do not overlap');
     }
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });

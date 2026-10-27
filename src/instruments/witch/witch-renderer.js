@@ -1371,8 +1371,11 @@ function drawWorld(c,state) {
   c.clearRect(0,0,1000,720);c.lineCap='round';c.lineJoin='round';background(c,state);
   const ground=1-clamp(state.flightLift);
   if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime)) {
+    const frenzy=flyby.slotIndex===state.flybyFrenzyIndex?clamp(state.flybyFrenzy):0;
+    const shudder=state.reducedMotion?0:Math.sin((state.time??0)*49)*.16*frenzy;
+    const size=flyby.scale*(1+.18*frenzy);
     c.save();c.globalAlpha*=(1-ground)*flyby.opacity;
-    c.translate(flyby.x,flyby.y);c.rotate(flyby.angle);c.scale(flyby.scale,flyby.scale);
+    c.translate(flyby.x,flyby.y);c.rotate(flyby.angle+shudder);c.scale(size,size);
     drawInstrumentMiniature(c,'blech',2.1);c.restore();
   }
   if(ground>0) {
@@ -1636,6 +1639,13 @@ export function hitTestWitch(x, y, state = {}, prepared = null) {
   if(clamp(state.flightLift)>.05) {
     for(const {points:trail} of prepared?.trails||getWitchTrails(state))for(let i=1;i<trail.length;i++) {
       if(nearSegment(x,y,trail[i-1],trail[i],Math.max(12,minRadius*.35)))return {type:'trail'};
+    }
+  }
+  // The passing MIDI logos sit behind the witch and her hair, above the cloth.
+  if(!grounded)for(const flyby of getWitchBlechFlyby(state.flybyTime).toReversed()) {
+    const frenzy=flyby.slotIndex===state.flybyFrenzyIndex?clamp(state.flybyFrenzy):0;
+    if(flyby.opacity>.1&&Math.hypot(x-flyby.x,y-flyby.y)<Math.max(59*flyby.scale*(1+.18*frenzy),minRadius)) {
+      return {type:'blech-flyby',index:flyby.slotIndex,id:flyby.id};
     }
   }
   if(!grounded)return {type:'fabric'};

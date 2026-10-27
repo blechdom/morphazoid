@@ -15,7 +15,7 @@ export class WitchAudio {
     this.nextDropVariants = Object.create(null);
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
       catClock: createWitchCatClock(), catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
-      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false, flybyTime: 0, flybyLevel: 0 };
+      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false, flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0 };
     this.onError = null;
   }
   get running() { return this.audible && this.context?.state === 'running' && Boolean(this.node); }
@@ -123,7 +123,7 @@ export class WitchAudio {
       this.visual.flightPhase = message.flightPhase;
     }
     if (Number.isFinite(ghostPhase)) { message.ghostPhase = witchClamp(ghostPhase,0,1e12);this.visual.ghostPhase = message.ghostPhase; }
-    if (Number.isFinite(flybyTime)) { message.flybyTime = witchClamp(flybyTime,0,1e12);this.visual.flybyTime = message.flybyTime;this.visual.flybyLevel = 0; }
+    if (Number.isFinite(flybyTime)) { message.flybyTime = witchClamp(flybyTime,0,1e12);this.visual.flybyTime = message.flybyTime;this.visual.flybyLevel = 0;this.visual.flybyFrenzy = 0; }
     if (catClock && typeof catClock === 'object') { message.catClock = snapshotWitchCatClock(catClock); this.visual.catClock = message.catClock; this.visual.catTime = message.catClock.time; this.visual.catMeow = 0; this.visual.catMeowLevel = 0; }
     // A rebuilt worklet joins the visible visit without reviving captured feet
     // or replaying an animal's earlier dive sound.
@@ -144,7 +144,7 @@ export class WitchAudio {
   trigger(kind, detail) {
     if (!this.running || !WITCH_EFFECTS.includes(kind)) return false;
     const variant = WITCH_DROP_EFFECTS.includes(kind) ? this.nextDropVariants[kind] ?? 0 : undefined;
-    this.post({ type: 'trigger', kind, variant, ...(['unicorn-escape','shape-charm'].includes(kind)&&detail?{detail}:{}), at: this.context.currentTime });
+    this.post({ type: 'trigger', kind, variant, ...(['unicorn-escape','shape-charm','blech-frenzy'].includes(kind)&&detail?{detail}:{}), at: this.context.currentTime });
     if (variant !== undefined) this.nextDropVariants[kind] = (variant + 1) % 3;
     return true;
   }

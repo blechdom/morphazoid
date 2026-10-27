@@ -49,6 +49,8 @@ export function witchBiteVariants() {
   return Object.freeze(decodedVariants);
 }
 
+export const WITCH_BLECH_FRENZY_DURATION = 5.2;
+
 /** Two fixed PCM readers for sparse BLECH visitors. The shared clip is the
  * three extreme bundled BLACK MIDI demo passages, rendered with
  * BLECH's SoundFont engine, without using a potion slot or its solo ducking.
@@ -60,6 +62,17 @@ export class WitchBlechFlyby {
     this.clip = this.clips[0]; this.nextVariant = 0;
     this.slots = Array.from({ length: 2 }, () => ({ age: -1, release: 1, releasing: false, direction: 1, clip: this.clip, variant: 0 }));
     this.nextEvent = 0; this.nextCycle = 0; this.nextAt = WITCH_BLECH_FLYBY_EVENTS[0].at;
+    // One reusable manual burst, with three faster, offset readers of the
+    // clicked visitor's native BLACK MIDI passage. It never occupies a potion
+    // slot, wakes backing performers or allocates voices on a click.
+    this.frenzy = { age: -1, gain: 0, releasing: false, pendingIndex: -1, pendingClip: null,
+      index: 0, clip: this.clip, loops: 0 };
+    this.frenzyReaders = [
+      { position: 0, speed: 2.4, offset: .11, left: Math.sqrt(.79), right: Math.sqrt(.21) },
+      { position: 0, speed: 2.8, offset: .39, left: Math.sqrt(.46), right: Math.sqrt(.54) },
+      { position: 0, speed: 3.2, offset: .79, left: Math.sqrt(.18), right: Math.sqrt(.82) },
+    ];
+    this.frenzyLeft = this.frenzyRight = this.frenzyEnvelope = 0;
   }
   syncTime(time) {
     if (!Number.isFinite(time)) return;
@@ -70,11 +83,67 @@ export class WitchBlechFlyby {
     if (this.nextEvent < 0) { this.nextEvent = 0; this.nextCycle++; }
     this.nextAt = this.nextCycle * WITCH_BLECH_FLYBY_CYCLE + WITCH_BLECH_FLYBY_EVENTS[this.nextEvent].at;
   }
-  release() { for (const slot of this.slots) slot.releasing = true; }
-  next(controls, enabled) {
+  releaseFrenzy() {
+    this.frenzy.pendingIndex = -1; this.frenzy.pendingClip = null; this.frenzy.releasing = true;
+  }
+  release() {
+    for (const slot of this.slots) slot.releasing = true;
+    this.releaseFrenzy();
+  }
+  triggerFrenzy(index = 0) {
+    if (index !== 0 && index !== 1) return false;
+    const slot = this.slots[index], clip = slot.age >= 0 && !slot.releasing
+      ? slot.clip : this.clips[this.nextVariant % this.clips.length];
+    if (this.frenzy.age >= 0) {
+      // Busy clicks replace one pending burst behind a 12 ms release rather
+      // than stack more sample readers or cut the currently sounding wave.
+      this.frenzy.pendingIndex = index; this.frenzy.pendingClip = clip; this.frenzy.releasing = true;
+    } else this.startFrenzy(index, clip);
+    return true;
+  }
+  startFrenzy(index, clip) {
+    const burst = this.frenzy;
+    burst.age = 0; burst.gain = 0; burst.releasing = false; burst.index = index; burst.clip = clip; burst.loops = 0;
+    burst.pendingIndex = -1; burst.pendingClip = null;
+    for (const reader of this.frenzyReaders) reader.position = reader.offset * clip.rate;
+  }
+  nextFrenzy(enabled) {
+    this.frenzyLeft = this.frenzyRight = this.frenzyEnvelope = 0;
+    const burst = this.frenzy;
+    if (!enabled) this.releaseFrenzy();
+    if (burst.age < 0) return;
+    if (burst.releasing) {
+      burst.gain = Math.max(0, burst.gain - this.dt / (burst.pendingIndex >= 0 ? .012 : .08));
+      if (burst.gain === 0) {
+        if (burst.pendingIndex >= 0 && enabled) this.startFrenzy(burst.pendingIndex, burst.pendingClip);
+        else { burst.age = -1; return; }
+      }
+    } else burst.gain = Math.min(1, burst.gain + this.dt / .025);
+    if (burst.age >= WITCH_BLECH_FRENZY_DURATION) { burst.age = -1; burst.gain = 0; return; }
+    const clip = burst.clip, crossfade = Math.round(clip.rate * .025), loopLength = clip.frames - crossfade - 1;
+    const envelope = burst.gain * Math.min(1, (WITCH_BLECH_FRENZY_DURATION - burst.age) / .22);
+    this.frenzyEnvelope = envelope;
+    for (const reader of this.frenzyReaders) {
+      const position = reader.position, index = Math.floor(position), blend = position - index;
+      let source = clip.data[index] + (clip.data[index + 1] - clip.data[index]) * blend;
+      if (position < crossfade) {
+        const tail = loopLength + index;
+        const ending = clip.data[tail] + (clip.data[tail + 1] - clip.data[tail]) * blend;
+        const mix = position / crossfade;
+        source = ending * (1 - mix) + source * mix;
+      }
+      const sample = source * .075 * envelope;
+      this.frenzyLeft += sample * reader.left; this.frenzyRight += sample * reader.right;
+      reader.position += clip.rate * this.dt * reader.speed;
+      if (reader.position >= loopLength) { reader.position -= loopLength; burst.loops++; }
+    }
+    burst.age += this.dt;
+  }
+  next(controls, enabled, manualEnabled = enabled) {
     this.left = this.right = 0;
     const running = controls.ghostGate && controls.mode === 'flight';
-    if (!running || !enabled) this.release();
+    if (!running || !enabled) for (const slot of this.slots) slot.releasing = true;
+    this.nextFrenzy(manualEnabled && controls.mode === 'flight');
     if (running && this.time >= this.nextAt) {
       if (enabled) {
         const slot = this.slots[this.nextEvent === 2 ? 1 : 0];
@@ -95,7 +164,7 @@ export class WitchBlechFlyby {
         ? clip.data[index] + (clip.data[index + 1] - clip.data[index]) * blend : 0;
       const envelope = Math.min(1, slot.age / .025, (WITCH_BLECH_FLYBY_DURATION - slot.age) / .08) * slot.release;
       const pan = slot.direction * (slot.age / WITCH_BLECH_FLYBY_DURATION * 2 - 1) * .9;
-      const sample = source * .13 * envelope;
+      const sample = source * .13 * envelope * (1 - this.frenzyEnvelope * .85);
       this.left += sample * Math.sqrt((1 - pan) * .5);
       this.right += sample * Math.sqrt((1 + pan) * .5);
       slot.age += this.dt;

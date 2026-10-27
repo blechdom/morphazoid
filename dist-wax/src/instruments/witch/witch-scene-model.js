@@ -50,7 +50,7 @@ export function getWitchBlechFlyby(time) {
     const event = WITCH_BLECH_FLYBY_EVENTS[i], age = phase - event.at;
     if (age < 0 || age >= WITCH_BLECH_FLYBY_DURATION) continue;
     const progress = age / WITCH_BLECH_FLYBY_DURATION;
-    visitors.push({ id: cycle * WITCH_BLECH_FLYBY_EVENTS.length + i, age, progress,
+    visitors.push({ id: cycle * WITCH_BLECH_FLYBY_EVENTS.length + i, slotIndex: i === 2 ? 1 : 0, age, progress,
       direction: event.direction, x: event.direction > 0 ? -60 + progress * 1120 : 1060 - progress * 1120,
       y: event.y + Math.sin(progress * Math.PI * 2) * 16, scale: event.scale,
       opacity: Math.min(1, age / .2, (WITCH_BLECH_FLYBY_DURATION - age) / .3),

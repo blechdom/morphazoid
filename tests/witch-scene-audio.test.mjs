@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
-import { witchBiteClips, witchBiteVariants, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
+import { witchBiteClips, witchBiteVariants, WITCH_WEB_RATIOS, WitchEyeShock, WitchSceneDSP, WitchBlechFlyby, WITCH_BLECH_FRENZY_DURATION, WitchTreePhrase } from '../src/instruments/witch/witch-scene-audio.js';
 import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-native-variants.js';
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
@@ -114,6 +114,74 @@ test('BLECH flight sound follows the sample clock without potion solos, muted ba
   a.setControls({ mode: 'flight' }); a.syncPhase(0, 0, undefined, undefined, undefined, undefined, undefined, 4.9);
   render(a, .5); a.releaseAccents(); render(a, .1); render(a, .1); assert.equal(a.visual.flybyLevel, 0);
   assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+});
+
+test('clicked BLECH visitors repeat their actual hardcore demo in one bounded accelerated three-reader burst', () => {
+  const rate = 8000, controls = { mode: 'flight', ghostGate: true };
+  for (let variant = 0; variant < 3; variant++) {
+    const flyby = new WitchBlechFlyby(rate), readers = flyby.frenzyReaders.slice();
+    flyby.nextVariant = variant; flyby.syncTime(4.99);
+    for (let i = 0; i < rate * .15; i++) flyby.next(controls, true);
+    const clock = flyby.time, nextVariant = flyby.nextVariant, clip = flyby.slots[0].clip;
+    assert.equal(clip, witchBiteVariants()['drop-blech'][variant]);
+    assert.equal(flyby.triggerFrenzy(0), true); assert.equal(flyby.frenzy.clip, clip);
+    let energy = 0, peak = 0, tail = 0;
+    for (let i = 0; i < Math.ceil((WITCH_BLECH_FRENZY_DURATION + .1) * rate); i++) {
+      // Direct clicking remains playable with the automatic backing asleep.
+      flyby.next({ ...controls, ghostGate: false }, false, true);
+      const left = flyby.frenzyLeft, right = flyby.frenzyRight;
+      assert.ok(Number.isFinite(left) && Number.isFinite(right));
+      energy += left * left + right * right; peak = Math.max(peak, Math.abs(left), Math.abs(right));
+      if (i > (WITCH_BLECH_FRENZY_DURATION + .02) * rate) tail += left * left + right * right;
+    }
+    assert.ok(energy > .1 && peak < .13, 'dense layers retain the existing flyby headroom');
+    assert.ok(flyby.frenzy.loops >= 7, 'three accelerated native readers repeatedly traverse the actual demo');
+    assert.equal(tail, 0); assert.equal(flyby.frenzyEnvelope, 0); assert.equal(flyby.frenzy.age, -1);
+    assert.equal(flyby.time, clock); assert.equal(flyby.nextVariant, nextVariant, 'manual looping cannot consume the next autonomous demo');
+    assert.ok(flyby.frenzyReaders.every((reader, index) => reader === readers[index]));
+  }
+});
+
+test('BLECH frenzy is a sample-clock manual accent independent of the sleeping voice, hand and animal loops', () => {
+  const controls = { mode: 'flight', gate: false, ghostGate: false, brewEnabled: false, handEnabled: false, backingEnabled: false };
+  const off = new WitchDSP(8000); off.setControls(controls);
+  assert.equal(off.trigger('blech-frenzy', undefined, { flybyIndex: 0 }), false);
+  const grounded = playing({ ...controls, mode: 'brew' }, 8000);
+  assert.equal(grounded.trigger('blech-frenzy', undefined, { flybyIndex: 0 }), false);
+  const a = playing(controls, 8000), b = playing({ ...controls, fabricPull: 1, fabricX: .1, fabricY: .9 }, 8000);
+  assert.equal(a.trigger('blech-frenzy', undefined, { flybyIndex: 2 }), false);
+  for (const dsp of [a, b]) assert.equal(dsp.trigger('blech-frenzy', undefined, { flybyIndex: 1 }), true);
+  const sound = render(a, .7);
+  assert.deepEqual(sound, render(b, .7, 5600), 'native loops depend on audio samples and bypass the wind-only Fabric');
+  assert.ok(rms(sound) > .008); assert.ok(sound.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  assert.equal(a.visual.flybyFrenzyIndex, 1); assert.equal(a.visual.flybyFrenzy, 1);
+  assert.ok(a.visual.flybyLevel > .001 && a.visual.delayLevel > .001, 'the direct burst reaches the normal flight delay');
+  for (const field of ['brewLevel', 'handLevel', 'ghostLevel', 'catLevel', 'dropLevel']) assert.equal(a.visual[field], 0, field);
+  assert.equal(a.visual.fabricWindEnvelope, 0); assert.equal(a.cat.triggerCount, 0);
+  assert.ok(a.visitors.visitors.every(visitor => visitor.triggerCount === 0));
+  assert.equal(a.controls.backingEnabled, false); assert.equal(a.controls.gate, false);
+});
+
+test('BLECH frenzy coalesces busy clicks and releases on landing, Stop, mute and accent cancellation', () => {
+  const controls = { mode: 'flight', gate: true, ghostGate: true, brewEnabled: false, handEnabled: false, backingEnabled: false };
+  const busy = playing(controls, 8000), readers = busy.blechFlyby.frenzyReaders.slice();
+  busy.trigger('blech-frenzy', undefined, { flybyIndex: 0 }); render(busy, .2);
+  for (let i = 0; i < 100; i++) assert.equal(busy.trigger('blech-frenzy', undefined, { flybyIndex: i % 2 }), true);
+  assert.equal(busy.blechFlyby.frenzy.pendingIndex, 1);
+  const restart = render(busy, .08);
+  assert.ok(restart.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
+  assert.equal(busy.visual.flybyFrenzyIndex, 1); assert.equal(busy.blechFlyby.frenzy.pendingIndex, -1);
+  assert.ok(busy.blechFlyby.frenzyReaders.every((reader, index) => reader === readers[index]));
+  for (const cancel of [dsp => dsp.setControls({ mode: 'brew' }), dsp => dsp.setControls({ gate: false }),
+    dsp => dsp.setEnabled(false), dsp => dsp.releaseAccents()]) {
+    const dsp = playing(controls, 8000); dsp.trigger('blech-frenzy', undefined, { flybyIndex: 0 }); render(dsp, .2);
+    dsp.trigger('blech-frenzy', undefined, { flybyIndex: 1 }); cancel(dsp);
+    assert.ok(rms(render(dsp, .01)) > .001, 'release preserves the current wave rather than hard cutting');
+    render(dsp, .1);
+    assert.equal(dsp.visual.flybyFrenzy, 0); assert.equal(dsp.blechFlyby.frenzy.age, -1);
+    assert.equal(dsp.blechFlyby.frenzy.pendingIndex, -1); assert.equal(dsp.visual.flybyLevel, 0);
+    render(dsp, 6); assert.ok(rms(render(dsp, .1)) < 1e-6, 'native burst and its flight echoes finish');
+  }
 });
 
 test('baked native instrument phrases form a bounded, shared source bank with distinct audible bites', () => {
