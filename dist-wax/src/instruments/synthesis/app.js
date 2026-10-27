@@ -22,7 +22,7 @@ import { getAmplitudeModel } from "./amplitude-models.js";
 import { inputCategoryFor, inputsForCategory, presetSignal, sanitizeSignalPath } from "./signal-path.js";
 import { PROCESSING_INPUT_OPTIONS, getProcessingInput } from "./demo-sources.js";
 import { enhanceChooseSelect } from "./choose.js";
-import { COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
+import { createMidiNotePerformance, COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
 import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeState } from "./catalog.js";
 import { SynthesisAudio } from "./audio.js";
 import { PerformanceLevelMatcher } from "./performance-level-matcher.js";
@@ -142,6 +142,7 @@ let inputError = "";
 const chooseControls = new Map();
 const held = new Map();
 let noteSequence = 0;
+let midiNotes = null;
 const keyButtons = new Map();
 const offsets = COMPUTER_KEYBOARD_LAYOUTS.piano.noteOffsets;
 const wave = new Float32Array(4096);
@@ -1434,7 +1435,7 @@ function release(id) {
   keyButtons.get(id)?.classList.remove("is-held");
   audio.noteOff(note.noteId);
 }
-function releaseAll() { held.clear(); keyButtons.forEach(button => button.classList.remove("is-held")); audio.noteOff(); }
+function releaseAll() { midiNotes?.reset(); held.clear(); keyButtons.forEach(button => button.classList.remove("is-held")); audio.noteOff(); }
 const entries = Object.entries(offsets);
 for (let row = 0; row < 2; row++) {
   const element = document.createElement("div"); element.className = "synthesis-key-row";
@@ -1463,35 +1464,45 @@ listen(document, "keydown", event => {
   event.preventDefault(); press(event.code, frequencyForTuningDegree(state.frequencyHz, offsets[event.code], state.tuningId, { minHz: 20, maxHz: 8000 }));
 });
 listen(document, "keyup", event => { if (held.has(event.code)) release(event.code); });
-listen(window, "blur", () => { if (held.size) releaseAll(); });
-listen(document, "visibilitychange", () => { if (document.hidden && held.size) releaseAll(); });
+listen(window, "blur", releaseAll);
+listen(document, "visibilitychange", () => { if (document.hidden) releaseAll(); });
+midiNotes = createMidiNotePerformance({
+  onNoteOn(id, { note, velocity, pitchRatio, message }) {
+    if (inputCategory === 'percussion') {
+      const lane = DRUM_MIDI_NOTES.indexOf(note);
+      if (lane < 0) return;
+      if (message.hostSource === 'wax' && !audio.armed) {
+        // Keep only the latest initial hit per pad while the host arms Audio.
+        pendingHostDrums = pendingHostDrums.filter(hit => hit.lane !== lane);
+        pendingHostDrums.push({ lane, velocity, intent: inputIntent });
+        if (!arming) $("audioButton").click();
+      } else drumPanel.hit(lane, velocity);
+      return;
+    }
+    const baseFrequency = frequencyForMidiNote(note, state.tuningId,
+      { anchorNote: 69, anchorHz: 440, minHz: 20, maxHz: 8000 });
+    press(id, Number.isFinite(baseFrequency) ? Math.max(20, Math.min(8000, baseFrequency * pitchRatio)) : NaN, velocity);
+    if (held.has(id)) held.get(id).midiBaseFrequency = baseFrequency;
+    if (message.hostSource === 'wax' && !audio.armed && !arming) $("audioButton").click();
+  },
+  onNoteOff: release,
+  onNoteChange(id, { velocity, pitchRatio }) {
+    const note = held.get(id);
+    if (!note || !Number.isFinite(note.midiBaseFrequency)) return;
+    note.frequency = Math.max(20, Math.min(8000, note.midiBaseFrequency * pitchRatio));
+    note.velocity = velocity;
+    audio.noteChange(note.noteId, note.frequency, velocity);
+  },
+  onPanic() { pendingHostDrums = []; releaseAll(); setPlaying(false); audio.panic(); },
+});
 listen(window, "morphazoid:midi-input", event => {
   const { message, routeId, source } = event.detail ?? {};
   if (!message || (routeId && routeId !== "synthesis")) return;
   if (source === "wax" && document.documentElement.dataset.morphazoidWaxOutputMode === "midi") return;
   if (source === "wax" && getMethod(state.methodId).kind === "processor" && inputCategory !== 'percussion') return;
-  if (inputCategory === 'percussion' && message.type === 'noteOn' && Number(message.velocity) > 0) {
-    event.preventDefault(); const lane = DRUM_MIDI_NOTES.indexOf(Number(message.note));
-    if (lane < 0) return;
-    if (source === 'wax' && !audio.armed) {
-      // Host MIDI may explicitly arm Audio. Keep only the latest initial hit
-      // per pad, and never replay it after a source change or panic.
-      pendingHostDrums = pendingHostDrums.filter(hit => hit.lane !== lane);
-      pendingHostDrums.push({ lane, velocity: message.velocity / 127, intent: inputIntent });
-      if (!arming) $("audioButton").click();
-    } else drumPanel.hit(lane, message.velocity / 127);
-    return;
-  }
-  const id = `midi:${message.sourceId || "default"}:${message.channel || 0}:${message.note}`;
-  if (message.type === "noteOn" && Number(message.velocity) > 0) {
-    event.preventDefault();
-    press(id, frequencyForMidiNote(message.note, state.tuningId,
-      { anchorNote: 69, anchorHz: 440, minHz: 20, maxHz: 8000 }), message.velocity / 127);
-    if (source === "wax" && !audio.armed && !arming) $("audioButton").click();
-  }
-  else if (message.type === "noteOff" || message.type === "noteOn" && Number(message.velocity) <= 0) { event.preventDefault(); release(id); }
-  else if (message.type === "panic" || (message.type === "controlChange" && [120, 123].includes(message.controller))) { event.preventDefault(); pendingHostDrums = []; releaseAll(); setPlaying(false); audio.panic(); }
+  if (midiNotes.handle({ ...message, hostSource: source })) event.preventDefault();
 });
+
 function processingSource() {
   return inputCategory === 'percussion' || isVoiceInput(inputCategory) ? 0 : getProcessingInput(processingInput)?.source ?? 0;
 }

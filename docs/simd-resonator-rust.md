@@ -19,6 +19,16 @@ The original instrument and SIMD Audio Lab retain
 their existing engines. Output runs from 0% to 100%, where 100% is unity master
 gain; it is independent of presets and the signal-path mix.
 
+## Browser MIDI
+
+With Audio enabled, incoming MIDI Note On strikes the selected excitation.
+Velocity scales that strike's strength; CC11 expression and channel pressure
+scale subsequent strikes, not master volume or a tail already ringing.
+Note Off, sustain, poly pressure and pitch bend do not cut, retrigger or retune
+this single body. CC121 resets performance controllers; CC120/MIDI Off clears
+ringing state. CC7 is still the intentional master-volume control. Controller
+profile macros retain priority. No MIDI output/echo is added.
+
 ## Waves and spectrum span
 
 The Rust scalar and `f32x4` SIMD kernels support 32–8,192 simultaneous damped

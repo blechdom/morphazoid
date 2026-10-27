@@ -1,0 +1,7 @@
+{
+  "baseCommit": "c3e963753675fa5a23e9555001b24211ab7d2f02",
+  "reason": "Owner-reported key release silenced master. Consume unsupported browser MIDI release, pressure and expression while preserving score gates, CC7, explicit macros and WAX. Keep pre-existing microphone proofs byte-exact.",
+  "file": "src/instruments/fractal-signals/app.js",
+  "sha256": "1c0a766bb4f9b4920c0992082b81d01be0970a146100d7f7a6a1555067936c39",
+  "addition": "  if (event.detail?.source !== 'wax' && event.detail?.routeId && event.detail.routeId !== 'fractal-signals') return;\n  // MIDI chooses this autonomous score's reference pitch, not a held voice.\n  // In the browser, release-time pressure/expression must not fall through to\n  // the generic adapter's \"level\" match and zero the master. There is no\n  // per-key expression destination here; leave score gates/ADSR and Play alone.\n  // Explicit CC7 and controller-profile macros retain their existing mappings.\n  if (event.detail?.source !== 'wax' && (\n    message?.type === 'noteOff' || message?.type === 'noteOn' && Number(message.velocity) === 0\n    || message?.type === 'channelPressure' || message?.type === 'polyPressure'\n    || message?.type === 'controlChange' && message.controller === 11 && message.logical?.type !== 'macro'\n  )) {\n    event.preventDefault();\n    return;\n  }\n"
+}

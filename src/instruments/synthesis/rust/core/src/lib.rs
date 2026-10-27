@@ -64,6 +64,7 @@ pub struct Engine {
     point_envelope: Option<point_envelope::PointEnvelope>,
     envelope_elapsed: f64,
     velocity: f32,
+    velocity_target: f32,
     gate: bool,
     smooth_coefficient: f32,
     level_trim_db: f32,
@@ -106,6 +107,7 @@ impl Engine {
             point_envelope: None,
             envelope_elapsed: 0.0,
             velocity: 0.8,
+            velocity_target: 0.8,
             gate: false,
             smooth_coefficient: 1.0 - (-1.0 / (sr * 0.008)).exp(),
             level_trim_db: 0.0,
@@ -276,6 +278,10 @@ impl Engine {
             }
         }
     }
+    /// Per-note expression without a new attack or a change to master/calibration.
+    pub fn set_velocity(&mut self, velocity: f32) {
+        self.velocity_target = bounded(velocity, 0.0, 1.0, self.velocity_target);
+    }
     pub fn note_on(&mut self, frequency: f32, velocity: f32) {
         self.set_frequency(frequency);
         if self.method_pending {
@@ -287,6 +293,7 @@ impl Engine {
         }
         self.snap_output_gain();
         self.velocity = bounded(velocity, 0.0, 1.0, 0.8);
+        self.velocity_target = self.velocity;
         self.gate = true;
         self.envelope_stage = 1;
         self.envelope_elapsed = 0.0;
@@ -389,6 +396,7 @@ impl Engine {
         #[cfg(feature = "neural")]
         self.neural.set_params(self.smooth);
         for out in output {
+            self.velocity += (self.velocity_target - self.velocity) * self.smooth_coefficient;
             self.output_gain +=
                 (self.output_gain_target - self.output_gain) * self.smooth_coefficient;
             self.frequency += (self.frequency_target - self.frequency) * self.smooth_coefficient;
@@ -574,6 +582,12 @@ pub unsafe extern "C" fn synth_prepare_audition(ptr: *mut Engine) {
 pub unsafe extern "C" fn synth_note_on(ptr: *mut Engine, hz: f32, velocity: f32) {
     if let Some(e) = ptr.as_mut() {
         e.note_on(hz, velocity);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn synth_set_velocity(ptr: *mut Engine, velocity: f32) {
+    if let Some(e) = ptr.as_mut() {
+        e.set_velocity(velocity);
     }
 }
 #[no_mangle]

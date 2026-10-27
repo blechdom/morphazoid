@@ -1,3 +1,4 @@
+import { createMidiNotePerformance } from "../../midi-manager.js";
 import { mountAudioInputControl } from '../../audio-input-control.js';
 import { audioInputConstraints } from '../../audio-input-settings.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -533,6 +534,21 @@ $('excitationType').addEventListener('change', () => {
 });
 $('audioButton').addEventListener('click', () => void toggleAudio());
 $('pluckButton').addEventListener('click', () => trigger());
+// This is one struck body, not a polyphonic keyboard. Notes excite the selected
+// body; release/bend/pressure never retune it or attenuate already-ringing tails.
+const midiNotes = createMidiNotePerformance({
+  onNoteOn: (_id, { velocity }) => trigger(velocity),
+  onPanic: () => state.node?.port.postMessage({ type: 'reset' }),
+});
+function receiveMidi(event) {
+  const { message, routeId, source } = event.detail || {};
+  if (!message || routeId && routeId !== 'simd-resonator-rust') return;
+  if (source === 'wax') return; // Retain the host adapter's own processor contract.
+  if (midiNotes.handle(message)) event.preventDefault();
+}
+globalThis.addEventListener('morphazoid:midi-input', receiveMidi);
+globalThis.addEventListener('blur', () => midiNotes.reset());
+
 $('outputLevel').addEventListener('input', () => {
   $('outputLevelOut').value = percent(Number($('outputLevel').value));
   if (state.master) state.master.gain.setTargetAtTime(state.armed ? Number($('outputLevel').value) : 0, state.context.currentTime, .015);
@@ -582,6 +598,7 @@ $('resetButton').addEventListener('click', () => {
 });
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) {
+    midiNotes.reset();
     recordedInput.stop(); stopMic();
     if (state.starting) void stopAudio();
     else {
@@ -593,6 +610,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 globalThis.addEventListener('pagehide', () => {
   state.disposed = true; cancelAnimationFrame(state.frame);
+  midiNotes.reset(); globalThis.removeEventListener('morphazoid:midi-input', receiveMidi);
   for (const knob of knobs) knob.destroy();
   for (const choice of choices.values()) choice.destroy();
   recordedInput.dispose(); presetController?.destroy(); inputControl.destroy();

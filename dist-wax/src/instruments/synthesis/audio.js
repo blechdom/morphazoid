@@ -2,8 +2,8 @@ import { SynthesisInput } from "./input.js";
 import { loadProcessingDemo } from "./demo-sources.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 
-const WASM_URL = new URL("../../../assets/wasm/synthesis.wasm", import.meta.url);
-const PROCESSOR_URL = new URL("./processor.js", import.meta.url);
+const WASM_URL = new URL("../../../assets/wasm/synthesis.wasm?midi-performance=1", import.meta.url);
+const PROCESSOR_URL = new URL("./processor.js?midi-performance=1", import.meta.url);
 let compiledModule;
 
 async function getModule() {
@@ -463,6 +463,11 @@ export class SynthesisAudio {
   noteOn(frequency, velocity = 0.75, duration = null, noteId = null, at = null) {
     if (!this.armed) return;
     this.node?.port.postMessage({ type: "note", frequency, velocity, duration, noteId, at: at ?? this.context.currentTime + 0.005 });
+  }
+
+  noteChange(noteId, frequency, velocity) {
+    if (!this.armed) return;
+    this.node?.port.postMessage({ type: "note-change", noteId, frequency, velocity, at: this.context.currentTime + .005 });
   }
 
   resumeNotes(notes) {

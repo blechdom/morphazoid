@@ -2022,3 +2022,78 @@ test('a held Mono note has priority over sequence attacks and the sequence resum
     assertPitch(h.render(4096), 220, 'sequence after the held Mono note is released');
   } finally { h.dispose(); }
 });
+
+for (const voiceMode of ['mono', 'poly']) {
+  test(`${voiceMode} MIDI expression changes only its held voice without restarting ADSR`, () => {
+    const h = makeHarness(), reference = makeHarness();
+    for (const rig of [h, reference]) {
+      rig.send({ type: 'state', state: state({ voiceMode, envelope: { attack: .2, decay: .01, sustain: .8, release: .02 } }) });
+      rig.send({ type: 'note', noteId: 91, frequency: 220, velocity: .8, duration: null });
+      rig.render(RATE / 2);
+    }
+    h.send({ type: 'note-change', noteId: 91, frequency: 220, velocity: .8 });
+    assert.deepEqual(h.render(4096), reference.render(4096), 'unchanged expression does not reset phase or attack');
+    h.send({ type: 'note-change', noteId: 91, frequency: 220, velocity: .2 });
+    h.render(RATE / 5); reference.render(RATE / 5);
+    const ratio = rms(h.render(4096)) / rms(reference.render(4096));
+    assert.ok(ratio > .24 && ratio < .26, `voice level tracks expression: ${ratio}`);
+    h.send({ type: 'note-change', noteId: 91, frequency: 440, velocity: .2 });
+    const changed = h.render(RATE / 4);
+    assert.ok(rms(changed) > .001);
+    assert.equal(h.processor.noteOwners.get(91).frequency, 440);
+    assert.equal(h.processor.state.frequencyHz, 220, 'root parameter is untouched');
+    h.send({ type: 'off', noteId: 91 });
+    h.render(RATE / 2);
+    assert.ok(rms(h.render(4096)) < 1e-6, 'note release reaches silence');
+    h.dispose(); reference.dispose();
+  });
+}
+
+test('pressure floods are coalesced and cannot prevent held-note release or rewrite sequence voices', () => {
+  const h = makeHarness();
+  h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+  h.send({ type: 'note', noteId: 21, frequency: 220, velocity: .8, duration: null });
+  h.send({ type: 'note', noteId: 22, frequency: 330, velocity: .7, duration: null });
+  h.render(128);
+  const slot = h.processor.polyNote(0x40000001, 440, .3, Infinity, 'sequence');
+  for (let n = 0; n < 500; n++) h.send({ type: 'note-change', noteId: 21, frequency: 247, velocity: .2 });
+  assert.equal(h.processor.events.length, 1);
+  h.render(128);
+  assert.equal(h.processor.noteOwners.get(22).velocity, .7);
+  assert.equal(h.processor.polyDeadlines[slot].velocity, .3, 'authored sequence velocity is independent');
+  h.send({ type: 'off', noteId: 21 }); h.render(128);
+  assert.equal(h.processor.noteOwners.has(21), false);
+  h.send({ type: 'note-change', noteId: 21, frequency: 247, velocity: .9 }); h.render(128);
+  assert.equal(h.processor.noteOwners.has(21), false, 'late pressure cannot resurrect a released note');
+  h.dispose();
+});
+
+test('one pressure update reaches all 128 held owners without consuming the note queue', () => {
+  const h = makeHarness();
+  h.send({ type: 'state', state: state({ voiceMode: 'poly' }) });
+  for (let id = 1; id <= 128; id++) {
+    h.send({ type: 'note', noteId: id, frequency: 220, velocity: .8, duration: null });
+    if (id % 32 === 0) h.render(128);
+  }
+  for (let id = 1; id <= 128; id++) h.send({ type: 'note-change', noteId: id, frequency: 247, velocity: .2 });
+  assert.equal(h.processor.events.length, 1);
+  assert.equal(h.processor.events[0].changes.length, 128);
+  h.render(128);
+  assert.ok([...h.processor.noteOwners.values()].every(note => note.frequency === 247 && note.velocity === .2));
+  assert.ok(h.processor.polyDeadlines.filter(Boolean).every(note => note.velocity === .2));
+  h.dispose();
+});
+
+test('a finite audition returns to the held MIDI expression rather than retaining its louder velocity', () => {
+  const h = makeHarness();
+  h.send({ type: 'state', state: state() });
+  h.send({ type: 'note', noteId: 1, frequency: 220, velocity: .2, duration: null });
+  h.render(RATE / 4);
+  const before = rms(h.render(4096));
+  h.send({ type: 'note', frequency: 440, velocity: .9, duration: .04 });
+  h.render(RATE / 4);
+  const after = rms(h.render(4096));
+  assert.ok(after / before > .98 && after / before < 1.02);
+  assert.equal(h.processor.heldNote.velocity, .2);
+  h.dispose();
+});

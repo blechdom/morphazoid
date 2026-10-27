@@ -1,3 +1,4 @@
+import { createMidiNotePerformance } from "../../midi-manager.js";
 import {
   QUADRUPED_ANIMALS,
   QUADRUPED_GROUND_PROFILES,
@@ -3566,7 +3567,24 @@ function handleGestureKeyup(event) {
   resetAudioSchedule();
 }
 
+// Three note/pad positions repeat the selected animal's three Call rows.
+// These are finite gestures, not score edits or gates on the walking ensemble.
+const midiNotes = createMidiNotePerformance({
+  onNoteOn(_id, { note, velocity }) {
+    if (!pageActive || document.hidden || velocity <= 0) return;
+    performCall(selectedActor, { strength: velocity, row: ((note - 36) % 3 + 3) % 3 });
+  },
+  onPanic() { cancelPerformances(); stopTransport(); releaseAllSources(); },
+});
+function receiveMidi(event) {
+  const { message, routeId, source } = event.detail || {};
+  if (!message || routeId && routeId !== 'quadruped') return;
+  if (source === 'wax') return;
+  if (midiNotes.handle(message)) event.preventDefault();
+}
+
 function handleGestureBlur() {
+  midiNotes.reset();
   cancelPerformances({ reschedule: true });
 }
 
@@ -3765,10 +3783,12 @@ function bindControls() {
   globalThis.addEventListener("keydown", handleGlobalKeydown);
   globalThis.addEventListener("keyup", handleGestureKeyup);
   globalThis.addEventListener("blur", handleGestureBlur);
+  globalThis.addEventListener("morphazoid:midi-input", receiveMidi);
 }
 
 async function teardown() {
   if (!pageActive) return;
+  midiNotes.reset(); globalThis.removeEventListener("morphazoid:midi-input", receiveMidi);
   cancelPerformances();
   pageActive = false;
   if (animationFrame) cancelAnimationFrame(animationFrame);
@@ -3814,6 +3834,7 @@ animationFrame = requestAnimationFrame(animationLoop);
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    midiNotes.reset();
     cancelPerformances();
     if (transportPlaying) materializeMotor(performance.now());
     releaseAllSources();

@@ -204,6 +204,13 @@ impl VoiceBank {
             }
         }
     }
+    pub fn set_note_velocity(&mut self, id: u32, velocity: f32) {
+        for voice in &mut self.voices {
+            if voice.occupied && voice.note_id == id {
+                voice.engine.set_velocity(velocity);
+            }
+        }
+    }
     pub fn all_notes_off(&mut self) {
         let released = self.next_serial();
         for voice in &mut self.voices {
@@ -366,6 +373,12 @@ pub unsafe extern "C" fn poly_note_choke(ptr: *mut VoiceBank, id: u32) {
 pub unsafe extern "C" fn poly_set_note_frequency(ptr: *mut VoiceBank, id: u32, hz: f32) {
     if let Some(b) = ptr.as_mut() {
         b.set_note_frequency(id, hz);
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn poly_set_note_velocity(ptr: *mut VoiceBank, id: u32, velocity: f32) {
+    if let Some(b) = ptr.as_mut() {
+        b.set_note_velocity(id, velocity);
     }
 }
 #[no_mangle]

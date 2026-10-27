@@ -793,6 +793,20 @@ listen($('clearSource'), 'click', () => {
 });
 listen(window, 'morphazoid:midi-input', event => {
   const message = event.detail?.message ?? event.detail;
+  if (event.detail?.source !== 'wax' && event.detail?.routeId && event.detail.routeId !== 'fractal-signals') return;
+  // MIDI chooses this autonomous score's reference pitch, not a held voice.
+  // In the browser, release-time pressure/expression must not fall through to
+  // the generic adapter's "level" match and zero the master. There is no
+  // per-key expression destination here; leave score gates/ADSR and Play alone.
+  // Explicit CC7 and controller-profile macros retain their existing mappings.
+  if (event.detail?.source !== 'wax' && (
+    message?.type === 'noteOff' || message?.type === 'noteOn' && Number(message.velocity) === 0
+    || message?.type === 'channelPressure' || message?.type === 'polyPressure'
+    || message?.type === 'controlChange' && message.controller === 11 && message.logical?.type !== 'macro'
+  )) {
+    event.preventDefault();
+    return;
+  }
   if (message?.type === 'noteOn' && message.velocity !== 0) {
     updateState({ base: 440 * 2 ** ((Number(message.note) - 69) / 12) });
     event.preventDefault();

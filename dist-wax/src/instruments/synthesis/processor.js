@@ -808,7 +808,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         if (!this.pulseNote) this.releaseAt = Infinity;
         if (wasPlaying && !this.heldNote && !this.pulseNote) this.api.synth_note_off(this.engine);
       }
-    } else if (data.type === "note" || data.type === "off" || data.type === "held-notes") {
+    } else if (data.type === "note" || data.type === "off" || data.type === "held-notes" || data.type === "note-change") {
       if (this.state?.kind === "processor") {
         if (data.type === "note") {
           this.processingUntil = currentFrame + Math.round(sampleRate * 3);
@@ -816,13 +816,27 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         }
         return;
       }
+      // Dense pressure/bend streams must not crowd note-on/off out of the queue.
+      const eventFrame = Math.max(currentFrame, Math.round((data.at || currentTime) * sampleRate));
+      if (data.type === "note-change") {
+        const pending = this.events.at(-1);
+        if (pending?.type === "note-change" && pending.frame === eventFrame) {
+          const index = pending.changes.findIndex(change => change.noteId === data.noteId);
+          if (index >= 0) pending.changes[index] = data;
+          else if (pending.changes.length < 128) pending.changes.push(data);
+          return;
+        }
+      } else if (this.events.length >= 64) {
+        const change = this.events.findIndex(event => event.type === "note-change");
+        if (change >= 0) this.events.splice(change, 1);
+      }
       if (data.type === "off" && this.events.length >= 64) {
         const pendingNote = this.events.findIndex(event => event.type === "note");
         if (pendingNote >= 0) this.events.splice(pendingNote, 1);
         else this.events.shift();
       }
       if (this.events.length < 64) {
-        this.events.push({ ...data, frame: Math.max(currentFrame, Math.round((data.at || currentTime) * sampleRate)) });
+        this.events.push({ ...data, frame: eventFrame, ...(data.type === "note-change" ? { changes: [data] } : {}) });
         this.events.sort((a, b) => a.frame - b.frame);
       }
     } else if (data.type === "silence") {
@@ -1043,6 +1057,23 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     if (note && this.gate !== null) note.end = currentFrame + Math.round(Math.max(0, this.gate - (1 - remaining)) * sampleRate / this.rate);
   }
 
+  changeHeldNote(event) {
+    if (event.changes) { for (const change of event.changes) this.changeHeldNote(change); return; }
+    const note = this.noteOwners.get(event.noteId);
+    if (!note || !Number.isFinite(event.frequency) || !Number.isFinite(event.velocity)) return;
+    note.frequency = Math.max(20, Math.min(8000, event.frequency));
+    note.velocity = Math.max(0, Math.min(1, event.velocity));
+    if (this.state?.voiceMode === "poly") {
+      const voice = this.polyDeadlines.find(voice => voice?.id === event.noteId);
+      if (voice) Object.assign(voice, { frequency: note.frequency, velocity: note.velocity });
+      this.api.poly_set_note_frequency(this.bank, event.noteId, note.frequency);
+      this.api.poly_set_note_velocity(this.bank, event.noteId, note.velocity);
+    } else if (this.heldNote?.id === event.noteId && !this.pulseNote) {
+      this.api.synth_set_frequency(this.engine, note.frequency);
+      this.api.synth_set_velocity(this.engine, note.velocity);
+    }
+  }
+
   processPoly(channels) {
     let offset = 0;
     const length = channels[0].length;
@@ -1051,7 +1082,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.applyPendingSequenceSwap(frame);
       while (this.events.length && this.events[0].frame <= frame) {
         const event = this.events.shift();
-        if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
+        if (event.type === "note-change") this.changeHeldNote(event);
+        else if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
         else if (event.type === "note") {
           if (event.duration === null) {
             const id = event.noteId ?? 1;
@@ -1266,9 +1298,13 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
   resumeUnderlyingNote() {
     // The finite note still owns an open gate here. Returning its pitch must
     // not restart ADSR or strike the physical model a second time.
-    if (this.heldNote) this.api.synth_set_frequency(this.engine, this.heldNote.frequency);
-    else if (this.playing && this.state?.playStyle === "hold") this.api.synth_set_frequency(this.engine, this.state.frequencyHz);
-    else this.api.synth_note_off(this.engine);
+    if (this.heldNote) {
+      this.api.synth_set_frequency(this.engine, this.heldNote.frequency);
+      this.api.synth_set_velocity(this.engine, this.heldNote.velocity);
+    } else if (this.playing && this.state?.playStyle === "hold") {
+      this.api.synth_set_frequency(this.engine, this.state.frequencyHz);
+      this.api.synth_set_velocity(this.engine, .75);
+    } else this.api.synth_note_off(this.engine);
   }
 
   beginPulse(frequency, velocity, duration, frame) {
@@ -1313,7 +1349,8 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         this.applyPendingSequenceSwap(frame);
         while (this.events.length && this.events[0].frame <= frame) {
           const event = this.events.shift();
-          if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
+          if (event.type === "note-change") this.changeHeldNote(event);
+          else if (event.type === "held-notes") this.restoreHeldNotes(event.notes);
           else if (event.type === "note") {
             if (event.duration === null) {
               const id = event.noteId ?? 1;

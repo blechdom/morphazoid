@@ -1286,3 +1286,81 @@ export function getSharedMidiManager(runtime = globalThis) {
   }
   return manager;
 }
+
+// Page-owned performance input. No DOM controls, transport or master gain here.
+// CC7 and profile macros intentionally remain available to the shared adapter.
+export function createMidiNotePerformance({ onNoteOn, onNoteOff = () => {}, onNoteChange = () => {}, onPanic = () => {} }) {
+  const bound = (value, low, high) => Math.min(high, Math.max(low, Number(value) || 0));
+  const unit = value => bound(value, 0, 127) / 127;
+  const notes = new Map(), channels = new Map();
+  const channelKey = message => JSON.stringify([message.sourceId || 'default', message.channel || 0]);
+  const noteKey = message => `${channelKey(message)}:${message.note}`;
+  const channelFor = message => {
+    const key = channelKey(message);
+    if (!channels.has(key)) {
+      // Controller-only streams are bounded too; never evict a sounding owner.
+      if (channels.size >= 256) {
+        const unused = [...channels.keys()].find(key => ![...notes.values()].some(note => note.channel === key));
+        if (unused !== undefined) channels.delete(unused);
+      }
+      channels.set(key, { expression: 1, pressure: 0, bend: 0, sustain: false });
+    }
+    return channels.get(key);
+  };
+  const performance = note => {
+    const channel = channels.get(note.channel);
+    return {
+      // Aftertouch adds a modest accent; zero pressure restores strike velocity.
+      velocity: bound(note.velocity * channel.expression * (1 + .5 * (note.pressure ?? channel.pressure)), 0, 1),
+      pitchRatio: 2 ** (channel.bend * 2 / 12),
+    };
+  };
+  const release = id => { if (notes.delete(id)) onNoteOff(id); };
+  const changeChannel = key => {
+    for (const [id, note] of notes) if (note.channel === key) onNoteChange(id, performance(note));
+  };
+  const reset = () => { notes.clear(); channels.clear(); };
+  return {
+    reset,
+    handle(message) {
+      const { type, controller } = message;
+      if (type === 'controlChange' && message.logical?.type === 'macro') return false;
+      if (type === 'panic' || type === 'controlChange' && controller === 120) {
+        reset(); onPanic(); return true;
+      }
+      if (!['noteOn', 'noteOff', 'pitchBend', 'polyPressure', 'channelPressure', 'controlChange'].includes(type)) return false;
+      if (type === 'controlChange' && ![11, 64, 121, 123].includes(controller)) return false;
+      const channel = channelFor(message), key = channelKey(message), id = noteKey(message);
+      if (type === 'noteOn' && Number(message.velocity) > 0) {
+        if (!Number.isInteger(message.note) || message.note < 0 || message.note > 127) return true;
+        release(id); // Repeated note-ons retrigger, including a sustained key.
+        if (notes.size >= 128) release(notes.keys().next().value);
+        const note = { channel: key, velocity: unit(message.velocity), pressure: null, down: true };
+        notes.set(id, note);
+        onNoteOn(id, { ...performance(note), note: message.note, message });
+      } else if (type === 'noteOff' || type === 'noteOn') {
+        const note = notes.get(id);
+        if (note) note.down = false;
+        if (!channel.sustain) release(id);
+      } else if (type === 'polyPressure') {
+        const note = notes.get(id);
+        if (note) { note.pressure = unit(message.pressure); onNoteChange(id, performance(note)); }
+      } else if (type === 'controlChange' && controller === 123) {
+        // All Notes Off releases keys through their envelopes, not global Play.
+        for (const [id, note] of notes) if (note.channel === key) release(id);
+      } else {
+        if (type === 'pitchBend') channel.bend = bound(message.normalized, -1, 1);
+        if (type === 'channelPressure') channel.pressure = unit(message.pressure);
+        if (controller === 11) channel.expression = unit(message.value);
+        if (controller === 64) channel.sustain = Number(message.value) >= 64;
+        if (controller === 121) {
+          Object.assign(channel, { expression: 1, pressure: 0, bend: 0, sustain: false });
+          for (const note of notes.values()) if (note.channel === key) note.pressure = null;
+        }
+        if (!channel.sustain) for (const [id, note] of notes) if (note.channel === key && !note.down) release(id);
+        changeChannel(key);
+      }
+      return true;
+    },
+  };
+}

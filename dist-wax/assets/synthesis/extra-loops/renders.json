@@ -1,6 +1,6 @@
 {
   "engine": "Synthesaurus Rust/WASM",
-  "wasmSha256": "fcbb7622cd5cc6c7e13d471d1d73241428986c1c1815aceaf769a66ca1b98176",
+  "wasmSha256": "a1962b03750aa5e0d9c3446d69f98ffe67a7e35cd8b414ca81488771c30fb4b0",
   "scriptSha256": "56f1f42643ee9f1d3c2d57ab1c7f4c908063b2805b1e838333b78db947dcf68b",
   "sampleRate": 44100,
   "channels": 2,
@@ -3032,7 +3032,7 @@
               "highHz": 500,
               "effectiveHighHz": 500,
               "complete": true,
-              "fraction": 0.23518926379544622,
+              "fraction": 0.23518926379544616,
               "relativeDb": -6.285825073442681
             },
             {
@@ -3835,7 +3835,7 @@
               "highHz": 3000,
               "effectiveHighHz": 3000,
               "complete": true,
-              "fraction": 0.005923145045322428,
+              "fraction": 0.005923145045322426,
               "relativeDb": -22.27447632273479
             },
             {
@@ -5961,8 +5961,8 @@
             },
             {
               "frequencyHz": 266.411303623896,
-              "relativeDb": -0.3886477290243703,
-              "powerFraction": 0.009002608075948266,
+              "relativeDb": -0.38864772902436867,
+              "powerFraction": 0.009002608075948269,
               "bandwidth3DbHz": 43.06640625,
               "spectralSharpnessQ": 6.186058388001576
             },
@@ -6045,8 +6045,8 @@
               "highHz": 3000,
               "effectiveHighHz": 3000,
               "complete": true,
-              "fraction": 0.24605080292618525,
-              "relativeDb": -6.089752134145269
+              "fraction": 0.2460508029261853,
+              "relativeDb": -6.089752134145268
             },
             {
               "lowHz": 3000,
@@ -6717,7 +6717,7 @@
           "peakHz": 253.53333589455582,
           "centroidHz": 345.5669684692755,
           "rolloff85Hz": 398.3642578125,
-          "flatness": 0.000008168762700141237,
+          "flatness": 0.000008168762700141208,
           "dominantPeaks": [
             {
               "frequencyHz": 253.53333589455582,
@@ -6728,7 +6728,7 @@
             },
             {
               "frequencyHz": 340.7521463570243,
-              "relativeDb": -0.41865393100232495,
+              "relativeDb": -0.4186539310023255,
               "powerFraction": 0.06646956264228059,
               "bandwidth3DbHz": 53.8330078125,
               "spectralSharpnessQ": 6.32979950783842
@@ -6820,7 +6820,7 @@
               "highHz": 8000,
               "effectiveHighHz": 8000,
               "complete": true,
-              "fraction": 0.000015056236958238241,
+              "fraction": 0.00001505623695823824,
               "relativeDb": -48.22283558844721
             }
           ]
@@ -8631,49 +8631,49 @@
           "analyzedLowHz": 21.533203125,
           "analyzedHighHz": 7999.5849609375,
           "peakHz": 105.75285540165841,
-          "centroidHz": 296.81797536793056,
+          "centroidHz": 296.8179753679306,
           "rolloff85Hz": 516.796875,
-          "flatness": 0.0019805242068636673,
+          "flatness": 0.0019805242068636634,
           "dominantPeaks": [
             {
               "frequencyHz": 105.75285540165841,
               "relativeDb": 0,
-              "powerFraction": 0.07950535236125497,
+              "powerFraction": 0.07950535236125499,
               "bandwidth3DbHz": 64.599609375,
               "spectralSharpnessQ": 1.6370510042524296
             },
             {
               "frequencyHz": 87.23106426853059,
               "relativeDb": -0.21946989207266382,
-              "powerFraction": 0.07558739485096408,
+              "powerFraction": 0.07558739485096409,
               "bandwidth3DbHz": 64.599609375,
               "spectralSharpnessQ": 1.3503342375052958
             },
             {
               "frequencyHz": 349.050628633363,
-              "relativeDb": -2.279054641305209,
-              "powerFraction": 0.04704255513089536,
+              "relativeDb": -2.2790546413052097,
+              "powerFraction": 0.04704255513089535,
               "bandwidth3DbHz": 32.2998046875,
               "spectralSharpnessQ": 10.806586355874941
             },
             {
               "frequencyHz": 174.329694344631,
               "relativeDb": -2.3863332032654165,
-              "powerFraction": 0.04589475400099117,
+              "powerFraction": 0.045894754000991175,
               "bandwidth3DbHz": 21.533203125,
               "spectralSharpnessQ": 8.09585519314749
             },
             {
               "frequencyHz": 293.70876335783555,
               "relativeDb": -2.492624464820994,
-              "powerFraction": 0.04478513835239936,
+              "powerFraction": 0.04478513835239937,
               "bandwidth3DbHz": 32.2998046875,
               "spectralSharpnessQ": 9.093205553391492
             },
             {
               "frequencyHz": 145.7755745876135,
               "relativeDb": -2.6850913812430512,
-              "powerFraction": 0.04284372554276166,
+              "powerFraction": 0.04284372554276167,
               "bandwidth3DbHz": 107.666015625,
               "spectralSharpnessQ": 1.3539608923148865
             }
@@ -8696,15 +8696,15 @@
               "highHz": 80,
               "effectiveHighHz": 80,
               "complete": true,
-              "fraction": 0.1007079968256886,
-              "relativeDb": -9.96936042461497
+              "fraction": 0.10070799682568861,
+              "relativeDb": -9.969360424614969
             },
             {
               "lowHz": 80,
               "highHz": 150,
               "effectiveHighHz": 150,
               "complete": true,
-              "fraction": 0.3362927278634422,
+              "fraction": 0.3362927278634423,
               "relativeDb": -4.732825239518707
             },
             {
@@ -8712,23 +8712,23 @@
               "highHz": 500,
               "effectiveHighHz": 500,
               "complete": true,
-              "fraction": 0.39733330613977047,
-              "relativeDb": -4.008450290386362
+              "fraction": 0.3973333061397705,
+              "relativeDb": -4.008450290386361
             },
             {
               "lowHz": 500,
               "highHz": 1500,
               "effectiveHighHz": 1500,
               "complete": true,
-              "fraction": 0.154182242923531,
-              "relativeDb": -8.119656408401195
+              "fraction": 0.15418224292353103,
+              "relativeDb": -8.119656408401193
             },
             {
               "lowHz": 1500,
               "highHz": 3000,
               "effectiveHighHz": 3000,
               "complete": true,
-              "fraction": 0.010287439504705556,
+              "fraction": 0.010287439504705558,
               "relativeDb": -19.876927056411372
             },
             {
@@ -8736,7 +8736,7 @@
               "highHz": 8000,
               "effectiveHighHz": 8000,
               "complete": true,
-              "fraction": 0.001196286742860106,
+              "fraction": 0.0011962867428601063,
               "relativeDb": -29.221647100499297
             }
           ]
@@ -10646,7 +10646,7 @@
           "peakHz": 233.15106259541216,
           "centroidHz": 682.4881923108632,
           "rolloff85Hz": 785.9619140625,
-          "flatness": 0.0010951074945347197,
+          "flatness": 0.0010951074945347178,
           "dominantPeaks": [
             {
               "frequencyHz": 233.15106259541216,
@@ -10672,7 +10672,7 @@
             {
               "frequencyHz": 260.91433436824576,
               "relativeDb": -2.278576022353851,
-              "powerFraction": 0.06128954449816736,
+              "powerFraction": 0.06128954449816737,
               "bandwidth3DbHz": 32.2998046875,
               "spectralSharpnessQ": 8.077892014908047
             },
@@ -11474,7 +11474,7 @@
           "analyzedLowHz": 21.533203125,
           "analyzedHighHz": 7999.5849609375,
           "peakHz": 62.94917656879971,
-          "centroidHz": 181.146993449021,
+          "centroidHz": 181.14699344902095,
           "rolloff85Hz": 226.0986328125,
           "flatness": 0.0020139044657858287,
           "dominantPeaks": [
@@ -11571,7 +11571,7 @@
               "highHz": 3000,
               "effectiveHighHz": 3000,
               "complete": true,
-              "fraction": 0.010051233481720448,
+              "fraction": 0.01005123348172045,
               "relativeDb": -19.977806385983857
             },
             {

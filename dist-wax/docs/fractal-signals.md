@@ -134,7 +134,18 @@ In textures, the common modulation knobs are labeled **Band spacing** and **Band
 
 **Input mix** ranges from zero to one and blends the microphone response with the generated or loaded-source response. **Input gain** ranges from zero to four and acts on the microphone before processing. Neither control enables the device, changes master output level, nor changes the loaded file itself. With microphone input disabled, the instrument uses its generated or local-source material. Static file profiles are unchanged by Analysis release; that control follows live energy with a fast attack and an adjustable decay.
 
-MIDI note-on retunes Root through the shared MIDI input setting, while the generated frequency relationships remain continuous. Canvas arrows belong to the gesture controls. The instrument does not generate MIDI output.
+## Browser MIDI
+
+Note On selects the score's reference pitch; it does not start Audio or Play.
+Note Off (including velocity-zero Note On) leaves the autonomous score, its
+scheduled ADSR gates, and master volume unchanged. Channel/poly aftertouch and
+CC11 expression have no per-key destination in this instrument and are consumed
+without changing the sound or master level. This prevents zero-pressure messages
+sent on key release from silencing the instrument. Velocity-sensitive keyboard
+voices are not implemented here. Explicit CC7 master volume and controller-profile
+macros retain their existing mappings; the WAX host path is unchanged.
+
+Canvas arrows belong to the gesture controls. The instrument does not generate MIDI output.
 
 ## Implementation and boundaries
 

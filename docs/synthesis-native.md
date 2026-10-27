@@ -86,6 +86,25 @@ This bank's synthetic PCM is not a substitute for those recordings. Loudness
 matching does not close that documented identity gap; accurate replacements
 need mechanism-specific work, properly licensed references and listening review.
 
+### Browser MIDI performance
+
+Incoming note velocity belongs to the note's voice and ADSR, never the master
+knob. CC11 scales expression on that input/channel; aftertouch adds up to a
+50% accent, capped at full per-note velocity. Poly pressure addresses only its
+key. These changes are smoothed without retriggering the envelope. Pitch bend
+is ±2 semitones on held MIDI notes, not the root-frequency control. CC64 sustains
+released keys; CC121 restores expression/bend/pressure and releases pedal-only
+notes; CC123 releases that input/channel's notes without stopping the sequence.
+CC120/MIDI Off retain the instrument-wide panic behavior. Sources and channels
+own their notes independently; repeated note-ons retrigger their own key.
+
+CC7 remains an explicit master-volume control. Profile macros take precedence
+over standard CC meanings. Sequencer/arpeggiator notes keep their authored
+velocities; MIDI performance does not rewrite the sequence, master or preset.
+Percussion notes use velocity/expression at each hit rather than changing the
+mix or retriggering already-ringing drums. These are browser mappings, not a
+claim of additional CLAP/MPE support.
+
 The page covers 53 synthesis methods and 17 stereo processors with eight presets each. Frequency, amplitude
 envelope, output, and the note gate are shared; method-specific controls retain
 their own DSP meanings. Synthesis defaults to **Mono**, with last-held-note priority. Select **Poly · 8 voices**
