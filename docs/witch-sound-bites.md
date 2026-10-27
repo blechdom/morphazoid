@@ -42,7 +42,7 @@ Variant sources and exact generation details:
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat`, `drop-quadruped` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow; the cupboard icon shares that PCM |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
-| `tree-l-system` | L-System Synth's Notes · Orchard chimes preset: native coral traversal, `LSystemEventClock`, note mapping/envelopes, `MorphazoidContourSynth` FM processor and preset lowpass; 15 notes in 2.4 seconds |
+| `tree-l-system` (legacy PCM) | Archived L-System Synth Notes · Orchard chimes excerpt: native coral traversal, `LSystemEventClock`, note mapping/envelopes, `MorphazoidContourSynth` FM processor and preset lowpass; the clickable tree now uses the live PM voice below |
 
 Normal bites last 2.4 seconds. BLECH MIDI, Syrinx and Creaturazoid last five
 seconds so their 3.2-second tree phrase continues during the dive. Existing
@@ -79,12 +79,18 @@ Changing a clip never replaces another visitor's still-playing phrase.
 The internal `roach-wings` clip follows the roach bite's clock, fades and release;
 it does not add another ingredient or a separately running instrument.
 
-Clicking the tree plays `tree-l-system` through one dedicated scene reader while
-its shape stays fixed. An audio-clocked pulse follows the native branching
-frontier; mushrooms, the die and presets choose new tree settings. Rapid clicks fade and restart that reader; they never
-consume an ingredient, duck the singer, or change the preset. It joins the
-shared flight delay/Fabric path. Hush, Reset and Audio off cancel it; no
-muted click is queued. `treeEnvelope`, `treeLevel` and `treeProgress` follow its audio clock.
+Clicking the tree triggers one live PM traversal across 15 native Pythagorean
+branches, using their path distances and fork power. Each branch has a 25 ms
+attack, 100 ms decay, 0.64 sustain and 350 ms release; the complete phrase lasts
+2.4 seconds. Spread changes turn angle and PM index from 3 to 8. Curl changes
+turn asymmetry, modulator ratio and stereo position, with a 40 ms parameter slew.
+An audio-clocked pulse follows the branching frontier. Clicking keeps the shape
+fixed; dragging edits it, while mushrooms and the shape charm choose new tree
+settings. A busy phrase ignores further triggers without queuing or restarting.
+It does not consume an ingredient, duck the singer or change the preset, and
+joins the shared flight delay. Fabric Filter remains a separate wind channel.
+Hush, Reset and Audio off cancel it. `treeEnvelope`, `treeLevel` and
+`treeProgress` follow its audio clock.
 
 The ongoing voice/fingers retain 72% of their backing gain during a featured
 drop. Fixed per-source trims balance the different native levels, with the
@@ -178,7 +184,8 @@ reauthors the actual MIDI, Rubix Acid, Monstroid and Candy Coil excerpts. The
 second reauthors Puggler, SIMD Chiptune, SIMD303 and the spider protest. Run
 `node scripts/build-witch-character-bites.mjs` to update only those four clips;
 both follow-ups preserve every other existing PCM byte.
-Append `--tree-only` to the base script to rebuild only the tree phrase. This is a source-asset authoring
+Append `--tree-only` to the base script to rebuild the legacy tree PCM excerpt;
+the live PM tree does not use that recording. This is a source-asset authoring
 command, separate from normal site/WAX builds. Mechanical audio tests cover
 finite output, differences between excerpts, phrase lifetime, repeated triggers,
 shared effects, clock continuity and Audio/Stop behavior. They do not establish

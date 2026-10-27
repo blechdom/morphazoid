@@ -11,7 +11,7 @@ function paintProbe() {
     const context=new Proxy({canvas,calls,globalAlpha:1,filter:'none',
       save(){stack.push(this.globalAlpha);},restore(){this.globalAlpha=stack.pop();},
       createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},
-    },{get(target,key){return key in target?target[key]:(...args)=>calls.push({type:key,args,color:target.strokeStyle,fill:target.fillStyle,alpha:target.globalAlpha});}});
+    },{get(target,key){return key in target?target[key]:(...args)=>calls.push({type:key,args,color:target.strokeStyle,width:target.lineWidth,fill:target.fillStyle,alpha:target.globalAlpha});}});
     canvas.getContext=()=>context;canvases.push(canvas);return canvas;
   }};
   return {context:document.createElement('canvas').getContext('2d'),canvases,images};
@@ -31,6 +31,10 @@ test('unchanged tree/web paint is reused, while topology and resolution invalida
   const treeCalls=tree.getContext('2d').calls.length,webCalls=web.getContext('2d').calls.length,count=canvases.length;
   const strokes=tree.getContext('2d').calls.filter(call=>call.type==='stroke').length;
   assert.equal(strokes,getWitchTree(state).segments.length*2,'cache retains every authored branch stroke');
+  assert.deepEqual([...new Set(tree.getContext('2d').calls.filter(call=>call.type==='stroke'&&call.color==='#10141e').map(call=>call.width))],[5.2],
+    'trunk and outer-branch outlines have one uniform width');
+  assert.deepEqual([...new Set(tree.getContext('2d').calls.filter(call=>call.type==='stroke'&&call.color!=='#10141e').map(call=>call.width))],[3.2],
+    'all rainbow branches have the same width regardless of depth');
   for(let frame=1;frame<=5;frame++)renderWitch(context,390,281,{...state,time:frame,handTime:frame,palette:frame,flightLift:.2,treeEnvelope:.8,treeProgress:frame*.1});
   assert.equal(tree.getContext('2d').calls.length,treeCalls);assert.equal(web.getContext('2d').calls.length,webCalls);
   renderWitch(context,390,281,{...state,treeCurl:.77});

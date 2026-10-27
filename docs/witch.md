@@ -4,12 +4,14 @@ Witches Brew is one continuous animated instrument. Her cauldron voice and
 Gesticules fingers keep playing together, with different foreground balances in
 the presets. The scene starts still and silent. A real click in the picture
 arms Audio and fades in the performance. On the ground, pulling her hair firmly backward fades the
-ensemble over 3.2 seconds, then holds the scene still. Stirring wakes only her
-voice; bending her fingers wakes only the hand sounds. Each stays active, so
-you can bring the two parts back separately. The same gestures work from the
-initial quiet scene. Plucking the web starts only its own sound, leaving the
-voice, fingers and automatic background sounds asleep. The mushrooms and floor
-SHAPES charm restore the complete preset performance.
+ensemble over 3.2 seconds, then holds the scene still in manual mode. Stirring
+and face gestures play only her voice; held fingers play only those digits.
+They release when the gesture ends. Web plucks, tree phrases, ingredients and
+animal captures play independently without restoring automatic loops. Ingredient
+transitions still change the scene's settings, while manual mode stays active.
+The mushrooms and floor SHAPES charm restore the complete preset performance.
+Before the first hair hush, voice and hand gestures can wake their preset's
+automatic parts separately from the initial quiet scene.
 In flight, hair pulls reshape the shared delay while the ensemble keeps playing. The full-width picture contains the controls: mushrooms cycle presets,
 the floor SHAPES charm randomizes settings, and grounded hair pulling hushes the scene. There is no preset
 menu, playback/reset overlay, help button or parameter sidebar.
@@ -19,7 +21,7 @@ Brightness remains on the **+ / −** keys.
 | Gesture | Picture and sound |
 | --- | --- |
 | Stir faster, wider, or backward | The vortex and syllables follow speed, vowel opening and direction. |
-| Tap her left, spoon-holding hand (or O) | Cycles slow, medium and fast stirring, then reverses and cycles those speeds in the other direction. Resumes automatic stirring and wakes only the voice if the scene was quiet. Works on the ground and in flight. |
+| Tap her left, spoon-holding hand (or O) | Cycles slow, medium and fast stirring, then reverses and cycles those speeds in the other direction. After a hair hush it auditions a short voice phrase without restarting a loop; otherwise it resumes that part's automatic stirring. Works on the ground and in flight. |
 | Lift the spoon | Seven colored motes choose mutter, whisper, creak, cackle, singing, moon wail or hex chatter. |
 | Click her hat (or K) | Starts as the original intact hat. The first click leaves it intact, the second breaks it into burned scraps, and the third tumbles it into the cauldron. It stays gone until a new preset, ingredient spell or shape click; moon refills do not restore it. Dragging does not count as a click. |
 | Click her mouth | Advances to the next singing phrase and holds that character. |
@@ -32,7 +34,7 @@ Brightness remains on the **+ / −** keys.
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
 | Click a tree visitor | BLECH MIDI, Syrinx or Creaturazoid plays from its branch for 3.2 seconds, then dives into the pot. |
 | Grab the flying fabric | The green-and-pink Fabric Filter fills the flying background. Grab an exposed patch, stretch it, then release to ripple the cloth and filter its separate wind sound. The witch, moon, pot, mushrooms and hair noodles keep priority. The wind can play alone without waking the singer, fingers or background performers. |
-| Click or drag a branch | Click to play its native L-system sound bite, with a pulse travelling through the branches. Mushrooms and the die choose new tree settings. Drag outward to widen the branches, inward to close them, or up/down for asymmetric curling. The excerpt bends in pitch and stereo position with the tree. |
+| Click or drag a branch | Click to play one L-system PM phrase with a pulse travelling through the branches. Drag outward to widen the turn angle, inward to close it, or up/down for asymmetric curling. Those changes alter the live modulation and stereo image; a held drag never restarts the phrase. Mushrooms and the SHAPES charm choose new tree settings. |
 | Touch the spider or web | The actual Spider Synth says “Nooooo! Bad witch!” as it dives into the potion, returning with the other ingredients. The seven web strings remain separately playable in a menacing scale, with a clear plucked attack and creaky tension. They can wake on their own without starting the voice, fingers or background performers. |
 | Click the broom or Oculoid moon | Toggles flight. The moon also refills all shelf and tree ingredients. Both arms, hands, trailing legs, broom and wild hair travel with the witch. |
 | Pull and coil her flying hair noodles | Grab either red-and-cream strand and whip it into a new shape. Bring it near her hair for a small coil, or pull outward to fill half or all of the sky; release leaves a brief snaking recoil. Horizontal pulls change echo length, vertical pulls change pitch travel, spreading the coil reaches further into echo history, and winding circles raises or lowers feedback. |
@@ -55,12 +57,20 @@ and Dentaphone. Five real instrument icons sit on the cupboard top: Quadruped,
 Monstroid, Candy Coil Delay, SIMD Chiptune and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
 on an upper branch. Hybrinx appears once.
-The full-height tree uses the L-system Delay instrument's seven generation colors,
-with the moon behind its branches. The moon uses [Oculoid](../oculoid.html)'s
-actual lidless eye globe, rendered as a transparent sprite with its lunar glow
-retained. It sits farther left and gently follows the ladle's stirring circle;
-its click target follows it. Reduced motion keeps it stationary.
-The eye model in that portrait is DEGUIDER's
+The full-height tree uses uniform branch thickness and the L-system Delay
+instrument's seven generation colors. Each click plays one 2.4-second PM phrase
+with a sustained ADSR envelope. Branch spread changes its turn angle and
+modulation index from 3 to 8; curl changes asymmetry, modulator ratio and stereo
+position. Live edits do not restart the phrase, and clicks during a phrase do
+not queue another one.
+
+Behind its branches, [Oculoid](../oculoid.html)'s actual lidless eye globe turns
+in three dimensions with the ladle. It sits a little farther right, with no
+moon disc or glow behind it; its click target follows its small stirring sway.
+Quiet and reduced-motion states hold its pose. A small transparent snapshot
+renderer uses a texture-reduced copy of the native model, with no extra animation
+loop. The previous lidless portrait is a loading fallback.
+The eye model is DEGUIDER's
 [Realistic Human Eye](https://sketchfab.com/3d-models/realistic-human-eye-b68ae822b45443edb812950993ece362),
 licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), with Oculoid's
 authored iris color and lighting; [source and modifications](../assets/oculoid/SOURCE.LICENSE.txt).

@@ -27,6 +27,8 @@ MODELS = (
      "3eb51d0b612fb4b5f3b63c9e32ac145be191abcfd38ca7d3c5cf4fe0a7ee2d58"),
     ("tarantula-512.glb", "assets/spider-synth/skins/tarantula/spider-phone.glb", 512,
      "dce0fedb9965567af99b88acede759b40fb5a4a242dea0e3b193da835faa1d4e"),
+    ("eye-512.glb", "assets/oculoid/eye.glb", 512,
+     "c1b1747153264f34207e521cf9528576955892c5905644ce5638b5ab03bd137c"),
 )
 
 
@@ -49,7 +51,8 @@ def read_glb(data):
     binary = data[28 + json_size:]
     require(all("uri" not in buffer for buffer in document["buffers"]), "External buffer")
     require(all("uri" not in image for image in document["images"]), "External image")
-    require(document["buffers"][0]["byteLength"] == len(binary), "Unexpected binary padding")
+    declared = document["buffers"][0]["byteLength"]
+    require(0 <= len(binary) - declared <= 3 and not any(binary[declared:]), "Unexpected binary padding")
     return document, binary
 
 
@@ -79,7 +82,7 @@ def image_tail(document, binary):
 def resample_image(payload, edge):
     original = Image.open(io.BytesIO(payload))
     original.load()
-    require(original.size == (2048, 2048), "Review new source texture dimensions")
+    require(original.size in ((1024, 1024), (2048, 2048)), "Review new source texture dimensions")
     kind = original.format
     require(kind in ("JPEG", "PNG", "WEBP"), "Review texture encoding")
     if original.mode == "P":
@@ -154,10 +157,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, default=ROOT / "assets/witch")
     parser.add_argument("--check", action="store_true", help="Compare committed derivatives without writing")
+    parser.add_argument("--model", choices=[item[0] for item in MODELS], help="Build/check one named derivative")
     args = parser.parse_args()
     installed = {key: Image.__version__ if key == "pillow" else features.version(key) for key in TOOLS}
     require(installed == TOOLS, f"Reproducible build requires {TOOLS}; found {installed}. Use scripts/spider-phone-asset-requirements.txt.")
     for name, relative, edge, source_sha in MODELS:
+        if args.model and name != args.model:
+            continue
         source_path, target = ROOT / relative, args.output_root / name
         require(source_path.resolve() != target.resolve(), "Never overwrite source models")
         source = source_path.read_bytes()

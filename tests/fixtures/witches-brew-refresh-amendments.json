@@ -65,6 +65,14 @@
         {
           "before": "",
           "after": "copy+require\tassets/witch/hand-512.glb\ncopy+require\tassets/witch/hand-1024.glb\ncopy+require\tassets/witch/tarantula-512.glb\ncopy+require\tassets/witch/README.md\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/witch/witch-eye.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tassets/witch/eye-512.glb\n"
         }
       ]
     },

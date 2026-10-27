@@ -4,6 +4,7 @@ import { WITCH_CHARACTER_BITE_VARIANTS } from './witch-bite-character-variants.j
 import { WITCH_SOURCE_BITE_VARIANTS } from './witch-bite-source-variants.js';
 import { SpiderStrings } from '../spider-synth/spider-synth-string.js';
 import { SyrinxSourceEngine } from '../../families/syrinx/syrinx-source-models.js';
+import { L_SYSTEM_PRESETS, traceLSystem, branchAngleFrequency } from '../l-system/l-system.js';
 import { WITCH_BLECH_FLYBY_CYCLE, WITCH_BLECH_FLYBY_DURATION, WITCH_BLECH_FLYBY_EVENTS } from './witch-scene-model.js';
 
 const TAU = Math.PI * 2;
@@ -198,51 +199,126 @@ export class WitchPictureAccents {
   }
 }
 
-/** One native L-System phrase reader. Repeated clicks coalesce behind a short
- * fade before restarting; they never stack voices or abruptly seek live PCM.
- * Branch edits bend the existing cursor rate and pan through a 40 ms slew. */
+const TREE_TRAVERSAL_SECONDS = 2.05;
+export const WITCH_TREE_PHRASE_SECONDS = TREE_TRAVERSAL_SECONDS + .35;
+// A bounded native Pythagorean tree, also used by the Witch's upright picture.
+// Its parent path distances schedule the forks together; no invented melody,
+// render timer or looping clip stands in for the branching traversal.
+const TREE_TRACE = traceLSystem({ ...L_SYSTEM_PRESETS.find(preset => preset.id === 'pythagorean'),
+  iterations: 3, angle: 45, turnAsymmetry: 0, maxSymbols: 512 });
+const treeUnit = value => Math.max(0, Math.min(1, Number.isFinite(Number(value)) ? Number(value) : .5));
+const treeSmooth = value => value * value * (3 - 2 * value);
+
+/** One finite, 15-branch PM traversal using L-System's native heading/power
+ * relationships. Each branch has attack, decay, a sustained body and release.
+ * Busy clicks are ignored, not queued; live geometry edits slew the running
+ * oscillators while the phrase's sample clock continues to its original end. */
 export class WitchTreePhrase {
   constructor(rate) {
-    this.dt = 1 / rate; this.clip = witchBiteClips()['tree-l-system'];
+    this.rate = rate; this.dt = 1 / rate; this.trace = TREE_TRACE;
     this.age = -1; this.gain = 0; this.envelope = 0; this.left = this.right = 0;
-    this.cursor = 0; this.playbackRate = this.targetRate = 1;
-    this.pan = this.targetPan = 0; this.slew = 1 - Math.exp(-this.dt / .04);
-    this.releasing = false; this.restart = false;
+    this.cursor = 0; this.frame = 0; this.onsets = 0;
+    this.modulationIndex = this.targetIndex = 5.5;
+    this.slew = 1 - Math.exp(-this.dt / .04); this.releasing = false;
+    this.lowL = this.lowR = 0;
+    this.lowpass = 1 - Math.exp(-TAU * Math.min(4200, rate * .32) / rate);
+    this.voices = TREE_TRACE.segments.map(segment => ({
+      segment, signedTurns: Math.round(segment.heading / (Math.PI / 4)),
+      startFrame: Math.round(segment.startDistance / TREE_TRACE.duration * TREE_TRAVERSAL_SECONDS * rate),
+      releaseFrame: Math.round(segment.endDistance / TREE_TRACE.duration * TREE_TRAVERSAL_SECONDS * rate),
+      attackFrames: Math.max(1, Math.round(rate * .025)), decayFrames: Math.max(1, Math.round(rate * .1)),
+      releaseFrames: Math.max(1, Math.round(rate * .35)), sustain: .64,
+      amplitude: .082 * Math.sqrt(segment.powerShare) * (1 - segment.forkDepth * .06),
+      phase: 0, modPhase: 0, frequency: 0, targetFrequency: 0, ratio: 0, targetRatio: 0,
+      panL: 0, panR: 0, targetPanL: 0, targetPanR: 0, envelope: 0, started: false,
+    }));
+    this.frames = Math.max(...this.voices.map(voice => voice.releaseFrame + voice.releaseFrames));
+    this.setControls();
   }
+  get progress() { return Math.min(1, this.cursor / TREE_TRAVERSAL_SECONDS); }
   setControls(treeSpread = .5, treeCurl = .5) {
-    const spread = Math.max(0, Math.min(1, Number.isFinite(Number(treeSpread)) ? Number(treeSpread) : .5));
-    const curl = Math.max(0, Math.min(1, Number.isFinite(Number(treeCurl)) ? Number(treeCurl) : .5));
-    this.targetRate = spread <= .5 ? .7 + spread * .6 : .6 + spread * .8;
-    this.targetPan = (curl - .5) * .44;
+    const spread = treeUnit(treeSpread), curl = treeUnit(treeCurl);
+    // Same angle/asymmetry mapping as the neutral upright Witch tree. Each
+    // signed turn inherits its ancestors; asymmetry offsets both fork sides.
+    this.targetAngle = 31 * (.76 + .48 * spread);
+    this.targetAsymmetry = -.08 + (curl - .5) * .36;
+    this.targetIndex = 3 + 5 * spread;
+    for (const voice of this.voices) {
+      const generation = voice.segment.generation;
+      const heading = this.targetAngle * Math.PI / 180 * (voice.signedTurns + generation * this.targetAsymmetry);
+      voice.targetRatio = 1.5 + generation * .12 + (curl - .5) * .9;
+      // Reserve room for index-eight sidebands, including low-rate offline
+      // rendering. The audible index itself always spans the full 3–8 range.
+      voice.targetFrequency = Math.min(branchAngleFrequency(heading, 147, 2.6),
+        this.rate * .4 / (1 + 10 * voice.targetRatio));
+      const pan = Math.max(-.85, Math.min(.85, Math.sin(heading) * .65 + (curl - .5) * .28));
+      voice.targetPanL = Math.cos((pan + 1) * Math.PI / 4);
+      voice.targetPanR = Math.sin((pan + 1) * Math.PI / 4);
+    }
   }
   trigger() {
-    if (this.age >= 0) { this.restart = true; this.releasing = true; }
-    else { this.age = 0; this.cursor = 0; this.gain = 0; this.releasing = false; }
+    if (this.age >= 0) return false;
+    this.age = this.cursor = this.frame = this.onsets = 0;
+    this.gain = 1; this.releasing = false; this.lowL = this.lowR = 0;
+    this.modulationIndex = this.targetIndex;
+    for (const voice of this.voices) {
+      voice.phase = voice.segment.index * 2.399963229728653;
+      voice.modPhase = voice.phase * .61803398875;
+      voice.frequency = voice.targetFrequency; voice.ratio = voice.targetRatio;
+      voice.panL = voice.targetPanL; voice.panR = voice.targetPanR;
+      voice.envelope = 0; voice.started = false;
+    }
+    return true;
   }
-  release() { this.restart = false; this.releasing = true; }
+  release() { this.releasing = true; }
   next(enabled) {
     this.left = this.right = this.envelope = 0;
-    this.playbackRate += (this.targetRate - this.playbackRate) * this.slew;
-    this.pan += (this.targetPan - this.pan) * this.slew;
     if (!enabled) this.release();
     if (this.age < 0) return;
-    if (this.releasing) {
-      this.gain = Math.max(0, this.gain - this.dt / (this.restart ? .008 : .035));
-      if (this.gain === 0) {
-        if (this.restart && enabled) { this.age = 0; this.cursor = 0; this.restart = false; this.releasing = false; }
-        else { this.age = -1; return; }
+    if (this.releasing) this.gain = Math.max(0, this.gain - this.dt / .035);
+    if (this.gain === 0 || this.frame >= this.frames) {
+      this.age = -1; this.gain = 0; this.lowL = this.lowR = 0;
+      for (const voice of this.voices) voice.envelope = 0;
+      return;
+    }
+    this.modulationIndex += (this.targetIndex - this.modulationIndex) * this.slew;
+    let left = 0, right = 0;
+    for (const voice of this.voices) {
+      const local = this.frame - voice.startFrame;
+      voice.envelope = 0;
+      if (local < 0 || this.frame >= voice.releaseFrame + voice.releaseFrames) continue;
+      if (!voice.started) {
+        if (this.releasing) continue; // Stop never admits a later fork.
+        voice.started = true; this.onsets++;
+        voice.frequency = voice.targetFrequency; voice.ratio = voice.targetRatio;
+        voice.panL = voice.targetPanL; voice.panR = voice.targetPanR;
       }
-    } else this.gain = Math.min(1, this.gain + this.dt / .012);
-    const position = this.cursor * this.clip.rate, index = Math.floor(position), blend = position - index;
-    if (index + 1 >= this.clip.frames) { this.age = -1; this.gain = 0; return; }
-    const sample = (this.clip.data[index] + (this.clip.data[index + 1] - this.clip.data[index]) * blend) * this.gain * .5;
-    // Rotate the existing stereo balance without changing its total power.
-    const cosine = Math.cos(this.pan), sine = Math.sin(this.pan);
-    this.left = sample * (.58 * cosine - .82 * sine);
-    this.right = sample * (.82 * cosine + .58 * sine);
-    this.envelope = this.gain * Math.min(1, (this.clip.frames / this.clip.rate - this.cursor) / (this.playbackRate * .12));
-    this.age += this.dt;
-    this.cursor += this.dt * this.playbackRate;
+      let envelope = voice.sustain;
+      if (local < voice.attackFrames) envelope = treeSmooth(local / voice.attackFrames);
+      else if (local < voice.attackFrames + voice.decayFrames) {
+        envelope = 1 - (1 - voice.sustain) * treeSmooth((local - voice.attackFrames) / voice.decayFrames);
+      } else if (this.frame >= voice.releaseFrame) {
+        envelope *= 1 - treeSmooth((this.frame - voice.releaseFrame) / voice.releaseFrames);
+      }
+      voice.envelope = envelope * this.gain;
+      voice.frequency += (voice.targetFrequency - voice.frequency) * this.slew;
+      voice.ratio += (voice.targetRatio - voice.ratio) * this.slew;
+      voice.panL += (voice.targetPanL - voice.panL) * this.slew;
+      voice.panR += (voice.targetPanR - voice.panR) * this.slew;
+      const step = TAU * voice.frequency * this.dt;
+      voice.phase = (voice.phase + step) % TAU;
+      voice.modPhase = (voice.modPhase + step * voice.ratio) % TAU;
+      // Native L-System PM form, rendered with this finite branch envelope.
+      const sample = Math.sin(voice.phase + this.modulationIndex * Math.sin(voice.modPhase))
+        * voice.amplitude * voice.envelope;
+      left += sample * voice.panL; right += sample * voice.panR;
+      this.envelope = Math.max(this.envelope, voice.envelope);
+    }
+    this.lowL += (left - this.lowL) * this.lowpass;
+    this.lowR += (right - this.lowR) * this.lowpass;
+    this.left = Math.tanh(this.lowL / .22) * .22;
+    this.right = Math.tanh(this.lowR / .22) * .22;
+    this.frame++; this.age = this.cursor = this.frame * this.dt;
   }
 }
 
@@ -264,7 +340,7 @@ export class WitchSceneDSP {
   }
   trigger(kind) {
     if (this.pictureAccents.trigger(kind)) return true;
-    if (kind === 'tree-l-system') { this.tree.trigger(); return true; }
+    if (kind === 'tree-l-system') return this.tree.trigger();
     if (/^web-[0-6]$/.test(kind)) {
       const index = Number(kind.at(-1));
       this.web.pluck(69 * WITCH_WEB_RATIOS[index], .66, (index - 3) / 4, WEB_SOUND, 6, index, 1, .19, null, 1, true, 0, -1, true);

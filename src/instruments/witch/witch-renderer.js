@@ -33,7 +33,7 @@ export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   die: Object.freeze({ x: 344, y: 657, r: 38 }),
-  moon: Object.freeze({ x: 660, y: 110, r: 78 }),
+  moon: Object.freeze({ x: 695, y: 110, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:52.5,scale:1.29}]),
   ghosts: Object.freeze([
@@ -98,36 +98,16 @@ export function getWitchMoon(state={}) {
 }
 function moon(c, state, flight) {
   const { x, y, r } = getWitchMoon(state);
+  if(state.eyeSurface) {c.drawImage(state.eyeSurface,x-r,y-r,r*2,r*2);return;}
   const doc=c.canvas?.ownerDocument;
   let eye=doc?moonImages.get(doc):null;
   if(doc&&!eye) {
     eye=doc.createElement('img');eye.decoding='async';watchPortrait(eye,c);eye.src=moonSource;
     moonImages.set(doc,eye);
   }
-  const active = ['moon','moan'].includes(state.event?.kind) ? Math.max(0, 1 - (state.event.age || 0) / 2) : 0;
-  glow(c, x, y, 156 + active * 20, `rgba(209,219,172,${.09 + active * .16})`);
-  ellipse(c, x, y, r, r, '#d4d7b1', '#e8e4c6', 1.2);
-  c.save(); c.beginPath(); c.arc(x, y, r - 1, 0, TAU); c.clip();
-  // Oculoid's real globe, captured with its lids hidden. A small orbit follows
-  // the ladle in either direction; drawing and picking share that position.
+  // Transparent native Oculoid capture while the small 3D snapshot loads.
+  // No moon disc, rim, glow or clip sits behind the actual floating eyeball.
   if(eye?.complete&&eye.naturalWidth)c.drawImage(eye,x-r,y-r,r*2,r*2);
-  else for (const [dx, dy, rx, ry, a] of [[-32,-25,23,17,.11],[28,12,19,29,.1],[-15,39,21,12,.1],[38,-41,13,9,.09],[-48,26,12,16,.08],[4,-43,9,13,.08],[6,6,20,15,.06]]) {
-    ellipse(c, x + dx, y + dy, rx, ry, `rgba(104,120,105,${a})`);
-    ellipse(c, x + dx + 2, y + dy + 2, rx - 3, ry - 3, null, '#ecedca29', .8);
-  }
-  // A struck moon rings out like a large, luminous metal disc.
-  if (active > .01) {
-    c.save(); c.globalAlpha = active * .8;
-    for (let i = 0; i < 3; i++) {
-      const wave = ((state.event.age || 0) * 41 + i * 27) % r;
-      ellipse(c, x, y, wave + 1, wave + 1, null, '#fbf7d6', 1.3 + active);
-    }
-    c.restore();
-  }
-  c.restore();
-  if (flight) {
-    c.save(); c.setLineDash([1, 9]); ellipse(c, x, y, r + 13, r + 13, null, '#e0dfbc57', 1.3); c.restore();
-  }
 }
 
 function background(c,state) {
@@ -838,7 +818,7 @@ function cachedScenery(c,state,id,geometry,bounds,paint) {
 }
 function paintTree(c,tree) {
   for(const segment of tree.segments) {
-    const points=[[segment.a.x,segment.a.y],[segment.b.x,segment.b.y]],width=1.1+(1-segment.depth)*4.5;
+    const points=[[segment.a.x,segment.a.y],[segment.b.x,segment.b.y]],width=3.2;
     line(c,points,'#10141e',width+2);
     line(c,points,TREE_COLORS[segment.generation%TREE_COLORS.length]+'d9',width);
   }

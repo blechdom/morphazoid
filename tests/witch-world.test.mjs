@@ -339,11 +339,11 @@ test('flying fabric paints behind the scene and both long hair locks carry Candy
     const world=canvases[1].getContext('2d').calls;
     const grid=world.map((call,index)=>({call,index})).filter(({call})=>call.kind==='stroke'&&['#68f7a49e','#ff5cada8'].includes(call.color));
     assert.ok(grid.length>40,'the native colored mesh spans the entire sky');
-    const moon=world.findIndex(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r);
     const eye=world.findIndex(call=>portraitUrl(call)?.endsWith('/oculoid-moon.webp'));
     const body=world.findIndex(call=>call.kind==='fill'&&call.path?.startsWith('M-67,-32'));
-    assert.ok(grid.at(-1).index<moon&&grid.at(-1).index<body,'moon and flying witch occlude the background cloth');
-    assert.ok(eye>moon&&eye<body,'the moon uses the lidless Oculoid globe behind the flying witch');
+    assert.ok(grid.at(-1).index<eye&&eye<body,'the floating Oculoid globe occludes the cloth behind the flying witch');
+    assert.ok(!world.some(call=>call.kind==='fill'&&call.ellipse?.x===WITCH_LAYOUT.moon.x&&call.ellipse?.y===WITCH_LAYOUT.moon.y&&call.ellipse?.rx===WITCH_LAYOUT.moon.r),
+      'no moon disc or outline sits behind the transparent eye');
     const {x,y,r}=WITCH_LAYOUT.moon;
     assert.deepEqual(world[eye].args,[x-r,y-r,r*2,r*2],'Oculoid retains the lunar size and hit target');
     const red=world.filter(call=>call.kind==='stroke'&&call.color==='#dc2f3f');
@@ -365,6 +365,18 @@ test('BLECH flybys use the larger actual instrument portrait',()=>{
         assert.ok(Math.abs(width-54*2.1)<1e-10&&Math.abs(height-54*2.1)<1e-10,'airborne artwork is forty percent larger than its former 1.5 scale');
       }
     }
+  } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
+});
+
+test('a native 3D eye snapshot replaces the sprite without a moon backing',()=>{
+  const previousPath=globalThis.Path2D;globalThis.Path2D=class {constructor(d){this.d=d;}};
+  try {
+    const {context,canvases}=captureWitchPaint(),eyeSurface={};
+    renderWitch(context,1000,720,{eyeSurface});
+    const world=canvases[1].getContext('2d').calls,eye=world.filter(call=>call.source===eyeSurface);
+    assert.equal(eye.length,1);assert.deepEqual(eye[0].args,[617,32,156,156]);
+    assert.equal(world.some(call=>portraitUrl(call)?.endsWith('/oculoid-moon.webp')),false);
+    assert.equal(world.some(call=>call.kind==='fill'&&call.ellipse?.x===695&&call.ellipse?.y===110&&call.ellipse?.rx===78),false);
   } finally {if(previousPath===undefined)delete globalThis.Path2D;else globalThis.Path2D=previousPath;}
 });
 

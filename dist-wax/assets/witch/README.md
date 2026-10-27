@@ -1,6 +1,6 @@
 # Witches Brew model derivatives
 
-These three models reduce texture download and decoding costs for Witches Brew.
+These four models reduce texture download and decoding costs for Witches Brew.
 They retain every source triangle, vertex attribute, joint, skin weight, animation,
 material and scene node. The full binary prefix containing geometry and rig data
 is byte-identical to the checked-in source, including the tarantula's existing
@@ -12,6 +12,7 @@ physical buffer size change. The source instruments keep their original assets.
 | `hand-512.glb` | 512 px | 1,690,168 | 3,812,180 |
 | `hand-1024.glb` | 1024 px | 2,241,004 | 3,812,180 |
 | `tarantula-512.glb` | 512 px | 4,437,776 | 4,730,584 |
+| `eye-512.glb` | 512 px | 1,719,488 | 2,728,632 |
 
 ## Attribution and licenses
 
@@ -26,6 +27,18 @@ violet natural iris, natural sclera, and default pupil/veins. Only the capture's
 renderer background is transparent. The globe is cropped to its alpha bounds,
 resized with eight pixels of padding, and encoded as WebP at quality 97.
 It retains the model's textures with Oculoid's iris tint, vessels and lighting.
+
+`eye-512.glb` is a texture-only derivative of that same **Realistic Human Eye**
+by **DEGUIDER**, under **CC BY 4.0**. Both native meshes, all 22,272 triangles,
+UVs, materials, transforms and embedded attribution are preserved. Its six
+1024-pixel PNG textures become 512-pixel PNGs; scalar, normal, transmission and
+alpha channels remain losslessly encoded. Source and license links above apply.
+SHA-256: `6d954c04a8f9f6054554c9025b55b8c05242b23c39cee06afdc3cf54031730bc`.
+The Witch's small viewer turns the actual globe and iris in three dimensions,
+normalizes the source orientation, recolors iris fibers with Oculoid's violet
+palette, and adds Oculoid's pupil overlay and studio lighting. It creates no
+eyelid shell or lunar backing. Its transparent snapshot freezes when quiet;
+the WebP remains a loading/context fallback. Neither creator endorses Morphazoid.
 
 `hand-512.glb` and `hand-1024.glb` are texture-resized derivatives of
 [Rigged hand](https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e)
@@ -58,6 +71,8 @@ From the repository root:
 python3 scripts/build-witch-model-textures.py
 python3 scripts/build-witch-model-textures.py --check
 ```
+
+Use `--model eye-512.glb` to build or check only the eye derivative.
 
 The builder uses the existing [Pillow 10.2.0 build dependency](../../scripts/spider-phone-asset-requirements.txt)
 and verifies libwebp 1.3.2, libjpeg-turbo 2.1.5/JPEG API 8.0 and zlib 1.3.

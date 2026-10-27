@@ -162,20 +162,17 @@ test('the falling spider speaks through its native clip while the web stays sile
   assert.ok(rms(render(dsp, .1)) < 1e-7, 'speech releases without an endless web tail');
 });
 
-test('tree click plays the native L-System phrase through the scene mix with bounded retriggers and release', () => {
-  const clip = witchBiteClips()['tree-l-system'];
-  assert.equal(clip.instrumentId, 'l-systems'); assert.equal(clip.events, 15);
-  assert.match(WITCH_BITE_CLIPS['tree-l-system'].source, /native coral traversal.*MorphazoidContourSynth FM/);
+test('tree click plays one branching PM phrase through the scene mix with finite release', () => {
   const off = new WitchDSP(8000); assert.equal(off.trigger('tree-l-system'), false);
   const a = playing({ gate: false }, 8000), b = playing({ gate: false }, 8000);
   for (const dsp of [a, b]) assert.equal(dsp.trigger('tree-l-system'), true);
   const sound = render(a, .8); assert.deepEqual(sound, render(b, .8, 6400));
-  assert.ok(rms(sound) > .02); assert.ok(a.visual.treeEnvelope > .9); assert.ok(a.visual.treeLevel > .005);
+  assert.ok(rms(sound) > .02); assert.ok(a.visual.treeEnvelope > .25); assert.ok(a.visual.treeLevel > .005);
   assert.ok(a.visual.treeProgress>0&&a.visual.treeProgress<1, 'branch light follows an active audio playhead');
   assert.equal(a.drops.solo, 0); assert.equal(a.visual.dropKind, ''); assert.equal(a.visual.dropLevel, 0);
   render(a, 2); assert.equal(a.visual.treeEnvelope, 0); assert.ok(rms(render(a, .1)) < 1e-7);
   const tree = a.scene.tree, controls = JSON.stringify(a.controls);
-  for (let i = 0; i < 80; i++) { a.trigger('tree-l-system'); render(a, .004); }
+  for (let i = 0; i < 80; i++) { assert.equal(a.trigger('tree-l-system'), i === 0); render(a, .004); }
   assert.equal(a.scene.tree, tree); assert.equal(JSON.stringify(a.controls), controls);
   assert.ok(render(a, .2).every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
   for (const cancel of [dsp => dsp.releaseAccents(), dsp => dsp.setControls({ gate: false, ghostGate: false }), dsp => dsp.setEnabled(false)]) {
@@ -199,38 +196,39 @@ test('tree branch audio controls default neutral and normalize malformed or out-
   }
 });
 
-test('live branch edits bend a continuing sample cursor without seeking, restarting or losing a finite release', () => {
+test('live branch edits bend PM depth and ratio without seeking, restarting or losing a finite release', () => {
   const held = new WitchTreePhrase(8000), bent = new WitchTreePhrase(8000);
   held.trigger(); bent.trigger();
   for (let i = 0; i < 1200; i++) { held.next(true); bent.next(true); assert.equal(held.left, bent.left); }
-  const cursor = bent.cursor, age = bent.age, clip = bent.clip;
+  const cursor = bent.cursor, age = bent.age, voices = bent.voices.slice(), onsets = bent.onsets;
   bent.setControls(1, 1);
-  assert.equal(bent.cursor, cursor); assert.equal(bent.age, age); assert.equal(bent.restart, false);
-  let differenceEnergy = 0, largestRateStep = 0;
+  assert.equal(bent.cursor, cursor); assert.equal(bent.age, age); assert.equal(bent.onsets, onsets);
+  let differenceEnergy = 0, largestIndexStep = 0;
   for (let i = 0; i < 4000; i++) {
-    const before = bent.cursor, previousRate = bent.playbackRate;
+    const before = bent.cursor, previousIndex = bent.modulationIndex;
     held.next(true); bent.next(true);
     differenceEnergy += (held.left - bent.left) ** 2 + (held.right - bent.right) ** 2;
-    assert.ok(bent.cursor > before && bent.cursor - before <= bent.dt * 1.4 + 1e-12, 'the source position only advances by its bounded rate');
-    largestRateStep = Math.max(largestRateStep, Math.abs(bent.playbackRate - previousRate));
+    assert.ok(Math.abs(bent.cursor - before - bent.dt) < 1e-12, 'geometry edits do not speed up or rewind the phrase');
+    largestIndexStep = Math.max(largestIndexStep, Math.abs(bent.modulationIndex - previousIndex));
   }
   assert.ok(differenceEnergy > .01, 'branch motion changes the rendered phrase');
-  assert.ok(largestRateStep < .002 && bent.playbackRate > 1.399, 'the pitch reaches its target through a short slew');
+  assert.ok(largestIndexStep < .01 && bent.modulationIndex > 7.999, 'PM depth reaches eight through a short slew');
+  assert.ok(bent.voices[0].ratio > 1.949, 'turn asymmetry changes the live modulator ratio');
   assert.equal(bent.age, held.age, 'the elapsed gesture clock does not seek with pitch');
-  assert.equal(bent.clip, clip); assert.equal(bent.restart, false);
+  assert.ok(bent.voices.every((voice, index) => voice === voices[index]), 'edits retain the fixed voice bank');
   bent.release(); for (let i = 0; i < 400; i++) bent.next(true);
   assert.equal(bent.left, 0); assert.equal(bent.right, 0); assert.equal(bent.age, -1);
   bent.setControls(0, 0); bent.trigger();
   for (let i = 0; i < 32000; i++) {
     bent.next(true);
     assert.ok(Number.isFinite(bent.left) && Number.isFinite(bent.right));
-    assert.ok(bent.playbackRate >= .7 && bent.playbackRate <= 1.4);
+    assert.ok(bent.modulationIndex >= 3 && bent.modulationIndex <= 8);
   }
-  assert.equal(bent.age, -1, 'even the slowest phrase ends without another trigger');
+  assert.equal(bent.age, -1, 'the phrase ends without another trigger');
   assert.equal(bent.left, 0); assert.equal(bent.right, 0);
 });
 
-test('branch spread and curl reach the scene sound as audible pitch and modest stereo motion', () => {
+test('branch spread and curl reach the scene sound as PM timbre, pitch and modest stereo motion', () => {
   const phrase = controls => {
     const dsp = playing({ gate: false, ...controls }, 8000);
     dsp.trigger('tree-l-system');
@@ -242,7 +240,7 @@ test('branch spread and curl reach the scene sound as audible pitch and modest s
   const leftCurl = phrase({ treeCurl: 0 }), rightCurl = phrase({ treeCurl: 1 });
   for (const variant of [narrow, wide, leftCurl, rightCurl]) {
     assert.ok(difference(neutral.left, variant.left) + difference(neutral.right, variant.right) > .01);
-    assert.equal(variant.dsp.drops.solo, 0, 'branch motion uses the existing scene reader');
+    assert.equal(variant.dsp.drops.solo, 0, 'branch motion uses its independent scene voice');
     assert.ok(variant.left.every(value => Number.isFinite(value) && Math.abs(value) <= .840001));
     variant.dsp.setEnabled(false); render(variant.dsp, .2);
     assert.equal(variant.dsp.visual.treeEnvelope, 0); assert.ok(rms(render(variant.dsp, .1)) < 1e-7);

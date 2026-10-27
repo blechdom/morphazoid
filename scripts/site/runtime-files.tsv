@@ -2317,6 +2317,7 @@ copy+require	src/instruments/witch/witch-bite-native-variants.js
 copy+require	src/instruments/witch/witch-bite-character-variants.js
 copy+require	src/instruments/witch/witch-bite-source-variants.js
 copy+require	src/instruments/witch/witch-spider.js
+copy+require	src/instruments/witch/witch-eye.js
 copy+require	src/instruments/witch/witch-hand.js
 copy+require	src/instruments/witch/witch-visitors.js
 copy+require	src/instruments/witch/witch-visitors-model.js
@@ -2336,6 +2337,7 @@ copy+require	assets/witch/hand-512.glb
 copy+require	assets/witch/hand-1024.glb
 copy+require	assets/witch/tarantula-512.glb
 copy+require	assets/witch/README.md
+copy+require	assets/witch/eye-512.glb
 copy+require	docs/witch.md
 copy+require	docs/witch-sound-bites.md
 copy+require	docs/witch-native-variants.md

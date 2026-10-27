@@ -42,6 +42,10 @@ async function observeWorklet(page) {
         if(name==='witch-voice') {
           const post=this.port.postMessage.bind(this.port);
           this.port.postMessage=(message,...args)=>{
+            if(message.type==='controls'&&window.witchSourceProbe) {
+              const probe=window.witchSourceProbe;probe.controls++;
+              for(const key of ['brewEnabled','handEnabled','backingEnabled','stirAuto','handAuto','spoonAuto'])probe.flags[key] ||= message.controls[key]===true;
+            }
             if(message.type==='trigger') {
               window.witchTriggers.push(message.kind);
               if(message.kind.startsWith('drop-'))window.witchVariantTriggers.push({kind:message.kind,variant:message.variant});
@@ -55,6 +59,13 @@ async function observeWorklet(page) {
           this.port.addEventListener('message',({data})=>{
             if(data.type==='visual') {
               window.witchVisual=data;
+              if(window.witchSourceProbe) {
+                const probe=window.witchSourceProbe;probe.packets++;
+                for(const key of ['brewLevel','handLevel','ghostLevel','catLevel','flybyLevel','treeLevel','dropLevel']) {
+                  if(!Number.isFinite(data[key]))probe.finite=false;
+                  probe.peaks[key]=Math.max(probe.peaks[key]??0,Math.abs(data[key]??0));
+                }
+              }
               if(data.shapeCharmLevel>.0001)window.witchShapeEvidence[data.shapeCharmForm]=true;
               if(data.dropKind&&data.dropLevel>.0001)window.witchVariantEvidence.push({kind:data.dropKind,variant:data.dropVariant});
               if(data.dropKind&&data.dropLevel>.0001&&data.brewLevel>.0001&&data.handLevel>.0001) {
@@ -184,7 +195,10 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
     expect(await inputSnapshot(session,()=>document.querySelector('#witchCanvas').hasPointerCapture(window.witchTreePointerId))).toBe(true);
     expect(settings(await readDragState()),'a branch pickup does not change the tree').toEqual(settings(before));
     await move(from);expect(settings(await readDragState()),'zero movement keeps the captured settings').toEqual(settings(before));
-    for(let step=1;step<=5;step++)await move({x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5});
+    for(let step=1;step<=5;step++) {
+      await move({x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5});
+      if(drag.stepMs)await page.waitForTimeout(drag.stepMs);
+    }
     const held=await readDragState();
     if(touch)await session.send('Input.dispatchTouchEvent',{type:drag.cancel?'touchCancel':'touchEnd',touchPoints:[]});
     else {
@@ -409,7 +423,7 @@ async function wake(page,{touch=false}={}) {
   await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
   expect((await state(page))).toMatchObject({quiet:false,playing:true,presence:1});
 }
-async function bendFinger(page,{touch=false,index=2}={}) {
+async function bendFinger(page,{touch=false,index=2,holdMs=0}={}) {
   const session=await page.context().newCDPSession(page);
   try {
     const from=await inputSnapshot(session,({index})=>{
@@ -421,6 +435,7 @@ async function bendFinger(page,{touch=false,index=2}={}) {
     else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
     expect(await inputSnapshot(session,({index})=>window.witchInstrument.state.manualFingerMask&(1<<index),{index})).toBe(1<<index);
     const to={x:from.x+35,y:from.y+35};
+    if(holdMs)await page.waitForTimeout(holdMs);
     if(touch) {
       await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[to]});
       await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
@@ -701,19 +716,119 @@ test('stirring and fingers wake only their own part, including during a hair fad
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??1)).toBeLessThan(.000001);
   const held=(await state(page)).handTime;await page.waitForTimeout(150);
   expect((await state(page)).handTime).toBe(held);
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.0001);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??1)).toBeLessThan(.000001);
+  expect((await state(page)).activeParts).toEqual({brew:false,hand:false,backing:false});
   // Cancel the next long fade with a finger, keeping the singer asleep.
   await dragHair(page,.85);expect((await state(page)).hushing).toBe(true);
-  await bendFinger(page);
+  await bendFinger(page,{holdMs:180});
   expect(await state(page)).toMatchObject({hushing:false,parts:{brew:false,hand:true}});
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??1)).toBeLessThan(.000001);
-  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??0)).toBeGreaterThan(.0001);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??1)).toBeLessThan(.000001);
+  expect((await state(page)).activeParts).toEqual({brew:false,hand:false,backing:false});
   await page.waitForTimeout(3300);
   expect(await state(page)).toMatchObject({playing:true,parts:{brew:false,hand:true}});
   // Keyboard stirring joins in; a new preset restores its full arrangement.
   await key(page,'b');expect((await state(page)).parts).toEqual({brew:true,hand:true});
   await key(page,'Space');await key(page,'3');expect((await state(page)).parts).toEqual({brew:false,hand:true});
   await key(page,'w');expect((await state(page)).parts).toEqual({brew:true,hand:true});
+});
+
+
+test('hair hush keeps scene accents and held manual voices independent until a whole preset returns',async({page},testInfo)=>{
+  test.setTimeout(120000);await observeWorklet(page);await open(page);await wake(page);
+  await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
+  await audible(page);await dragHair(page,.85);
+  await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
+  expect((await state(page)).manualOnly).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>Math.max(window.witchVisual.brewLevel,window.witchVisual.handLevel,window.witchVisual.ghostLevel,window.witchVisual.catLevel,window.witchVisual.flybyLevel))).toBeLessThan(.000001);
+  const evidence=[];
+  const begin=()=>page.evaluate(()=>{window.witchSourceProbe={packets:0,controls:0,finite:true,flags:{},peaks:{}};});
+  const check=async(label,{allowed=[],positive=[]}={})=>{
+    const probe=await page.evaluate(()=>window.witchSourceProbe);
+    expect(probe.packets,label).toBeGreaterThan(0);expect(probe.controls,label).toBeGreaterThan(0);expect(probe.finite,label).toBe(true);
+    for(const [part,levels] of [['brew',['brewLevel']],['hand',['handLevel']],['backing',['ghostLevel','catLevel','flybyLevel']]]) {
+      if(allowed.includes(part))continue;
+      expect(Boolean(probe.flags[`${part}Enabled`]),`${label}: no transient ${part} wake`).toBe(false);
+      for(const level of levels)expect(probe.peaks[level]??0,`${label}: ${level}`).toBeLessThan(.000001);
+    }
+    for(const flag of ['stirAuto','handAuto','spoonAuto'])expect(Boolean(probe.flags[flag]),`${label}: ${flag} stays manual`).toBe(false);
+    for(const level of positive)expect(probe.peaks[level]??0,`${label}: ${level} was audible`).toBeGreaterThan(.0001);
+    expect((await state(page)).manualOnly,label).toBe(true);
+    evidence.push({label,...probe});
+  };
+  const released=async()=>{
+    await expect.poll(async()=>(await state(page)).activeParts).toEqual({brew:false,hand:false,backing:false});
+    await expect.poll(()=>page.evaluate(()=>Math.max(window.witchVisual.brewLevel,window.witchVisual.handLevel))).toBeLessThan(.000001);
+  };
+
+  // Capture every telemetry packet and sent source gate, including brief onsets.
+  await begin();await clickWorld(page,'web',{index:6});await page.waitForTimeout(250);
+  expect(await page.evaluate(()=>window.witchTriggers.includes('web-6'))).toBe(true);
+  const web=await sampleAudioEnvelope(page,{durationMs:150});expect(web.summary.maxPeak).toBeGreaterThan(.001);
+  await check('web solo');
+
+  await begin();
+  const treeTriggers=await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='tree-l-system').length);
+  await clickWorld(page,'tree');await page.waitForTimeout(180);
+  const branch=await clickWorld(page,'tree',{drag:{spread:55,dy:-35,stepMs:450}});
+  expect(await page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='tree-l-system').length)).toBe(treeTriggers+2);
+  expect(branch.held.config.treeSpread).not.toBe(branch.before.config.treeSpread);
+  expect(branch.held.config.treeCurl).not.toBe(branch.before.config.treeCurl);
+  await page.waitForTimeout(250);await check('tree phrase and live branch edit',{positive:['treeLevel']});
+
+  for(const id of ['roach','spider']) {
+    await begin();
+    if(id==='spider')await clickWorld(page,'spider');else await clickIngredient(page,id);
+    await expect.poll(()=>page.evaluate(id=>window.witchVisual.dropKind===`drop-${id}`&&window.witchVisual.dropLevel>.0001,id)).toBe(true);
+    // The ingredient's complete preset fade must preserve independent transport.
+    await expect.poll(async()=>(await state(page)).spellTransition,{timeout:7000}).toBeNull();
+    await check(`${id} drop and preset fade`,{positive:['dropLevel']});
+  }
+
+  // Wait for real sample-clock visits; no clock seek or synthetic capture.
+  for(const id of ['mouse','cat']) {
+    await begin();
+    await expect.poll(async()=>{
+      const current=await state(page),target=(id==='cat'?current.catTargets:current.visitorTargets[id])?.body;
+      return Boolean(target&&target.x>0&&target.x<1000&&target.y>0&&target.y<720);
+    },{timeout:45000,intervals:[100]}).toBe(true);
+    await clickAnimal(page,id);
+    await expect.poll(()=>page.evaluate(id=>window.witchVisual.dropKind===`drop-${id}`&&window.witchVisual.dropLevel>.0001,id)).toBe(true);
+    expect((await state(page)).capturedAnimals[id]).toBeTruthy();
+    await page.waitForTimeout(180);await check(`${id} capture`,{positive:['dropLevel']});
+  }
+
+  await begin();
+  const start=await point(page,440,520);await page.mouse.move(start.x,start.y);await page.mouse.down();
+  for(let i=1;i<=8;i++) {
+    const angle=Math.PI+i/8*Math.PI,p=await point(page,600+155*Math.cos(angle),520+48*Math.sin(angle));
+    await page.mouse.move(p.x,p.y);await page.waitForTimeout(55);
+  }
+  expect((await state(page)).activeParts).toEqual({brew:true,hand:false,backing:false});
+  await check('held stirring',{allowed:['brew'],positive:['brewLevel']});
+  await page.mouse.up();await released();
+
+  await begin();await dragWorld(page,'nose',35,0,{holdMs:220});await page.waitForTimeout(80);
+  await check('nose tweaks only the voice',{allowed:['brew'],positive:['brewLevel']});await released();
+  await begin();await clickWorld(page,'mouth');await page.waitForTimeout(250);
+  await check('mouth phrase audition',{allowed:['brew'],positive:['brewLevel']});await released();
+  await begin();await clickWorld(page,'spoon');await page.waitForTimeout(250);
+  await check('spoon hand audition',{allowed:['brew'],positive:['brewLevel']});await released();
+
+  for(const index of [0,2]) {
+    await begin();await bendFinger(page,{index,holdMs:250});await page.waitForTimeout(80);
+    await check(`held finger ${index}`,{allowed:['hand'],positive:['handLevel']});await released();
+  }
+  await begin();await key(page,'a');await key(page,'[');await key(page,'+');await page.waitForTimeout(180);
+  await check('animation and parameter edits preserve manual silence');await released();
+
+  await clickWorld(page,'mushrooms');
+  expect(await state(page)).toMatchObject({manualOnly:false,activeParts:{brew:true,hand:true,backing:true}});
+  await audible(page);
+  await dragHair(page,.85);await expect.poll(async()=>(await state(page)).quiet,{timeout:5000}).toBe(true);
+  await clickWorld(page,'die');
+  expect(await state(page)).toMatchObject({manualOnly:false,activeParts:{brew:true,hand:true,backing:true}});
+  await testInfo.attach('independent-source-evidence',{body:JSON.stringify(evidence,null,2),contentType:'application/json'});
 });
 
 test('web plucks wake alone and the shape charm and mushrooms restore the preset performance',async({page})=>{
@@ -1108,14 +1223,18 @@ test.describe('mobile rendering lifecycle',()=>{
     test.setTimeout(60000);
     let releaseMoon;
     const moonGate=new Promise(resolve=>{releaseMoon=resolve;});
-    await page.route('**/assets/witch/oculoid-moon.webp',async route=>{await moonGate;await route.continue();});
+    // Keep both native model and fallback portrait pending after the other
+    // models have settled, exercising each asynchronous invalidation path.
+    await page.route(/\/assets\/witch\/(?:oculoid-moon\.webp|eye-512\.glb)$/,async route=>{await moonGate;await route.continue();});
     try {
       await open(page,{waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady);
       await expect.poll(async()=>(await state(page)).renderQuality.pendingPaint).toBe(false);
       await page.waitForTimeout(500);
       const resting=await state(page);
+      expect(resting.eyeReady).toBe(false);expect(resting.eyeMetadata.renderCount).toBe(0);
       releaseMoon();
+      await page.waitForFunction(()=>window.witchInstrument.state.eyeReady);
       await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(resting.renderQuality.paints);
       await page.waitForTimeout(500);
       const loaded=await state(page);
@@ -1125,6 +1244,11 @@ test.describe('mobile rendering lifecycle',()=>{
       expect(still.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
       expect(still.handMetadata.renderCounts).toEqual(loaded.handMetadata.renderCounts);
       expect(still.spiderMetadata.renderCount).toBe(loaded.spiderMetadata.renderCount);
+      expect(loaded.eyeMetadata.renderCount).toBeGreaterThan(0);
+      expect(still.eyeMetadata.renderCount).toBe(loaded.eyeMetadata.renderCount);
+      expect(still.eyeMetadata).toMatchObject({loaded:true,source:'assets/witch/eye-512.glb',quality:{size:160,textureSize:512},bufferSize:[160,160]});
+      expect(still.eyeMetadata.texturePixels).toBeGreaterThan(0);
+      expect(still.eyeMetadata.texturePixels).toBeLessThanOrEqual(6*512*512);
       expect(still.handMetadata.texturePixels).toBeLessThanOrEqual(3*512*512);
       expect(still.handMetadata.modelUrl).toMatch(/\/assets\/witch\/hand-512\.glb$/);
       expect(still.spiderMetadata.texturePixels).toBe(512*512);
@@ -1132,13 +1256,15 @@ test.describe('mobile rendering lifecycle',()=>{
       await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(still.renderQuality.paints+2);
       await key(page,'Escape');await page.waitForTimeout(300);
       const hushed=await state(page);await page.waitForTimeout(500);
-      expect((await state(page)).renderQuality.paints).toBe(hushed.renderQuality.paints);
+      const stopped=await state(page);
+      expect(stopped.renderQuality.paints).toBe(hushed.renderQuality.paints);
+      expect(stopped.eyeMetadata.renderCount).toBe(hushed.eyeMetadata.renderCount);
       expect(hushed.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
     } finally {releaseMoon();}
   });
   test('rotation, tablet resizing and cached-page suspension preserve audio and touch control',async({page},testInfo)=>{
     test.setTimeout(60000);await observeWorklet(page);await open(page);await wake(page,{touch:true});
-    await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady);
+    await page.waitForFunction(()=>window.witchInstrument.state.handReady&&window.witchInstrument.state.spiderReady&&window.witchInstrument.state.eyeReady);
     // Manual fingers hold their pose while the tablet rotates; this verifies
     // coordinate preservation without chasing an animated fingertip.
     await preset(page,'fingertips');expect((await state(page)).config.handAuto).toBe(false);
@@ -1149,10 +1275,12 @@ test.describe('mobile rendering lifecycle',()=>{
     await expect.poll(async()=>(await state(page)).world.flightLift).toBe(1);
     const before=await state(page);
     for(const viewport of [{width:844,height:390},{width:768,height:1024}]) {
-      const paints=(await state(page)).renderQuality.paints;
+      const beforeResize=await state(page),paints=beforeResize.renderQuality.paints;
       await page.setViewportSize(viewport);
       await expect.poll(()=>page.locator('#witchCanvas').evaluate(canvas=>canvas.width)).toBe(Math.round(viewport.width*1.5));
       await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(paints);
+      await expect.poll(async()=>(await state(page)).eyeMetadata.renderCount).toBeGreaterThan(beforeResize.eyeMetadata.renderCount);
+      expect((await state(page)).eyeMetadata).toMatchObject({loaded:true,quality:{size:160,textureSize:512},bufferSize:[160,160]});
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
       await bendFinger(page,{touch:true});
       expect((await state(page)).config.scene).toBe('flight');
@@ -1161,10 +1289,13 @@ test.describe('mobile rendering lifecycle',()=>{
     expect((await state(page)).performanceTime).toBeGreaterThan(before.performanceTime);
     await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true})));
     const hidden=await state(page);await page.waitForTimeout(500);
-    expect((await state(page)).renderQuality.paints).toBe(hidden.renderQuality.paints);
+    const suspended=await state(page);
+    expect(suspended.renderQuality.paints).toBe(hidden.renderQuality.paints);
+    expect(suspended.eyeMetadata.renderCount).toBe(hidden.eyeMetadata.renderCount);
     expect(hidden.renderQuality).toMatchObject({pendingPaint:false,pendingTick:false});
     await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
     await expect.poll(async()=>(await state(page)).renderQuality.paints).toBeGreaterThan(hidden.renderQuality.paints);
+    await expect.poll(async()=>(await state(page)).eyeMetadata.renderCount).toBeGreaterThan(hidden.eyeMetadata.renderCount);
     await audible(page);
     await clickWorld(page,'die',{touch:true});expect((await state(page)).config.scene).toBe('flight');
     await page.screenshot({path:testInfo.outputPath('tablet-flight.png'),fullPage:true});
@@ -1254,7 +1385,11 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
           expect(pulled.config.trailFeedback).toBeGreaterThan(beforePull.config.trailFeedback);
           expect(pulled.performanceTime).toBeGreaterThan(beforePull.performanceTime);
         }
-        expect((await state(page)).config.scene).toBe(scene);await audible(page);
+        expect((await state(page)).config.scene).toBe(scene);
+        if(scene==='brew') {
+          expect((await state(page)).manualOnly).toBe(true);
+          await expect.poll(()=>page.evaluate(()=>Math.max(window.witchVisual.brewLevel,window.witchVisual.handLevel))).toBeLessThan(.000001);
+        } else await audible(page);
         await page.screenshot({path:testInfo.outputPath(`${label}-${scene}-hair.png`),fullPage:true});
         await clickWorld(page,'die',{touch});expect((await state(page)).config.scene).toBe(scene);
         // Return to a moderate authored hair amount for the next mode without
