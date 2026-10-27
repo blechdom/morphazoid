@@ -32,7 +32,7 @@ const miniatureSize=id=>topIconIds.has(id)?.8:(id==='blech'?1.5:1)*(treeIconIds.
 export const WITCH_LAYOUT = Object.freeze({
   width: 1000, height: 720,
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
-  die: Object.freeze({ x: 344, y: 657, r: 38 }),
+  die: Object.freeze({ x: 286, y: 657, r: 45.6 }),
   moon: Object.freeze({ x: 695, y: 110, r: 78 }),
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:52.5,scale:1.29}]),

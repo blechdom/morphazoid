@@ -12,7 +12,7 @@ function polygon(context,points,radius) {
 
 /** Small native Shapes wire sculpture. No labels, independent clock, image,
  * offscreen canvas or continually rotating decorative animation is needed. */
-export function drawWitchShapeCharm(context,state = {},anchor = {x:344,y:657,r:38}) {
+export function drawWitchShapeCharm(context,state = {},anchor = {x:286,y:657,r:45.6}) {
   const frame=getWitchShapeFrame(state),{x,y,r}=anchor;
   context.save();context.fillStyle='#080d19a8';context.beginPath();
   context.ellipse(x,y+r+4,r*.84,7,0,0,TAU);context.fill();
