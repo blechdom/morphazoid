@@ -806,7 +806,7 @@ class WitchGhostScream {
 }
 
 /** Fixed resources for the new potion ingredients. Roach shares its actual
- * contact percussion and wire rasp; Spider uses its bundled speech excerpt.
+ * contact percussion and wire rasp; Spider uses its bundled wordless vocal cries.
  * Throatazoid uses its own glottal spectrum and authored vowel resonances; the
  * legacy Oculoid slot is now the actual FM Drums factory-kit excerpt. The
  * remaining shelf objects reuse compact excerpts from their named instruments. */
@@ -886,7 +886,7 @@ const TASTE_VARIANT_TRIMS = Object.freeze({
   'drop-glass': [1, .8, .25], 'drop-hair': [1, 1.7, .9],
   'drop-oculoid': [1, .6, .63], 'drop-hiccup': [1, .31, .265],
   'drop-syrinx': [1, .48, .36], 'drop-eyeball': [1, .32, .35],
-  'drop-fractal': [1, .68, .84], 'drop-spider': [1, .7, .69],
+  'drop-fractal': [1, .68, .84], 'drop-spider': [1, .88, .88],
 });
 
 function spectrumSample(spectrum, phase, frequency, rate) {

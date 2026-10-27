@@ -48,16 +48,34 @@ for (const kind of kinds) test(`${kind} has audible, finite and distinct native 
   }
 });
 
-test('Spider cycles three complete native calls without the old accusation', () => {
+test('Spider cycles three wordless native cries that die away after the fall', () => {
   const calls = [WITCH_BITE_CLIPS['drop-spider'], ...WITCH_CHARACTER_BITE_VARIANTS['drop-spider'].slice(1)];
-  assert.deepEqual(calls.map(clip => clip.text), ['NOOOOOOOOO !!!!!', 'SPIIIIIIDER!!!!!!', 'I love you mom and dad!']);
+  const phones = new Map([['[[A:]]', 'ɑː'], ['[[u:]]', 'uː'], ['[[s]]', 's'], ['[[x]]', 'x']]);
   for (const clip of calls) {
-    assert.match(clip.source, /native SpiderSpeechPlayer/);
-    assert.doesNotMatch(clip.source, /bad witch/i);
+    assert.equal(clip.instrumentId, 'spider-synth');
+    assert.equal(clip.vocalizationKind, 'nonverbal');
+    assert.match(clip.source, /isolated phones.*native SpiderSpeechPlayer/);
+    assert.doesNotMatch(clip.source, /bad witch|noooo|spiiiider|mom and dad/i);
+    assert.equal('text' in clip, false);
+    assert.equal('words' in clip, false);
+    assert.equal(clip.rate, 22050);
     assert.equal(clip.frames, clip.rate * 2.4);
-    const samples = Buffer.from(clip.pcm, 'base64');
-    assert.equal(samples.readInt16LE(0), 0);
-    assert.equal(samples.readInt16LE(samples.length - 2), 0);
+    assert.ok(clip.phoneSources.length >= 4);
+    for (const source of clip.phoneSources) {
+      assert.ok(phones.has(source.input), 'the renderer receives only isolated raw phones');
+      assert.equal(source.phone.replace(/[ˈˌ]/g, ''), phones.get(source.input));
+    }
+    const gestures = new Set(clip.gestures.map(part => part.kind));
+    for (const kind of ['groan', 'scream', 'moan', 'rattle', 'hiss']) assert.ok(gestures.has(kind));
+    const pcm = Buffer.from(clip.pcm, 'base64');
+    assert.equal(pcm.length, clip.frames * 2);
+    const samples = Float32Array.from({ length: clip.frames }, (_, i) => pcm.readInt16LE(i * 2) / 32768);
+    assert.equal(samples[0], 0); assert.equal(samples.at(-1), 0);
+    const windowRms = (from, to) => rms(samples.subarray(Math.round(from * clip.rate), Math.round(to * clip.rate)));
+    assert.ok(windowRms(.05, .8) > .04);
+    assert.ok(windowRms(1.1, 1.6) > .04, 'the voice remains present through the fall');
+    assert.ok(windowRms(1.85, 2.35) < windowRms(1.1, 1.6) * .65, 'the saved cry weakens after impact');
+    assert.ok(samples.subarray(Math.round(2.35 * clip.rate)).every(value => value === 0));
   }
 });
 

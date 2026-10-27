@@ -38,7 +38,7 @@ Variant sources and exact generation details:
 | `drop-monstroid` | Monstroid's full native `ColonySyrinxPressureProcessor`, Many-mouth rough call (`air-many-mouth-freak`) |
 | `drop-candy-coil` | Native `MorphazoidBarberDelayProcessor`, Frozen Bog factory preset: 12 heads, eight-second history range and 0.9 feedback, fed by the native Rubix Acid excerpt; a 2.4-second section after six seconds of history |
 | `drop-puggler` | Puggler's actual drum recordings, Oi recording and punk-character vocal DSP, plus its native string-model fuzz-guitar voices; two bars at 224 BPM with choked eighth-note riffs, sixteenth-note drums and two Oi shouts |
-| `drop-spider` | Spider Synth's native speech characters, rendered by bundled Voicesaurus eSpeak NG and `SpiderSpeechPlayer`; “NOOOOOOOOO !!!!!”, “SPIIIIIIDER!!!!!!” and “I love you mom and dad!” cycle across clicks |
+| `drop-spider` | Spider Synth / native Silk buzz voice and `SpiderSpeechPlayer`; isolated eSpeak phones arranged into wordless groans, screams, moans and a fricative death rattle |
 | `drop-roach` wing layer | Roach Synth's actual `RoachBodyEngine`, Wing radio's synthesized outer-wing buzz and recorded vivarium rustle, in three accelerating flutter trains alongside its live feet and wire rasp |
 | `drop-cat`, `drop-quadruped` | The existing Witch Quadruped click-meow engine, independently sampled so capturing the walking cat cannot cut off its falling meow; the cupboard icon shares that PCM |
 | `drop-mouse`, `drop-lizard` | Quadruped's authored call pitch/type/filter contours in bounded scalar oscillator excerpts; these are fictional calls, not animal recordings |
@@ -101,9 +101,10 @@ quiet parts during playback.
 The web uses Spider Synth's actual string engine with seven closely spaced and
 inharmonic low ratios. Its slower noisy attack, damping, dispersion, smooth
 tension strain and lowpass trim make the strands quieter, lower and creakier.
-Dropping the spider plays its complete spoken protest, without triggering web
-plucks or the older two-mass groan. Its 2.4-second clip has silence after the
-spoken ending, leaving room before the ingredient reader's release envelope.
+Dropping the spider plays a wordless tumble of native vocal sounds without
+triggering web plucks or the older two-mass groan. Its 2.4-second clip weakens
+into a moan and breath rattle after impact, ending in silence before the
+ingredient reader's release envelope.
 The eye effect is a finite, coalesced 1.5-second buffer tear/ring/filter gesture
 after the shared mix. It leaves every performer's clock and flight-delay memory
 intact. Fabric filters the flying mix and smoothly bypasses on landing. Touching
@@ -146,14 +147,15 @@ mappers. Their authoring sources are
 shader ancestry and credits remain documented with the instrument in
 [`simd-chiptune.md`](simd-chiptune.md).
 
-The spider protest is original fictional dialogue rendered offline with the
-actual [`Spider Synth speech preset`](../src/instruments/spider-synth/spider-synth-speech.js)
-and [`native text renderer`](../src/families/speech/native-text.js). The source
-words are “No!”, “Spider!” and “I love you mom and dad!”. The first two clips
-stretch their stressed vowel while preserving consonants; the last retains
-complete-sentence timing. It is synthetic speech, with no actor recording or runtime speech
-service. The bundled eSpeak NG/Echogarden engine's upstream sources, GPL-3.0-or-later
-license and component notices remain in
+The spider cries are original fictional vocalizations rendered offline with the
+actual [`Spider Synth voice presets`](../src/instruments/spider-synth/spider-synth-speech.js)
+and [`native text renderer`](../src/families/speech/native-text.js).
+[`witch-spider-vocals.mjs`](../scripts/witch-spider-vocals.mjs) supplies isolated
+raw phones, checks their native phoneme events, and arranges the resulting
+vowels and fricatives into three wordless cries through `SpiderSpeechPlayer`.
+No source words, actor recording or runtime speech service are used. The bundled
+eSpeak NG/Echogarden engine's upstream sources, GPL-3.0-or-later license and
+component notices remain in
 [`vendor/espeak-ng/README.md`](../vendor/espeak-ng/README.md) and
 [`COPYING`](../vendor/espeak-ng/COPYING).
 
@@ -182,11 +184,11 @@ with the native-effects and character-bites generators, then
 `build-witch-native-variants.mjs`, `build-witch-character-variants.mjs` and
 `build-witch-source-variants.mjs`, each in a fresh process. The first
 reauthors the actual MIDI, Rubix Acid, Monstroid and Candy Coil excerpts. The
-second reauthors Puggler, SIMD Chiptune, SIMD303 and the spider protest. Run
+second reauthors Puggler, SIMD Chiptune, SIMD303 and the wordless spider cries. Run
 `node scripts/build-witch-character-bites.mjs` to update only those four clips;
 both follow-ups preserve every other existing PCM byte.
 Add `--spider-only` to the character-bites and character-variants scripts to
-regenerate just the three Spider calls without changing other instruments.
+regenerate just the three Spider cries without changing other instruments.
 Append `--tree-only` to the base script to rebuild the legacy tree PCM excerpt;
 the live PM tree does not use that recording. This is a source-asset authoring
 command, separate from normal site/WAX builds. Mechanical audio tests cover

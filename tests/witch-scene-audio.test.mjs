@@ -297,18 +297,19 @@ test('tree instruments keep playing through the perch phrase and dive while norm
   assert.ok(rms(render(ordinary, .1)) < 1e-6);
 });
 
-test('the falling spider speaks through its native clip while the web stays silent', () => {
+test('the falling spider cries wordlessly through its native clip while the web stays silent', () => {
   const dsp = playing({ gate: false }, 8000);
   const clip = witchBiteClips()['drop-spider'];
   assert.equal(clip.instrumentId, 'spider-synth');
-  assert.equal(WITCH_BITE_CLIPS['drop-spider'].text, 'NOOOOOOOOO !!!!!');
+  assert.equal(WITCH_BITE_CLIPS['drop-spider'].vocalizationKind, 'nonverbal');
   assert.equal(dsp.trigger('drop-spider'), true);
-  assert.ok(rms(render(dsp, 1.18)) > .02, 'the stretched protest is present');
-  assert.ok(rms(render(dsp, 1.1)) > .02, 'the long protest remains audible through the fall');
+  assert.ok(rms(render(dsp, 1.18)) > .02, 'the wordless cries are present');
+  assert.ok(rms(render(dsp, 1.1)) > .02, 'the dying moan remains audible through the fall');
   assert.equal(dsp.scene.groan, 0);
+  assert.equal(dsp.scene.webDormant, true);
   assert.ok(dsp.scene.web.voices.every(voice => voice.remaining <= 0));
   render(dsp, 2);
-  assert.ok(rms(render(dsp, .1)) < 1e-7, 'speech releases without an endless web tail');
+  assert.ok(rms(render(dsp, .1)) < 1e-7, 'the cry releases without an endless web tail');
 });
 
 test('tree click plays one branching PM phrase through the scene mix with finite release', () => {

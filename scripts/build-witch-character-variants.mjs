@@ -10,9 +10,7 @@ import { createWebGpuChiptunePattern, sanitizeWebGpuChiptuneSequence, packWebGpu
   webGpuChiptuneParamArray } from '../src/instruments/webgpu-chiptune/webgpu-chiptune.js';
 import { createSimd303Configuration } from '../src/simd-303.js';
 import { SIMD_303_EXPANSION_PRESETS } from '../src/simd-303-presets.js';
-import { spiderSpeechRequest, SPIDER_SPEECH_PRESETS } from '../src/instruments/spider-synth/spider-synth-speech.js';
-import { SpiderSpeechPlayer } from '../src/instruments/spider-synth/spider-synth-speech-player.js';
-import { renderNativeText } from '../src/families/speech/native-text.js';
+import { renderWitchSpiderVocal } from './witch-spider-vocals.mjs';
 
 const spiderOnly = process.argv.includes('--spider-only');
 const RATE = 22050, SECONDS = 2.4, FRAMES = Math.round(RATE * SECONDS);
@@ -55,7 +53,7 @@ function save(kind, instrumentId, label, source, data, events, details = {}) {
   const softPeak = peak * gain > .65;
   if (softPeak) {
     // Fixed offline peak mastering only. Short native spikes must not make an
-    // entire acid phrase or whispered sentence much quieter than the others.
+    // entire acid phrase or wordless cry much quieter than the others.
     const energyAt = drive => {
       let energy = 0;
       for (const value of data) energy += (.65 * Math.tanh(value * drive / .65)) ** 2;
@@ -230,45 +228,10 @@ for (const [id, timeScale] of [['sixteen-ratchet', 15.4], ['foldstorm', 14.8]]) 
 
 }
 
-// Native Spider speech characters, without any silk string sound. The long
-// Spider call stretches its stressed vowel, retaining the normal consonants.
-// The final sentence keeps native whole-sentence timing and complete words.
-for (const settings of [
-  { preset: 'silk-whisper', label: 'Spiiiider scream', words: 'Spider!', text: 'SPIIIIIIDER!!!!!!', rate: 110, pitch: 55, range: 24, stretchVowel: true },
-  { preset: 'cellar-rasp', label: 'Love you mom and dad', words: 'I love you mom and dad!', text: 'I love you mom and dad!', rate: 115, pitch: 32, range: 24 },
-]) {
-  const request = spiderSpeechRequest(settings.words, settings);
-  const utterance = await renderNativeText(request.engine, request.text, request.values);
-  let first = 0, last = utterance.samples.length - 1;
-  while (first < last && Math.abs(utterance.samples[first]) < .00015) first++;
-  while (last > first && Math.abs(utterance.samples[last]) < .00015) last--;
-  const margin = Math.round(utterance.sampleRate * .018);
-  first = Math.max(0, first - margin); last = Math.min(utterance.samples.length, last + margin + 1);
-  const data = new Float32Array(FRAMES);
-  if (settings.stretchVowel) {
-    const phones = utterance.events.filter(event => event.type === 'phoneme');
-    const vowelIndex = phones.findIndex(event => event.phone.includes('aɪ'));
-    if (vowelIndex < 0 || !phones[vowelIndex + 1]) throw new Error('Spider call is missing its native vowel timing');
-    const from = Math.round(phones[vowelIndex].start * utterance.sampleRate);
-    const to = Math.round(phones[vowelIndex + 1].start * utterance.sampleRate);
-    const startSeconds = (from - first) / utterance.sampleRate, endingSeconds = (last - to) / utterance.sampleRate;
-    const vowelSeconds = 2.17 - startSeconds - endingSeconds;
-    copyClip(data, RATE, { data: utterance.samples.subarray(first, from), rate: utterance.sampleRate }, { at: .025 });
-    copyClip(data, RATE, { data: utterance.samples.subarray(from, to), rate: utterance.sampleRate },
-      { at: .025 + startSeconds, speed: (to - from) / utterance.sampleRate / vowelSeconds });
-    copyClip(data, RATE, { data: utterance.samples.subarray(to, last), rate: utterance.sampleRate },
-      { at: .025 + startSeconds + vowelSeconds });
-  } else {
-    const sentence = { data: utterance.samples.subarray(first, last), rate: utterance.sampleRate };
-    if (sentence.data.length / sentence.rate > 2.17) throw new Error('Spider farewell exceeds its complete-word budget');
-    copyClip(data, RATE, sentence, { at: .025 });
-  }
-  const preset = SPIDER_SPEECH_PRESETS.find(item => item.id === settings.preset), player = new SpiderSpeechPlayer(RATE);
-  if (!player.speak(data, RATE, preset.gain)) throw new Error('Native Spider speech player rejected its clip');
-  save('drop-spider', 'spider-synth', settings.label,
-    `Spider Synth / ${preset.label} (${preset.variant}), bundled Voicesaurus ${preset.engine} + native SpiderSpeechPlayer / ${settings.text}`,
-    render((left, right) => { for (let i = 0; i < left.length; i++) left[i] = right[i] = player.sample(); }), settings.stretchVowel ? 1 : 6,
-    { text: settings.text, speechPreset: settings.preset });
+// Alternate native Spider timbres and wordless death-rattle arrangements.
+for (const variant of [1, 2]) {
+  const spider = await renderWitchSpiderVocal(variant, RATE, SECONDS);
+  save('drop-spider', 'spider-synth', spider.label, spider.source, spider.data, spider.events, spider.details);
 }
 
 for (const [kind, bank] of Object.entries(variants)) if (bank.length !== 3 || bank[0] !== null) throw new Error(`${kind}: expected original plus two alternates`);
