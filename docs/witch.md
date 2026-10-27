@@ -28,7 +28,7 @@ Brightness remains on the **+ / −** keys.
 | Pull her nose or hat | Nose length and vocal pitch/resonance change; both hat shapes stretch and change vocal texture, then relax when released. Nose reach is doubled and participates in presets and randomization. |
 | Pull her hair | Longer two-dimensional tugs stretch and curl the tangles. On the ground, a firm backward pull fades the complete mix over 3.2 seconds before resting; manual stirring fades in only her voice, while bending a finger wakes only the hand sounds. Bringing in one leaves the other asleep until its own gesture. In flight, pulling and circling change delay time, pitch travel, echo history and feedback, with no hush. |
 | Click her eyes | Orange darting eyes accompany a short electrical processing accent and jagged picture distortion. |
-| Tap the bloody face in the mist (or J) | Hiccup Head becomes solid and rushes forward with a scream, fills the picture, then vanishes. It stays out of the mist for six seconds afterward. Dragging the face still changes the ghost beat; a cancelled drag never triggers the scare. |
+| Tap any bloody face in the mist (or J) | Hiccup Head becomes solid and rushes forward with a scream, fills the picture, then vanishes. The lurking faces return as soon as the scream ends. Each visit can bring a different scream, length and level. Dragging a face still changes the ghost beat; a cancelled drag never triggers the scare. |
 | Touch her palm or bend a finger | The actual elongated Gesticules hand features its instrumental voices. An articulated elbow meets the wrist at the forearm angle. |
 | Click her forearm sleeve | Resumes automatic finger motion and cycles through the sixteen Gesticules hand animations while preserving the sound bank, tempo and flight/stirring mode. |
 | Click a shelf instrument | Its short sound bite plays while it flies into the pot; musical parameters and scene colors fade toward its preset during the flight. |
@@ -164,17 +164,20 @@ The third cat capture uses Quadruped's unicorn anatomy, gallop and Sparkle call:
 it reaches the potion, leaps out with a glittering coat, and runs off the edge.
 Only successful captures count; repeated clicks during a dive do not. Presets
 keep the tally, while Backspace or a page reload starts it over.
-Ghost portraits keep a background beat while grounded, with a more present
-Creaturazoid voice that remains behind the singer and fingers. They can still be
-raised or lowered to adjust the beat’s tempo.
-The larger Hiccup Head ghost retains the bloody red Zombie Zoid skin. Its
+Three copies of the bloody Hiccup Head face lurk behind the grounded witch.
+They remain faintly visible between beats and every face can trigger the scare.
+Their existing background beat, including Creaturazoid's voice, stays behind
+the singer and fingers. Drag a face up or down to adjust that beat's tempo.
+All three faces share the bloody red Zombie Zoid skin. Its
 transparent portrait at `assets/witch/hiccup-head-bloody.webp` is captured from
 Hiccup Head's native `drawFace` renderer with `wild-ink` selected and beat zero
-of its original `wild-ink-decay-fields.webp` atlas. Until tapped, it remains behind
-the witch and fades into the mist with the other ghosts; the shelf miniature keeps its
+of its original `wild-ink-decay-fields.webp` atlas. Until tapped, the faces remain behind
+the witch and breathe in the mist; the shelf miniature keeps its
 usual catalogue portrait. See the [skin provenance](https://github.com/blechdom/morphazoid/blob/main/assets/hiccup-head/skins/README.md).
-Its brief scream uses Hiccup Head's holler pressure and formant settings in a
-compact synthesized voice. The foreground portrait follows that voice's clock;
+The original scream, long wail, louder shriek and low rasp use Hiccup Head's
+holler pressure and formant settings in one compact synthesized voice.
+The first scare keeps the original sound; later visits choose a different variant
+without repeating immediately. The foreground portrait follows that voice's clock;
 reduced motion shows a stationary face instead of the rush.
 Regenerate the portrait with `scripts/render-witch-hiccup-ghost.mjs`, pointing
 `MORPHAZOID_QA_BASE_URL` at a running source preview.

@@ -3,7 +3,7 @@ import { drawWitchVisitors, hitTestWitchVisitors } from './witch-visitors.js';
 import { drawWitchShapeCharm } from './witch-shape.js';
 import { renderWitchColor, disposeWitchColor } from './witch-color.js';
 import { WITCH_INGREDIENTS, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_CUPBOARD_TOP, WITCH_VOICES } from './witch-model.js';
-import { getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
+import { getWitchBlechFlyby, getWitchGhostScream } from './witch-scene-model.js';
 import { traceLSystem, branchingSnapshotAtPhase, L_SYSTEM_PRESETS } from '../l-system/l-system.js';
 // Deformable Canvas scene with miniature instrument cutouts. Gesture geometry
 // and drawing use this same viewbox.
@@ -37,8 +37,8 @@ export const WITCH_LAYOUT = Object.freeze({
   hand: Object.freeze({ x: 388, y: 450, r: 47 }),
   mushrooms: Object.freeze([{x:844,y:610,r:52.5,scale:1.29}]),
   ghosts: Object.freeze([
-    Object.freeze({id:'creaturazoid',x:300,y:115,r:45,size:115,color:'#a7ccc7'}),
-    Object.freeze({id:'monstroid',x:590,y:80,r:44,size:116,color:'#a5bcd3'}),
+    Object.freeze({id:'creaturazoid',x:300,y:115,r:56,size:140,color:'#d58d94'}),
+    Object.freeze({id:'monstroid',x:590,y:80,r:56,size:142,color:'#d58d94'}),
     Object.freeze({id:'hiccup',x:640,y:188,r:68,size:174,color:'#d58d94'}),
   ]),
   bats:Object.freeze([]),spirits:Object.freeze([]),
@@ -1040,12 +1040,12 @@ export function getWitchGhostPosition(ghost, state = {}) {
   const home=WITCH_LAYOUT.ghosts[index];
   const phase=state.reducedMotion?0:(Number.isFinite(state.ghostPhase)?state.ghostPhase:0);
   const presence=clamp(state.ghostPresence?.[index]??.35),pulse=clamp(state.ghostPulses?.[index]);
-  const hidden=home.id==='hiccup'&&state.ghostScareHidden===true;
-  // A faint remnant remains reachable between phrases. Pulses breathe within
-  // the silhouette; only the explicit Hiccup scare leaves the background.
+  const hidden=state.ghostScareHidden===true;
+  // Every beat slot wears the same lurking face. Keep it discoverable even
+  // between phrases, then return as soon as the foreground rush has finished.
   return {...home,index,x:home.x+Math.sin(phase*.17+index*2.1)*12,
     y:home.y+Math.sin(phase*.23+index*1.7)*9,
-    presence,pulse,phase,hidden,alpha:hidden?0:.025+presence*(.17+pulse*.025),
+    presence,pulse,phase,hidden,alpha:hidden?0:.13+presence*(.14+pulse*.025),
     rotation:Math.sin(phase*.13+index)*.055,scale:1};
 }
 
@@ -1054,24 +1054,20 @@ export function getWitchGhostPosition(ghost, state = {}) {
  * geometry never advances time or adds a hit surface over the instrument.
  * Reduced motion shows the same brief full portrait without zoom or travel. */
 export function getWitchGhostScare(state = {}, width = 1000, height = 720) {
-  const scare=state.ghostScare,age=scare?.age;
-  if(scare?.id!=='hiccup'||!Number.isFinite(age)||age<0||age>=WITCH_GHOST_SCARE_DURATION)return null;
+  const scare=state.ghostScare,age=scare?.age,voice=getWitchGhostScream(scare?.variant),duration=voice.duration;
+  if(scare?.id!=='hiccup'||!Number.isFinite(age)||age<0||age>=duration)return null;
   const w=Number.isFinite(width)&&width>0?width:1000,h=Number.isFinite(height)&&height>0?height:720;
   const home=WITCH_LAYOUT.ghosts[2],stageScale=Math.min(w/1000,h/720);
   const origin=warpWitchPoint({x:clamp(scare.origin?.x??home.x,0,1000),y:clamp(scare.origin?.y??home.y,0,720)},state);
   const start={x:(w-1000*stageScale)/2+origin.x*stageScale,y:(h-720*stageScale)/2+origin.y*stageScale};
   const progress=clamp((age-.12)/.43),rush=state.reducedMotion?1:progress*progress;
-  const fade=clamp((age-.92)/(WITCH_GHOST_SCARE_DURATION-.92));
+  const fadeStart=duration-.33,fade=clamp((age-fadeStart)/.33);
   const size=home.size*stageScale+(Math.max(w,h)*1.28-home.size*stageScale)*rush;
-  return {id:'hiccup',age,progress,x:start.x+(w/2-start.x)*rush,y:start.y+(h/2-start.y)*rush,
+  return {id:'hiccup',variant:voice.index,duration,age,progress,x:start.x+(w/2-start.x)*rush,y:start.y+(h/2-start.y)*rush,
     width:size,height:size,alpha:1-fade*fade*(3-2*fade)};
 }
 
-const ghostSources=Object.freeze({
-  creaturazoid:new URL('../../../assets/instruments/creaturazoid.webp',import.meta.url).href,
-  monstroid:new URL('../../../assets/instruments/colony-syrinx.webp',import.meta.url).href,
-  hiccup:new URL('../../../assets/witch/hiccup-head-bloody.webp',import.meta.url).href,
-});
+const ghostSource=new URL('../../../assets/witch/hiccup-head-bloody.webp',import.meta.url).href;
 const ghostImages=new WeakMap();
 function removePortraitBackdrop(pixels) {
   const {data:rgba,width,height}=pixels;
@@ -1094,35 +1090,28 @@ function removePortraitBackdrop(pixels) {
     if(y>0)add(index-width);if(y<height-1)add(index+width);
   }
 }
-function ghostPortrait(c,ghost,solid=false) {
+function ghostPortrait(c,solid=false) {
   const doc=c.canvas?.ownerDocument;
   if(!doc)return null;
-  let portraits=ghostImages.get(doc);
-  if(!portraits) {portraits=new Map();ghostImages.set(doc,portraits);}
-  let portrait=portraits.get(ghost.id);
+  let portrait=ghostImages.get(doc);
   if(!portrait) {
-    const image=doc.createElement('img');image.decoding='async';watchPortrait(image,c);image.src=ghostSources[ghost.id];
-    portrait={image,surface:null};portraits.set(ghost.id,portrait);
+    const image=doc.createElement('img');image.decoding='async';watchPortrait(image,c);image.src=ghostSource;
+    portrait={image,surface:null};ghostImages.set(doc,portrait);
   }
   if(!portrait.image.complete||!portrait.image.naturalWidth)return null;
   // Keep the decoded original for the foreground rush: the spectral cache is
   // downsampled, tinted and faded along its lower half for background use only.
   if(solid)return portrait.image;
   if(!portrait.surface) {
-    // Three small, cached spectral portraits: retain each actual instrument's
-    // anatomy and internal detail without three live renderers or frame filters.
+    // All three apparitions share one cached spectral portrait, preserving the
+    // original transparent cutout without live face renderers or frame filters.
     const surface=doc.createElement('canvas');surface.width=surface.height=160;
     const ink=surface.getContext('2d');
     ink.drawImage(portrait.image,0,0,160,160);
     const pixels=ink.getImageData(0,0,160,160),rgba=pixels.data;
-    if(ghost.id!=='hiccup')removePortraitBackdrop(pixels);
-    const tint=[1,3,5].map(offset=>parseInt(ghost.color.slice(offset,offset+2),16));
     for(let p=0;p<rgba.length;p+=4) {
-      const gray=Math.min(255,(rgba[p]*.2126+rgba[p+1]*.7152+rgba[p+2]*.0722)*1.36+25.5);
       // Keep Zombie Zoid's native blood-red skin readable through the mist.
-      for(let channel=0;channel<3;channel++)rgba[p+channel]=ghost.id==='hiccup'
-        ? Math.min(255,rgba[p+channel]*1.15+18)
-        : gray*.6+tint[channel]*.4;
+      for(let channel=0;channel<3;channel++)rgba[p+channel]=Math.min(255,rgba[p+channel]*1.15+18);
       const y=Math.floor(p/4/160)/159;
       rgba[p+3]*=1-clamp((y-.52)/.48)*.93;
     }
@@ -1135,7 +1124,7 @@ function backgroundGhosts(c,state) {
   for(let index=0;index<WITCH_LAYOUT.ghosts.length;index++) {
     const ghost=getWitchGhostPosition(index,state);
     if(ghost.hidden)continue;
-    const portrait=ghostPortrait(c,ghost);
+    const portrait=ghostPortrait(c);
     c.save();c.translate(ghost.x,ghost.y);c.rotate(ghost.rotation);
     c.globalAlpha*=ghost.alpha;
     if(portrait) {
@@ -1155,7 +1144,7 @@ function backgroundGhosts(c,state) {
 function foregroundGhostScare(c,width,height,state) {
   const scare=getWitchGhostScare(state,width,height);
   if(!scare)return;
-  const portrait=ghostPortrait(c,WITCH_LAYOUT.ghosts[2],true);
+  const portrait=ghostPortrait(c,true);
   if(!portrait)return;
   c.save();c.globalAlpha*=scare.alpha;
   c.drawImage(portrait,scare.x-scare.width/2,scare.y-scare.height/2,scare.width,scare.height);

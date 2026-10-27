@@ -1,5 +1,5 @@
 import { normalizeWitchControls, sampleChant, witchClamp, witchHandConfig, applyWitchManualFingers, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_DROP_EFFECTS, WITCH_LAUNCH_DURATION, WITCH_TAU } from './witch-model.js';
-import { WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
+import { WITCH_GHOST_SCARE_DURATION, getWitchGhostScream } from './witch-scene-model.js';
 import { HandDSP } from '../gesticulating-hand/hand-dsp.js';
 import { createHandPose, createHandVoices, evaluateHandVoices, handPlayableFrequency, normalizeHandConfig } from '../gesticulating-hand/hand-model.js';
 import { RoachPercussion } from '../roach-synth/roach-synth-percussion.js';
@@ -741,6 +741,7 @@ class WitchGhostDSP {
 class WitchGhostScream {
   constructor(rate) {
     this.rate = rate; this.dt = 1 / rate;
+    this.scream = getWitchGhostScream();
     this.frames = Math.round(rate * WITCH_GHOST_SCARE_DURATION); this.frame = this.frames;
     this.phase = 0; this.random = 0x91c7; this.low = 0;
     this.release = 1; this.releasing = false; this.envelope = 0; this.left = this.right = 0;
@@ -752,12 +753,19 @@ class WitchGhostScream {
     this.lowpass = 1 - Math.exp(-TAU * Math.min(4800, rate * .36) / rate);
   }
   get active() { return this.frame < this.frames; }
-  get age() { return Math.min(WITCH_GHOST_SCARE_DURATION, this.frame * this.dt); }
-  trigger() {
+  get age() { return Math.min(this.scream.duration, this.frame * this.dt); }
+  trigger(variant = 0) {
     if (this.active) return false;
+    this.scream = getWitchGhostScream(variant);
+    this.frames = Math.round(this.rate * this.scream.duration);
     this.frame = 0; this.phase = 0; this.random = 0x91c7; this.low = 0;
     this.release = 1; this.releasing = false; this.envelope = 0; this.left = this.right = 0;
-    for (const filter of this.formants) filter.x1 = filter.x2 = filter.y1 = filter.y2 = 0;
+    for (let i = 0; i < this.formants.length; i++) {
+      const filter = this.formants[i];
+      filter.x1 = filter.x2 = filter.y1 = filter.y2 = 0;
+      filter.tune(HICCUP_SCREAM_PLAN.formantFrequenciesHz[i] * this.scream.formantScale,
+        HICCUP_SCREAM_PLAN.formantBandwidthsHz[i] * this.scream.bandwidthScale);
+    }
     return true;
   }
   cancel() { this.releasing = true; }
@@ -767,7 +775,7 @@ class WitchGhostScream {
     if (!this.active) { this.envelope = 0; return; }
     if (this.releasing) this.release = Math.max(0, this.release - this.dt / .035);
     if (this.release === 0) { this.frame = this.frames; this.envelope = 0; return; }
-    const t = this.age, u = this.frame / this.frames, position = u * 128;
+    const scream = this.scream, t = this.age, u = this.frame / this.frames, position = u * 128;
     const index = Math.min(127, Math.floor(position)), mix = position - index;
     const a = HICCUP_SCREAM_FRAMES[index], b = HICCUP_SCREAM_FRAMES[index + 1];
     const pressure = a.pressureDrive + (b.pressureDrive - a.pressureDrive) * mix;
@@ -776,21 +784,21 @@ class WitchGhostScream {
     const turbulence = a.turbulence + (b.turbulence - a.turbulence) * mix;
     let random = this.random; random ^= random << 13; random ^= random >>> 17; random ^= random << 5;
     this.random = random >>> 0; const noise = this.random / 0x80000000 - 1;
-    const rise = 1 - Math.exp(-t / .12), ragged = Math.max(0, (u - .48) / .52);
-    const hz = witchClamp(HICCUP_SCREAM_PLAN.glottalFrequencyHz * (1.1 + rise * 2.8)
-      * (1 + .012 * Math.sin(t * 39) + ragged * .035 * Math.sin(t * 83)), 70, Math.min(1500, this.rate * .16));
+    const rise = 1 - Math.exp(-t / scream.riseSeconds), ragged = Math.max(0, (u - .48) / .52);
+    const hz = witchClamp(HICCUP_SCREAM_PLAN.glottalFrequencyHz * (scream.pitchStart + rise * scream.pitchRise)
+      * (1 + scream.wobble * Math.sin(t * 39) + ragged * .035 * Math.sin(t * 83)), 70, Math.min(1500, this.rate * .16));
     const step = hz * this.dt;
     this.phase = (this.phase + step) % 1;
     const glottal = 2 * this.phase - 1 - polyBlep(this.phase, step);
-    const rasp = 1 - ragged * .3 + ragged * .3 * Math.sin(t * 61) * Math.sin(t * 97);
+    const rasp = 1 - ragged * scream.rasp + ragged * scream.rasp * Math.sin(t * 61) * Math.sin(t * 97);
     const source = glottal * voicing * pressure * rasp
-      + noise * (aspiration * .14 + turbulence * .22 + ragged * .045);
+      + noise * (aspiration * .14 + turbulence * .22 + ragged * .045) * scream.noise;
     const vowel = this.formants[0].next(source) * 3.1 + this.formants[1].next(source) * 2.4
       + this.formants[2].next(source) * 1.2 + Math.sin(this.phase * TAU) * pressure * voicing * .14;
     this.low += (vowel - this.low) * this.lowpass;
-    this.envelope = Math.min(1, t / .018, (WITCH_GHOST_SCARE_DURATION - t) / .24) * this.release;
-    // Character comes from pressure and pitch, not a jump in the master level.
-    const sample = Math.tanh(this.low * 2.6) * .15 * this.envelope;
+    this.envelope = Math.min(1, t / scream.attack, (scream.duration - t) / scream.tail) * this.release;
+    // Louder visits stay below .15 per channel before the shared mix limiter.
+    const sample = Math.tanh(this.low * 2.6) * scream.gain * this.envelope;
     this.left = sample * .72; this.right = sample * .69;
     if (++this.frame >= this.frames) this.envelope = 0;
   }
@@ -1399,6 +1407,7 @@ export class WitchDSP {
       shapeCharmActive: false, shapeCharmAge: WITCH_SHAPE_CHARM_DURATION, shapeCharmLevel: 0, shapeCharmForm: this.shapeCharm.form,
       ghostPhase: 0, ghostPresence: [0, 0, 0], ghostPulses: [0, 0, 0], ghostLevel: 0,
       ghostScreamActive: false, ghostScreamAge: WITCH_GHOST_SCARE_DURATION, ghostScreamEnvelope: 0,
+      ghostScreamDuration: WITCH_GHOST_SCARE_DURATION, ghostScreamVariant: 0,
       flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0, treeEnvelope: 0, treeLevel: 0,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false };
     this.setControls(this.controls);
@@ -1504,9 +1513,11 @@ export class WitchDSP {
         this.visual.unicornActive = true; this.visual.unicornAge = this.unicorn.age; this.visual.unicornLevel = 0;
       }
     } else if (kind === 'ghost-scream') {
-      accepted = this.ghostScream.trigger();
+      accepted = this.ghostScream.trigger(detail?.variant);
       if (accepted) {
         this.visual.ghostScreamActive = true; this.visual.ghostScreamAge = 0; this.visual.ghostScreamEnvelope = 0;
+        this.visual.ghostScreamDuration = this.ghostScream.scream.duration;
+        this.visual.ghostScreamVariant = this.ghostScream.scream.index;
       }
     } else if (kind === 'meow') accepted = this.controls.ghostGate && !this.controls.catCaptured && this.cat.triggerMeow();
     else if (kind === 'eye-shock') { this.shock.trigger(); accepted = true; }
@@ -1630,6 +1641,8 @@ export class WitchDSP {
     this.visual.ghostScreamActive = this.ghostScream.active;
     this.visual.ghostScreamAge = this.ghostScream.age;
     this.visual.ghostScreamEnvelope = this.ghostScream.envelope;
+    this.visual.ghostScreamDuration = this.ghostScream.scream.duration;
+    this.visual.ghostScreamVariant = this.ghostScream.scream.index;
     this.visual.fabricWindEnvelope = this.fabricWind.gain;
     this.visual.flybyTime = this.blechFlyby.time;
     this.visual.flybyLevel = Math.sqrt(flybyEnergy / Math.max(1, left.length));

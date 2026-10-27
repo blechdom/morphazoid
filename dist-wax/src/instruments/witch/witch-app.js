@@ -2,7 +2,7 @@ import { WitchAudio } from './witch-audio.js';
 import { createWitchTrailGesture, beginWitchTrailGesture, moveWitchTrailGesture, releaseWitchTrailGesture, advanceWitchTrailGesture, witchTrailSpaceAtPoint, witchHairDelayControls } from './witch-trail-gesture.js';
 import { createWitchFabricGesture, beginWitchFabricGesture, moveWitchFabricGesture, releaseWitchFabricGesture, advanceWitchFabricGesture } from './witch-fabric-gesture.js';
 import { WITCH_VOICES, WITCH_HAND_MOTIONS, WITCH_HAND_SOUNDS, witchSpoonHeight, witchVoiceAtHeight, witchGhostFrame } from './witch-model.js';
-import { blendWitchSpell, witchAccentEnvelope, witchWebCrossings, getWitchBlechFlyby, WITCH_GHOST_SCARE_DURATION } from './witch-scene-model.js';
+import { blendWitchSpell, witchAccentEnvelope, witchWebCrossings, getWitchBlechFlyby, WITCH_GHOST_SCREAMS, getWitchGhostScream } from './witch-scene-model.js';
 import { createWitchSpider } from './witch-spider.js';
 import { createWitchEye } from './witch-eye.js';
 import { getWitchVisitors, getWitchVisitorTargets } from './witch-visitors.js';
@@ -42,7 +42,7 @@ let performanceTime=0,lastPerformanceTick=performance.now();
 const catClock=createWitchCatClock(0,config);
 let catMeowAt=-Infinity, eyeShockAt=-Infinity, spiderAt=-Infinity, webAt=-Infinity, webIndex=0, fabricWindAt=-Infinity;
 let spellTransition=null,lastCatCaptured=false,hairHush=null;
-let ghostScare=null,ghostScareHiddenUntil=0;
+let ghostScare=null,ghostScreamVariant=-1;
 const HAIR_HUSH_SECONDS=3.2;
 const capturedAnimals={};
 let catCaptureCount=0;
@@ -135,6 +135,7 @@ function cue(kind) {
   const capture=kind==='unicorn-escape'?capturedAnimals.cat:null;
   const detail=kind==='shape-charm'?{form:getWitchShapeForm(shapeCharm.to).id,startedAt:shapeCharm.startedAt}:
     kind==='blech-frenzy'?{flybyIndex:blechFrenzyIndex}:
+    kind==='ghost-scream'?{variant:ghostScare?.variant??0}:
     kind==='web-strum'?webStrumDetail:
     capture?{startedAt:capture.startedAt,direction:capture.from.direction}:undefined;
   const accepted=audio.trigger(kind,detail);
@@ -143,7 +144,6 @@ function cue(kind) {
     // A rebuilt worklet has a new clock; stale telemetry belongs to its old node.
     ghostScare.afterAudioTime=ghostScare.audioNode===audio.node?audio.visual.audioTime??-1:-1;
     ghostScare.requestedAt=performance.now();
-    ghostScareHiddenUntil=performanceTime+WITCH_GHOST_SCARE_DURATION+6;
   }
 }
 function wakePerformance(part=null) {
@@ -159,7 +159,7 @@ function wakePerformance(part=null) {
   else if(!starting)void startAudio();
 }
 function wakePart(type,index) {
-  if(type==='ghost'&&index===2)return 'scare';
+  if(type==='ghost')return 'scare';
   if(type==='web'||type==='fabric')return type;
   if(['stir','spoon','mouth','nose','hat','brew'].includes(type))return 'brew';
   if(['finger','hand','sleeve'].includes(type))return 'hand';
@@ -349,10 +349,10 @@ function windFabric() {
 }
 function scareGhost(origin) {
   advancePerformanceTime();
-  if(ghostScare||(audio.running&&audio.visual.ghostScreamActive)||performanceTime<ghostScareHiddenUntil||config.scene==='flight')return;
+  if(ghostScare||(audio.running&&audio.visual.ghostScreamActive)||config.scene==='flight')return;
   const ghost=origin??getWitchGhostPosition('hiccup',visualState());
-  ghostScare={id:'hiccup',origin:{x:ghost.x,y:ghost.y},heard:false,audioNode:audio.node,afterAudioTime:-1,requestedAt:null};
-  ghostScareHiddenUntil=performanceTime+WITCH_GHOST_SCARE_DURATION+6;
+  ghostScreamVariant=ghostScreamVariant<0?0:(ghostScreamVariant+1+Math.floor(Math.random()*(WITCH_GHOST_SCREAMS.length-1)))%WITCH_GHOST_SCREAMS.length;
+  ghostScare={id:'hiccup',variant:ghostScreamVariant,origin:{x:ghost.x,y:ghost.y},heard:false,audioNode:audio.node,afterAudioTime:-1,requestedAt:null};
   cue('ghost-scream');
 }
 function clearGhostScare() {
@@ -364,12 +364,13 @@ function ghostScareState() {
   // Loading time is not part of the scare. Start the watchdog only when its
   // cue is sent, and still expire it if a stopped/rebuilt clock never replies.
   if(ghostScare.requestedAt===null)return null;
-  if(performance.now()-ghostScare.requestedAt>2000) {clearGhostScare();return null;}
+  const timeout=2000+(ghostScare.heard?getWitchGhostScream(ghostScare.variant).duration*1000:0);
+  if(performance.now()-ghostScare.requestedAt>timeout) {clearGhostScare();return null;}
   const v=audio.visual;
   if(v.audioTime<=ghostScare.afterAudioTime)return null;
   if(v.ghostScreamActive) {
     ghostScare.heard=true;
-    return {id:ghostScare.id,origin:ghostScare.origin,age:v.ghostScreamAge};
+    return {id:ghostScare.id,variant:v.ghostScreamVariant??ghostScare.variant,origin:ghostScare.origin,age:v.ghostScreamAge};
   }
   // Wait for the sound's first sample-clock packet, including initial Audio
   // startup. A finished or rejected cue never leaves a face stuck on screen.
@@ -425,7 +426,7 @@ function resetPerformance() {
   releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});
   catMeowAt=eyeShockAt=spiderAt=webAt=fabricWindAt=-Infinity;
   shapeCharm={from:0,to:0,startedAt:-Infinity};
-  ghostScareHiddenUntil=0;
+  ghostScreamVariant=-1;
   restoreHat();world.hairPullX=world.hairPullY=0;spellTransition=null;
   for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id];
   catCaptureCount=0;
@@ -468,7 +469,7 @@ function visualState() {
   const ghostPhase=liveParts().backing?(v?.ghostPhase??silentGhostPhase):silentGhostPhase;
   ghostFrames.forEach((out,i)=>witchGhostFrame(ghostPhase,i,out));
   return { ...config, ...motionSettings(), ...world, ...fabricGesture.visual, ...fabricGesture.audio, fabricHeld:fabricGesture.held, trailStrands:trailGesture.active?trailGesture.strands:undefined, playing, performanceTime, capturedAnimals,flybyTime:v?.flybyTime??silentFlybyTime,renderScale:renderBudget.scale,onInvalidate:requestPaint,
-    ghostScare:ghostScareState(),ghostScareHidden:Boolean(ghostScare)||performanceTime<ghostScareHiddenUntil,shapeCharm,eyeSurface,
+    ghostScare:ghostScareState(),ghostScareHidden:Boolean(ghostScare),shapeCharm,eyeSurface,
     treeEnvelope:playing?(v?.treeEnvelope??0):0,treeProgress:v?.treeProgress??0,
     flybyFrenzy:playing?(v?.flybyFrenzy??0):0,flybyFrenzyIndex:v?.flybyFrenzyIndex??blechFrenzyIndex,
     paletteFrom:spellTransition?.from.palette??config.palette,paletteTo:spellTransition?.to.palette??config.palette,paletteMix:spellTransition?.mix??1,
@@ -629,7 +630,7 @@ function releasePointer(e) {
   if(pointer?.id===e.pointerId && pointer.type==='fabric' && e.type!=='pointerup')releaseWitchFabricGesture(fabricGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='trail' && e.type!=='pointerup')releaseWitchTrailGesture(trailGesture,{cancel:true});
   if(pointer?.id===e.pointerId && pointer.type==='ghost') {
-    if(e.type==='pointerup'&&pointer.index===2&&!pointer.moved)scareGhost(pointer.origin);
+    if(e.type==='pointerup'&&!pointer.moved)scareGhost(pointer.origin);
     pointer=null;
     if(canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
     send();sync();return;
@@ -650,7 +651,7 @@ listen(canvas,'keydown',e => {
     e.preventDefault();return;
   }
   if(e.key.toLowerCase()==='j') {
-    if(!e.repeat&&config.scene!=='flight'&&performanceTime>=ghostScareHiddenUntil) {wakePerformance('scare');scareGhost();}
+    if(!e.repeat&&config.scene!=='flight') {wakePerformance('scare');scareGhost();}
     e.preventDefault();return;
   }
   if(e.isTrusted&&(/^[1-5]$/.test(e.key)||['[',']','Enter','-','_','+','=','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)||/^[aqerhmbwdfvxtsgpcnlko]$/i.test(e.key))) {

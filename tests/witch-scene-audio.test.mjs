@@ -7,7 +7,7 @@ import { WITCH_NATIVE_BITE_VARIANTS } from '../src/instruments/witch/witch-bite-
 import { WITCH_BITE_CLIPS } from '../src/instruments/witch/witch-bite-clips.js';
 import { normalizeWitchControls } from '../src/instruments/witch/witch-model.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
-import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE, WITCH_GHOST_SCARE_DURATION } from '../src/instruments/witch/witch-scene-model.js';
+import { getWitchBlechFlyby, WITCH_BLECH_FLYBY_CYCLE, WITCH_GHOST_SCARE_DURATION, WITCH_GHOST_SCREAMS, getWitchGhostScream } from '../src/instruments/witch/witch-scene-model.js';
 import { parseBlackMidiScore } from '../src/instruments/blech-midi/blech-midi-black-score.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
@@ -42,6 +42,58 @@ test('the foreground Hiccup scream is one finite sample-clock voice independent 
   assert.equal(a.visual.ghostScreamEnvelope, 0); assert.equal(rms(render(a, .1)), 0);
   assert.equal(a.trigger('ghost-scream'), true, 'a later accepted visit reuses the same voice');
   assert.equal(a.ghostScream, voice);
+});
+
+test('lurking face screams vary duration, pitch, rasp and level within one bounded voice', t => {
+  assert.equal(getWitchGhostScream().duration, WITCH_GHOST_SCARE_DURATION);
+  for (const invalid of [NaN, Infinity, undefined, '2', -1]) assert.equal(getWitchGhostScream(invalid), WITCH_GHOST_SCREAMS[0]);
+  assert.equal(getWitchGhostScream(1e9), WITCH_GHOST_SCREAMS.at(-1));
+  const controls = { gate: false, ghostGate: false, brewEnabled: false, handEnabled: false, backingEnabled: false };
+  for (const rate of [8000, 48000]) {
+    const dsp = playing(controls, rate), voice = dsp.ghostScream, formants = voice.formants.slice(), windows = [], metrics = [];
+    for (const scream of WITCH_GHOST_SCREAMS) {
+      assert.equal(dsp.trigger('ghost-scream', undefined, { variant: scream.index }), true);
+      assert.equal(dsp.visual.ghostScreamDuration, scream.duration);
+      assert.equal(dsp.visual.ghostScreamVariant, scream.index);
+      const before = render(dsp, .55), onset = before.subarray(Math.round(rate * .08));
+      windows.push(onset);
+      for (let i = 0; i < 20; i++) assert.equal(dsp.trigger('ghost-scream', undefined, { variant: scream.index + 1 }), false);
+      assert.equal(dsp.visual.ghostScreamVariant, scream.index, 'busy clicks do not replace the sounding variant');
+      assert.ok(Math.abs(dsp.visual.ghostScreamAge - .55) < 1e-9);
+      const remainder = render(dsp, scream.duration - .55);
+      assert.ok([...before, ...remainder].every(value => Number.isFinite(value) && Math.abs(value) < .84));
+      metrics.push({ id: scream.id, duration: scream.duration, attackRms: rms(onset),
+        peak: Math.max(before.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0),
+          remainder.reduce((peak, value) => Math.max(peak, Math.abs(value)), 0)) });
+      assert.equal(dsp.visual.ghostScreamActive, false);
+      assert.equal(dsp.visual.ghostScreamDuration, scream.duration);
+      assert.equal(dsp.visual.ghostScreamAge, scream.duration);
+      assert.equal(dsp.visual.ghostScreamEnvelope, 0);
+      assert.equal(rms(render(dsp, .08)), 0, 'every variant ends without sustaining a hidden voice');
+      assert.equal(dsp.ghostScream, voice);
+      assert.ok(formants.every((filter, i) => filter === voice.formants[i]), 'all visits reuse three resonators');
+    }
+    assert.ok(rms(windows[2]) > rms(windows[0]) * 1.1, 'the shriek is sometimes louder than the original rush');
+    const normalized = windows.map(window => { const level = rms(window); return window.map(value => value / level); });
+    for (let i = 0; i < normalized.length; i++) for (let j = 0; j < i; j++) {
+      assert.ok(difference(normalized[i], normalized[j]) > .5, 'variants differ after matching their levels');
+    }
+    t.diagnostic(JSON.stringify({ rate, screams: metrics }));
+  }
+});
+
+test('every scream variant releases after Stop, Audio off and accent cancellation', () => {
+  for (const scream of WITCH_GHOST_SCREAMS) for (const cancel of [
+    dsp => dsp.setControls({ gate: false }), dsp => dsp.setEnabled(false), dsp => dsp.releaseAccents(),
+  ]) {
+    const dsp = playing({ ghostGate: false, brewEnabled: false, handEnabled: false, backingEnabled: false }, 8000);
+    dsp.trigger('ghost-scream', undefined, { variant: scream.index });
+    render(dsp, .18); cancel(dsp);
+    assert.ok(rms(render(dsp, .01)) > .001, 'release retains a short tail instead of a hard cut');
+    render(dsp, .06);
+    assert.equal(dsp.visual.ghostScreamActive, false); assert.equal(dsp.visual.ghostScreamEnvelope, 0);
+    assert.equal(rms(render(dsp, .1)), 0);
+  }
 });
 
 test('the Hiccup scream joins witch flight echoes, bypasses Fabric and releases on Stop, mute and accent cancellation', () => {

@@ -3,8 +3,29 @@ import { witchVoiceAtHeight } from './witch-model.js';
 
 const discrete = new Set(['scene','voice','spoonAuto','stirAuto','handAuto','direction','palette','trip','visualMode','treeShape','handMotion','handSound','catGait']);
 
-// One finite Hiccup Head approach shares its duration with the scream voice.
+// The original Hiccup Head rush remains the default for existing callers.
 export const WITCH_GHOST_SCARE_DURATION = 1.25;
+// One bounded voice varies its reach, throat and level on successive visits.
+// The renderer shares the selected duration with the sample-clock scream.
+export const WITCH_GHOST_SCREAMS = Object.freeze([
+  { id: 'rush', duration: WITCH_GHOST_SCARE_DURATION, gain: .15,
+    pitchStart: 1.1, pitchRise: 2.8, riseSeconds: .12, wobble: .012,
+    rasp: .3, noise: 1, formantScale: 1, bandwidthScale: 1, attack: .018, tail: .24 },
+  { id: 'wail', duration: 2.35, gain: .17,
+    pitchStart: .85, pitchRise: 2.6, riseSeconds: .38, wobble: .045,
+    rasp: .18, noise: .65, formantScale: .84, bandwidthScale: .8, attack: .028, tail: .4 },
+  { id: 'shriek', duration: 1.8, gain: .205,
+    pitchStart: 1.5, pitchRise: 3.15, riseSeconds: .075, wobble: .026,
+    rasp: .58, noise: 1.35, formantScale: 1.18, bandwidthScale: 1.15, attack: .018, tail: .28 },
+  { id: 'rasp', duration: 2.6, gain: .185,
+    pitchStart: .5, pitchRise: 1.05, riseSeconds: .24, wobble: .033,
+    rasp: .82, noise: 2.1, formantScale: .68, bandwidthScale: 1.4, attack: .025, tail: .42 },
+].map((scream, index) => Object.freeze({ index, ...scream })));
+
+export function getWitchGhostScream(variant = 0) {
+  const index = Number.isFinite(variant) ? Math.max(0, Math.min(WITCH_GHOST_SCREAMS.length - 1, Math.floor(variant))) : 0;
+  return WITCH_GHOST_SCREAMS[index];
+}
 
 /** A potion flight morphs musical parameters without replacing clocks/devices. */
 export function blendWitchSpell(from, to, progress) {

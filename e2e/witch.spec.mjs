@@ -935,20 +935,20 @@ test('the hat starts intact, breaks on click two and falls on click three until 
   await key(page,'q');expect((await state(page)).hatStage).toBe('intact');
 });
 
-test('the bloody background face rushes forward with its own scream, vanishes and cancels cleanly',async({page},testInfo)=>{
-  test.setTimeout(45000);await page.emulateMedia({reducedMotion:'no-preference'});await observeWorklet(page);await open(page);
+test('all lurking faces rush forward with varied screams, return promptly and cancel cleanly',async({page},testInfo)=>{
+  test.setTimeout(60000);await page.emulateMedia({reducedMotion:'no-preference'});await observeWorklet(page);await open(page);
   await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
   const cues=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='ghost-scream').length);
-  await dragGhost(page,'hiccup',0,{cancel:true});expect(await cues()).toBe(0);
+  await dragGhost(page,'creaturazoid',0,{cancel:true});expect(await cues()).toBe(0);
   const before=(await state(page)).config.ghostTempo;
-  await dragGhost(page,'hiccup',-24);
+  await dragGhost(page,'creaturazoid',-24);
   expect((await state(page)).config.ghostTempo).toBeGreaterThan(before+15);expect(await cues()).toBe(0);
   // This tap also checks first-use Audio loading, before there is a worklet.
   await page.route('**/witch-worklet.js',async route=>{
     await new Promise(resolve=>setTimeout(resolve,2200));await route.continue();
   });
   await page.reload();await expect.poll(async()=>(await state(page)).handReady,{timeout:15000}).toBe(true);
-  await dragGhost(page,'hiccup',0,{touch:true});
+  await dragGhost(page,'creaturazoid',0,{touch:true});
   await expect.poll(cues).toBe(1);
   expect(await state(page)).toMatchObject({parts:{brew:false,hand:false},backingAwake:false,ghostScareHidden:true});
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamEnvelope??0)).toBeGreaterThan(.1);
@@ -960,10 +960,19 @@ test('the bloody background face rushes forward with its own scream, vanishes an
   expect((await sampleAudioEnvelope(page,{durationMs:100})).summary.clippedSamples).toBe(0);
   await expect.poll(async()=>(await state(page)).ghostScare).toBeNull();
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamActive??true)).toBe(false);
-  expect((await state(page)).ghostScareHidden).toBe(true);
-  expect((await state(page)).ghosts.find(ghost=>ghost.id==='hiccup').alpha).toBe(0);
-  await key(page,'j');expect(await cues()).toBe(1);
-  await key(page,'Backspace');await key(page,'j');await expect.poll(cues).toBe(2);
+  expect((await state(page)).ghostScareHidden).toBe(false);
+  expect((await state(page)).ghosts.every(ghost=>ghost.alpha>=.12)).toBe(true);
+  // Pick the longest alternate to catch any old two-second visual watchdog.
+  await page.evaluate(()=>{window.savedWitchRandom=Math.random;Math.random=()=>.99;});
+  await dragGhost(page,'monstroid',0);await expect.poll(cues).toBe(2);
+  await page.evaluate(()=>{Math.random=window.savedWitchRandom;});
+  await expect.poll(async()=>{
+    const face=(await state(page)).ghostScare;
+    return Boolean(face&&face.variant===3&&face.age>2.05&&face.alpha>.9);
+  },{intervals:[30]}).toBe(true);
+  expect(await state(page)).toMatchObject({parts:{brew:false,hand:false},backingAwake:false});
+  await expect.poll(async()=>(await state(page)).ghostScareHidden).toBe(false);
+  await dragGhost(page,'hiccup',0,{touch:true});await expect.poll(cues).toBe(3);
   await expect.poll(async()=>Boolean((await state(page)).ghostScare)).toBe(true);
   await key(page,'Escape');expect((await state(page)).ghostScare).toBeNull();
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.ghostScreamActive??true)).toBe(false);
