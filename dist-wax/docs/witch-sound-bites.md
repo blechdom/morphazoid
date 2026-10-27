@@ -1,14 +1,15 @@
 # Witches Brew sound bites
 
 The cauldron plays bounded excerpts. It does not start an interactive copy of
-each instrument. Each of the 27 visible Morphazoid icons cycles through three
-authored sounds on accepted clicks: 1 → 2 → 3 → 1. Each icon has its own counter;
+each instrument. The 27 visible Morphazoid icons cycle through their authored
+sounds on accepted clicks: BLECH MIDI has eight choices, and the other icons
+have three. Each icon has its own counter;
 refills, presets, flight/stirring changes and rebuilding Audio preserve it for
 the page session. A consumed icon still waits for a refill. Muted or rejected
 triggers do not advance the cycle or queue a later sound.
 
 The offline generators render mono PCM16 at 22,050 Hz. The base and three
-variant banks decode once when the audio worklet loads and share 11,907,000
+variant banks decode once when the audio worklet loads and share 11,972,272
 bytes of Float32 storage. BLECH's obsolete base passage is not decoded; the
 cupboard Quadruped and walking cat share their three clips. Playback uses
 interpolation, fixed voice pools and fixed source trims. No network request,
@@ -31,7 +32,7 @@ Variant sources and exact generation details:
 | `drop-dentaphone` | Dentaphone (`object-forge`), actual modal processor, Steel plates material and authored tooth brush route; frequencies follow a geometric progression |
 | `drop-marimba` | Rattlesnake (`linear-drums`), its frequency-dependent modal ratios, gains, damping and strike-noise parameters in a fixed scalar excerpt of 36 cascading strikes |
 | `drop-hyper-rubix` | Hyper Rubix (4D), its native eight-cell Hyper Kit parameter mapper and a bounded scalar rendition of its kick, sub, clap, snare, hats, W-axis stab and rim envelopes in a fast cell traversal |
-| `drop-blech` | Three dense bundled BLEEDING EDGE MONOTONE AUDIO MIDI passages: Lightstorm (4,274 attacks), Seven Red Suns (4,828), A Soul Of Steel (4,473); native SpessaSynth/TimGM6mb with original pitches, velocities, gates, channels, controllers and programs |
+| `drop-blech` | Five complete rin-w geometric patterns and three dense BLEEDING EDGE MONOTONE endings (Chasing Wind, Lightstorm, SWMG); native SpessaSynth/TimGM6mb, one octave up through global tuning, retaining source events and loop timing |
 | `drop-rubix` | Rubix 3D's actual `RubixSimd303Processor`, bundled SIMD WASM and Color circuit Acid bank; a scrambled 3×3 cube's three visible faces play the native snake sequence at 252 BPM, with 111 attacks |
 | `drop-chiptune` | SIMD Chiptune's native WASM processor and Source Tracker pattern, baked by its own `createWebGpuChiptunePattern` mapper; 192 BPM with shorter echoes and reduced noise/drum mix |
 | `drop-acid-303` | SIMD303's native WASM processor, Silver Squelch factory voice, sequence and step expression; the clock runs at 12.8 steps per second |
@@ -72,25 +73,27 @@ running the full alien-scale or wormhole network:
 | Syrinx | Songbird, Raven and Bullfrog source gestures |
 | Creaturazoid | Caw, Growl and Harsh calls with distinct phrase timing |
 
-BLECH's flying visitors independently cycle the same three dense passages.
+BLECH's flying visitors independently cycle the same eight patterns and endings,
+all one octave up with unchanged tempo and loop duration.
 Overlapping visitors keep their own selected clip; muted entrances are skipped.
 Changing a clip never replaces another visitor's still-playing phrase.
 
 The internal `roach-wings` clip follows the roach bite's clock, fades and release;
 it does not add another ingredient or a separately running instrument.
 
-Clicking the tree triggers one live PM traversal across 15 native Pythagorean
-branches, using their path distances and fork power. Each branch has a 25 ms
-attack, 100 ms decay, 0.64 sustain and 350 ms release; the complete phrase lasts
-2.4 seconds. Spread changes turn angle and PM index from 3 to 8. Curl changes
-turn asymmetry, modulator ratio and stereo position, with a 40 ms parameter slew.
-An audio-clocked pulse follows the branching frontier. Clicking keeps the shape
-fixed; dragging edits it, while mushrooms and the shape charm choose new tree
-settings. A busy phrase ignores further triggers without queuing or restarting.
-It does not consume an ingredient, duck the singer or change the preset, and
-joins the shared flight delay. Fabric Filter remains a separate wind channel.
-Hush, Reset and Audio off cancel it. `treeEnvelope`, `treeLevel` and
-`treeProgress` follow its audio clock.
+Clicking the tree triggers one live PM traversal across every visible branch
+of its current shape: 63–512 branches across six native L-system geometries.
+The root starts at 588 Hz. Branch distances determine note timing over a
+2.05-second traversal with 160 ms release tails, and each branch retains an
+ADSR envelope with 0.64 sustain. Spread changes turn angle and a gentler PM
+index from 1 to 3. Curl changes turn asymmetry, modulator ratio and stereo
+position, with a 40 ms parameter slew. Audio-clocked playheads follow the same
+branching frontier. Clicking keeps the shape fixed; dragging edits it, while
+mushrooms and the shape charm choose new tree settings. A busy phrase ignores
+further triggers without queuing or restarting. It does not consume an
+ingredient, duck the singer or change the preset, and joins the shared flight
+delay. Fabric Filter remains a separate wind channel. Hush, Reset and Audio
+off cancel it. `treeEnvelope`, `treeLevel` and `treeProgress` follow its audio clock.
 
 The ongoing voice/fingers retain 72% of their backing gain during a featured
 drop. Fixed per-source trims balance the different native levels, with the
@@ -165,9 +168,11 @@ Synth's own grain player. Its provenance and license remain in
 and [`manifest.json`](../assets/roach-synth/audio/manifest.json). The recording
 supplies movement texture; the fluttering wing buzz is synthesized.
 
-BLECH's three current passages are bundled creator AUDIO MIDI files by
-**BLEEDING EDGE MONOTONE**, supplied under CC0 1.0. Source hashes, passage times,
-credits and license records are linked in [native variant provenance](witch-native-variants.md).
+BLECH's five complete geometric patterns are by **rin-w / Black MIDI Patterns
+contributors**, under their public-use contribution terms. Three dense ending
+excerpts use bundled creator AUDIO MIDI files by **BLEEDING EDGE MONOTONE**,
+supplied under CC0 1.0. Source hashes, passage times, credits and license records
+are linked in [native variant provenance](witch-native-variants.md).
 The renderer preserves every attack in the selected passages and uses the
 native player's 128-voice limit, including its normal voice stealing.
 
@@ -196,7 +201,7 @@ finite output, differences between excerpts, phrase lifetime, repeated triggers,
 shared effects, clock continuity and Audio/Stop behavior. They do not establish
 human listening quality or physical controller feel.
 
-During flight, occasional BLECH MIDI flybys cycle the three dense `drop-blech`
+During flight, occasional BLECH MIDI flybys cycle the eight `drop-blech`
 PCM excerpts with stereo travel and a quiet fixed trim. Two dedicated readers feed the shared
 delay and fabric without consuming or featuring a potion ingredient. Their
 flight-only clock pauses on landing or Release; muting consumes missed entrances.

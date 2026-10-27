@@ -56,14 +56,14 @@ test('the higher root and live PM controls use each grammar’s exact inherited 
     const state = { treeShape: shape, treeSpread: spread, treeCurl: curl };
     const native = traceWitchTree(state), settings = witchTreeSettings(state);
     assert.equal(tree.targetAngle, settings.angle); assert.equal(tree.targetAsymmetry, settings.turnAsymmetry);
-    assert.equal(tree.targetIndex, 3 + 5 * spread); assert.equal(tree.scores, scores);
+    assert.equal(tree.targetIndex, 1 + 2 * spread); assert.equal(tree.scores, scores);
     for (const voice of notes(tree)) {
       assert.ok(Math.abs(voice.targetHeading - native.segments[voice.segment.index].heading) < 1e-12);
-      assert.equal(voice.targetFrequency, Math.min(branchAngleFrequency(voice.targetHeading, 294, 2.6),
-        tree.rate * .4 / (1 + 10 * voice.targetRatio)));
+      assert.equal(voice.targetFrequency, Math.min(branchAngleFrequency(voice.targetHeading, 588, 2.6),
+        tree.rate * .4 / (1 + 5 * voice.targetRatio)));
     }
   }
-  tree.setControls(.5, .5, 0); assert.equal(tree.voices[0].targetFrequency, 294);
+  tree.setControls(.5, .5, 0); assert.equal(tree.voices[0].targetFrequency, 588);
   tree.trigger(); render(tree, .4);
   const before = { frame: tree.frame, onsets: tree.onsets, phase: tree.voices[0].phase,
     frequency: tree.voices[1].targetFrequency, start: tree.voices[1].startFrame };
@@ -121,10 +121,10 @@ test('shape changes fade old notes without replay, and the next click uses the n
   assert.equal(tree.onsets, started); assert.equal(tree.age, -1); assert.equal(tree.left, 0);
 });
 
-test('the full PM depth range stays finite at low and normal rates and remains balanced with scene accents', () => {
+test('the gentler PM depth range stays finite at low and normal rates and remains balanced with scene accents', () => {
   for (const rate of [8000, 48000]) for (const shape of [0, 2, 5]) for (const spread of [0, 1]) for (const curl of [0, 1]) {
     const tree = new WitchTreePhrase(rate); tree.setControls(spread, curl, shape); tree.trigger();
-    assert.equal(tree.modulationIndex, spread ? 8 : 3);
+    assert.equal(tree.modulationIndex, spread ? 3 : 1);
     let energy = 0, peak = 0;
     for (let i = 0; i < Math.ceil((WITCH_TREE_PHRASE_SECONDS + .1) * rate); i++) {
       tree.next(true);

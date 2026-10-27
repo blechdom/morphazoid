@@ -57,15 +57,17 @@ Julie Saw, Puggler, Fractal Synthesis, Synthesaurus, Jaw Harp, Harmonicazoid
 and Dentaphone. Four real instrument icons sit on the cupboard top: Quadruped,
 Monstroid, Candy Coil Delay and SIMD 303.
 BLECH MIDI, Syrinx and Creaturazoid occupy separate branches, with Creaturazoid
-on an upper branch. Hybrinx appears once.
+on an upper branch. All eight BLECH MIDI sounds play one octave higher,
+including the tree drops, flying visitors and clicked sky bursts, with their
+existing rhythms and loop lengths. Hybrinx appears once.
 The full-height tree uses uniform branch thickness and the L-system Delay
 instrument's seven generation colors. Each click plays one PM note for every
-visible branch, with a higher 294 Hz starting note. Sound and playheads follow
+visible branch, with a higher 588 Hz starting note. Sound and playheads follow
 the same native branch distances and forks over one 2.05-second traversal,
 followed by short release tails. Each branch has a sustained ADSR envelope
 adapted to its length. Branch spread changes its turn angle and
-modulation index from 3 to 8; curl changes asymmetry, modulator ratio and stereo
-position. Live edits do not restart the phrase, and clicks during a phrase do
+gentler modulation index from 1 to 3; curl changes asymmetry, modulator ratio
+and stereo position. Live edits do not restart the phrase, and clicks during a phrase do
 not queue another one. Changing the tree shape releases the old phrase; click
 the new tree to play its own branches.
 

@@ -312,7 +312,7 @@ export class WitchTreePhrase {
     this.rate = rate; this.dt = 1 / rate;
     this.age = -1; this.gain = 0; this.envelope = 0; this.left = this.right = 0;
     this.cursor = 0; this.frame = 0; this.onsets = 0; this.onsetCursor = 0;
-    this.modulationIndex = this.targetIndex = 5.5;
+    this.modulationIndex = this.targetIndex = 2;
     this.slew = 1 - Math.exp(-this.dt / .04); this.releasing = false;
     this.lowL = this.lowR = 0;
     this.lowpass = 1 - Math.exp(-TAU * Math.min(4200, rate * .32) / rate);
@@ -360,16 +360,16 @@ export class WitchTreePhrase {
       this.selectScore(settings.shape);
     }
     this.targetAngle = settings.angle; this.targetAsymmetry = settings.turnAsymmetry;
-    this.targetIndex = 3 + 5 * settings.spread;
+    this.targetIndex = 1 + 2 * settings.spread;
     for (let index = 0; index < this.branchCount; index++) {
       const voice = this.voices[index], generation = voice.segment.generation;
       const heading = settings.angle * Math.PI / 180 * (voice.signed + voice.absolute * settings.turnAsymmetry);
       voice.targetHeading = heading;
       voice.targetRatio = 1.5 + generation * .12 + (settings.curl - .5) * .9;
-      // Reserve room for index-eight sidebands, including low-rate offline
-      // rendering. The audible index itself always spans the full 3–8 range.
-      voice.targetFrequency = Math.min(branchAngleFrequency(heading, 294, 2.6),
-        this.rate * .4 / (1 + 10 * voice.targetRatio));
+      // Reserve room for the gentler index-three sidebands, including
+      // low-rate offline rendering, while keeping the root an octave higher.
+      voice.targetFrequency = Math.min(branchAngleFrequency(heading, 588, 2.6),
+        this.rate * .4 / (1 + 5 * voice.targetRatio));
       const pan = Math.max(-.85, Math.min(.85, Math.sin(heading) * .65 + (settings.curl - .5) * .28));
       voice.targetPanL = Math.cos((pan + 1) * Math.PI / 4);
       voice.targetPanR = Math.sin((pan + 1) * Math.PI / 4);

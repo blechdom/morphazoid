@@ -37,11 +37,14 @@ passages are absent.
 
 Every original attack in each window, with its velocity and channel, reaches
 native SpessaSynth and TimGM6mb at 1.6 times source tempo, using BLECH's
-128-voice policy and native voice stealing. Notes are not thinned or transposed.
+128-voice policy and native voice stealing. All eight sounds are transposed
+up one octave through the native synth's global tuning (+1,200 cents), retaining
+every MIDI note ID, including the top octave of the 128-note patterns. Timing,
+velocity, note releases and loop lengths stay intact; no notes are thinned.
 Excerpt boundaries restore source controller/program state and held notes,
 releasing held voices at each wrap. Two preroll periods warm release tails.
-Source hashes, complete/window note counts, rate and loop periods remain in
-clip metadata. The lightweight recipe list is
+Source hashes, complete/window note counts, rate, transposition and loop periods
+remain in clip metadata. The lightweight recipe list is
 [`witch-blech-phrases.js`](../src/instruments/witch/witch-blech-phrases.js).
 
 Ingredients and flying visitors repeat that source period with a 25 ms overlap

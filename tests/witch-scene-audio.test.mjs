@@ -130,6 +130,8 @@ test('BLECH flybys loop geometric patterns and chromatic endings with two bounde
     const score = parseBlackMidiScore(midi.buffer.slice(midi.byteOffset, midi.byteOffset + midi.byteLength));
     assert.equal(clip.sourceSha256, createHash('sha256').update(midi).digest('hex'));
     assert.equal(clip.sourceTotalEvents, score.total);
+    assert.equal(clip.transposeSemitones, 12, 'every shared BLECH source is authored one octave higher');
+    assert.equal(clip.sourcePlayRate, WITCH_BLECH_PHRASES[index].speed, 'transposition preserves the source tempo');
     const starts=[],classes=new Set();
     for(let i=0;i<score.total;i++)if(score.starts[i]>=clip.sourceStart&&score.starts[i]<clip.sourceEnd) {
       starts.push(score.starts[i]-clip.sourceStart);classes.add(score.pitches[i]%12);
@@ -362,7 +364,7 @@ test('live branch edits bend PM depth and ratio without seeking, restarting or l
     largestIndexStep = Math.max(largestIndexStep, Math.abs(bent.modulationIndex - previousIndex));
   }
   assert.ok(differenceEnergy > .01, 'branch motion changes the rendered phrase');
-  assert.ok(largestIndexStep < .01 && bent.modulationIndex > 7.999, 'PM depth reaches eight through a short slew');
+  assert.ok(largestIndexStep < .01 && bent.modulationIndex > 2.999, 'PM depth reaches three through a short slew');
   assert.ok(bent.voices[0].ratio > 1.949, 'turn asymmetry changes the live modulator ratio');
   assert.equal(bent.age, held.age, 'the elapsed gesture clock does not seek with pitch');
   assert.ok(bent.voices.every((voice, index) => voice === voices[index]), 'edits retain the fixed voice bank');
@@ -372,7 +374,7 @@ test('live branch edits bend PM depth and ratio without seeking, restarting or l
   for (let i = 0; i < 32000; i++) {
     bent.next(true);
     assert.ok(Number.isFinite(bent.left) && Number.isFinite(bent.right));
-    assert.ok(bent.modulationIndex >= 3 && bent.modulationIndex <= 8);
+    assert.ok(bent.modulationIndex >= 1 && bent.modulationIndex <= 3);
   }
   assert.equal(bent.age, -1, 'the phrase ends without another trigger');
   assert.equal(bent.left, 0); assert.equal(bent.right, 0);

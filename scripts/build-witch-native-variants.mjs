@@ -132,6 +132,9 @@ for (const phrase of WITCH_BLECH_PHRASES) {
   await synth.processorInitialized;
   synth.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(font.buffer.slice(font.byteOffset, font.byteOffset + font.length)), 'witch-blech-phrases');
   synth.setSystemParameter('voiceCap', 128);
+  // Tune the soundfont voices in cents; changing note IDs would clip the
+  // top octave of the 128-note patterns. Timing and note-offs stay intact.
+  synth.setSystemParameter('fineTune', phrase.transposeSemitones * 100);
   const send = event => event.reset ? synth.stopAllChannels(false)
     : synth.processMessage([event.kind * 16 + event.channel % 16, event.a, event.b], event.channel - event.channel % 16);
   const pcm = new Float32Array(totalFrames);
@@ -147,11 +150,11 @@ for (const phrase of WITCH_BLECH_PHRASES) {
   // Two preroll periods establish the repeated phrase and its release tails.
   // The final extra margin supplies the overlap without entering boundary fades.
   add('drop-blech', 'blech-midi', phrase.label,
-    `${entry.title} by ${entry.artist} / ${excerpt ? `ending ${sourceStart}–${sourceEnd} s` : 'complete bundled MIDI'} repeated at ${sourcePlayRate}x / native SpessaSynth + TimGM6mb`,
+    `${entry.title} by ${entry.artist} / ${excerpt ? `ending ${sourceStart}–${sourceEnd} s` : 'complete bundled MIDI'} repeated at ${sourcePlayRate}x, +${phrase.transposeSemitones} semitones / native SpessaSynth + TimGM6mb`,
     pcm.slice(prerollFrames), attacks, { midiFile: `assets/midiphoria/${entry.file}`,
       sourceStart, sourceEnd, sourceEvents: region.filter(event => event.kind === 9 && event.b > 0).length,
       sourceReleases: region.filter(event => event.kind === 8 || event.kind === 9 && event.b === 0).length,
-      sourceTotalEvents: midi.noteCount, sourcePlayRate, phraseType: excerpt ? 'ending' : 'pattern',
+      sourceTotalEvents: midi.noteCount, sourcePlayRate, transposeSemitones: phrase.transposeSemitones, phraseType: excerpt ? 'ending' : 'pattern',
       loopStartFrame, loopFrames, sourceSha256: entry.sha256,
       voiceCap: 128, artist: entry.artist, license: entry.licenseId });
   synth.destroySynthProcessor();

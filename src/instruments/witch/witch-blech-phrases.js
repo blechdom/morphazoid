@@ -9,6 +9,6 @@ export const WITCH_BLECH_PHRASES = Object.freeze([
   { id: 'black-bleed-swmg', label: 'SWMG · ending clusters', start: 184.75, end: 189.25 },
   { id: 'black-pattern-3-beat-block-gliss-88', label: 'rin-w · Block Gliss 88' },
   { id: 'black-pattern-4-beat-funnel-88', label: 'rin-w · Funnel 88' },
-].map(phrase => Object.freeze({ ...phrase, speed: 1.6 })));
+].map(phrase => Object.freeze({ ...phrase, speed: 1.6, transposeSemitones: 12 })));
 
 export const witchTasteVariantCount = kind => kind === 'drop-blech' ? WITCH_BLECH_PHRASES.length : 3;
