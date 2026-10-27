@@ -23,7 +23,8 @@ function withPaths(run) {
 }
 
 test('unchanged tree/web paint is reused, while topology and resolution invalidate only their bounded layers',()=>withPaths(()=>{
-  const {context,canvases}=paintProbe(),state={renderScale:.6,treeShape:3};
+  // Warm all scenery layers, including the newly cached flying fabric.
+  const {context,canvases}=paintProbe(),state={renderScale:.6,treeShape:3,flightLift:.2};
   renderWitch(context,390,281,state);
   const tree=canvases.find(canvas=>canvas.getContext('2d').calls.some(call=>call.type==='stroke'&&call.color==='#10141e'));
   const web=canvases.find(canvas=>canvas.getContext('2d').calls.some(call=>call.type==='stroke'&&call.color==='#adc7d47a'));
@@ -40,7 +41,7 @@ test('unchanged tree/web paint is reused, while topology and resolution invalida
   renderWitch(context,390,281,{...state,treeCurl:.77});
   assert.ok(tree.getContext('2d').calls.length>treeCalls);assert.equal(web.getContext('2d').calls.length,webCalls);
   renderWitch(context,390,281,{...state,renderScale:.5});
-  assert.ok(web.getContext('2d').calls.length>webCalls);assert.equal(canvases.length,count,'live controls reuse the same two layer surfaces');
+  assert.ok(web.getContext('2d').calls.length>webCalls);assert.equal(canvases.length,count,'live controls reuse the same scenery layer surfaces');
   assert.ok(tree.width*tree.height<51000&&web.width*web.height<30000);
 }));
 

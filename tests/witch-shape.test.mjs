@@ -5,6 +5,7 @@ import { createWitchShapeSceneState, createWitchShapeState, getWitchShapeForm, g
   getWitchShapeFrame, retargetWitchShapeCharm, WITCH_SHAPE_FORMS, WITCH_SHAPE_MORPH_SECONDS,
   WITCH_SHAPE_MAX_EDGES, WITCH_SHAPE_MAX_FACES } from '../src/instruments/witch/witch-shape-model.js';
 import { drawWitchShapeCharm } from '../src/instruments/witch/witch-shape.js';
+import { WITCH_LAYOUT } from '../src/instruments/witch/witch-renderer.js';
 
 test('every charm is an actual native Shapes mesh and perspective projection',()=>{
   assert.equal(WITCH_SHAPE_FORMS.length,8);
@@ -93,6 +94,7 @@ test('floor charm draws finite, bounded, text-free geometry in brew and flight',
     assert.equal(frame.form,form.index);assert.equal(probe.texts.length,0);
     assert.ok(probe.calls.length>30&&probe.calls.length<3000,`${form.id} bounded drawing`);
     assert.ok(probe.calls.flat().filter(value=>typeof value==='number').every(Number.isFinite));
-    assert.ok(probe.calls.some(values=>values[0]===344&&values[1]===657),'the familiar floor control position is retained');
+    assert.ok(probe.calls.some(values=>values[0]===WITCH_LAYOUT.die.x&&values[1]===WITCH_LAYOUT.die.y),
+      'the default charm position matches its current floor gesture target');
   }
 });
