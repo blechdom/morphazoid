@@ -275,8 +275,10 @@ function intensifyFlyby(slotIndex) {
   blechFrenzyIndex=slotIndex===1?1:0;
   cue('blech-frenzy');requestPaint();
 }
-function restoreHat() {
-  world.hatClicks=0;world.hatDrop=null;world.hatPullX=world.hatPullY=0;
+function restoreHat({resetClicks=false}={}) {
+  // Preset changes keep an unfinished three-click sequence across spells.
+  if(resetClicks||world.hatClicks>=3) {world.hatClicks=0;world.hatDrop=null;}
+  world.hatPullX=world.hatPullY=0;
 }
 function clickHat() {
   if(world.hatClicks>=3)return;
@@ -427,7 +429,7 @@ function resetPerformance() {
   catMeowAt=eyeShockAt=spiderAt=webAt=fabricWindAt=-Infinity;
   shapeCharm={from:0,to:0,startedAt:-Infinity};
   ghostScreamVariant=-1;
-  restoreHat();world.hairPullX=world.hairPullY=0;spellTransition=null;
+  restoreHat({resetClicks:true});world.hairPullX=world.hairPullY=0;spellTransition=null;
   for(const id of Object.keys(capturedAnimals))delete capturedAnimals[id];
   catCaptureCount=0;
   config=normalizeWitchPreset({...WITCH_DEFAULTS,scene});Object.assign(catClock,createWitchCatClock(0,config));

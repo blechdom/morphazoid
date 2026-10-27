@@ -914,7 +914,7 @@ test('the ladle, fingers, nose and stretchable hat are native controls with clea
   await audible(page);
 });
 
-test('the hat starts intact, breaks on click two and falls on click three until a new spell',async({page})=>{
+test('the hat keeps its three-click progress across spells and returns after a completed drop',async({page})=>{
   test.setTimeout(45000);
   await open(page);await wake(page);
   expect((await state(page)).hatStage).toBe('intact');
@@ -924,6 +924,15 @@ test('the hat starts intact, breaks on click two and falls on click three until 
       await clickWorld(page,'hat');
       expect((await state(page)).world.hatClicks).toBe(clicks);
       expect((await state(page)).hatStage).toBe(stage);
+      if(clicks<3) {
+        await clickWorld(page,clicks===1?'mushrooms':'die');
+        expect((await state(page))).toMatchObject({world:{hatClicks:clicks},hatStage:stage,config:{scene}});
+        if(clicks===2) {
+          await key(page,'q');
+          expect((await state(page))).toMatchObject({world:{hatClicks:2},hatStage:'busted',config:{scene}});
+          expect((await state(page)).spellTransition).not.toBeNull();
+        }
+      }
     }
     await expect.poll(async()=>(await state(page)).hatDrop).toBeNull();
     expect((await state(page)).targets.hat.r).toBe(0);
@@ -936,6 +945,8 @@ test('the hat starts intact, breaks on click two and falls on click three until 
   }
   await key(page,'k');await key(page,'k');await key(page,'k');
   await key(page,'q');expect((await state(page)).hatStage).toBe('intact');
+  await key(page,'k');await key(page,'k');
+  await key(page,'Backspace');expect((await state(page))).toMatchObject({world:{hatClicks:0},hatStage:'intact'});
 });
 
 test('all lurking faces rush forward with varied screams, return promptly and cancel cleanly',async({page},testInfo)=>{
@@ -1179,13 +1190,25 @@ test('the third cat capture becomes a sparkling Quadruped unicorn and escapes',a
     const advanceTo=async seconds=>advanceBy(Math.max(1,(seconds-(await state(page)).performanceTime)*1000));
     for(const count of [1,2,3]) {
       await advanceTo(count*30+2);
-      await clickAnimal(page,'cat',{touch:count===3,part:'head'});
+      // Wait until the real body clears the foreground SHAPES charm.
+      // Its head can be behind the charm at the beginning of a visit.
+      for(let attempt=0;;attempt++) {
+        const current=await state(page),target=current.catTargets?.body;
+        if(target) {
+          const p=await point(page,target.x,target.y);await page.mouse.move(p.x,p.y);
+          if(await page.locator('#witchCanvas').getAttribute('data-hover-target')==='cat')break;
+        }
+        expect(attempt,'cat has an exposed clickable body during this visit').toBeLessThan(20);
+        await advanceBy(80);
+      }
+      await clickAnimal(page,'cat',{touch:count===3,part:'body'});
       expect((await state(page)).catCaptureCount).toBe(count);
       expect((await state(page)).cat).toMatchObject({animalId:'cat',captured:true,diving:true});
       await key(page,'c');expect((await state(page)).catCaptureCount).toBe(count);
       if(count<3) {
         await advanceBy(1100);expect((await state(page)).cat.visible).toBe(false);
-        if(count===1) {await key(page,'w');expect((await state(page)).catCaptureCount).toBe(1);}
+        await key(page,count===1?'w':'d');expect((await state(page)).catCaptureCount).toBe(count);
+        if(count===2) {await key(page,'q');expect((await state(page)).catCaptureCount).toBe(2);}
       }
     }
     expect((await state(page)).capturedAnimals.cat.unicorn).toBe(true);
