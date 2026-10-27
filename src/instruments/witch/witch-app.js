@@ -455,7 +455,7 @@ function canonical(e, logical=false, warpState) {
 }
 function fabricLocation(point) {
   const layout=getWitchLayout({portraitLayout});
-  return {x:point.x,y:(point.y-layout.top)*720/layout.height};
+  return {x:(point.x-layout.left)*1000/layout.width,y:(point.y-layout.top)*720/layout.height};
 }
 function stirLocation(point) {
   const pot=WITCH_LAYOUT.cauldron;
@@ -481,6 +481,7 @@ function visualState() {
     spiderCaptured:Boolean(objects.find(object=>object.id==='spider')?.dropped),spiderSurface, catFrame:catClock, catMeow:audioOn?(v?.catMeow??0):(playing?witchCatMeowEnvelope((performance.now()-catMeowAt)/1000):0), handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performanceTime,time:performanceTime, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,getWitchViewport(width,height,{portraitLayout}).scale)) };
 }
 listen(canvas,'pointerdown',e => {
+  canvas.dataset.pointerFocus='true';
   if(pointer || e.button!==0) return;
   const initial=visualState(),raw=canonical(e),hit=hitTestWitch(raw.x,raw.y,initial),p=canonical(e,true,initial);
   if(!hit) return;
@@ -493,7 +494,7 @@ listen(canvas,'pointerdown',e => {
     pointer={id:e.pointerId,type:'tree',start:p,moved:false,treeSpread:config.treeSpread,treeCurl:config.treeCurl,
       // A small trunk dead zone prevents touch rounding from reversing a pull.
       side:p.x<getWitchTree(initial).root.x-4?-1:1,
-      hairWarp:{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
+      hairWarp:{portraitLayout:initial.portraitLayout,trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
     canvas.setPointerCapture(e.pointerId);canvas.style.cursor='grabbing';
     send();cue('tree-l-system');e.preventDefault();return;
   }
@@ -501,7 +502,7 @@ listen(canvas,'pointerdown',e => {
   if(hit.type==='web'){
     pluckWeb(hit.index??0);
     pointer={id:e.pointerId,type:'web',webPoint:p,webTime:performance.now(),
-      webWarp:{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
+      webWarp:{portraitLayout:initial.portraitLayout,trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}};
     canvas.setPointerCapture(e.pointerId);e.preventDefault();return;
   }
   if(['bat','spark','gust'].includes(hit.type)) { trigger(hit.type); return; }
@@ -522,7 +523,7 @@ listen(canvas,'pointerdown',e => {
   const hair=hit.type==='hair'?getWitchHair(initial):null;
   const hat=hit.type==='hat'?getWitchHat(initial):null;
   const onHandle=((p.x-pot.x)/pot.rx)**2+((p.y-pot.y)/pot.ry)**2>1;
-  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairTransform:hair?.transform,hairPullX:world.hairPullX,hairPullY:world.hairPullY,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat||hit.type==='fabric'||hit.type==='trail')?{trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,trailFeedback:config.trailFeedback,trailSpace:config.trailSpace,trailAnchor:hit.type==='trail'?getWitchHair(initial).tip:null,trailAngle:null,trailWinding:0,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
+  pointer={id:e.pointerId,type:hit.type,index:hit.index??0,start:p,value:config.fingers[hit.index??0],time:performance.now(),spoonHeight:visual.spoonHeight,nose:config.nose,hat:config.hat,hatTransform:hat?.transform,hatPullX:world.hatPullX,hatPullY:world.hatPullY,hair:config.hair,hairTransform:hair?.transform,hairPullX:world.hairPullX,hairPullY:world.hairPullY,hairAxis:hair?.axis,hairDistance:hair?.pullDistance,hairWarp:(hair||hat||hit.type==='fabric'||hit.type==='trail')?{portraitLayout:initial.portraitLayout,trip:initial.trip,visualMode:initial.visualMode,eyeShock:initial.eyeShock,reducedMotion:initial.reducedMotion,warpTime:initial.warpTime}:null,fabricX:config.fabricX,fabricY:config.fabricY,trailPull:config.trailPull,trailTwist:config.trailTwist,trailFeedback:config.trailFeedback,trailSpace:config.trailSpace,trailAnchor:hit.type==='trail'?getWitchHair(initial).tip:null,trailAngle:null,trailWinding:0,...start,ladleAngle:onHandle?visual.ladleAngle:start.angle,radiusOffset:onHandle?config.radius-start.radius:0};
   canvas.setPointerCapture(e.pointerId);
   if(hit.type==='spoon') {
     pointer.spoonSettings={voice:config.voice,spoonHeight:config.spoonHeight};pointer.spoonMoved=false;
@@ -645,13 +646,15 @@ function releasePointer(e) {
 }
 listen(canvas,'pointerup',releasePointer); listen(canvas,'pointercancel',releasePointer); listen(canvas,'lostpointercapture',releasePointer);
 listen(canvas,'keydown',e => {
+  delete canvas.dataset.pointerFocus;
   if(e.altKey || e.ctrlKey || e.metaKey) return;
   if(e.key==='Escape') {hushPerformance();e.preventDefault();return;}
   if(e.key==='Backspace') {if(!e.repeat)resetPerformance();e.preventDefault();return;}
   if(e.key===' '||e.code==='Space') {if(!e.repeat){if(playing)hushPerformance();else wakePerformance();}e.preventDefault();return;}
   if(e.key.toLowerCase()==='f'&&config.scene!=='flight') {e.preventDefault();return;}
   if(e.key.toLowerCase()==='i') {
-    const flyby=config.scene==='flight'?getWitchBlechFlyby(visualState().flybyTime).find(visitor=>visitor.x>0&&visitor.x<1000&&visitor.opacity>.1):null;
+    const layout=getWitchLayout({portraitLayout});
+    const flyby=config.scene==='flight'?getWitchBlechFlyby(visualState().flybyTime).find(visitor=>visitor.x>layout.left&&visitor.x<layout.left+layout.width&&visitor.opacity>.1):null;
     if(!e.repeat&&flyby) {wakePerformance('accent');intensifyFlyby(flyby.slotIndex);}
     e.preventDefault();return;
   }
@@ -706,7 +709,7 @@ listen(canvas,'keyup',e => {
   if(/^[1-5]$/.test(e.key)) { fingerKeys.delete(Number(e.key)-1); send(); }
   if(e.key.startsWith('Arrow')) { arrowKeys.delete(e.key); keyboardGate=arrowKeys.size>0; send(); }
 });
-listen(canvas,'blur',() => { stopGesture(); });
+listen(canvas,'blur',() => { delete canvas.dataset.pointerFocus;stopGesture(); });
 listen(window,'blur',() => { stopGesture(); });
 listen(window,'morphazoid:midi-input',e => { if(['noteOn','noteOff','pitchBend'].includes(e.detail?.message?.type)) e.preventDefault(); });
 function resize() {

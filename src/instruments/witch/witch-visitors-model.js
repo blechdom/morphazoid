@@ -11,13 +11,13 @@ const smooth = value => {const t=clamp(value);return t*t*(3-2*t);};
 
 // Feet follow the frame's inside edges. The mouse rounds the lower-left
 // corner without snapping its spine, then reverses the whole route next visit.
-function visitorRoute(visitor,progress,visit) {
-  const direction=visit%2===0?1:-1;
+function visitorRoute(visitor,progress,visit,state) {
+  const direction=visit%2===0?1:-1,left=state.portraitLayout?200:0,width=1000-left;
   if(visitor.id==='lizard')return {
-    x:direction>0?1000+visitor.margin-progress*(1000+visitor.margin*2):-visitor.margin+progress*(1000+visitor.margin*2),
+    x:direction>0?1000+visitor.margin-progress*(width+visitor.margin*2):left-visitor.margin+progress*(width+visitor.margin*2),
     y:visitor.ground,rotation:Math.PI,direction,
   };
-  const edge=10,radius=84,bottom=visitor.ground;
+  const edge=left+10,radius=84,bottom=visitor.ground;
   const wall=bottom-radius+visitor.margin,corner=radius*Math.PI/2;
   const floor=1000+visitor.margin-edge-radius;
   const distance=(direction>0?progress:1-progress)*(wall+corner+floor);
@@ -70,7 +70,7 @@ export function getWitchVisitors(state = {}) {
     return applyWitchAnimalCapture({
       id:visitor.id,animalId:visitor.id,source:'quadruped',behaviorId:visitor.behaviorId,
       active,visit,visitStartedAt,visitEndsAt:visitStartedAt+visitor.duration,clockTime:time,elapsed:active?elapsed:0,progress,
-      ...visitorRoute(visitor,progress,visit),position:Math.max(0,Math.min(visitor.duration,elapsed))*visitor.stepsPerSecond,
+      ...visitorRoute(visitor,progress,visit,state),position:Math.max(0,Math.min(visitor.duration,elapsed))*visitor.stepsPerSecond,
       alpha:active?clamp(elapsed/.22)*clamp((visitor.duration-elapsed)/.22):0,
     },state);
   });

@@ -987,9 +987,9 @@ test('portrait shelves keep all cupboard icons above the hat, resting on boards 
   const hatTop=Math.min(...getWitchHat(state).panels.flat().map(point=>point.y));
   for(const object of objects) {
     const position=getWitchObjectPosition(object.id,state);
-    assert.ok(layout.shelves[0].rows.includes(position.y+27*position.iconSize),'visible alpha rests on its board');
+    assert.ok(layout.shelves[0].rows.some(row=>Math.abs(row-position.y-27*position.iconSize)<1e-9),'visible alpha rests on its board');
     assert.ok(position.y+27*position.iconSize<hatTop);
-    assert.ok(position.x-position.r>0&&position.x+position.r<layout.width);
+    assert.ok(position.x-position.r>layout.left&&position.x+position.r<layout.left+layout.width);
     for(const visualMode of [0,3,5,6,7]) {
       const current={...state,visualMode,hitRadius:62},visible=warpWitchPoint(position,current);
       assert.equal(hitTestWitch(visible.x,visible.y,current)?.id,object.id);
@@ -999,17 +999,19 @@ test('portrait shelves keep all cupboard icons above the hat, resting on boards 
     assert.deepEqual(object,WITCH_LAYOUT.objects.find(home=>home.id===object.id),'tree and web stay in their scene');
   }
   const fabric=getWitchFabric({...state,flightLift:1});
-  assert.deepEqual(fabric.bounds,{left:0,right:1000,top:-400,bottom:720});
+  assert.deepEqual(fabric.bounds,{left:200,right:1000,top:-320,bottom:720});
   assert.ok(fabric.strands.some(strand=>strand.points.some(point=>point.y<-300)),'wind cloth covers the added portrait sky');
   const broom=getWitchTargets(state).broom;
-  assert.ok(broom.x<120);assert.equal(hitTestWitch(broom.x,broom.y,state)?.type,'broom');
+  assert.ok(broom.x>280&&broom.x<330);assert.equal(hitTestWitch(broom.x,broom.y,state)?.type,'broom');
   const home=getWitchObjectPosition('quadruped',state),drop={...home,dropped:true,dropAge:0};
   for(const portraitLayout of [true,false]) {
     const falling=getWitchObjectPosition(drop,{portraitLayout});
     assert.equal(falling.x,home.x);assert.equal(falling.y,home.y,'rotation preserves an already captured drop origin');
   }
-  const view=getWitchViewport(390,436.8,state);
-  assert.equal(view.top,-400);assert.equal(view.height,1120);
+  const view=getWitchViewport(390,507,state);
+  assert.equal(view.left,200);assert.equal(view.top,-320);assert.equal(view.height,1040);
+  assert.ok(Math.abs(view.x+view.left*view.scale)<1e-10);
   assert.ok(Math.abs(view.y+view.top*view.scale)<1e-10);
-  assert.ok(Math.abs(view.y+720*view.scale-436.8)<1e-10);
+  assert.ok(Math.abs(view.y+720*view.scale-507)<1e-10);
+  assert.equal(view.scale/(390/1000),1.25,'main scene grows uniformly beneath the shelf');
 });

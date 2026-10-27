@@ -105,13 +105,13 @@ async function clickIngredient(page,id,touch=false) {
   const object=await page.evaluate(async id=>{
     const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const state=window.witchInstrument.state,object=state.objects.find(item=>item.id===id);
-    return {...object,...warpWitchPoint(object,{trip:state.config.trip,visualMode:state.config.visualMode,eyeShock:state.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
+    return {...object,...warpWitchPoint(object,{portraitLayout:state.portraitLayout,trip:state.config.trip,visualMode:state.config.visualMode,eyeShock:state.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
       warpTime:state.warpTime})};
   },id);
   expect(object,`${id} has a visible scene object`).toBeTruthy();
   expect(object.dropped).toBe(false);
-  expect(object.x).toBeGreaterThan(0);expect(object.x).toBeLessThan(1000);
   const viewport=(await state(page)).viewport;
+  expect(object.x).toBeGreaterThan(viewport.left);expect(object.x).toBeLessThan(viewport.left+viewport.width);
   expect(object.y).toBeGreaterThan(viewport.top);expect(object.y).toBeLessThan(viewport.top+viewport.height);
   const rect=await page.locator('#witchCanvas').boundingBox(),from=stagePoint({...rect,viewport},object.x,object.y);
   const session=touch?await page.context().newCDPSession(page):null;
@@ -200,7 +200,8 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
       await move({x:from.x+(to.x-from.x)*step/5,y:from.y+(to.y-from.y)*step/5});
       if(drag.stepMs)await page.waitForTimeout(drag.stepMs);
     }
-    const held=await readDragState();
+    // Native touch moves may be coalesced until the next browser frame.
+    const held=await inputSnapshot(session,()=>new Promise(resolve=>requestAnimationFrame(()=>resolve(window.witchInstrument.state))));
     if(touch)await session.send('Input.dispatchTouchEvent',{type:drag.cancel?'touchCancel':'touchEnd',touchPoints:[]});
     else {
       if(drag.cancel)await canvas.dispatchEvent('pointercancel',{pointerId:await page.evaluate(()=>window.witchTreePointerId)});
@@ -231,7 +232,7 @@ async function clickAnimal(page,id,{touch=false,part='body'}={}) {
       rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{id,part});
   const target=snapshot.target;expect(target,`${id} has a live ${part} target`).toBeTruthy();
-  expect(target.x).toBeGreaterThan(0);expect(target.x).toBeLessThan(1000);
+  expect(target.x).toBeGreaterThan(snapshot.rect.viewport.left);expect(target.x).toBeLessThan(snapshot.rect.viewport.left+snapshot.rect.viewport.width);
   expect(target.y).toBeGreaterThan(0);expect(target.y).toBeLessThan(720);
   const from=stagePoint(snapshot.rect,target.x,target.y);
   if(touch) {
@@ -409,8 +410,8 @@ function expectHairInScene(current) {
   expect(geometry.targets.length).toBeGreaterThan(0);
   const points=[geometry.root,geometry.tip,...geometry.targets,...geometry.strands.flatMap(strand=>strand.points)];
   expect(points.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y))).toBe(true);
-  expect(Math.min(...points.map(point=>point.x))).toBeGreaterThan(0);
-  expect(Math.max(...points.map(point=>point.x))).toBeLessThan(1000);
+  expect(Math.min(...points.map(point=>point.x))).toBeGreaterThan(current.viewport.left);
+  expect(Math.max(...points.map(point=>point.x))).toBeLessThan(current.viewport.left+current.viewport.width);
   expect(Math.min(...points.map(point=>point.y))).toBeGreaterThan(0);
   expect(Math.max(...points.map(point=>point.y))).toBeLessThan(720);
 }
@@ -419,7 +420,7 @@ const settings=config=>Object.fromEntries(Object.entries(config).filter(([key])=
 const clocks=current=>Object.fromEntries(['performanceTime','handTime','ghostPhase','flightPhase','visualTime','warpTime'].map(key=>[key,current[key]]));
 async function key(page,value) {await page.locator('#witchCanvas').focus();await page.keyboard.press(value);}
 async function wake(page,{touch=false}={}) {
-  const p=await point(page,24,704);
+  const p=await point(page,(await state(page)).viewport.left+24,704);
   if(touch)await page.touchscreen.tap(p.x,p.y);else await page.mouse.click(p.x,p.y);
   await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
   expect((await state(page))).toMatchObject({quiet:false,playing:true,presence:1});
@@ -489,8 +490,9 @@ async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
       // Find exposed cloth across the whole background, below the controls
       // and noodles. The live native hover also checks the rendered hand mesh.
       candidates=[];const scale=current.viewport.scale;
-      for(let y=100;y<=620;y+=80)for(let x=80;x<=920;x+=80) {
-        if(x+dx<25||x+dx>975||y+dy<25||y+dy>695)continue;
+      const {left,width}=current.viewport;
+      for(let y=100;y<=620;y+=80)for(let x=left+80;x<=left+width-80;x+=80) {
+        if(x+dx<left+25||x+dx>left+width-25||y+dy<25||y+dy>695)continue;
         const p=warpWitchPoint({x,y},visual);
         const clientX=rect.x+current.viewport.x+p.x*scale,clientY=rect.y+current.viewport.y+p.y*scale;
         if(hitTestWitch(p.x,p.y,visual)?.type==='fabric'&&document.elementFromPoint(clientX,clientY)===canvas)candidates.push({x,y});
@@ -791,7 +793,7 @@ test('hair hush keeps scene accents and held manual voices independent until a w
     await begin();
     await expect.poll(async()=>{
       const current=await state(page),target=(id==='cat'?current.catTargets:current.visitorTargets[id])?.body;
-      return Boolean(target&&target.x>0&&target.x<1000&&target.y>0&&target.y<720);
+      return Boolean(target&&target.x>current.viewport.left&&target.x<current.viewport.left+current.viewport.width&&target.y>0&&target.y<720);
     },{timeout:45000,intervals:[100]}).toBe(true);
     await clickAnimal(page,id);
     await expect.poll(()=>page.evaluate(id=>window.witchVisual.dropKind===`drop-${id}`&&window.witchVisual.dropLevel>.0001,id)).toBe(true);
@@ -1172,7 +1174,7 @@ test('the third cat capture becomes a sparkling Quadruped unicorn and escapes',a
     };
   });
   try {
-    await open(page);const p=await point(page,24,704);await page.mouse.click(p.x,p.y);
+    await open(page);const p=await point(page,(await state(page)).viewport.left+24,704);await page.mouse.click(p.x,p.y);
     const advanceBy=async milliseconds=>{await page.clock.fastForward(milliseconds);await page.clock.runFor(80);};
     const advanceTo=async seconds=>advanceBy(Math.max(1,(seconds-(await state(page)).performanceTime)*1000));
     for(const count of [1,2,3]) {
@@ -1215,7 +1217,7 @@ test('real visitor routes and native captures work while a slow Audio startup ca
     };
   });
   try {
-    await open(page);const p=await point(page,24,704);await page.mouse.click(p.x,p.y);
+    await open(page);const p=await point(page,(await state(page)).viewport.left+24,704);await page.mouse.click(p.x,p.y);
     await expect.poll(async()=>(await state(page)).starting).toBe(true);
     const advanceBy=async milliseconds=>{await page.clock.fastForward(milliseconds);await page.clock.runFor(80);};
     const advanceTo=async seconds=>{const elapsed=(await state(page)).performanceTime;await advanceBy(Math.max(1,(seconds-elapsed)*1000));expect((await state(page)).performanceTime).toBeGreaterThanOrEqual(seconds);};
@@ -1362,7 +1364,7 @@ for(const [label,width,height] of [['desktop',1440,900],['portrait',390,844],['l
         expect(released).toMatchObject({playing:true,config:{scene:'brew'}});
         const points=released.tree.segments.flatMap(({a,b})=>[a,b]);
         expect(points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))).toBe(true);
-        expect(points.some(p=>p.x>0&&p.x<1000&&p.y>0&&p.y<720)).toBe(true);
+        expect(points.some(p=>p.x>released.viewport.left&&p.x<released.viewport.left+released.viewport.width&&p.y>0&&p.y<720)).toBe(true);
         if(drag.spread||drag.dy)expect(released.tree.segments).not.toEqual(before.tree.segments);
         else expect(released.tree.segments).toEqual(before.tree.segments);
       }

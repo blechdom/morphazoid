@@ -5,9 +5,9 @@
 .witch-page button { font: inherit; cursor: pointer; }
 .witch-viewport { --witch-stage-height: max(360px, min(72vw, calc(100dvh - 66px))); position: relative; width: 100%; height: var(--witch-stage-height); overflow: hidden; }
 .witch-viewport h1 { position: absolute; z-index: 1; top: 2.5%; left: 4.5%; margin: 0; color: #e4dfc5; font: 500 clamp(25px, 3.1vw, 46px)/1.1 var(--mono); letter-spacing: -.035em; pointer-events: none; text-shadow: 0 2px 12px #100f1b; }
-#witchCanvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: grab; }
+#witchCanvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; cursor: grab; outline: none; -webkit-tap-highlight-color: transparent; }
 #witchCanvas:active { cursor: grabbing; }
-#witchCanvas:focus-visible { outline: 2px solid var(--witch-lime); outline-offset: -4px; }
+#witchCanvas:focus-visible:not([data-pointer-focus]) { outline: 2px solid var(--witch-lime); outline-offset: -4px; }
 .witch-page [hidden] { display: none !important; }
 .witch-page button:focus-visible, .witch-page select:focus-visible { outline: 2px solid var(--witch-lime); outline-offset: 3px; }
 .witch-accessible-copy { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -24,6 +24,6 @@
 }
 
 @media (orientation: portrait) {
-  .witch-viewport { --witch-stage-height: max(360px, 112vw); }
+  .witch-viewport { --witch-stage-height: max(360px, min(130vw, calc(100dvh - 58px))); }
   .witch-viewport h1 { top: 1.6%; left: 4.5%; max-width: none; white-space: nowrap; font-size: clamp(20px, 4.5vw, 34px); }
 }

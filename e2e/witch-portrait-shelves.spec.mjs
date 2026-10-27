@@ -20,24 +20,25 @@ test('portrait cupboard reflows above the hat with live taps, drops and rotation
       hits:icons.filter(object=>!object.dropped).map(object=>{
         const p=warpWitchPoint(object,visual);return {id:object.id,hit:hitTestWitch(p.x,p.y,visual)?.id};
       }),broom:current.targets.broom,view:current.viewport,config:current.config,
-      overflow:document.documentElement.scrollWidth-innerWidth};
+      overflow:document.documentElement.scrollWidth-innerWidth,
+      bottom:document.querySelector('#witchCanvas').getBoundingClientRect().bottom};
   });
   const initial=await inspect();
   expect(initial.portrait).toBe(true);expect(initial.counts).toEqual([8,7,7]);
   expect(initial.icons).toHaveLength(22);expect(initial.rows).toHaveLength(3);
   for(const icon of initial.icons) {
     expect(icon.y+27*icon.iconSize).toBeLessThan(initial.hatTop);
-    expect(icon.x-icon.r).toBeGreaterThan(0);expect(icon.x+icon.r).toBeLessThan(1000);
+    expect(icon.x-icon.r).toBeGreaterThan(initial.view.left);expect(icon.x+icon.r).toBeLessThan(1000);
   }
   expect(initial.hits.every(({id,hit})=>id===hit)).toBe(true);
-  expect(initial.broom.x).toBeLessThan(120);expect(initial.overflow).toBe(0);
+  expect(initial.broom.x).toBeGreaterThan(280);expect(initial.broom.x).toBeLessThan(330);expect(initial.overflow).toBe(0);
   await page.screenshot({path:testInfo.outputPath('portrait.png')});
   const tap=async(id,kind='object')=>{
     const point=await page.evaluate(async({id,kind})=>{
       const {warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
       const current=window.witchInstrument.state,canvas=document.querySelector('#witchCanvas'),rect=canvas.getBoundingClientRect();
       const object=kind==='object'?current.objects.find(object=>object.id===id):current.targets[id];
-      const p=warpWitchPoint(object,{...current.config,...current.world,reducedMotion:true});
+      const p=warpWitchPoint(object,{...current.config,...current.world,portraitLayout:current.portraitLayout,reducedMotion:true});
       canvas.addEventListener('pointerdown',()=>{
         const after=window.witchInstrument.state;
         window.witchPortraitTap={id,origin:{x:object.x,y:object.y},object:after.objects.find(object=>object.id===id)};
@@ -64,7 +65,7 @@ test('portrait cupboard reflows above the hat with live taps, drops and rotation
   await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:cloth.x+24,y:cloth.y+32}]});
   const held=await page.evaluate(()=>window.witchInstrument.state);
   expect(held.fabricGesture.held).toBe(true);expect(held.fabricGesture.audio.fabricPull).toBeGreaterThan(0);
-  expect(held.fabricGesture.visual.fabricGrabY).toBeCloseTo(220/1120,2);
+  expect(held.fabricGesture.visual.fabricGrabY).toBeCloseTo(140/1040,2);
   await page.setViewportSize({width:844,height:390});
   await expect.poll(()=>page.evaluate(()=>window.witchInstrument.state.portraitLayout)).toBe(false);
   await expect.poll(()=>page.evaluate(()=>window.witchInstrument.state.fabricGesture.held)).toBe(false);
@@ -81,6 +82,7 @@ test('portrait cupboard reflows above the hat with live taps, drops and rotation
   await page.setViewportSize({width:768,height:1024});
   await expect.poll(()=>page.evaluate(()=>window.witchInstrument.state.portraitLayout)).toBe(true);
   const tablet=await inspect();expect(tablet.rows).toHaveLength(3);expect(tablet.overflow).toBe(0);
+  expect(tablet.bottom).toBeLessThanOrEqual(1024);
   expect(tablet.hits.every(({id,hit})=>id===hit)).toBe(true);
   expect(tablet.icons.filter(object=>object.dropped).map(object=>object.id)).toEqual(['glass','acid-303']);
   expect(tablet.config).toEqual(landscape.config);

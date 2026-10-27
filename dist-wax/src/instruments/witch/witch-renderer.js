@@ -31,7 +31,7 @@ const topIconIds=new Set(WITCH_CUPBOARD_TOP.map(item=>item.id));
 const miniatureSize=id=>topIconIds.has(id)?.8:(id==='blech'?1.5:1)*(treeIconIds.has(id)?1.35:1);
 
 export const WITCH_LAYOUT = Object.freeze({
-  width: 1000, height: 720, top: 0,
+  width: 1000, height: 720, left: 0, top: 0,
   broom: Object.freeze({x:206,y:434,rotation:-1.05,scale:.64}),
   cauldron: Object.freeze({ x: 600, y: 520, rx: 188, ry: 62 }),
   die: Object.freeze({ x: 286, y: 657, r: 45.6 }),
@@ -58,15 +58,17 @@ export const WITCH_LAYOUT = Object.freeze({
 });
 
 const portraitShelfIds=[...WITCH_SHELF,...WITCH_CUPBOARD_TOP].map(item=>item.id);
-const portraitRows=Object.freeze([-210,-110,-10]);
-const PORTRAIT_LAYOUT=Object.freeze({...WITCH_LAYOUT,top:-400,height:1120,
-  broom:Object.freeze({x:-8,y:385,rotation:-1.37,scale:.86}),
-  shelves:Object.freeze([{x:32,y:-304,w:936,h:306,rows:portraitRows}]),
+const portraitRows=Object.freeze([-168,-88,-8]);
+// Reclaim the former cupboard's empty space so the witch is 25% taller,
+// preserving the proportions of her hands, eye and every instrument cutout.
+const PORTRAIT_LAYOUT=Object.freeze({...WITCH_LAYOUT,left:200,width:800,top:-320,height:1040,
+  broom:Object.freeze({x:205,y:385,rotation:-1.37,scale:.86}),
+  shelves:Object.freeze([{x:225.6,y:-243.2,w:748.8,h:244.8,rows:portraitRows}]),
   objects:Object.freeze(WITCH_LAYOUT.objects.map(object=>{
     const index=portraitShelfIds.indexOf(object.id);
     if(index<0)return object;
-    const row=index<8?0:index<15?1:2,first=[0,8,15][row],count=[8,7,7][row],iconSize=1.5;
-    return Object.freeze({...object,x:500+(index-first-(count-1)/2)*116,
+    const row=index<8?0:index<15?1:2,first=[0,8,15][row],count=[8,7,7][row],iconSize=1.2;
+    return Object.freeze({...object,x:600+(index-first-(count-1)/2)*92.8,
       y:portraitRows[row]-27*iconSize,r:28*iconSize,iconSize});
   })),
 });
@@ -76,8 +78,8 @@ export function getWitchLayout(state={}) {return state.portraitLayout?PORTRAIT_L
  * Canonical scene coordinates stay intact; portrait adds room above the hat. */
 export function getWitchViewport(width,height,state={}) {
   const layout=getWitchLayout(state),scale=Math.min(Math.max(1,width)/layout.width,Math.max(1,height)/layout.height);
-  return {scale,x:(width-layout.width*scale)/2,y:(height-layout.height*scale)/2-layout.top*scale,
-    width:layout.width,height:layout.height,top:layout.top};
+  return {scale,x:(width-layout.width*scale)/2-layout.left*scale,y:(height-layout.height*scale)/2-layout.top*scale,
+    width:layout.width,height:layout.height,left:layout.left,top:layout.top};
 }
 
 function path(c, d, fill, stroke = null, width = 1.5) {
@@ -730,11 +732,11 @@ export function getWitchRestTrails(state={}) {
   const phase=state.reducedMotion?0:(state.flightPhase??state.motionTime??0);
   const pull=clamp(state.trailPull??.5),twist=clamp(state.trailTwist??.5),hair=getWitchHair(state);
   const feedback=clamp(state.trailFeedback??.55),space=clamp(state.trailSpace??.5);
-  const samples=256,join=Math.round(samples*.85);
+  const samples=256,join=Math.round(samples*.85),layout=getWitchLayout(state),leftEdge=layout.left+24;
   return TRAIL_LOCKS.map((index,strandIndex)=>{
     const lock=hair.strands[index],anchor=lock.points.at(-1),prior=lock.points.at(-2),points=[];
-    const reach=.20+.80*space,width=952*reach,height=636*reach;
-    const cx=clamp((anchor.x-width*.37)*(1-space)+500*space,24+width/2,976-width/2);
+    const reach=.20+.80*space,width=(layout.width-48)*reach,height=636*reach;
+    const cx=clamp((anchor.x-width*.37)*(1-space)+(layout.left+layout.width/2)*space,leftEdge+width/2,976-width/2);
     const cy=clamp((anchor.y-height*.38)*(1-space)+356*space,38+height/2,674-height/2);
     const bounds={left:cx-width/2,right:cx+width/2,top:cy-height/2,bottom:cy+height/2};
     const raw=[{x:0,y:0}],direction=strandIndex?-1:1;
@@ -761,7 +763,7 @@ export function getWitchRestTrails(state={}) {
     const b={x:clamp(end.x+(end.x-next.x)*4,bounds.left,bounds.right),y:clamp(end.y+(end.y-next.y)*4,bounds.top,bounds.bottom)};
     // The sky coil remains bounded, but a pulled hair tip can reach beyond
     // the frame. Let only its short joining curve travel with that real tip.
-    const joinBounds={left:Math.min(24,anchor.x),right:Math.max(976,anchor.x),
+    const joinBounds={left:Math.min(leftEdge,anchor.x),right:Math.max(976,anchor.x),
       top:Math.min(38,anchor.y),bottom:Math.max(674,anchor.y)};
     for(let i=join;i<=samples;i++) {
       const t=(samples-i)/(samples-join),v=1-t;
@@ -1340,9 +1342,9 @@ function instrumentShelves(c,state) {
 function witchFabricPoint(u,v,state={}) {
   const gx=clamp(state.fabricGrabX??.16,.015,.985),gy=clamp(state.fabricGrabY??.14,.015,.985);
   const layout=getWitchLayout(state);
-  const pullX=clamp(state.fabricPullX??0,-340,340),pullY=clamp(state.fabricPullY??0,-240,240)*layout.height/720;
+  const pullX=clamp(state.fabricPullX??0,-340,340)*layout.width/1000,pullY=clamp(state.fabricPullY??0,-240,240)*layout.height/720;
   const magnitude=Math.hypot(pullX,pullY),radius=145+magnitude*.22;
-  const x=u*1000,y=layout.top+v*layout.height,dx=x-gx*1000,dy=(v-gy)*layout.height;
+  const x=layout.left+u*layout.width,y=layout.top+v*layout.height,dx=(u-gx)*layout.width,dy=(v-gy)*layout.height;
   const edge=(a,b)=>Math.min(1,a/.085,(1-a)/.085)*Math.min(1,b/.085,(1-b)/.085);
   const influence=Math.exp(-(dx*dx+dy*dy)/(radius*radius*2))*Math.min(1,edge(u,v)/Math.max(.025,edge(gx,gy)));
   const pinch=clamp(magnitude/220)*.19*influence;
@@ -1351,14 +1353,15 @@ function witchFabricPoint(u,v,state={}) {
 function witchFabricTarget(state={}) {
   // An idle diagnostic/keyboard target stays in exposed sky even when the
   // last grab was released behind her body or across a delay strand.
-  if(!state.fabricHeld)return {x:80,y:getWitchLayout(state).top+24,r:18};
+  if(!state.fabricHeld)return {x:getWitchLayout(state).left+80,y:getWitchLayout(state).top+24,r:18};
   return {...witchFabricPoint(clamp(state.fabricGrabX??.16,.015,.985),clamp(state.fabricGrabY??.14,.015,.985),state),r:18};
 }
 export function getWitchFabric(state={}) {
   const strands=[],point=(u,v)=>witchFabricPoint(u,v,state);
   for(let column=0;column<=32;column++)strands.push({color:'#68f7a49e',points:Array.from({length:41},(_,i)=>point(column/32,i/40))});
   for(let row=0;row<=24;row++)strands.push({color:'#ff5cada8',points:Array.from({length:41},(_,i)=>point(i/40,row/24))});
-  return {strands,target:witchFabricTarget(state),bounds:{left:0,right:1000,top:getWitchLayout(state).top,bottom:720}};
+  const layout=getWitchLayout(state);
+  return {strands,target:witchFabricTarget(state),bounds:{left:layout.left,right:1000,top:layout.top,bottom:720}};
 }
 function fabricCloth(c,state) {
   const lift=clamp(state.flightLift);if(lift<=0)return;
@@ -1430,8 +1433,9 @@ export function witchWarpX(y,state={}) {
 export function warpWitchPoint(point,state={},inverse=false) {
   if(!visualMode(state)&&!state.eyeShock)return {...point};
   // Match the center sample of the four-pixel strip actually painted below.
+  const layout=getWitchLayout(state),offset=(layout.left+layout.width/2)*.05;
   const wave=witchWarpX(Math.floor(point.y/4)*4+2,state);
-  return {...point,x:inverse?(point.x-wave+25)/1.05:point.x*1.05-25+wave};
+  return {...point,x:inverse?(point.x-wave+offset)/1.05:point.x*1.05-offset+wave};
 }
 function drawWorld(c,state) {
   const layout=getWitchLayout(state);
@@ -1473,7 +1477,7 @@ export function renderWitchFaceIcon(ctx,size=512) {
 }
 /** Draw using CSS-pixel dimensions; the caller owns backing-store/DPR setup. */
 export function renderWitch(ctx, width, height, state = {}) {
-  const w=Math.max(1,width),h=Math.max(1,height),view=getWitchViewport(w,h,state),{scale,top}=view,density=renderScale(state);
+  const w=Math.max(1,width),h=Math.max(1,height),view=getWitchViewport(w,h,state),{scale,left,top}=view,density=renderScale(state);
   let world=worlds.get(ctx);
   if(!world) {
     const surface=ctx.canvas.ownerDocument.createElement('canvas'); surface.width=1000;surface.height=720;
@@ -1483,17 +1487,17 @@ export function renderWitch(ctx, width, height, state = {}) {
     // expando, so checking again after a write would falsely imply support.
     world.hasCanvasFilter='filter' in world.color;worlds.set(ctx,world);
   }
-  const pixelWidth=Math.round(1000*density),pixelHeight=Math.round(view.height*density);
+  const pixelWidth=Math.round(view.width*density),pixelHeight=Math.round(view.height*density);
   if(world.surface.width!==pixelWidth||world.surface.height!==pixelHeight||world.colored.width!==pixelWidth||world.colored.height!==pixelHeight) {
     world.surface.width=world.colored.width=pixelWidth;world.surface.height=world.colored.height=pixelHeight;
   }
-  world.ctx.setTransform(density,0,0,density,0,-top*density);
+  world.ctx.setTransform(density,0,0,density,-left*density,-top*density);
   paintInvalidators.set(ctx,state.onInvalidate);
   paintInvalidators.set(world.ctx,state.onInvalidate);
   drawWorld(world.ctx,state);
   ctx.save(); ctx.clearRect(0,0,w,h);ctx.fillStyle='#14151f';ctx.fillRect(0,0,w,h);
   ctx.translate(view.x,view.y);ctx.scale(scale,scale);
-  ctx.beginPath();ctx.rect(0,top,1000,view.height);ctx.clip();
+  ctx.beginPath();ctx.rect(left,top,view.width,view.height);ctx.clip();
   const mode=visualMode(state),palette=Math.round(clamp(state.palette,0,7));
   const hues=[0,38,82,132,178,218,268,315],from=hues[Math.round(clamp(state.paletteFrom??palette,0,7))],to=hues[Math.round(clamp(state.paletteTo??palette,0,7))];
   const blend=clamp(state.paletteMix??1),delta=((to-from+540)%360)-180;
@@ -1513,17 +1517,18 @@ export function renderWitch(ctx, width, height, state = {}) {
     }
   }
   if(mode===6) {
-    if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixel.width=250;world.pixelInk=world.pixel.getContext('2d');}
+    if(!world.pixel){world.pixel=world.surface.cloneNode();world.pixelInk=world.pixel.getContext('2d');}
+    if(world.pixel.width!==view.width/4)world.pixel.width=view.width/4;
     if(world.pixel.height!==view.height/4)world.pixel.height=view.height/4;
-    world.pixelInk.drawImage(world.colored,0,0,250,view.height/4);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,pixelWidth,pixelHeight);world.color.imageSmoothingEnabled=true;
+    world.pixelInk.drawImage(world.colored,0,0,view.width/4,view.height/4);world.color.imageSmoothingEnabled=false;world.color.filter='none';world.color.drawImage(world.pixel,0,0,pixelWidth,pixelHeight);world.color.imageSmoothingEnabled=true;
   }
-  if(deform)for(let y=top;y<720;y+=4)ctx.drawImage(world.colored,0,(y-top)*density,pixelWidth,4*density,witchWarpX(y+2,state)-25,y,1050,4);
-  else ctx.drawImage(useColor?world.colored:world.surface,0,0,pixelWidth,pixelHeight,0,top,1000,view.height);
+  if(deform)for(let y=top;y<720;y+=4)ctx.drawImage(world.colored,0,(y-top)*density,pixelWidth,4*density,left-view.width*.025+witchWarpX(y+2,state),y,view.width*1.05,4);
+  else ctx.drawImage(useColor?world.colored:world.surface,0,0,pixelWidth,pixelHeight,left,top,view.width,view.height);
   if(mode===4||mode===5) {
     const time=state.reducedMotion?0:(state.warpTime??state.handTime??0),frame=Math.floor(time*(mode===5?14:6));
     ctx.save();ctx.globalAlpha=mode===5?.08:.045;
     for(let i=0;i<120;i++) {
-      const x=(i*173+frame*47)%1000,y=top+(i*89+frame*17)%view.height;
+      const x=left+(i*173+frame*47)%view.width,y=top+(i*89+frame*17)%view.height;
       ctx.fillStyle=i%3?'#96b6c5':'#110c1a';ctx.fillRect(x,y,mode===5?3:38,mode===5?2:1);
     }
     ctx.restore();
@@ -1596,7 +1601,7 @@ function witchBodyOccludes(x,y,state) {
 /** Input remains attached to the visible world through extension and ripples. */
 export function hitTestWitch(x, y, state = {}, prepared = null) {
   const layout=getWitchLayout(state);
-  if(!Number.isFinite(x)||!Number.isFinite(y)||x<0||y<layout.top||x>1000||y>720) return null;
+  if(!Number.isFinite(x)||!Number.isFinite(y)||x<layout.left||y<layout.top||x>1000||y>720) return null;
   const point=warpWitchPoint({x,y},state,true); x=point.x;y=point.y;
   // The die stays in front of the walking visitors and the flight noodles.
   const die=WITCH_LAYOUT.die;

@@ -56,11 +56,11 @@ test('lizard hangs from the ceiling and mouse rounds the left and bottom edges i
 });
 
 test('visitor geometry and native pick targets follow their bodies in both directions',()=>{
-  for(const visitor of WITCH_VISITORS)for(const visit of [0,1])for(const progress of [.18,.42,.75]) {
-    const state={performanceTime:visitor.first+visit*visitor.period+visitor.duration*progress};
+  for(const portraitLayout of [false,true])for(const visitor of WITCH_VISITORS)for(const visit of [0,1])for(const progress of [.18,.42,.75]) {
+    const state={portraitLayout,performanceTime:visitor.first+visit*visitor.period+visitor.duration*progress};
     const targets=getWitchVisitorTargets(state)[visitor.id];assert.ok(targets);
     for(const target of Object.values(targets)) {
-      assert.ok(target.x>0&&target.x<1000&&target.y>0&&target.y<720,'body and head remain inside the frame');
+      assert.ok(target.x>(portraitLayout?200:0)&&target.x<1000&&target.y>0&&target.y<720,'body and head remain inside the frame');
       assert.deepEqual(hitTestWitchVisitors(target.x,target.y,state),{type:'animal',id:visitor.id});
     }
     assert.equal(hitTestWitchVisitors(500,350,state),null);

@@ -265,6 +265,7 @@ browser errors. It does not install quality controls in the instrument.
 
 On portrait screens, the 18 shelf ingredients and four cupboard-top instruments
 rest on three wider rows above the witch's hat. Their larger cutouts keep the
-same tap-to-cauldron gestures; the broom leans along the left edge. Rotating to
-landscape restores the six-row cupboard without resetting the music, presets
-or consumed ingredients.
+same tap-to-cauldron gestures. The witch's scene is up to 25% taller beneath
+them, capped to the available screen height, with the broom beside her back
+and the mouse following the new left edge. Rotating to landscape restores the
+six-row cupboard without resetting the music, presets or consumed ingredients.

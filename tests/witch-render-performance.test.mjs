@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderWitch, getWitchTree, getWitchHair, getWitchTargets, hitTestWitch, warpWitchPoint } from '../src/instruments/witch/witch-renderer.js';
+import { renderWitch, getWitchTree, getWitchHair, getWitchTargets, getWitchLayout, hitTestWitch, warpWitchPoint } from '../src/instruments/witch/witch-renderer.js';
 
 function paintProbe() {
   const canvases=[],images=[];
@@ -60,16 +60,16 @@ test('default scene skips discarded color work and scaled buffers reduce process
   }
 }));
 
-test('lower-resolution distortion keeps the same 180 canonical strips and exact inverse picking',()=>withPaths(()=>{
-  for(const renderScale of [.5,.6,.85,1])for(const visualMode of [0,4,5,6,7]) {
-    const {context}=paintProbe(),state={renderScale,visualMode,eyeShock:.7,warpTime:2.93};
+test('lower-resolution distortion covers each layout with exact inverse picking',()=>withPaths(()=>{
+  for(const portraitLayout of [false,true])for(const renderScale of [.5,.6,.85,1])for(const visualMode of [0,4,5,6,7]) {
+    const {context}=paintProbe(),state={portraitLayout,renderScale,visualMode,eyeShock:.7,warpTime:2.93},layout=getWitchLayout(state);
     renderWitch(context,390,281,state);
     const strips=context.calls.filter(call=>call.type==='drawImage'&&call.args.length===9);
-    assert.equal(strips.length,180);
+    assert.equal(strips.length,layout.height/4);
     for(const {args:[,sx,sy,sw,sh,dx,dy,dw,dh]} of strips) {
       const point={x:367,y:dy+1.9},visible=warpWitchPoint(point,state);
-      assert.ok(Math.abs(visible.x-(dx+(point.x*renderScale-sx)/sw*dw))<1e-10);
-      assert.ok(Math.abs(visible.y-(dy+(point.y*renderScale-sy)/sh*dh))<1e-10);
+      assert.ok(Math.abs(visible.x-(dx+((point.x-layout.left)*renderScale-sx)/sw*dw))<1e-10);
+      assert.ok(Math.abs(visible.y-(dy+((point.y-layout.top)*renderScale-sy)/sh*dh))<1e-10);
       assert.ok(Math.abs(warpWitchPoint(visible,state,true).x-point.x)<1e-10);
     }
   }
