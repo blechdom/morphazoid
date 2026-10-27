@@ -4,7 +4,7 @@ import {WITCH_VOICES, WITCH_SHELF, WITCH_TREE_OBJECTS, WITCH_INGREDIENTS} from '
 import {WITCH_GHOST_SCARE_DURATION, WITCH_GHOST_SCREAMS, getWitchBlechFlyby} from '../src/instruments/witch/witch-scene-model.js';
 import {traceLSystem,L_SYSTEM_PRESETS} from '../src/instruments/l-system/l-system.js';
 import { traceWitchTree } from '../src/instruments/witch/witch-tree-model.js';
-import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
+import {hitTestWitch, getFingerTips, getWitchLadle, getWitchHair, getWitchHat, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchTrail, getWitchTrails, getWitchRestTrails, getWitchFabric, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, renderWitchFaceIcon, broomTransform, handTransform, transformHandPoint, warpWitchPoint, renderWitch, getWitchLayout, getWitchViewport, WITCH_LAYOUT} from '../src/instruments/witch/witch-renderer.js';
 
 function distanceToPolyline(point,points) {
   let distance=Infinity;
@@ -975,4 +975,41 @@ test('tree sound travels up the native branches without changing their shape',()
     assert.deepEqual(getWitchTreePulse({...state,treeSoundShape:(treeShape+1)%6,treeProgress:.3,treeEnvelope:1}),[],
       'an old phrase cannot light a newly selected tree');
   }
+});
+
+
+test('portrait shelves keep all cupboard icons above the hat, resting on boards and independently pickable',()=>{
+  const state={portraitLayout:true,reducedMotion:true},layout=getWitchLayout(state);
+  const objects=layout.objects.filter(object=>['shelf','cupboard-top'].includes(object.location));
+  assert.equal(objects.length,22);
+  assert.deepEqual(Object.values(Object.groupBy(objects,object=>object.y)).map(row=>row.length),[8,7,7]);
+  assert.equal(layout.shelves[0].rows.length,3);
+  const hatTop=Math.min(...getWitchHat(state).panels.flat().map(point=>point.y));
+  for(const object of objects) {
+    const position=getWitchObjectPosition(object.id,state);
+    assert.ok(layout.shelves[0].rows.includes(position.y+27*position.iconSize),'visible alpha rests on its board');
+    assert.ok(position.y+27*position.iconSize<hatTop);
+    assert.ok(position.x-position.r>0&&position.x+position.r<layout.width);
+    for(const visualMode of [0,3,5,6,7]) {
+      const current={...state,visualMode,hitRadius:62},visible=warpWitchPoint(position,current);
+      assert.equal(hitTestWitch(visible.x,visible.y,current)?.id,object.id);
+    }
+  }
+  for(const object of layout.objects.filter(object=>['tree','web'].includes(object.location))) {
+    assert.deepEqual(object,WITCH_LAYOUT.objects.find(home=>home.id===object.id),'tree and web stay in their scene');
+  }
+  const fabric=getWitchFabric({...state,flightLift:1});
+  assert.deepEqual(fabric.bounds,{left:0,right:1000,top:-400,bottom:720});
+  assert.ok(fabric.strands.some(strand=>strand.points.some(point=>point.y<-300)),'wind cloth covers the added portrait sky');
+  const broom=getWitchTargets(state).broom;
+  assert.ok(broom.x<120);assert.equal(hitTestWitch(broom.x,broom.y,state)?.type,'broom');
+  const home=getWitchObjectPosition('quadruped',state),drop={...home,dropped:true,dropAge:0};
+  for(const portraitLayout of [true,false]) {
+    const falling=getWitchObjectPosition(drop,{portraitLayout});
+    assert.equal(falling.x,home.x);assert.equal(falling.y,home.y,'rotation preserves an already captured drop origin');
+  }
+  const view=getWitchViewport(390,436.8,state);
+  assert.equal(view.top,-400);assert.equal(view.height,1120);
+  assert.ok(Math.abs(view.y+view.top*view.scale)<1e-10);
+  assert.ok(Math.abs(view.y+720*view.scale-436.8)<1e-10);
 });

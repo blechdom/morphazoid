@@ -22,3 +22,8 @@
 @media (pointer: coarse) {
   .witch-page .audio-button { min-width: 48px; min-height: 48px; }
 }
+
+@media (orientation: portrait) {
+  .witch-viewport { --witch-stage-height: max(360px, 112vw); }
+  .witch-viewport h1 { top: 1.6%; left: 4.5%; max-width: none; white-space: nowrap; font-size: clamp(20px, 4.5vw, 34px); }
+}

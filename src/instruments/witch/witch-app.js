@@ -11,7 +11,7 @@ import { getWitchCatFrame, getWitchCatTargets } from './witch-cat.js';
 import { createWitchCatClock, advanceWitchCatClock, snapshotWitchCatClock, witchCatMeowEnvelope } from './witch-cat-model.js';
 import { WITCH_SHAPE_FORMS, getWitchShapeForm, getWitchShapeFrame, retargetWitchShapeCharm } from './witch-shape-model.js';
 import { createWitchRenderBudget, resizeWitchRenderBudget, sampleWitchRenderBudget } from './witch-performance.js';
-import { renderWitch, disposeWitchRenderer, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchHatDrop, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, WITCH_LAYOUT } from './witch-renderer.js';
+import { renderWitch, disposeWitchRenderer, hitTestWitch, getFingerTips, handTransform, transformHandPoint, getWitchObjectPosition, getWitchGhostPosition, getWitchGhostScare, getWitchTargets, getWitchLadle, getWitchHair, getWitchHat, getWitchHatDrop, getWitchTree, getWitchTreePulse, getWitchWeb, getWitchSpellArm, getWitchRestTrails, getWitchTrails, warpWitchPoint, getWitchLayout, getWitchViewport, WITCH_LAYOUT } from './witch-renderer.js';
 import { WITCH_DEFAULTS, WITCH_PRESETS, WITCH_SETTING_PRESETS, witchPresetSettings, normalizeWitchPreset, randomizeWitchPreset } from './witch-presets.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 
@@ -59,7 +59,7 @@ let pointer = null, keyboardGate = false, event = null, ladleOffset = 0, motionT
 const ghostFrames=Array.from({length:3},()=>({}));
 const fingerPointers = new Map(), fingerKeys = new Set(), arrowKeys = new Set();
 let instrumentLabels = ['Thumb · glass','Index · reed','Middle · wire','Ring · metal','Little · marimba'];
-let width = 1000, height = 720, presets;
+let width = 1000, height = 720, portraitLayout = window.innerWidth < window.innerHeight, presets;
 const world={handReach:1,handOpen:false,flightLift:0,trip:0,hatPullX:0,hatPullY:0,hatClicks:0,hatDrop:null,hairPullX:0,hairPullY:0};
 const objects=WITCH_LAYOUT.objects.map(object=>({...object,dragging:false,dropped:false,dropAge:0}));
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -249,7 +249,7 @@ function worldAction(action) {
     $('gestureReadout').value='A new shape, a whole new spell.';
   } else if(action==='fabric') {
     if(config.scene==='flight') {
-      beginWitchFabricGesture(fabricGesture,getWitchTargets(visualState()).fabric,performance.now());
+      beginWitchFabricGesture(fabricGesture,fabricLocation(getWitchTargets(visualState()).fabric),performance.now());
       releaseWitchFabricGesture(fabricGesture);windFabric();send();
     }
   } else if(action==='mouth') {
@@ -289,7 +289,7 @@ function clickHat() {
 }
 function returnObject(object) {
   if(!object || object.dropped) return;
-  const home=WITCH_LAYOUT.objects.find(item=>item.id===object.id);
+  const home=getWitchLayout({portraitLayout}).objects.find(item=>item.id===object.id);
   Object.assign(object,{x:home.x,y:home.y,dragging:false,dropAge:0});
 }
 function refillShelf() {
@@ -449,9 +449,13 @@ const wakeFromPicture=e=>{
 listen($('witchViewport'),'pointerdown',wakeFromPicture,{capture:true});
 listen($('witchViewport'),'click',wakeFromPicture,{capture:true});
 function canonical(e, logical=false, warpState) {
-  const rect=canvas.getBoundingClientRect(); const scale=Math.min(rect.width/1000,rect.height/720);
-  const p={x:(e.clientX-rect.left-(rect.width-1000*scale)/2)/scale,y:(e.clientY-rect.top-(rect.height-720*scale)/2)/scale};
+  const rect=canvas.getBoundingClientRect(),view=getWitchViewport(rect.width,rect.height,{portraitLayout});
+  const p={x:(e.clientX-rect.left-view.x)/view.scale,y:(e.clientY-rect.top-view.y)/view.scale};
   return logical?warpWitchPoint(p,warpState??visualState(),true):p;
+}
+function fabricLocation(point) {
+  const layout=getWitchLayout({portraitLayout});
+  return {x:point.x,y:(point.y-layout.top)*720/layout.height};
 }
 function stirLocation(point) {
   const pot=WITCH_LAYOUT.cauldron;
@@ -468,13 +472,13 @@ function visualState() {
   const fingerLevels=audioOn&&v?.fingerLevels?v.fingerLevels:Array.from({length:5},(_,i)=>mask&(1<<i)?1:0);
   const ghostPhase=liveParts().backing?(v?.ghostPhase??silentGhostPhase):silentGhostPhase;
   ghostFrames.forEach((out,i)=>witchGhostFrame(ghostPhase,i,out));
-  return { ...config, ...motionSettings(), ...world, ...fabricGesture.visual, ...fabricGesture.audio, fabricHeld:fabricGesture.held, trailStrands:trailGesture.active?trailGesture.strands:undefined, playing, performanceTime, capturedAnimals,flybyTime:v?.flybyTime??silentFlybyTime,renderScale:renderBudget.scale,onInvalidate:requestPaint,
+  return { ...config, portraitLayout, ...motionSettings(), ...world, ...fabricGesture.visual, ...fabricGesture.audio, fabricHeld:fabricGesture.held, trailStrands:trailGesture.active?trailGesture.strands:undefined, playing, performanceTime, capturedAnimals,flybyTime:v?.flybyTime??silentFlybyTime,renderScale:renderBudget.scale,onInvalidate:requestPaint,
     ghostScare:ghostScareState(),ghostScareHidden:Boolean(ghostScare),shapeCharm,eyeSurface,
     treeEnvelope:playing?(v?.treeEnvelope??0):0,treeProgress:v?.treeProgress??0,treeSoundShape:v?.treeShape??config.treeShape,
     flybyFrenzy:playing?(v?.flybyFrenzy??0):0,flybyFrenzyIndex:v?.flybyFrenzyIndex??blechFrenzyIndex,
     paletteFrom:spellTransition?.from.palette??config.palette,paletteTo:spellTransition?.to.palette??config.palette,paletteMix:spellTransition?.mix??1,
     eyeShock:audioOn?(v?.shockEnvelope??0):witchAccentEnvelope(performanceTime-eyeShockAt),spiderPulse:witchAccentEnvelope(performanceTime-spiderAt),webPulse:witchAccentEnvelope(performanceTime-webAt,1.3),webIndex,
-    spiderCaptured:Boolean(objects.find(object=>object.id==='spider')?.dropped),spiderSurface, catFrame:catClock, catMeow:audioOn?(v?.catMeow??0):(playing?witchCatMeowEnvelope((performance.now()-catMeowAt)/1000):0), handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performanceTime,time:performanceTime, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,Math.min(width/1000,height/720))) };
+    spiderCaptured:Boolean(objects.find(object=>object.id==='spider')?.dropped),spiderSurface, catFrame:catClock, catMeow:audioOn?(v?.catMeow??0):(playing?witchCatMeowEnvelope((performance.now()-catMeowAt)/1000):0), handPalms:handReady?[hand.getPalm(0),hand.getPalm(1)]:[], ghostPhase, ghostPresence:ghostFrames.map(frame=>frame.presence), ghostPulses:ghostFrames.map(frame=>playing?frame.pulse:0), flightPhase:v?.flightPhase??silentFlightPhase, objects, selectedIngredient:objects[selectedIngredient]?.id??null, spoonHeight, activeVoice, voice:activeVoice, gate:gate(), manualFingerMask:fingerMask(), reducedMotion:reducedMotion.matches, handTime, handSurface, handSurfaces, handsTips:handReady?[hand.getTips(0),hand.getTips(1)]:[], handWrists:handReady?[hand.getWrist(0),hand.getWrist(1)]:[], handTips:handReady?hand.getTips():[],handWrist:handReady?hand.getWrist():null,pickHand:handReady?hand.pick:null,warpTime:reducedMotion.matches?0:performanceTime,time:performanceTime, motionTime, phase, speed, energy:audioOn?(v?.energy??speed):speed, launchEnvelope:audioOn?(v?.launchEnvelope??0):(event?.kind==='launch'&&event.age<1.86?1:0), mouth:audioOn?(v?.mouth??0):(speed*(.35+.65*Math.abs(Math.sin(phase*3)))*(world.handOpen?.55:1)), fingerLevels, flightPulse:audioOn?(v?.flightPulse??0):speed*Math.max(0,Math.sin(phase*2)), direction:config.direction, event:event??(v?.effect ? {kind:v.effect,age:1-(v.effectEnvelope??0)} : null), selectedFinger, ladleAngle:pointer?.type==='stir'?pointer.ladleAngle:phase+ladleOffset, hitRadius:Math.max(46,24/Math.max(.1,getWitchViewport(width,height,{portraitLayout}).scale)) };
 }
 listen(canvas,'pointerdown',e => {
   if(pointer || e.button!==0) return;
@@ -529,7 +533,7 @@ listen(canvas,'pointerdown',e => {
     pointer.trailAnchor=rest.find(strand=>strand.index===trailGesture.grab?.index)?.points.at(-1)??pointer.trailAnchor;
     trailTick=performanceTime;
   }
-  if(hit.type==='fabric') {beginWitchFabricGesture(fabricGesture,p,performance.now());config.fabricX=clamp(p.x/1000);config.fabricY=clamp(1-p.y/720);windFabric();}
+  if(hit.type==='fabric') {const fabricPoint=fabricLocation(p);beginWitchFabricGesture(fabricGesture,fabricPoint,performance.now());config.fabricX=clamp(fabricPoint.x/1000);config.fabricY=clamp(1-fabricPoint.y/720);windFabric();}
   if(hit.type==='stir') { config.speed=.05; if(!onHandle) config.radius=pointer.radius; }
   if(hit.type==='finger') selectedFinger=pointer.index;
   if(hit.type==='flight') { config.flightX=clamp(p.x/1000,.12,.88); config.altitude=clamp(1-p.y/720); }
@@ -563,8 +567,9 @@ listen(canvas,'pointermove',e => {
     // Bend the current one-shot voice; holding a branch never retriggers it.
   }
   else if(pointer.type==='fabric') {
-    moveWitchFabricGesture(fabricGesture,p,now);
-    config.fabricX=clamp(p.x/1000);config.fabricY=clamp(1-p.y/720);
+    const fabricPoint=fabricLocation(p);
+    moveWitchFabricGesture(fabricGesture,fabricPoint,now);
+    config.fabricX=clamp(fabricPoint.x/1000);config.fabricY=clamp(1-fabricPoint.y/720);
     if(now-fabricWindAt>100)windFabric();
   }
   else if(pointer.type==='trail') {
@@ -705,13 +710,17 @@ listen(canvas,'blur',() => { stopGesture(); });
 listen(window,'blur',() => { stopGesture(); });
 listen(window,'morphazoid:midi-input',e => { if(['noteOn','noteOff','pitchBend'].includes(e.detail?.message?.type)) e.preventDefault(); });
 function resize() {
+  const portrait=window.innerWidth<window.innerHeight;
+  if(portrait!==portraitLayout)stopGesture();
+  portraitLayout=portrait;
   const rect=canvas.getBoundingClientRect(); width=rect.width; height=rect.height;
   const dpr=Math.min(1.5,window.devicePixelRatio||1);
   const nextWidth=Math.round(width*dpr),nextHeight=Math.round(height*dpr);
   if(canvas.width!==nextWidth||canvas.height!==nextHeight) {
     canvas.width=nextWidth;canvas.height=nextHeight;ctx.setTransform(dpr,0,0,dpr,0,0);
   }
-  resizeWitchRenderBudget(renderBudget,{width,height,pixelRatio:dpr});
+  const layout=getWitchLayout({portraitLayout});
+  resizeWitchRenderBudget(renderBudget,{width,height,pixelRatio:dpr,worldWidth:layout.width,worldHeight:layout.height});
   requestPaint();
 }
 const observer=new ResizeObserver(resize); observer.observe($('witchViewport'));
@@ -825,7 +834,7 @@ presets=registerHeaderPresets({id:'witch',host:document.createElement('div'),pre
 Object.defineProperty(window,'witchInstrument',{configurable:true,value:Object.freeze({get state() {
   const state=visualState(),catTargets=getWitchCatTargets(state),hair=getWitchHair(state);
   const {form,id,dimension,progress,morphing}=getWitchShapeFrame(state);
-  return {visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeSoundShape:state.treeSoundShape,treeOnsets:audio.visual.treeOnsets??0,treeBranchCount:audio.visual.treeBranchCount??0,treePlayheads:getWitchTreePulse(state),treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime).map(visitor=>({...visitor,...warpWitchPoint(visitor,state)})),flybyLevel:audio.visual.flybyLevel??0,flybyFrenzy:state.flybyFrenzy,flybyFrenzyIndex:state.flybyFrenzyIndex,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,hushing:Boolean(hairHush),parts:{brew:playing&&awake.brew,hand:playing&&awake.hand},backingAwake:playing&&awake.backing,quiet:!playing,presence:audio.presence,world:{...world},handReady,manualOnly,activeParts:liveParts(),performanceTime,cat:getWitchCatFrame(state),
+  return {portraitLayout,viewport:getWitchViewport(width,height,state),shelves:getWitchLayout(state).shelves,visualTime:state.time,warpTime:state.warpTime,presenceLevel:audio.presenceNode?.gain.value??audio.presence,treeEnvelope:audio.visual.treeEnvelope??0,treeProgress:audio.visual.treeProgress??0,treeSoundShape:state.treeSoundShape,treeOnsets:audio.visual.treeOnsets??0,treeBranchCount:audio.visual.treeBranchCount??0,treePlayheads:getWitchTreePulse(state),treeLevel:audio.visual.treeLevel??0,flybyTime:state.flybyTime,flybys:getWitchBlechFlyby(state.flybyTime).map(visitor=>({...visitor,...warpWitchPoint(visitor,state)})),flybyLevel:audio.visual.flybyLevel??0,flybyFrenzy:state.flybyFrenzy,flybyFrenzyIndex:state.flybyFrenzyIndex,tree:getWitchTree(state),web:getWitchWeb(state),spellArm:getWitchSpellArm(state),eyeShock:state.eyeShock,spiderPulse:state.spiderPulse,webPulse:state.webPulse,spiderReady,spiderCaptured:state.spiderCaptured,fabricGesture:structuredClone({held:fabricGesture.held,visual:fabricGesture.visual,audio:fabricGesture.audio}),trailGesture:structuredClone({held:trailGesture.held,active:trailGesture.active,grab:trailGesture.grab,point:trailGesture.point,strands:trailGesture.active?getWitchTrails(state).map(({index,points})=>({index,points})):[]}),spellTransition:spellTransition?{progress:spellTransition.mix,startsAt:spellTransition.start}:null,capturedAnimals:structuredClone(capturedAnimals),visitors:getWitchVisitors(state),visitorTargets:Object.fromEntries(Object.entries(getWitchVisitorTargets(state)).map(([id,targets])=>[id,Object.fromEntries(Object.entries(targets).map(([part,p])=>[part,{...p,...warpWitchPoint(p,state)}]))])),catMeow:state.catMeow,catTargets:catTargets?Object.fromEntries(Object.entries(catTargets).map(([key,value])=>[key,warpWitchPoint(value,state)])):null,config:structuredClone(config),presetId:presets?.selectedId??presets?.lastPresetId??WITCH_PRESETS[0].id,playing,audioOn,starting,hushing:Boolean(hairHush),parts:{brew:playing&&awake.brew,hand:playing&&awake.hand},backingAwake:playing&&awake.backing,quiet:!playing,presence:audio.presence,world:{...world},handReady,manualOnly,activeParts:liveParts(),performanceTime,cat:getWitchCatFrame(state),
     fingerTips:getFingerTips(state).map(p=>warpWitchPoint(p,state)),handWrist:state.handWrist,
     hands:[0,1].map(i=>({tips:getFingerTips(state,i).map(p=>warpWitchPoint(p,state)),wrist:warpWitchPoint(handTransform(state,i).wrist,state),palm:handReady?warpWitchPoint(transformHandPoint(state.handPalms[i],state,i),state):null,rotation:handTransform(state,i).rotation,scale:handTransform(state,i).scale})),handTime:state.handTime,flightPhase:state.flightPhase,manualFingerMask:state.manualFingerMask,spoonHeight:state.spoonHeight,activeVoice:state.activeVoice,
     ghostScare:getWitchGhostScare(state),ghostScareHidden:state.ghostScareHidden,catCaptureCount,

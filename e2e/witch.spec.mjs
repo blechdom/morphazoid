@@ -85,11 +85,11 @@ async function observeWorklet(page) {
 }
 async function point(page,x,y) {
   const rect=await page.locator('#witchCanvas').boundingBox();
-  return stagePoint(rect,x,y);
+  return stagePoint({...rect,viewport:(await state(page)).viewport},x,y);
 }
 function stagePoint(rect,x,y) {
-  const s=Math.min(rect.width/1000,rect.height/720);
-  return {x:rect.x+(rect.width-1000*s)/2+x*s,y:rect.y+(rect.height-720*s)/2+y*s};
+  const view=rect.viewport;
+  return {x:rect.x+view.x+x*view.scale,y:rect.y+view.y+y*view.scale};
 }
 async function inputSnapshot(session,read,arg) {
   // Sample on the native input session. Traced page.evaluate snapshots can
@@ -111,8 +111,9 @@ async function clickIngredient(page,id,touch=false) {
   expect(object,`${id} has a visible scene object`).toBeTruthy();
   expect(object.dropped).toBe(false);
   expect(object.x).toBeGreaterThan(0);expect(object.x).toBeLessThan(1000);
-  expect(object.y).toBeGreaterThan(0);expect(object.y).toBeLessThan(720);
-  const rect=await page.locator('#witchCanvas').boundingBox(),from=stagePoint(rect,object.x,object.y);
+  const viewport=(await state(page)).viewport;
+  expect(object.y).toBeGreaterThan(viewport.top);expect(object.y).toBeLessThan(viewport.top+viewport.height);
+  const rect=await page.locator('#witchCanvas').boundingBox(),from=stagePoint({...rect,viewport},object.x,object.y);
   const session=touch?await page.context().newCDPSession(page):null;
   if(session) await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
   else await page.mouse.click(from.x,from.y);
@@ -143,29 +144,29 @@ async function clickWorld(page,key,{touch=false,index=0,drag=null}={}) {
       x:current.web.center.x+(target.x-current.web.center.x)*.6,
       y:current.web.center.y+(target.y-current.web.center.y)*.6,
     };
-    const visual={...current.config,eyeShock:current.eyeShock,
+    const visual={...current.config,portraitLayout:current.portraitLayout,eyeShock:current.eyeShock,
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
     let targets=[target];
     if(key==='moon') {
-      const moon=current.targets.moon,scale=Math.min(rect.width/1000,rect.height/720);
+      const moon=current.targets.moon,scale=current.viewport.scale;
       const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects};
       targets=[target,...Array.from({length:12},(_,i)=>({x:moon.x+Math.cos(i*Math.PI/6)*moon.r*.7,y:moon.y+Math.sin(i*Math.PI/6)*moon.r*.7}))].filter(p=>{
         const q=warpWitchPoint(p,visual);return hitTestWitch(q.x,q.y,hitState)?.type==='moon';
       });
     }
     if(key==='tree') {
-      const canvas=document.querySelector('#witchCanvas'),scale=Math.min(rect.width/1000,rect.height/720),seen=new Set();
+      const canvas=document.querySelector('#witchCanvas'),scale=current.viewport.scale,seen=new Set();
       const hitState={...visual,...current.world,hitRadius:Math.max(46,24/scale),time:current.visualTime,handTime:current.handTime,flightPhase:current.flightPhase,objects:current.objects,spiderCaptured:current.spiderCaptured};
       targets=[target,...current.tree.segments.flatMap(({a,b})=>[.25,.5,.75].map(t=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t})))].filter(p=>{
         const cell=`${Math.round(p.x/8)},${Math.round(p.y/8)}`;if(seen.has(cell))return false;seen.add(cell);
-        const q=warpWitchPoint(p,visual),x=rect.x+(rect.width-1000*scale)/2+q.x*scale,y=rect.y+(rect.height-720*scale)/2+q.y*scale;
+        const q=warpWitchPoint(p,visual),x=rect.x+current.viewport.x+q.x*scale,y=rect.y+current.viewport.y+q.y*scale;
         return document.elementFromPoint(x,y)===canvas&&hitTestWitch(q.x,q.y,hitState)?.type==='tree';
       // Upper branches stay clear of the animated hand that crosses the trunk.
       }).sort((a,b)=>(a.y<380?0:1)-(b.y<380?0:1)).slice(0,80);
     }
     return {targets:targets.map(point=>({...warpWitchPoint(point,visual),...(drag?{
       to:warpWitchPoint({x:point.x+drag.spread*(point.x<current.tree.root.x-4?-1:1),y:point.y+drag.dy},visual),
-    }:{})})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+    }:{})})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{key,index,drag});
   expect(snapshot.targets.length,`${key} has an exposed native target`).toBeGreaterThan(0);
   let selected=snapshot.targets[0],from=stagePoint(snapshot.rect,selected.x,selected.y);
@@ -227,7 +228,7 @@ async function clickAnimal(page,id,{touch=false,part='body'}={}) {
   const snapshot=await inputSnapshot(session,({id,part})=>{
     const current=window.witchInstrument.state,rect=document.querySelector('#witchCanvas').getBoundingClientRect();
     return {target:(id==='cat'?current.catTargets:current.visitorTargets[id])?.[part],
-      rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+      rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{id,part});
   const target=snapshot.target;expect(target,`${id} has a live ${part} target`).toBeTruthy();
   expect(target.x).toBeGreaterThan(0);expect(target.x).toBeLessThan(1000);
@@ -258,8 +259,8 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
   const candidateSnapshot=(offset=null)=>inputSnapshot(session,async({id,dy,offset})=>{
     const {warpWitchPoint,getWitchGhostPosition,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,ghost=current.ghosts.find(item=>item.id===id);
-    const rect=document.querySelector('#witchCanvas').getBoundingClientRect(),minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
-    const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
+    const rect=document.querySelector('#witchCanvas').getBoundingClientRect(),minRadius=Math.max(46,24/current.viewport.scale);
+    const visual={portraitLayout:current.portraitLayout,trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
     const blockers=[...current.fingerTips.map(point=>({...point,r:minRadius})),
       ...current.hands.slice(0,1).flatMap(hand=>hand.palm?[{...hand.palm,r:minRadius},{...hand.wrist,r:minRadius*.55}]:[]),
       ...current.hairGeometry.strands.flatMap(strand=>strand.points.map(point=>({...point,r:Math.min(28,Math.max(12*current.hairGeometry.scale,minRadius*.32))}))),
@@ -280,7 +281,7 @@ async function dragGhost(page,id,dy,{touch=false,cancel=false}={}) {
       return {offset,from,to:warpWitchPoint({x:raw.x,y:raw.y+dy},visual),clearance,score:Math.min(clearance,interior)};
     });
     const ranked=candidates.toSorted((a,b)=>b.score-a.score);
-    return {...ranked[0],offsets:ranked.map(candidate=>candidate.offset),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+    return {...ranked[0],offsets:ranked.map(candidate=>candidate.offset),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{id,dy,offset});
   let from,to;
   // Foreground fingers and hair can cross a ghost. Pick an exposed edge with
@@ -324,9 +325,9 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
     window.witchHairPointerId=null;
     canvas.addEventListener('pointerdown',event=>{
       window.witchHairPointerId=event.pointerId;
-      const current=window.witchInstrument.state,rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/1000,rect.height/720);
-      const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
-      const raw={x:(event.clientX-rect.x-(rect.width-1000*scale)/2)/scale,y:(event.clientY-rect.y-(rect.height-720*scale)/2)/scale};
+      const current=window.witchInstrument.state,rect=canvas.getBoundingClientRect(),scale=current.viewport.scale;
+      const visual={portraitLayout:current.portraitLayout,trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
+      const raw={x:(event.clientX-rect.x-current.viewport.x)/scale,y:(event.clientY-rect.y-current.viewport.y)/scale};
       const p=warpWitchPoint(raw,visual,true),minRadius=Math.max(46,24/scale);
       const hairDistances=current.hairGeometry.strands.slice(0,12).flatMap(strand=>strand.points.slice(7).map((_,index)=>{
         const a=warpWitchPoint(strand.points[index+6],visual,true),b=warpWitchPoint(strand.points[index+7],visual,true),dx=b.x-a.x,dy=b.y-a.y;
@@ -348,9 +349,9 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
   const candidateSnapshot=(index=null)=>inputSnapshot(session,async({amount,index})=>{
     const {warpWitchPoint,WITCH_LAYOUT}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,geometry=current.hairGeometry;
-    const visual={trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
+    const visual={portraitLayout:current.portraitLayout,trip:current.config.trip,visualMode:current.config.visualMode,eyeShock:current.eyeShock,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,warpTime:current.warpTime};
     const rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-    const minRadius=Math.max(46,24/Math.min(rect.width/1000,rect.height/720));
+    const minRadius=Math.max(46,24/current.viewport.scale);
     const unwarp=point=>warpWitchPoint(point,visual,true);
     const blockers=[...['nose','mouth','eyes','hat','fabric'].map(key=>{
       const target=current.targets[key],radius={nose:minRadius*.65,mouth:Math.min(27,minRadius*.38),eyes:Math.min(27,minRadius*.38),hat:minRadius*.7,fabric:minRadius*.6}[key];
@@ -366,7 +367,7 @@ async function dragHair(page,amount,{touch=false,cancel=false}={}) {
     });
     const chosen=index===null?candidates.toSorted((a,b)=>b.clearance-a.clearance)[0]:candidates[index];
     window.witchHairSampleAt=performance.now();
-    return {...chosen,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+    return {...chosen,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{amount,index});
   let from,to;
   await expect.poll(async()=>{
@@ -427,9 +428,9 @@ async function bendFinger(page,{touch=false,index=2,holdMs=0}={}) {
   const session=await page.context().newCDPSession(page);
   try {
     const from=await inputSnapshot(session,({index})=>{
-      const tip=window.witchInstrument.state.hands[0].tips[index],rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-      const scale=Math.min(rect.width/1000,rect.height/720);
-      return {x:rect.x+(rect.width-1000*scale)/2+tip.x*scale,y:rect.y+(rect.height-720*scale)/2+tip.y*scale};
+      const current=window.witchInstrument.state,tip=current.hands[0].tips[index],rect=document.querySelector('#witchCanvas').getBoundingClientRect();
+      const scale=current.viewport.scale;
+      return {x:rect.x+current.viewport.x+tip.x*scale,y:rect.y+current.viewport.y+tip.y*scale};
     },{index});
     if(touch)await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
     else await session.send('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
@@ -478,7 +479,7 @@ async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
   const snapshot=await inputSnapshot(session,async({key,dx,dy,turns})=>{
     const {hitTestWitch,warpWitchPoint}=await import('/src/instruments/witch/witch-renderer.js');
     const current=window.witchInstrument.state,canvas=document.querySelector('#witchCanvas'),rect=canvas.getBoundingClientRect();
-    const visual={...current.config,...current.world,...current.fabricGesture.visual,...current.fabricGesture.audio,
+    const visual={...current.config,portraitLayout:current.portraitLayout,...current.world,...current.fabricGesture.visual,...current.fabricGesture.audio,
       performanceTime:current.performanceTime,time:current.visualTime,warpTime:current.warpTime,handTime:current.handTime,trailStrands:current.trailGesture?.active?current.trailGesture.strands:undefined,
       flightPhase:current.flightPhase,spoonHeight:current.spoonHeight,objects:current.objects,capturedAnimals:current.capturedAnimals,
       spiderCaptured:current.spiderCaptured,eyeShock:current.eyeShock,phase:Math.atan2((current.ladle.ly-520)/.27,current.ladle.lx-600),
@@ -487,11 +488,11 @@ async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
     if(key==='fabric') {
       // Find exposed cloth across the whole background, below the controls
       // and noodles. The live native hover also checks the rendered hand mesh.
-      candidates=[];const scale=Math.min(rect.width/1000,rect.height/720);
+      candidates=[];const scale=current.viewport.scale;
       for(let y=100;y<=620;y+=80)for(let x=80;x<=920;x+=80) {
         if(x+dx<25||x+dx>975||y+dy<25||y+dy>695)continue;
         const p=warpWitchPoint({x,y},visual);
-        const clientX=rect.x+(rect.width-1000*scale)/2+p.x*scale,clientY=rect.y+(rect.height-720*scale)/2+p.y*scale;
+        const clientX=rect.x+current.viewport.x+p.x*scale,clientY=rect.y+current.viewport.y+p.y*scale;
         if(hitTestWitch(p.x,p.y,visual)?.type==='fabric'&&document.elementFromPoint(clientX,clientY)===canvas)candidates.push({x,y});
       }
     }
@@ -499,7 +500,7 @@ async function dragWorld(page,key,dx,dy,{cancel=false,holdMs=0,turns=0}={}) {
       orbit:Array.from({length:24*turns},(_,i)=>{
         const angle=Math.atan2(dy,dx)+(i+1)/24*Math.PI*2,radius=Math.hypot(dx,dy);
         return warpWitchPoint({x:raw.x+Math.cos(angle)*radius,y:raw.y+Math.sin(angle)*radius},visual);
-      })})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height}};
+      })})),rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewport:current.viewport}};
   },{key,dx,dy,turns});
   let target=snapshot.candidates[0];
   if(key==='fabric') {
@@ -887,8 +888,8 @@ test('the ladle, fingers, nose and stretchable hat are native controls with clea
   const fingerSession=await page.context().newCDPSession(page);
   const finger=await inputSnapshot(fingerSession,()=>{
     const current=window.witchInstrument.state,tip=current.hands[0].tips[2],rect=document.querySelector('#witchCanvas').getBoundingClientRect();
-    const scale=Math.min(rect.width/1000,rect.height/720);
-    return {x:rect.x+(rect.width-1000*scale)/2+tip.x*scale,y:rect.y+(rect.height-720*scale)/2+tip.y*scale,before:current.config.fingers[2]};
+    const scale=current.viewport.scale;
+    return {x:rect.x+current.viewport.x+tip.x*scale,y:rect.y+current.viewport.y+tip.y*scale,before:current.config.fingers[2]};
   });
   await fingerSession.send('Input.dispatchMouseEvent',{type:'mousePressed',x:finger.x,y:finger.y,button:'left',buttons:1,clickCount:1});
   expect(await inputSnapshot(fingerSession,()=>window.witchInstrument.state.manualFingerMask&4)).toBe(4);

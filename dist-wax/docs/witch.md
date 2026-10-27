@@ -262,3 +262,9 @@ JSON artifact (default `/tmp/witch-mobile-profile.json`). Keep other benchmarks
 idle during measurement. The script checks the served app/renderer bytes and
 records frame times, long tasks, audio-clock progress, graphics budgets and
 browser errors. It does not install quality controls in the instrument.
+
+On portrait screens, the 18 shelf ingredients and four cupboard-top instruments
+rest on three wider rows above the witch's hat. Their larger cutouts keep the
+same tap-to-cauldron gestures; the broom leans along the left edge. Rotating to
+landscape restores the six-row cupboard without resetting the music, presets
+or consumed ingredients.

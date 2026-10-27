@@ -1,7 +1,7 @@
 const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 const finite=(value,fallback)=>Number.isFinite(value)?value:fallback;
-const fitScale=({width=1000,height=720,pixelRatio=1}={})=>
-  clamp(Math.ceil(Math.min(Math.max(1,finite(width,1000))/1000,Math.max(1,finite(height,720))/720)*clamp(finite(pixelRatio,1),1,1.5)*16)/16,.5,1);
+const fitScale=({width=1000,height=720,pixelRatio=1,worldWidth=1000,worldHeight=720}={})=>
+  clamp(Math.ceil(Math.min(Math.max(1,finite(width,1000))/Math.max(1,finite(worldWidth,1000)),Math.max(1,finite(height,720))/Math.max(1,finite(worldHeight,720)))*clamp(finite(pixelRatio,1),1,1.5)*16)/16,.5,1);
 
 /** Only raster detail changes. Musical settings, clocks and logical gesture
  * coordinates stay independent of viewport size and rendering pressure. */
