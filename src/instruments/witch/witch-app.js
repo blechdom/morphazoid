@@ -280,6 +280,12 @@ function restoreHat({resetClicks=false}={}) {
   if(resetClicks||world.hatClicks>=3) {world.hatClicks=0;world.hatDrop=null;}
   world.hatPullX=world.hatPullY=0;
 }
+function resetCompletedClickCycles() {
+  restoreHat();
+  // Keep the capture and clock so the unicorn finishes its escape.
+  // The next cat visit starts a fresh tally after a completed cycle.
+  if(catCaptureCount>=3)catCaptureCount=0;
+}
 function clickHat() {
   if(world.hatClicks>=3)return;
   advancePerformanceTime();
@@ -302,7 +308,7 @@ function applySpell(snapshot,{refill=true}={}) {
   manualOnly=false;manualVoiceUntil=0;spellTransition=null;advancePerformanceTime();
   const scene=config.scene;
   stopGesture();releaseWitchFabricGesture(fabricGesture,{cancel:true});releaseWitchTrailGesture(trailGesture,{cancel:true});config=normalizeWitchPreset({...snapshot,scene});
-  world.trip=config.trip;restoreHat();world.hairPullX=world.hairPullY=0;
+  world.trip=config.trip;resetCompletedClickCycles();world.hairPullX=world.hairPullY=0;
   awake.brew=awake.hand=awake.backing=true;
   if(refill)refillShelf();
   send();sync();
@@ -315,7 +321,7 @@ function dropObject(id) {
   const spell=WITCH_PRESETS.find(preset=>preset.id===object.presetId);
   if(spell) {
     if(!manualOnly)awake.brew=awake.hand=awake.backing=true;
-    restoreHat();world.hairPullX=world.hairPullY=0;
+    resetCompletedClickCycles();world.hairPullX=world.hairPullY=0;
     if(pointer?.type==='trail')stopGesture();
     releaseWitchTrailGesture(trailGesture,{cancel:true});
     const target=normalizeWitchPreset(spell.snapshot);

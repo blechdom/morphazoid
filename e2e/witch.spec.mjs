@@ -1215,6 +1215,11 @@ test('the third cat capture becomes a sparkling Quadruped unicorn and escapes',a
     await advanceBy(1180);
     expect((await state(page)).cat).toMatchObject({source:'quadruped',animalId:'unicorn',behaviorId:'gallop',escaping:true,visible:true,captured:true});
     expect((await state(page)).catTargets).toBeNull();
+    const capture=(await state(page)).capturedAnimals.cat;
+    await key(page,'w');
+    expect((await state(page)).catCaptureCount).toBe(0);
+    expect((await state(page)).capturedAnimals.cat).toEqual(capture);
+    expect((await state(page)).cat).toMatchObject({animalId:'unicorn',escaping:true,visible:true,captured:true});
     await page.screenshot({path:testInfo.outputPath('unicorn-emergence.png')});
     await page.evaluate(()=>window.releaseWitchModule());await page.clock.resume();
     await expect.poll(async()=>(await state(page)).audioOn,{timeout:15000}).toBe(true);
@@ -1222,7 +1227,7 @@ test('the third cat capture becomes a sparkling Quadruped unicorn and escapes',a
     await expect.poll(()=>page.evaluate(()=>window.witchVisual?.unicornLevel??0)).toBeGreaterThan(.0001);
     await expect.poll(async()=>(await state(page)).cat.visible,{timeout:6000}).toBe(false);
     await expect.poll(()=>page.evaluate(()=>window.witchVisual?.unicornActive??true)).toBe(false);
-    expect((await state(page)).catCaptureCount).toBe(3);
+    expect((await state(page)).catCaptureCount).toBe(0);
     await key(page,'Backspace');expect((await state(page)).catCaptureCount).toBe(0);
   } finally {await page.evaluate(()=>window.releaseWitchModule?.());}
 });

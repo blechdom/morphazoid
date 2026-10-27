@@ -171,7 +171,9 @@ visit. Stop freezes the visitor clock; changing presets does not restart it.
 The third cat capture uses Quadruped's unicorn anatomy, gallop and Sparkle call:
 it reaches the potion, leaps out with a glittering coat, and runs off the edge.
 Only successful captures count; repeated clicks during a dive do not. Presets
-keep the tally, while Backspace or a page reload starts it over.
+keep a tally of one or two captures. After the third capture, a new preset,
+ingredient spell or shape click resets the tally for the next cat visit without
+interrupting the unicorn's escape. Backspace or a page reload always starts over.
 Three copies of the bloody Hiccup Head face lurk behind the grounded witch.
 They remain faintly visible between beats and every face can trigger the scare.
 Their existing background beat, including Creaturazoid's voice, stays behind
