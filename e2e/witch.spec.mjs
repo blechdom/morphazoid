@@ -1064,6 +1064,30 @@ test('mouth, tree, spider, web, eyes and ghost gestures play over the running en
   await expect.poll(()=>page.evaluate(()=>window.witchTriggers.includes('eye-shock'))).toBe(true);await audible(page);
 });
 
+test('flight changes answer with one laugh while presets and hand focus keep the music going',async({page})=>{
+  await observeWorklet(page);await open(page);await clickWorld(page,'broom');
+  const transitions=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='launch'||kind==='landing'));
+  await expect.poll(transitions).toEqual(['launch']);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchKind)).toBe('launch');
+  const first=await page.evaluate(()=>({variant:window.witchVisual.launchVariant,duration:window.witchVisual.launchDuration}));
+  await key(page,'w');expect((await state(page)).config.scene).toBe('flight');
+  expect(await transitions()).toEqual(['launch']);
+  await clickWorld(page,'moon');
+  await expect.poll(transitions).toEqual(['launch','landing']);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchKind)).toBe('landing');
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchEnvelope??0)).toBeGreaterThan(.1);
+  await key(page,'b');await key(page,'h');
+  expect(await transitions()).toEqual(['launch','landing']);
+  await key(page,'m');
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchKind)).toBe('launch');
+  const second=await page.evaluate(()=>({variant:window.witchVisual.launchVariant,duration:window.witchVisual.launchDuration}));
+  expect(second.variant).not.toBe(first.variant);expect(second.duration).not.toBe(first.duration);
+  await key(page,'b');
+  await expect.poll(transitions).toEqual(['launch','landing','launch','landing']);
+  expect(await state(page)).toMatchObject({playing:true,config:{scene:'brew'}});
+  await audible(page);
+});
+
 test('broom and moon toggle flight while cloth plays independent wind and hair noodles bend the delay',async({page})=>{
   test.setTimeout(45000);
   await observeWorklet(page);await open(page);await clickWorld(page,'broom');

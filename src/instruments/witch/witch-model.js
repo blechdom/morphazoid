@@ -7,8 +7,58 @@ import { createHandPose, evaluateHandPose, setHandEffectiveTempo } from '../gest
 export const WITCH_TAU = Math.PI * 2;
 export const WITCH_VOICES = Object.freeze(['mutter', 'whisper', 'creak', 'cackle', 'sing', 'wail', 'chatter']);
 export const WITCH_VOCAL_EFFECTS = Object.freeze(['cackle', 'moan', 'howl', 'ghost', 'bat']);
-export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch']);
+export const WITCH_FLIGHT_EFFECTS = Object.freeze(['moon', 'bat', 'ghost', 'spark', 'gust', 'launch', 'landing']);
 export const WITCH_LAUNCH_DURATION = 1.86;
+// Explicit scene-transition exclamations. Each row is start, length, ha/bwa,
+// and unquantized base Hz; the original six-syllable takeoff stays first.
+const transitionPhrases = entries => Object.freeze(entries.map(([id, duration, formant, bend, syllables]) =>
+  Object.freeze({ id, duration, formant, bend, syllables: Object.freeze(syllables.map(row => Object.freeze(row))) })));
+export const WITCH_TRANSITION_PHRASES = Object.freeze({
+  launch: transitionPhrases([
+    ['original', WITCH_LAUNCH_DURATION, 1, 1, [
+      [0, .38, 0, 177], [.4, .38, 0, 207], [.82, .22, 1, 335],
+      [1.07, .2, 1, 362], [1.29, .25, 1, 307], [1.56, .28, 1, 278],
+    ]],
+    ['scamper', 1.34, 1.06, .8, [
+      [0, .19, 0, 190], [.22, .12, 1, 315], [.38, .12, 1, 367],
+      [.54, .14, 1, 390], [.74, .18, 1, 341], [1.03, .27, 1, 260],
+    ]],
+    ['long-whoop', 2.48, .94, 1.25, [
+      [0, .64, 0, 147], [.76, .48, 0, 190], [1.32, .17, 1, 390],
+      [1.53, .13, 1, 420], [1.72, .22, 1, 340], [2.02, .39, 1, 242],
+    ]],
+    ['crooked-pairs', 1.62, .9, 1.1, [
+      [0, .29, 0, 211], [.33, .14, 1, 368], [.55, .24, 0, 175],
+      [.85, .12, 1, 432], [1.02, .16, 1, 323], [1.26, .3, 1, 286],
+    ]],
+    ['rising-hops', 2.16, 1.08, .95, [
+      [0, .44, 0, 166], [.57, .11, 1, 265], [.71, .11, 1, 289], [.86, .18, 1, 350],
+      [1.17, .27, 0, 225], [1.57, .15, 1, 426], [1.79, .3, 1, 352],
+    ]],
+  ]),
+  landing: transitionPhrases([
+    ['downward-chuckle', 1.28, .94, .85, [
+      [0, .18, 1, 340], [.24, .16, 1, 296], [.47, .22, 1, 241], [.8, .42, 0, 155],
+    ]],
+    ['heel-skid', 1.74, .88, .7, [
+      [0, .34, 0, 282], [.43, .12, 1, 324], [.61, .13, 1, 284],
+      [.82, .2, 1, 229], [1.18, .48, 0, 142],
+    ]],
+    ['slow-snicker', 2.12, .98, .65, [
+      [0, .26, 1, 327], [.42, .2, 1, 288], [.79, .28, 1, 236],
+      [1.24, .2, 1, 197], [1.57, .47, 0, 151],
+    ]],
+    ['tumbling-ha', 1.5, 1.04, .9, [
+      [0, .13, 1, 397], [.16, .12, 1, 354], [.31, .14, 1, 309], [.5, .16, 1, 267],
+      [.73, .2, 1, 224], [1.04, .39, 0, 161],
+    ]],
+    ['back-to-the-brew', 2.36, .86, .75, [
+      [0, .52, 0, 254], [.68, .17, 1, 318], [.91, .17, 1, 270],
+      [1.2, .25, 1, 218], [1.68, .6, 0, 137],
+    ]],
+  ]),
+});
+export const WITCH_TRANSITION_MAX_DURATION = Math.max(...Object.values(WITCH_TRANSITION_PHRASES).flat().map(phrase => phrase.duration));
 export const WITCH_FINGER_SOURCES = Object.freeze(['glass', 'reed', 'wire', 'metal', 'marimba']);
 export const WITCH_HAND_MOTIONS = Object.freeze(['finger-roll','claw-pulse','spider-walk','finger-drumming','flourish-spiral','finger-swarm','frantic-orbit','polyrhythmic-tangle','scatter','flick','wrist-turn','opposition-walk','pinch-ladder','figure-eight','source-grasp','beckon']);
 export const WITCH_HAND_SOUNDS = Object.freeze([

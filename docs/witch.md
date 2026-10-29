@@ -122,6 +122,13 @@ only the performer launches or lands her. Each preset has its own flight speed,
 independent of stirring: **Bells beneath the full moon** and **Skimming the low fog**
 drift slowly, while **Down the candy coil** and **A broom through the blood moon**
 swoop quickly. Changing the pace continues from her current position.
+Takeoff chooses among five finite laughs, including the original phrase, with
+different pacing, pitch and length. Returning to the cauldron answers with one
+of five falling chuckles. Neither bank immediately repeats; rapid mode changes
+smoothly replace the current cue without stacking voices or restarting the music.
+The floor shape and laser mushrooms glow to invite a click, gently pulsing with
+the active scene. Their halos hold still when the scene rests or reduced motion
+is enabled.
 The singer/finger balance varies
 through presets and full randomization. Older saved presets retain their chosen voice
 and original balance; new fields receive safe defaults.

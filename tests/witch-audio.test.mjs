@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WitchDSP, FlightMixDelay } from '../src/instruments/witch/witch-worklet.js';
 import { WitchAudio } from '../src/instruments/witch/witch-audio.js';
 import { createWitchCatClock } from '../src/instruments/witch/witch-cat-model.js';
-import { evaluateWitchHandPose, normalizeWitchControls, witchVoiceAtHeight, WITCH_DROP_EFFECTS, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
+import { evaluateWitchHandPose, normalizeWitchControls, witchVoiceAtHeight, WITCH_DROP_EFFECTS, WITCH_VOCAL_EFFECTS, WITCH_FLIGHT_EFFECTS, WITCH_FINGER_SOURCES, WITCH_LAUNCH_DURATION, WITCH_TRANSITION_MAX_DURATION, WITCH_VOICES } from '../src/instruments/witch/witch-model.js';
 import { HandDSP } from '../src/instruments/gesticulating-hand/hand-dsp.js';
 import { getSharedAudioOutputManager } from '../src/audio-output-manager.js';
 
@@ -442,7 +442,7 @@ test('flight controls change the shared stereo delay while both original perform
 
 test('flight scenery produces bounded musical effects and releases with no vocal mouth', () => {
   const signals = [];
-  for (const kind of WITCH_FLIGHT_EFFECTS.filter(kind => kind !== 'launch')) {
+  for (const kind of WITCH_FLIGHT_EFFECTS.filter(kind => kind !== 'launch' && kind !== 'landing')) {
     const dsp = playing({ mode: 'flight', gate: false });
     assert.equal(dsp.trigger(kind), true); signals.push(render(dsp, 1));
     assert.ok(rms(kind === 'bat' ? signals.at(-1).subarray(0, RATE * .5) : signals.at(-1)) > .005, kind);
@@ -498,10 +498,10 @@ test('repeated and near-expiry launches reuse one voice and have one finite end'
   for (const value of render(dsp, .04)) assert.ok(Number.isFinite(value) && Math.abs(value) <= .840001);
   assert.equal(dsp.flight.launch, voice); assert.equal(dsp.flight.voices.length, 8);
   assert.ok(voice.age < .04); assert.equal(voice.pending, false);
-  render(dsp, WITCH_LAUNCH_DURATION - voice.age - .004);
+  render(dsp, voice.duration - voice.age - .004);
   dsp.trigger('launch'); render(dsp, .025);
   assert.ok(voice.active && voice.age < .025, 'a takeoff near the previous expiry is preserved');
-  render(dsp, WITCH_LAUNCH_DURATION + .1);
+  render(dsp, WITCH_TRANSITION_MAX_DURATION + .1);
   assert.equal(voice.active, false); render(dsp, 8); assert.ok(rms(render(dsp, .2)) < 1e-7);
 });
 

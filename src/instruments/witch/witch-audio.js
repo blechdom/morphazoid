@@ -16,7 +16,8 @@ export class WitchAudio {
     this.nextDropVariants = Object.create(null);
     this.visual = { phase: 0, chantPhase: 0, mouth: 0, energy: 0, speed: 0, direction: 1, syllable: 0, audioTime: 0, effect: '', effectEnvelope: 0, breath: 0,
       catClock: createWitchCatClock(), catTime: 0, catLevel: 0, catMeow: 0, catMeowLevel: 0, handTime: 0, flightPhase: 0, ghostPhase: 0, ghostPresence: [0,0,0], ghostPulses: [0,0,0], ghostLevel: 0, brewLevel: 0, handLevel: 0, dropLevel: 0, dropKind: '', dropVariant: 0, dropEnvelope: 0, delayWet: 0, delayTime: .32, delayLevel: 0,
-      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false, flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0 };
+      spoonHeight: .5, activeVoice: 'mutter', fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false,
+      launchKind: 'launch', launchVariant: 0, launchDuration: 0, launchAge: 0, flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0 };
     this.onError = null;
   }
   get running() { return this.audible && this.context?.state === 'running' && Boolean(this.node); }

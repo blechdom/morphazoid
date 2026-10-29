@@ -610,9 +610,11 @@ function mushroomMesh(lean = 0, yaw = 0) {
   for (let rib = 0; rib < 6; rib++) add(Array.from({length:9}, (_,i) => stem(rib * TAU / 6, i / 8)), 'stem');
   return Object.fromEntries(Object.entries(mesh).map(([key,d])=>[key,new Path2D(d)]));
 }
-function mushrooms(c, x, y, scale = 1) {
+function mushrooms(c, x, y, scale = 1, pulse = .5) {
   mushroomMeshes ??= [mushroomMesh(-.055,.18),mushroomMesh(.1,-.22),mushroomMesh(-.12,.4)];
   c.save(); c.translate(x, y); c.scale(scale, scale);
+  c.save();c.globalAlpha*=.42+.34*pulse;
+  glow(c,6,-12,65+10*pulse,'#f269e082');c.restore();
   for (const [index,mx,my,s,color,accent] of [[0,0,0,1,'#ff64d8','#74f3ff'],[1,34,12,.67,'#a28aff','#e59cff'],[2,-23,15,.48,'#55e5f4','#bdffad']]) {
     const mesh=mushroomMeshes[index];
     c.save(); c.translate(mx,my); c.scale(s,s);
@@ -622,7 +624,7 @@ function mushrooms(c, x, y, scale = 1) {
     };
     stroke('capBack',color,.65,.24); stroke('stemBack',accent,.65,.2); stroke('rimBack',accent,.9,.36);
     // A wider faint stroke gives the laser core a halo without shadowBlur.
-    stroke('rimFront',accent,3.6,.12); stroke('stemFront',accent,2.7,.09);
+    stroke('rimFront',accent,3.6+2*pulse,.16+.18*pulse); stroke('stemFront',accent,2.7+pulse,.12+.12*pulse);
     stroke('capFront',color,.9,.83); stroke('gills',accent,.7,.52);
     stroke('stemFront',accent,.85,.8); stroke('rimFront',accent,1.15,.96);
     c.restore();
@@ -1458,6 +1460,9 @@ export function warpWitchPoint(point,state={},inverse=false) {
 }
 function drawWorld(c,state) {
   const layout=getWitchLayout(state);
+  // Use the performance clock: these invitations breathe with the scene,
+  // hold their glow when hushed, and never wake the sleeping mobile renderer.
+  const charmPulse=state.reducedMotion ? .5 : .5+.5*Math.cos((state.time||0)*2.2);
   c.clearRect(0,layout.top,1000,layout.height);c.lineCap='round';c.lineJoin='round';background(c,state);
   const ground=1-clamp(state.flightLift);
   if(ground<1)for(const flyby of getWitchBlechFlyby(state.flybyTime,layout)) {
@@ -1474,7 +1479,7 @@ function drawWorld(c,state) {
     c.restore();
   }
   flightScene(c,state);
-  const mushroom=WITCH_LAYOUT.mushrooms[0];mushrooms(c,mushroom.x,mushroom.y,mushroom.scale);
+  const mushroom=WITCH_LAYOUT.mushrooms[0];mushrooms(c,mushroom.x,mushroom.y,mushroom.scale,charmPulse);
   if(ground>0) {
     c.save();c.globalAlpha*=ground;
     ingredientObjects(c,state,false);parkedBroom(c,state);c.restore();
@@ -1487,7 +1492,10 @@ function drawWorld(c,state) {
   if(ground>0) {
     c.save();c.globalAlpha*=ground;hauntedMist(c,state);drawWitchCat(c,state);drawWitchVisitors(c,state);c.restore();
   }
-  drawWitchShapeCharm(c,state,WITCH_LAYOUT.die);
+  const charm=WITCH_LAYOUT.die;
+  c.save();c.globalAlpha*=.48+.32*charmPulse;
+  glow(c,charm.x,charm.y,charm.r*(1.45+.2*charmPulse),'#80eee994');c.restore();
+  drawWitchShapeCharm(c,state,charm);
 }
 /** Face, hat and hair only, with a transparent background for the catalogue. */
 export function renderWitchFaceIcon(ctx,size=512) {
