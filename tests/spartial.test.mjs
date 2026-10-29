@@ -20,8 +20,19 @@ test("SPARTIAL 7:4:1 patches side speakers before rear speakers", () => {
   assert.equal(layout.speakers.find(speaker => speaker.channel === 7).azimuth, -145);
 });
 
+test("SPARTIAL 7.1 uses the seven-bed patch without height speakers", () => {
+  const layout = spartialLayout("7-1");
+  assert.equal(layout.name, "7.1");
+  assert.deepEqual(layout.speakers.map(speaker => [speaker.channel, speaker.label]), [
+    [1, "L"], [2, "R"], [3, "C"], [4, "LFE"],
+    [5, "Ls"], [6, "Rs"], [7, "Lrs"], [8, "Rrs"],
+  ]);
+  assert.deepEqual(spartialSpeakers(layout).map(speaker => speaker.channel).sort((a, b) => a - b),
+    [1, 2, 3, 5, 6, 7, 8]);
+});
+
 test("LFE omission preserves physical channels and leaves non-LFE layouts unchanged", () => {
-  for (const [id, channel, count] of [["4-1", 5, 5], ["7-4-1", 4, 12]]) {
+  for (const [id, channel, count] of [["4-1", 5, 5], ["7-1", 4, 8], ["7-4-1", 4, 12]]) {
     const layout = spartialLayout(id);
     const omitted = spartialSpeakers(layout);
     const included = spartialSpeakers(layout, false);

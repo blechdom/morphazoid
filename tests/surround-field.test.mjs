@@ -51,6 +51,10 @@ test("late audio scheduler ticks skip missed subdivisions instead of bursting", 
 
 test("Surround for Safety includes every requested layout", () => {
   const layouts = makeLayouts();
+  assert.equal(layouts["7-1"].speakers.length, 8);
+  assert.equal(layouts["7-1"].speakers.filter(({ kind }) => kind === "height").length, 0);
+  assert.equal(layouts["7-1"].speakers.filter(({ kind }) => kind === "lfe").length, 1);
+  assert.equal(layouts["7-1"].view, "plan");
   assert.equal(layouts["7-4-1"].speakers.length, 12);
   assert.equal(layouts["7-4-1"].speakers.filter(({ kind }) => kind === "height").length, 4);
   assert.equal(layouts["7-4-1"].speakers.filter(({ kind }) => kind === "lfe").length, 1);
@@ -58,6 +62,20 @@ test("Surround for Safety includes every requested layout", () => {
   assert.equal(layouts["8-circle"].speakers.length, 8);
   assert.equal(layouts["8-cube"].speakers.length, 8);
   assert.equal(layouts["8-cube"].speakers.filter(({ z }) => z > 0).length, 4);
+});
+
+test("7.1 maps the bed to discrete channels with sides before rears", () => {
+  const speakers = makeLayouts()["7-1"].speakers;
+  assert.deepEqual(speakers.map(({ channel, label, kind, azimuth }) => [channel, label, kind, azimuth]), [
+    [1, "L", "full", -30], [2, "R", "full", 30], [3, "C", "full", 0],
+    [4, "LFE", "lfe", -76], [5, "Ls", "full", -100], [6, "Rs", "full", 100],
+    [7, "Lrs", "full", -145], [8, "Rrs", "full", 145],
+  ]);
+  assert.equal(outputModeFor(8, speakers.length), "discrete");
+  assert.equal(outputModeFor(7, speakers.length), "preview", "a silent LFE still occupies channel 4");
+  assert.equal(outputModeFor(8, speakers.length, true), "preview");
+  const gains = computeSpeakerGains(speakers, { x: 0, y: 0, z: 0 });
+  assert.ok(gains[3] > 0, "Surround for Safety includes a band-limited LFE send");
 });
 
 test("7:4:1 follows Web Audio/WAVE order with rears before surrounds", () => {

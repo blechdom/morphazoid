@@ -92,12 +92,44 @@ test("headphone monitoring exports matching isolated tracks and multichannel WAV
   expect(errors).toEqual([]);
 });
 
+test("7.1 multitrack preserves silent LFE and can include it without shifting side channels", async ({ page }) => {
+  await page.goto("spartial.html");
+  await page.locator('[data-section="sound"] > summary').click();
+  await page.locator("#layout").selectOption("7-1");
+  await page.locator("#routingMode").selectOption("focus");
+  await page.locator("#target").selectOption({ label: "Ls · channel 5" });
+  await range(page, "cascade", 0);
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("#holdButton").click();
+  for (const { omit, channel } of [{ omit: true, channel: 5 }, { omit: false, channel: 4 }]) {
+    await page.locator("#omitLfe").setChecked(omit);
+    if (!omit) {
+      await page.locator("#target").selectOption({ label: "LFE · channel 4" });
+      // Let the held note's previous speaker fade before capturing its new patch.
+      await page.waitForTimeout(500);
+    }
+    await page.locator("#multitrackRecord").click();
+    await expect(page.locator("#layout")).toBeDisabled();
+    await expect(page.locator("#omitLfe")).toBeDisabled();
+    await page.waitForTimeout(650);
+    await page.locator("#multitrackRecord").click();
+    await expect(page.locator("#multitrackDialog")).toBeVisible();
+    const take = wave(await download(page, "#multitrackWav"));
+    expect(take.channels).toBe(8);
+    expect(take.peaks[channel - 1]).toBeGreaterThan(.001);
+    expect(take.peaks.filter((_, index) => index !== channel - 1)).toEqual(Array(7).fill(0));
+    await page.locator("#multitrackDiscard").click();
+  }
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
+});
+
 test("multitrack capture retains its physical map through monitor rebuilds", async ({ page }) => {
   await page.goto("/");
   const count = await page.evaluate(async () => {
     const { SpartialAudio, spartialLayout, spartialSpeakers } = await import("/src/instruments/spartial/spartial-audio.js");
     let runs = 0;
-    for (const layoutId of ["4-ring", "4-1", "8-circle", "8-cube", "7-4-1", "16-ring"]) for (const omitLfe of [true, false]) {
+    for (const layoutId of ["4-ring", "4-1", "7-1", "8-circle", "8-cube", "7-4-1", "16-ring"]) for (const omitLfe of [true, false]) {
       const context = new OfflineAudioContext(32, 4096, 48000);
       Object.defineProperty(context, "state", { get: () => "running" });
       const audio = new SpartialAudio();
@@ -128,16 +160,17 @@ test("multitrack capture retains its physical map through monitor rebuilds", asy
     }
     return runs;
   });
-  expect(count).toBe(12);
+  expect(count).toBe(14);
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`record control is above presets and reachable at ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport); await page.goto("spartial.html");
+    await expect(page.locator(".spartial-panel .header-preset-controls")).toBeVisible();
     await page.locator("#multitrackRecord").scrollIntoViewIfNeeded();
     const result = await page.evaluate(() => {
       const button = document.querySelector("#multitrackRecord").getBoundingClientRect();
-      const preset = document.querySelector(".full-preset-row").getBoundingClientRect();
+      const preset = document.querySelector(".spartial-panel .header-preset-controls").getBoundingClientRect();
       return { height: button.height, above: button.bottom <= preset.top, right: button.right, left: button.left, overflow: document.documentElement.scrollWidth > innerWidth };
     });
     expect(result.height).toBeGreaterThanOrEqual(48); expect(result.above).toBe(true); expect(result.overflow).toBe(false);

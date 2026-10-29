@@ -66,6 +66,7 @@ test('Surround off preserves stereo amplitudes and never sends spatial buses to 
 });
 
 test('every physical layout maps logical azimuth buses to numbered channels with silent LFE', () => {
+  assert.ok(RESONATOR_SURROUND_LAYOUTS.includes('7-1'));
   for (const layoutId of RESONATOR_SURROUND_LAYOUTS) {
     const f = fixture({ enabled: true, layoutId }, 32);
     const layout = spartialLayout(layoutId), speakers = spartialSpeakers(layout, true);
@@ -81,6 +82,28 @@ test('every physical layout maps logical azimuth buses to numbered channels with
     release(); release(); assert.ok(signal(f.spatialSource, values, recorder).every(value => value === 0));
     f.output.destroy();
   }
+});
+
+test('7.1 requires eight outputs even with a silent LFE and keeps a seven-speaker logical ring', () => {
+  const layout = spartialLayout('7-1');
+  const speakers = spartialSpeakers(layout, true);
+  assert.equal(speakers.length, 7);
+  const f = fixture({ enabled: true, layoutId: '7-1' }, 8);
+  assert.equal(f.output.snapshot().channelCount, 8);
+  assert.equal(f.output.snapshot().mode, 'discrete');
+  const values = Array.from({ length: 16 }, (_, index) => (index + 1) / 64);
+  const routed = signal(f.spatialSource, values, f.context.destination);
+  assert.equal(routed[3], 0);
+  for (const [index, speaker] of speakers.entries()) assert.equal(routed[speaker.channel - 1], values[index]);
+  const recorder = new AudioNode('capture');
+  const release = f.output.tapInto(f.context, recorder);
+  assert.deepEqual(signal(f.spatialSource, values, recorder), routed);
+  release(); f.output.destroy();
+
+  const preview = fixture({ enabled: true, layoutId: '7-1' }, 7);
+  assert.equal(preview.output.snapshot().mode, 'preview');
+  assert.equal(preview.output.snapshot().channelCount, 8);
+  preview.output.destroy();
 });
 
 test('stereo preview keeps azimuth, while recording remains discrete across monitor and sink changes', () => {

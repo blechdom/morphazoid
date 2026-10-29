@@ -190,11 +190,12 @@ listening/device pass.
 
 ## LFE routing
 
-SPARTIAL's 7:4:1 patch uses channels 5–6 for LS/RS (sides) and channels 7–8
-for LRS/RRS (rears). The front, LFE and height channel assignments stay the same.
+The eight-channel **7.1** layout uses L/R/C/LFE at channels 1–4, LS/RS (sides)
+at 5–6 and LRS/RRS (rears) at 7–8, with no height speakers. SPARTIAL's 7:4:1
+patch retains the same bed order and adds four height channels at 9–12.
 
-Speaker setup includes **Omit LFE channel**, on by default. For 7:4:1 it leaves
-channel 4 silent; for 4:1 it leaves channel 5 silent. Other physical output
+Speaker setup includes **Omit LFE channel**, on by default. For 7.1 and 7:4:1
+it leaves channel 4 silent; for 4:1 it leaves channel 5 silent. Other physical output
 numbers stay unchanged. Uncheck it to include LFE as a destination for both
 partials and grains, including One speaker and the stereo preview/recording
 mix. This is ordinary source routing, without a bass-management or subwoofer
@@ -218,7 +219,7 @@ starts on the same sample and has exactly the same length. Both additive and
 granular layers are captured after their mixer and Volume control, before
 stereo monitoring. Headphones still record the complete selected speaker layout.
 Omitted LFE remains a silent numbered channel; the other tracks never shift.
-The 7:4:1 patch keeps LS/RS at 5–6 and LRS/RRS at 7–8.
+The 7.1 and 7:4:1 patches keep LS/RS at 5–6 and LRS/RRS at 7–8.
 
 The speaker layout and Omit LFE controls are fixed during a take; notes, presets,
 rotation, layer mix and volume remain playable. The separate masthead Record

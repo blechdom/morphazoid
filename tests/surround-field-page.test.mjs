@@ -17,10 +17,12 @@ test("the stage uses a compact, single-line Surround for Safety title", () => {
 });
 
 test("Surround for Safety exposes every requested array and the custom 32-channel ring", () => {
-  for (const layout of ["7-4-1", "4-1", "8-circle", "8-cube"]) {
+  for (const layout of ["7-1", "7-4-1", "4-1", "8-circle", "8-cube"]) {
     assert.match(html, new RegExp(`data-layout="${layout}"`));
   }
   assert.match(html, /id="speakerCount"[^>]+min="2" max="32"/);
+  assert.match(html, /7 BED · 1 LFE/i);
+  assert.match(html, /sides at channels 5–6 and rears at 7–8/i);
   assert.match(html, /7 bed · 4 height · 1 LFE/i);
   assert.match(html, /4 lower · 4 upper/i);
   assert.match(html, /commonly written 7\.1\.4/);

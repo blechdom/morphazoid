@@ -30,6 +30,10 @@ test('surround presets and routing preserve live input, output level and recordi
   await expect.poll(async () => (await read(page)).spatialPeaks.filter(value => value > .00001).length).toBeGreaterThan(3);
   await setRange(page, 'outputLevel', .35);
   const before = await read(page);
+  await choose(page, 'surroundLayout', '7-1');
+  await expect.poll(async () => (await read(page)).surround.channelCount).toBe(8);
+  await expect(page.locator('#surroundChannelMap')).toContainText('5: Ls · 6: Rs · 7: Lrs · 8: Rrs');
+  await expect(page.locator('#surroundChannelMap')).toContainText('4: LFE (silent)');
   await choose(page, 'surroundLayout', '16-ring');
   await expect.poll(async () => (await read(page)).surround.channelCount).toBe(16);
   await choose(page, 'surroundLayout', '7-4-1');

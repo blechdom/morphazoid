@@ -94,6 +94,12 @@ async function armAudio(page) {
   await expect(audio).toHaveAttribute("aria-pressed", "true");
 }
 
+async function selectFullPreset(page, id) {
+  await page.locator(".header-preset-picker > summary").click();
+  await page.locator(`.header-preset-picker button[data-preset-id="${id}"]`).click();
+  await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", id);
+}
+
 async function expectKeyboardBeforeRotation(page) {
   const keyboard = await page.locator("#notePads").boundingBox();
   const rotation = await page.locator("#playButton").boundingBox();
@@ -176,7 +182,7 @@ test("SPARTIAL opens stationary with a chromatic keyboard and current performanc
   await expect(page.locator("#playButton")).toHaveAccessibleName("Play rotation");
   await expect(page.locator("#holdButton")).toHaveText("Hold note");
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator(".instrument-picker-next")).toBeVisible();
+  await expect(page.locator(".masthead a.instrument-picker-next[data-next-tool-id]")).toBeVisible();
   await expect(page.locator(".header-level.mz-range-knob #level")).toHaveCount(1);
   await expect(page.locator(".header-settings-menu #sharedMidiToggle")).toHaveCount(1);
   await expect(page.locator("#sharedMidiToggle")).not.toBeVisible();
@@ -378,18 +384,19 @@ test("SPARTIAL preset and fingerprint controls reshape a held sound without stop
   await page.locator("#holdButton").click();
   await waitForAudioState(page, true);
 
-  const firstPreset = await page.locator("#preset").inputValue();
-  await page.locator("#nextPreset").click();
-  await expect(page.locator("#preset")).not.toHaveValue(firstPreset);
+  const firstPreset = await page.locator(".header-preset-controls").getAttribute("data-preset-id");
+  await page.locator(".header-preset-next").click();
+  await expect(page.locator(".header-preset-controls")).not.toHaveAttribute("data-preset-id", firstPreset);
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, true, { stableMs: 150 });
-  await page.locator("#randomPreset").click();
+  await page.locator(".header-preset-random").click();
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, true, { stableMs: 150 });
 
   // Full presets may select an organ. Exercise fingerprint randomization in
   // its own bank; organ registrations use the same controls on a 0–8 scale.
   await page.locator("#organMode").selectOption("partials");
+  await page.locator("#spectrumPreset").selectOption("odd");
   const partialValues = () => page.locator("#partialSliders input").evaluateAll(inputs => inputs.map(input => Number(input.value)));
   const firstSpectrum = await page.locator("#spectrumPreset").inputValue();
   const firstValues = await partialValues();
@@ -539,14 +546,18 @@ test("SPARTIAL keeps held notes sounding across voice, preset, and speaker-array
     ["chord", "major"],
     ["preset", "rise"],
     ["layout", "4-ring"],
+    ["layout", "7-1"],
     ["layout", "7-4-1"],
     ["layout", "8-cube"],
     ["layout", "16-ring"],
     ["preset", "organ"],
   ]) {
     await test.step(`${id}: ${value}`, async () => {
-      await page.locator(`#${id}`).selectOption(value);
-      await expect(page.locator(`#${id}`)).toHaveValue(value);
+      if (id === "preset") await selectFullPreset(page, value);
+      else {
+        await page.locator(`#${id}`).selectOption(value);
+        await expect(page.locator(`#${id}`)).toHaveValue(value);
+      }
       await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
       await waitForStableAudioState(page, true, { stableMs: 150, timeout: 6000 });
@@ -572,6 +583,15 @@ test("SPARTIAL LFE omission retains the physical target and stays independent of
   const omit = page.getByLabel("Omit LFE channel", { exact: true });
   await expect(omit).toBeChecked();
   await expect(omit).toBeDisabled();
+  await page.locator("#layout").selectOption("7-1");
+  await expect(omit).toBeEnabled();
+  await expect(page.locator("#target option")).toHaveCount(7);
+  expect(await page.locator("#speakerPatch span").allTextContents())
+    .toEqual(["1 · L", "2 · R", "3 · C", "4 · LFE · omitted",
+      "5 · Ls", "6 · Rs", "7 · Lrs", "8 · Rrs"]);
+  await omit.uncheck();
+  await expect(page.locator("#target option")).toHaveCount(8);
+  await omit.check();
   await page.locator("#layout").selectOption("7-4-1");
   await expect(omit).toBeEnabled();
   await expect(page.locator("#target option")).toHaveCount(11);
@@ -594,9 +614,9 @@ test("SPARTIAL LFE omission retains the physical target and stays independent of
   await expect(omit).not.toBeChecked();
   await page.locator("#layout").selectOption("4-1");
   await expect(page.locator("#target option")).toHaveCount(5);
-  await page.locator("#preset").selectOption("grain-cloud");
-  await page.locator("#nextPreset").click();
-  await page.locator("#randomPreset").click();
+  await selectFullPreset(page, "grain-cloud");
+  await page.locator(".header-preset-next").click();
+  await page.locator(".header-preset-random").click();
   await expect(omit).not.toBeChecked();
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect((await readAudioStatus(page)).connectionCount).toBe(0);

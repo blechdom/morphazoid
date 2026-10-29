@@ -50,7 +50,8 @@ test('real Web Audio maps every layout and preserves physical capture through pr
     }
     return result;
   });
-  expect(report).toHaveLength(6);
+  expect(report).toHaveLength(7);
+  expect(report.find(item => item.layoutId === '7-1')?.channels).toBe(8);
   expect(report.every(item => item.mode === 'discrete' && item.checks >= 128)).toBe(true);
 });
 

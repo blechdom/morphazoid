@@ -128,8 +128,9 @@ test("Surround Field preserves every speaker in stereo capture and cleans old ro
     body: JSON.stringify(result, null, 2),
     contentType: "application/json",
   });
-  expect(result.results).toHaveLength(35);
-  expect(result.results.reduce((sum, value) => sum + value.channels, 0)).toBe(560);
+  expect(result.results).toHaveLength(36);
+  expect(result.results.find(entry => entry.id === "7-1")?.channels).toBe(8);
+  expect(result.results.reduce((sum, value) => sum + value.channels, 0)).toBe(568);
   for (const entry of result.results) {
     expect(entry.physicalError, `${entry.id}: physical channel gain is unchanged`).toBeLessThan(1e-6);
     expect(entry.crossTalk, `${entry.id}: physical speakers stay isolated`).toBeLessThan(1e-7);

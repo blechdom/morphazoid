@@ -7,7 +7,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Surround for Safety — Morphazoid" />
-    <meta property="og:description" content="Morphazoid Surround for Safety — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays." />
+    <meta property="og:description" content="Morphazoid Surround for Safety — place a sound inside 7.1, 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays." />
     <meta property="og:url" content="https://morphazoid.com/surround-field.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -17,7 +17,7 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Surround for Safety — Morphazoid" />
-    <meta name="twitter:description" content="Morphazoid Surround for Safety — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays." />
+    <meta name="twitter:description" content="Morphazoid Surround for Safety — place a sound inside 7.1, 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -26,7 +26,7 @@
     <meta name="theme-color" content="#080a09" />
     <meta
       name="description"
-      content="Morphazoid Surround for Safety — place a sound inside 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays."
+      content="Morphazoid Surround for Safety — place a sound inside 7.1, 7:4:1, 4:1, eight-speaker circle, cube, and custom multichannel arrays."
     />
     <title>Surround for Safety — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -169,12 +169,13 @@
           </summary>
           <div class="group-body">
             <div class="layout-grid" role="group" aria-label="Speaker layouts">
+              <button type="button" data-layout="7-1" aria-pressed="false"><b>7.1</b><small>7 BED · 1 LFE</small><i class="layout-glyph glyph-71"></i></button>
               <button type="button" data-layout="7-4-1" aria-pressed="false"><b>7:4:1</b><small>7 BED · 4 HEIGHT · 1 LFE</small><i class="layout-glyph glyph-741"></i></button>
               <button type="button" data-layout="4-1" aria-pressed="false"><b>4:1</b><small>5 CH · LFE</small><i class="layout-glyph glyph-41"></i></button>
               <button type="button" data-layout="8-circle" aria-pressed="true"><b>8 CIRCLE</b><small>8 CH · RING</small><i class="layout-glyph glyph-ring"></i></button>
               <button type="button" data-layout="8-cube" aria-pressed="false"><b>8 CUBE</b><small>4 LOWER · 4 UPPER</small><i class="layout-glyph glyph-cube"></i></button>
             </div>
-            <p class="array-convention"><b>7:4:1</b> follows bed : height : LFE order; the same array is commonly written 7.1.4.</p>
+            <p class="array-convention"><b>7.1</b> places sides at channels 5–6 and rears at 7–8. The existing <b>7:4:1</b> patch keeps rears at 5–6 and sides at 7–8; its bed : height : LFE name is commonly written 7.1.4.</p>
             <label class="control custom-array-control" for="speakerCount">
               <span><b>Custom ring</b><output id="speakerCountOut" for="speakerCount">8 speakers</output></span>
               <input id="speakerCount" type="range" min="2" max="32" step="1" value="8" />

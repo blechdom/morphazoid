@@ -218,8 +218,9 @@ in Body and FFT modes, where they affect the sound. Surround enable, physical la
 monitoring and recording remain session settings.
 
 The speaker layouts reuse SPARTIAL’s four-speaker ring, eight-speaker circle,
-sixteen-speaker ring, 4:1 surround, 7:4:1 surround and eight-speaker cube. LFE channels remain in
-the physical layout but are silent. Speaker routing requires an output device
+sixteen-speaker ring, 4:1 surround, 7.1 surround, 7:4:1 surround and eight-speaker cube.
+In 7.1, channels 1–4 are L/R/C/LFE, sides are 5–6 and rears are 7–8.
+LFE channels remain in the physical layout but are silent. Speaker routing requires an output device
 that exposes enough channels to the browser. If it does not, or **Stereo
 preview** is selected, an azimuth-based stereo preview keeps the field audible.
 Stereo remains the default. Physical speaker wiring and surround listening have

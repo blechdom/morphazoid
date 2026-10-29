@@ -112,6 +112,14 @@ test("Surround for Safety keeps Play tappable and the room touch-scrollable on p
       expect(touchActions.stage).toContain("pan-y");
       expect(touchActions.emitter).toBe("none");
 
+      const sevenOne = page.locator('[data-layout="7-1"]');
+      await sevenOne.scrollIntoViewIfNeeded();
+      await sevenOne.tap();
+      await expect(sevenOne).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".speaker-node")).toHaveCount(8);
+      await expect(page.locator('.speaker-node[aria-label*="channel 5, Ls"]')).toHaveCount(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+
       await page.evaluate(() => window.scrollTo(0, 0));
       await swipeStageUp(page, context, layout);
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);

@@ -31,13 +31,16 @@ async function setRange(page, selector, value) {
   }, value);
 }
 
-test("Surround for Safety records an isolated calibrated channel before stereo fold-down", async ({ page }) => {
+for (const { id, channels, channelFive } of [
+  { id: "7-1", channels: 8, channelFive: "Ls" },
+  { id: "7-4-1", channels: 12, channelFive: "Lrs" },
+]) test(`Surround for Safety records isolated ${id} channels before stereo fold-down`, async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await page.goto("surround-field.html", { waitUntil: "load" });
   await settlePage(page);
-  await page.locator('[data-layout="7-4-1"]').click();
+  await page.locator(`[data-layout="${id}"]`).click();
   await page.locator('[data-test-signal="tone"]').click();
   await setRange(page, "#level", 0);
   await expect(page.locator("#levelOut")).toHaveText("0%");
@@ -46,13 +49,13 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
 
   const armed = await page.evaluate(() => window.__SURROUND_FIELD_DEBUG__.getState());
   expect(armed.outputMode).toBe("preview");
-  expect(armed.routeTargetIndices).toEqual(Array.from({ length: 12 }, (_, index) => index));
+  expect(armed.routeTargetIndices).toEqual(Array.from({ length: channels }, (_, index) => index));
 
-  const rearLeft = page.locator('.channel-meter[data-index="4"]');
-  await expect(rearLeft).toHaveAttribute("aria-label", /channel 5, Lrs/);
-  await rearLeft.click();
-  await expect.poll(async () => Number(await rearLeft.getAttribute("data-peak-dbfs"))).toBeGreaterThan(-18.4);
-  const referenceMeter = await rearLeft.evaluate((row) => ({
+  const channelFiveMeter = page.locator('.channel-meter[data-index="4"]');
+  await expect(channelFiveMeter).toHaveAttribute("aria-label", `Test channel 5, ${channelFive}`);
+  await channelFiveMeter.click();
+  await expect.poll(async () => Number(await channelFiveMeter.getAttribute("data-peak-dbfs"))).toBeGreaterThan(-18.4);
+  const referenceMeter = await channelFiveMeter.evaluate((row) => ({
     dbfs: Number(row.dataset.peakDbfs),
     fill: Number(row.style.getPropertyValue("--meter")),
   }));
@@ -64,7 +67,7 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   await expect(page.locator("#downloadRecording")).toBeEnabled({ timeout: 10_000 });
 
   const completed = await page.evaluate(() => window.__SURROUND_FIELD_DEBUG__.getState());
-  expect(completed.lastRecording.channelCount).toBe(12);
+  expect(completed.lastRecording.channelCount).toBe(channels);
   expect(completed.lastRecording.duration).toBeGreaterThan(0.9);
   expect(completed.lastRecording.peaks[4]).toBeGreaterThan(0.12);
   expect(completed.lastRecording.peaks[4]).toBeLessThan(0.13);
@@ -76,7 +79,7 @@ test("Surround for Safety records an isolated calibrated channel before stereo f
   const downloadPromise = page.waitForEvent("download");
   await page.locator("#downloadRecording").click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/^surround-field-7-4-1-.*\.zip$/);
+  expect(download.suggestedFilename()).toMatch(new RegExp(`^surround-field-${id}-.*\\.zip$`));
   expect(pageErrors).toEqual([]);
 });
 

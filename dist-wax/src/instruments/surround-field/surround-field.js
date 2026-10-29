@@ -230,6 +230,13 @@ export function makeLayouts(customRingCount = 8) {
     speaker("top-rear-right", "Trr", 12, { x: 0.55, y: 0.58, z: 0.95, azimuth: 136 }, "height"),
   ];
 
+  // SPARTIAL's existing bed patch places sides at 5–6 and rears at 7–8.
+  // Keep the older 7:4:1 patch unchanged for saved projects and recordings.
+  const sevenOneChannels = { "left-side": 5, "right-side": 6, "left-rear": 7, "right-rear": 8 };
+  const sevenOne = sevenFourOne.slice(0, 8)
+    .map(item => Object.freeze({ ...item, channel: sevenOneChannels[item.id] ?? item.channel }))
+    .sort((a, b) => a.channel - b.channel);
+
   const fourOne = [
     speaker("front-left", "FL", 1, polar(0.92, -45)),
     speaker("front-right", "FR", 2, polar(0.92, 45)),
@@ -258,6 +265,13 @@ export function makeLayouts(customRingCount = 8) {
   );
 
   return Object.freeze({
+    "7-1": Object.freeze({
+      id: "7-1",
+      name: "7.1",
+      descriptor: "7 bed · 1 LFE",
+      view: "plan",
+      speakers: Object.freeze(sevenOne),
+    }),
     "7-4-1": Object.freeze({
       id: "7-4-1",
       name: "7:4:1",

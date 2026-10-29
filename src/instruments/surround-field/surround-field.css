@@ -864,6 +864,10 @@
   box-shadow: inset 0 0 0 5px #0a0d0b, inset 0 0 0 6px currentColor;
 }
 
+.glyph-71 {
+  box-shadow: inset 0 0 0 5px #0a0d0b, inset 0 0 0 6px currentColor;
+}
+
 .glyph-cube {
   border-radius: 0;
   transform: translateY(-50%) rotate(30deg) skew(-5deg, -5deg);

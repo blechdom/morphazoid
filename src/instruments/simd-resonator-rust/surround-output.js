@@ -2,7 +2,7 @@ import { connectAudioOutput } from '../../audio-output-manager.js';
 import { spartialLayout, spartialSpeakers } from '../spartial/spartial-audio.js';
 import { outputModeFor, speakerPan } from '../surround-field/surround-field.js';
 
-export const RESONATOR_SURROUND_LAYOUTS = Object.freeze(['4-ring', '8-circle', '16-ring', '4-1', '7-4-1', '8-cube']);
+export const RESONATOR_SURROUND_LAYOUTS = Object.freeze(['4-ring', '8-circle', '16-ring', '4-1', '7-1', '7-4-1', '8-cube']);
 const FADE_SECONDS = 0.025;
 const disconnect = (node, target) => { try { target ? node?.disconnect(target) : node?.disconnect(); } catch { /* Already released. */ } };
 
