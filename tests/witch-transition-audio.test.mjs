@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WitchDSP } from '../src/instruments/witch/witch-worklet.js';
-import { WITCH_LAUNCH_DURATION, WITCH_TRANSITION_PHRASES, WITCH_TRANSITION_MAX_DURATION } from '../src/instruments/witch/witch-model.js';
+import { WITCH_LAUNCH_DURATION, WITCH_TRANSITION_PHRASES, WITCH_TRANSITION_MAX_DURATION, WITCH_VOICES, witchVoiceAtHeight } from '../src/instruments/witch/witch-model.js';
 
 const rms = data => Math.sqrt(data.reduce((sum, sample) => sum + sample * sample, 0) / data.length);
+const difference = (a, b) => Math.sqrt(a.reduce((sum, sample, i) => sum + (sample - b[i]) ** 2, 0) / a.length);
 function playing(rate, controls = {}) {
   const dsp = new WitchDSP(rate);
-  dsp.setControls({ mode: 'flight', gate: false, speed: .55, radius: .65, ...controls });
+  dsp.setControls({ mode: 'flight', gate: false, speed: .55, radius: .65, spoonAuto: false, ...controls });
   dsp.setEnabled(true); return dsp;
 }
 function render(dsp, seconds, blockSize = 128) {
@@ -122,7 +123,8 @@ for (const rate of [44100, 48000]) {
       assert.equal(a.chantPhase, reference.chantPhase);
       assert.ok(Math.abs(a.visual.handTime - reference.visual.handTime) < 1e-12, 'performer clocks differ only by block-sum floating point roundoff');
       assert.deepEqual(a.weights, reference.weights);
-      assert.equal(a.visual.brewLevel > 0, true); assert.equal(a.visual.handLevel > 0, true);
+      assert.equal(a.visual.singingGain, 0); assert.equal(a.visual.brewLevel, 0);
+      assert.ok(a.visual.handLevel > 0, 'the hand keeps playing while the laugh owns the singing lane');
       assert.equal(a.visual.launchVariant, b.visual.launchVariant); assert.equal(a.visual.launchAge, b.visual.launchAge);
     }
   });
@@ -141,5 +143,93 @@ for (const rate of [44100, 48000]) {
     const unarmed = new WitchDSP(rate);
     assert.equal(unarmed.trigger('launch'), false); assert.equal(unarmed.trigger('landing'), false);
     assert.equal(rms(render(unarmed, .03)), 0);
+  });
+
+  test(`${rate}: each cue replaces the chant through syllable gaps and returns it without interrupting the hand`, () => {
+    for (const kind of ['launch', 'landing']) {
+      const dsp = playing(rate, { gate: true, voice: 'sing' }), reference = playing(rate, { gate: true, voice: 'sing' });
+      assert.deepEqual(render(dsp, .2), render(reference, .2));
+      dsp.trigger(kind);
+      render(dsp, .04); render(reference, .04);
+      assert.equal(dsp.visual.singingGain, 0); assert.equal(dsp.visual.brewLevel, 0);
+      assert.ok(dsp.visual.handLevel > .001);
+      const [[start, length], [nextStart]] = WITCH_TRANSITION_PHRASES[kind][0].syllables;
+      const gapTime = (start + length + nextStart) * .5;
+      const toGap = gapTime - dsp.flight.launch.age;
+      render(dsp, toGap); render(reference, toGap);
+      assert.equal(dsp.visual.launchActive, true); assert.equal(dsp.visual.launchEnvelope, 0);
+      assert.equal(dsp.visual.singingGain, 0); assert.equal(dsp.visual.brewLevel, 0);
+      assert.equal(dsp.visual.mouth, 0, 'the normal sung mouth cannot reappear between laugh syllables');
+      assert.deepEqual(dsp.buffers[2], reference.buffers[2]); assert.deepEqual(dsp.buffers[3], reference.buffers[3]);
+      assert.equal(dsp.chantPhase, reference.chantPhase); assert.equal(dsp.visual.handTime, reference.visual.handTime);
+      const toRecovery = dsp.flight.launch.duration - dsp.flight.launch.age + .06;
+      render(dsp, toRecovery); render(reference, toRecovery);
+      assert.equal(dsp.visual.launchActive, false); assert.equal(dsp.visual.singingGain, 1);
+      assert.ok(dsp.visual.brewLevel > .001 && dsp.visual.handLevel > .001);
+      assert.equal(dsp.chantPhase, reference.chantPhase); assert.equal(dsp.visual.handTime, reference.visual.handTime);
+      assert.deepEqual(dsp.buffers[0], reference.buffers[0], 'the singer kept its source history while inaudible');
+    }
+  });
+
+  test(`${rate}: a cue over a hushed scene keeps its delay tail without waking automatic voices`, () => {
+    const dsp = playing(rate, { brewEnabled: false, handEnabled: false, backingEnabled: false });
+    render(dsp, .08);
+    const controls = dsp.controls, handTime = dsp.visual.handTime;
+    dsp.trigger('launch'); assert.ok(rms(render(dsp, .12)) > .005);
+    assert.equal(dsp.visual.singingGain, 0); assert.equal(dsp.visual.brewLevel, 0); assert.equal(dsp.visual.handLevel, 0);
+    render(dsp, dsp.flight.launch.duration - dsp.flight.launch.age + .06);
+    assert.equal(dsp.visual.launchActive, false); assert.equal(dsp.visual.singingGain, 1);
+    assert.equal(dsp.visual.brewLevel, 0); assert.equal(dsp.visual.handLevel, 0); assert.equal(dsp.visual.mouth, 0);
+    assert.equal(dsp.visual.handTime, handTime); assert.equal(dsp.controls, controls);
+    assert.equal(dsp.controls.gate, false); assert.equal(dsp.controls.brewEnabled, false); assert.equal(dsp.controls.handEnabled, false);
+    assert.ok(rms(render(dsp, .2)) > .000001, 'the finished cue retains its existing echo history');
+  });
+
+  test(`${rate}: a phrase captures the actual spoon voice at the request and keeps it until the next cue`, () => {
+    const dsp = playing(rate, { gate: true, spoonAuto: true, voice: 'whisper' });
+    dsp.syncPhase(0, .55, 0, .94); render(dsp, .001);
+    const actualVoice = witchVoiceAtHeight(dsp.brew.spoonHeight);
+    assert.notEqual(actualVoice, dsp.controls.voice);
+    assert.equal(dsp.brew.activeVoice, actualVoice);
+    dsp.trigger('launch'); assert.equal(dsp.flight.launch.voice, actualVoice);
+    render(dsp, .12); assert.equal(dsp.visual.launchVoice, actualVoice);
+    dsp.setControls({ spoonAuto: false, voice: 'sing' }); render(dsp, .12);
+    assert.equal(dsp.visual.activeVoice, 'sing'); assert.equal(dsp.visual.launchVoice, actualVoice);
+    assert.equal(dsp.flight.launch.voice, actualVoice, 'mid-phrase voice selection does not replace the captured character');
+    render(dsp, dsp.flight.launch.duration - dsp.flight.launch.age + .06);
+    dsp.trigger('landing'); render(dsp, .1);
+    assert.equal(dsp.flight.launch.voice, 'sing'); assert.equal(dsp.visual.launchVoice, 'sing');
+
+    dsp.setControls({ voice: 'creak' }); dsp.trigger('launch');
+    dsp.setControls({ voice: 'whisper' }); dsp.trigger('launch');
+    dsp.setControls({ voice: 'mutter' }); render(dsp, .03);
+    assert.equal(dsp.visual.launchKind, 'launch');
+    assert.equal(dsp.visual.launchVoice, 'whisper', 'the latest request owns the queued voice; later unrelated changes cannot replace it');
+  });
+
+  test(`${rate}: the same laugh phrase renders the seven singing characters distinctly`, () => {
+    const sounds = [];
+    for (const voice of WITCH_VOICES) {
+      const dsp = playing(rate, { voice, brewEnabled: false, handEnabled: false, backingEnabled: false });
+      render(dsp, .18); dsp.trigger('launch');
+      const sound = render(dsp, .46);
+      assert.equal(dsp.visual.launchVariant, 0); assert.equal(dsp.visual.launchVoice, voice);
+      assert.ok(rms(sound) > .001, `${voice} remains audible`);
+      for (const previous of sounds) assert.ok(difference(sound, previous.sound) > .001, `${voice} differs from ${previous.voice}`);
+      sounds.push({ voice, sound });
+    }
+  });
+
+  test(`${rate}: nose, hat, glass and hair remain audible live controls inside the captured laugh`, () => {
+    for (const [control, value] of [['nose', 1], ['hat', 0], ['glass', 1], ['hair', 1]]) {
+      const controls = { voice: 'sing', brewEnabled: false, handEnabled: false, backingEnabled: false };
+      const changed = playing(rate, controls), reference = playing(rate, controls);
+      for (const dsp of [changed, reference]) { render(dsp, .18); dsp.trigger('launch'); }
+      assert.deepEqual(render(changed, .16), render(reference, .16));
+      changed.setControls({ [control]: value });
+      assert.ok(difference(render(changed, .16), render(reference, .16)) > .0001, `${control} changes the sounding phrase`);
+      assert.equal(changed.visual.launchVoice, 'sing'); assert.equal(changed.visual.launchVariant, reference.visual.launchVariant);
+      assert.equal(changed.visual.launchAge, reference.visual.launchAge);
+    }
   });
 }

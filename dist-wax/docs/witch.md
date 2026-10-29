@@ -126,6 +126,11 @@ Takeoff chooses among five finite laughs, including the original phrase, with
 different pacing, pitch and length. Returning to the cauldron answers with one
 of five falling chuckles. Neither bank immediately repeats; rapid mode changes
 smoothly replace the current cue without stacking voices or restarting the music.
+Each phrase borrows the witch's current singing voice, including the actual
+spoon-selected voice, and keeps that identity until it finishes. Nose, hat,
+glass and hair still affect her vocal anatomy. Singing yields for the whole
+phrase, including gaps between syllables, then returns to its previous state;
+her fingers and musical clocks keep going. Existing delay echoes can trail on.
 The floor shape and laser mushrooms glow to invite a click, gently pulsing with
 the active scene. Their halos hold still when the scene rests or reduced motion
 is enabled.

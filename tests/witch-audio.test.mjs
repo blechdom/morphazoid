@@ -472,7 +472,7 @@ test('takeoff cackle is a bounded one-shot followed by a finite shared-delay tai
   render(dsp, 8); assert.ok(rms(render(dsp, .3)) < 1e-7, 'echoes decay without another voice');
 });
 
-test('takeoff does not restart or automatically repeat over either ongoing performer', () => {
+test('takeoff temporarily replaces singing without restarting performer clocks or repeating itself', () => {
   const withLaunch = playing({ mode: 'flight' }), musicOnly = playing({ mode: 'flight' });
   withLaunch.trigger('launch');
   assert.ok(difference(render(withLaunch, .6), render(musicOnly, .6)) > .02);

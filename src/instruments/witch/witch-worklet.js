@@ -43,6 +43,8 @@ const VOICE = Object.freeze({
   wail: { hz: 206, air: .08, rasp: .07, vibrato: .022, sustain: .68 },
   chatter: { hz: 187, air: .17, rasp: .38, vibrato: .006, sustain: .015 },
 });
+const CUE_VOCAL_FIELDS = Object.freeze(['radius', 'glass', 'hair', 'nose', 'hat', 'frequency', 'air', 'rasp', 'vibrato',
+  'osc', 'subOsc', 'vibratoPhase', 'wobblePhase', 'hairTail']);
 
 class Resonator {
   constructor(rate) { this.rate = rate; this.y1 = 0; this.y2 = 0; this.x1 = 0; this.x2 = 0; this.b = 0; this.a1 = 0; this.a2 = 0; }
@@ -63,6 +65,34 @@ function polyBlep(phase, step) {
   if (phase < step) { const t = phase / step; return t + t - t * t - 1; }
   if (phase > 1 - step) { const t = (phase - 1) / step; return t * t + t + t + 1; }
   return 0;
+}
+
+// Singing and laughed phrases share the same vocal folds, tract and noisy
+// hair. Separate histories let the chant keep its place during a phrase.
+function witchVocalSource(v, noise, hz) {
+  const step = hz * v.dt;
+  v.osc = (v.osc + step) % 1; v.subOsc = (v.subOsc + step * .5) % 1;
+  const saw = 2 * v.osc - 1 - polyBlep(v.osc, step);
+  v.sourceLow += .3 * (saw - v.sourceLow);
+  v.cycle = Math.sin(v.osc * TAU);
+  const sub = Math.sin(v.subOsc * TAU);
+  const voiced = v.sourceLow * .7 + v.cycle * .25 + v.rasp * sub * .24;
+  const creak = 1 - v.rasp * .44 + v.rasp * .44 * (sub > 0 ? 1 : -.3);
+  return voiced * creak * (1 - v.air * .94) + noise * (.018 + Math.max(0, v.air) * .36);
+}
+function witchVocalTract(v, source, noise) {
+  let vowel = v.formants[0].next(source) * 1.8 + v.formants[1].next(source) * 1.3 + v.formants[2].next(source) * .7;
+  const ringing = v.ring.next(source + noise * v.releaseAir * .04);
+  vowel += v.glass * ringing * 2.4;
+  const nasalAmount = (v.nose - .5) * 2;
+  return vowel * (1 - Math.abs(nasalAmount) * .27) + v.nasal.next(source) * nasalAmount * 3.2;
+}
+function witchHairFriction(v, noise, articulation, envelope) {
+  v.hairFriction += (noise - v.hairFriction) * v.hairFrictionFollow;
+  v.hairBody += (v.hairFriction - v.hairBody) * v.hairBodyFollow;
+  const snarl = .25 + .75 * Math.sin(v.wobblePhase + Math.sin(v.vibratoPhase) * 2.1) ** 2;
+  const scratch = (v.hairFriction - v.hairBody) * v.hairTail * (.14 + v.hairTail * .27) * snarl;
+  return scratch * (.35 + articulation * .65) * envelope;
 }
 
 /** The browser worklet and offline tests run this same sample-clock engine.
@@ -222,20 +252,8 @@ class CauldronDSP {
       const noise = this.random(); this.noiseLow += .025 * (noise - this.noiseLow);
       const wander = Math.sin(this.wobblePhase) * this.hair * .06 + this.noiseLow * this.rasp * .12;
       const hz = witchClamp(this.frequency * (1 + Math.sin(this.vibratoPhase) * this.vibrato + wander), 35, 1100);
-      const step = hz * this.dt;
-      this.osc = (this.osc + step) % 1; this.subOsc = (this.subOsc + step * .5) % 1;
-      const saw = 2 * this.osc - 1 - polyBlep(this.osc, step);
-      this.sourceLow += .3 * (saw - this.sourceLow);
-      const cycle = Math.sin(this.osc * TAU);
-      const sub = Math.sin(this.subOsc * TAU);
-      const voiced = this.sourceLow * .7 + cycle * .25 + this.rasp * sub * .24;
-      const creak = 1 - this.rasp * .44 + this.rasp * .44 * (sub > 0 ? 1 : -.3);
-      const source = voiced * creak * (1 - this.air * .94) + noise * (.018 + Math.max(0, this.air) * .36);
-      let vowel = this.formants[0].next(source) * 1.8 + this.formants[1].next(source) * 1.3 + this.formants[2].next(source) * .7;
-      const ringing = this.ring.next(source + noise * this.releaseAir * .04);
-      vowel += this.glass * ringing * 2.4;
-      const nasalAmount = (this.nose - .5) * 2;
-      vowel = vowel * (1 - Math.abs(nasalAmount) * .27) + this.nasal.next(source) * nasalAmount * 3.2;
+      const source = witchVocalSource(this, noise, hz), cycle = this.cycle;
+      const vowel = witchVocalTract(this, source, noise);
       this.articulation += (this.sustain + (1 - this.sustain) * this.chant.articulation - this.articulation) * this.articulationFollow;
       const articulation = this.articulation;
       const release = (noise - this.noiseLow) * this.releaseAir * .026;
@@ -243,11 +261,7 @@ class CauldronDSP {
       // Pulling tangles adds uneven, scratchy friction around the voiced spell.
       // Reuse its noise sample so an untouched head preserves the original RNG
       // and voice exactly; fixed band-limiting keeps the new strand bounded.
-      this.hairFriction += (noise - this.hairFriction) * this.hairFrictionFollow;
-      this.hairBody += (this.hairFriction - this.hairBody) * this.hairBodyFollow;
-      const snarl = .25 + .75 * Math.sin(this.wobblePhase + Math.sin(this.vibratoPhase) * 2.1) ** 2;
-      const scratch = (this.hairFriction - this.hairBody) * this.hairTail * (.14 + this.hairTail * .27) * snarl;
-      sample += scratch * (.35 + articulation * .65) * this.envelope;
+      sample += witchHairFriction(this, noise, articulation, this.envelope);
       sample += this.effectSample();
       const delayed = this.delay[this.delayIndex]; this.delay[this.delayIndex] = sample + delayed * .17;
       this.delayIndex = (this.delayIndex + 1) % this.delay.length;
@@ -277,10 +291,17 @@ const FLIGHT_RATIOS = Object.freeze([1, Math.SQRT2, Math.sqrt(3), .83, Math.sqrt
  * connection to the flight pattern's clock, controls, or automatic note events. */
 class LaunchAccent {
   constructor(rate) {
-    this.rate = rate; this.dt = 1 / rate; this.active = false; this.pending = false; this.fading = false;
-    this.age = WITCH_LAUNCH_DURATION; this.phase = 0; this.sourceLow = 0; this.fade = 1;
-    this.fadeStep = 1 / (.012 * rate); this.envelope = 0; this.mouth = 0; this.control = 0; this.randomState = 0x2a4edf;
+    this.rate = rate; this.dt = 1 / rate;
+    this.fadeStep = 1 / (.012 * rate);
     this.formants = [new Resonator(rate), new Resonator(rate), new Resonator(rate)];
+    this.nasal = new Resonator(rate); this.ring = new Resonator(rate);
+    this.fingers = new Float64Array(5);
+    this.controls = normalizeWitchControls(); this.singer = null;
+    this.requestedVoice = { voice: 'mutter', fingers: new Float64Array(5) };
+    this.smooth = 1 - Math.exp(-this.dt / .035);
+    this.hairTailRelease = 1 - Math.exp(-this.dt / .58);
+    this.hairFrictionFollow = 1 - Math.exp(-TAU * Math.min(4300, rate * .32) * this.dt);
+    this.hairBodyFollow = 1 - Math.exp(-TAU * 380 * this.dt);
     this.orders = [new Uint8Array(WITCH_TRANSITION_PHRASES.launch.length), new Uint8Array(WITCH_TRANSITION_PHRASES.landing.length)];
     this.cursors = new Uint8Array(2); this.previous = new Int8Array(2);
     this.reset();
@@ -301,14 +322,23 @@ class LaunchAccent {
   reset() {
     this.clear(); this.randomState = 0x2a4edf; this.selectionSeed = 0x5ea17a;
     this.kind = this.pendingKind = 'launch'; this.variant = 0; this.phrase = WITCH_TRANSITION_PHRASES.launch[0];
-    this.duration = this.age = this.phrase.duration;
-    this.phase = this.sourceLow = this.control = 0; this.fade = 1;
-    this.cursors.fill(0); this.previous.fill(-1);
+    this.duration = this.age = this.phrase.duration; this.voice = 'mutter';
+    this.osc = this.subOsc = this.sourceLow = this.control = this.noiseLow = 0; this.fade = 1;
+    this.vibratoPhase = this.wobblePhase = this.hairFriction = this.hairBody = 0;
+    this.hairTail = this.releaseAir = this.lastInput = this.dc = 0;
+    this.radius = this.nose = this.hat = .5; this.glass = this.hair = 0;
+    this.frequency = this.targetHz = 139; this.air = this.targetAir = .13;
+    this.rasp = this.targetRasp = .23; this.vibrato = this.targetVibrato = .009;
+    this.fingers.fill(.5); this.cursors.fill(0); this.previous.fill(-1);
     for (let index = 0; index < this.orders.length; index++) {
       const order = this.orders[index]; for (let i = 0; i < order.length; i++) order[i] = i;
-      this.shuffle(index, 1); // Keep each bank's original phrase first.
+      this.shuffle(index, 1);
     }
+    this.clearTract();
+  }
+  clearTract() {
     for (const formant of this.formants) formant.x1 = formant.x2 = formant.y1 = formant.y2 = 0;
+    for (const formant of [this.nasal, this.ring]) formant.x1 = formant.x2 = formant.y1 = formant.y2 = 0;
   }
   begin(kind = 'launch') {
     this.kind = kind === 'landing' ? 'landing' : 'launch';
@@ -316,11 +346,21 @@ class LaunchAccent {
     if (this.cursors[index] >= order.length) { this.shuffle(index); this.cursors[index] = 0; }
     this.variant = this.previous[index] = order[this.cursors[index]++];
     this.phrase = WITCH_TRANSITION_PHRASES[this.kind][this.variant]; this.duration = this.phrase.duration;
-    this.active = true; this.pending = false; this.fading = false; this.age = 0; this.phase = 0;
-    this.fade = 1; this.sourceLow = 0; this.envelope = 0; this.mouth = 0; this.control = 0;
-    for (const formant of this.formants) formant.x1 = formant.x2 = formant.y1 = formant.y2 = 0;
+    // The latest click owns this snapshot, even if it waits for the previous
+    // cue's short release. Never read the singer's future block-end state here.
+    this.voice = this.requestedVoice.voice;
+    this.fingers.set(this.requestedVoice.fingers);
+    for (const field of CUE_VOCAL_FIELDS) this[field] = this.requestedVoice[field];
+    this.active = true; this.pending = false; this.fading = false; this.age = 0;
+    this.fade = 1; this.sourceLow = this.noiseLow = this.lastInput = this.dc = 0;
+    this.hairFriction = this.hairBody = this.envelope = this.mouth = this.control = 0;
+    this.clearTract();
   }
   trigger(kind = 'launch') {
+    const singer = this.singer, c = singer?.controls ?? this.controls, snapshot = this.requestedVoice;
+    snapshot.voice = c.spoonAuto ? witchVoiceAtHeight(singer?.spoonHeight ?? c.spoonHeight) : c.voice;
+    snapshot.fingers.set(singer?.fingers ?? c.fingers);
+    for (const field of CUE_VOCAL_FIELDS) snapshot[field] = singer?.[field] ?? c[field] ?? this[field];
     if (!this.active) this.begin(kind);
     else { this.pendingKind = kind; this.pending = true; this.fading = true; }
   }
@@ -339,35 +379,55 @@ class LaunchAccent {
       if (this.pending) this.begin(this.pendingKind); else this.clear();
       return 0;
     }
-    let envelope = 0, opening = 0, hz = 190, hiss = 0;
+    let envelope = 0, opening = 0, pitch = 190, hiss = 0;
     for (const [start, duration, ha, base] of this.phrase.syllables) {
       const u = (this.age - start) / duration;
       if (u < 0 || u >= 1) continue;
       opening = ha ? .94 : .16 + .84 * Math.min(1, u * 2.3);
       envelope = Math.sin(Math.PI * u) ** (ha ? 1.8 : 1.2);
-      hz = base + this.phrase.bend * (ha ? 75 * (1 - u) : 115 * Math.sin(Math.PI * u));
+      pitch = base + this.phrase.bend * (ha ? 75 * (1 - u) : 115 * Math.sin(Math.PI * u));
       hiss = ha ? .035 + Math.max(0, 1 - u * 5) * .2 : .025;
       break;
     }
+    const c = this.singer?.controls ?? this.controls;
+    this.radius += (c.radius - this.radius) * this.smooth;
+    this.glass += (c.glass - this.glass) * this.smooth; this.hair += (c.hair - this.hair) * this.smooth;
+    this.nose += (c.nose - this.nose) * this.smooth; this.hat += (c.hat - this.hat) * this.smooth;
+    this.hairTail += (this.hair - this.hairTail) * (this.hair > this.hairTail ? this.smooth : this.hairTailRelease);
+    for (let f = 0; f < 5; f++) this.fingers[f] += (c.fingers[f] - this.fingers[f]) * this.smooth;
     if (this.control-- <= 0) {
-      this.formants[0].tune((270 + opening * 540) * this.phrase.formant, 130);
-      this.formants[1].tune((700 + opening * 650) * this.phrase.formant, 175);
-      this.formants[2].tune((2460 + opening * 210) * this.phrase.formant, 280);
+      const v = VOICE[this.voice], vowel = (.77 + this.fingers[1] * .46) * Math.pow(1.8, (this.nose - .5) * 2);
+      this.targetHz = v.hz * (pitch / VOICE.cackle.hz) * Math.pow(2.7, this.fingers[0] - .5)
+        * Math.pow(2, (this.hat - .5) * 1.3 + (this.nose - .5) * 1.5);
+      this.targetAir = witchClamp(v.air + (this.fingers[4] - .5) * .55, 0, .98);
+      this.targetRasp = witchClamp(v.rasp + (this.fingers[2] - .5) * .8 + this.hair * .34 + (this.hat - .5) * .5);
+      this.targetVibrato = v.vibrato + this.fingers[3] ** 2 * .065;
+      const width = 85 + this.targetAir * 230 + this.hair * 65;
+      this.formants[0].tune((270 + opening * 540) * this.phrase.formant * vowel, width);
+      this.formants[1].tune((700 + opening * 650) * this.phrase.formant * vowel, width * 1.3);
+      this.formants[2].tune((2460 + opening * 210) * this.phrase.formant * (.94 + vowel * .06), width * 1.7);
+      this.nasal.tune(370 + this.nose * 1390, 65 + (1 - this.nose) * 70);
+      this.ring.tune(1140 + this.radius * 1780 + this.fingers[1] * 270, 32 + (1 - this.glass) * 70);
       this.control = 15;
     }
+    this.frequency += (this.targetHz - this.frequency) * this.smooth;
+    this.air += (this.targetAir - this.air) * this.smooth; this.rasp += (this.targetRasp - this.rasp) * this.smooth;
+    this.vibrato += (this.targetVibrato - this.vibrato) * this.smooth;
+    this.vibratoPhase = (this.vibratoPhase + (4.4 + this.fingers[3] * 2.8) * this.dt * TAU) % TAU;
+    this.wobblePhase = (this.wobblePhase + 17.31 * this.dt * TAU) % TAU;
     let seed = this.randomState; seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; this.randomState = seed >>> 0;
     const noise = this.randomState / 2147483648 - 1;
-    const step = hz * (1 + .014 * Math.sin(this.age * 37)) * this.dt;
-    this.phase = (this.phase + step) % 1;
-    const saw = 2 * this.phase - 1 - polyBlep(this.phase, step);
-    this.sourceLow += .32 * (saw - this.sourceLow);
-    const source = this.sourceLow * .88 + noise * hiss;
-    const voice = this.formants[0].next(source) * 2.4 + this.formants[1].next(source) * 1.8 + this.formants[2].next(source) * .8
-      + Math.sin(this.phase * TAU) * .1;
-    this.envelope = envelope * this.fade;
-    this.mouth = this.envelope * opening;
+    this.noiseLow += .025 * (noise - this.noiseLow);
+    const wander = Math.sin(this.wobblePhase) * this.hair * .06 + this.noiseLow * this.rasp * .12;
+    const hz = witchClamp(this.frequency * (1 + Math.sin(this.vibratoPhase) * this.vibrato + wander), 35, 1100);
+    const source = witchVocalSource(this, noise, hz) + noise * hiss * (.08 + this.air * .28);
+    const vowel = witchVocalTract(this, source, noise);
+    this.envelope = envelope * this.fade; this.mouth = this.envelope * opening;
+    let sample = (vowel * .88 + this.cycle * (1 - this.air) * .035) * this.envelope;
+    sample += witchHairFriction(this, noise, opening, this.envelope);
+    const clean = sample - this.lastInput + .995 * this.dc; this.lastInput = sample; this.dc = clean;
     this.age += this.dt;
-    return voice * this.envelope * .58;
+    return Math.tanh(clean * 1.7) * .54;
   }
 }
 
@@ -383,6 +443,8 @@ class FlightDSP {
       ratio: 1, frequency: 200, pan: 0, envelope: 0, level: 0 }));
     this.accentReleaseStep = 1 / (this.rate * .035);
     this.launch = new LaunchAccent(rate);
+    this.chantGain = 1; this.chantMask = new Float32Array(128).fill(1);
+    this.chantDuckStep = 1 / (.012 * rate); this.chantReturnStep = 1 / (.035 * rate);
     this.visual = { flightPulse: 0, flightStep: 0, effect: '', effectEnvelope: 0, launchEnvelope: 0, launchActive: false,
       launchKind: 'launch', launchVariant: 0, launchDuration: WITCH_LAUNCH_DURATION, launchAge: WITCH_LAUNCH_DURATION, mouth: 0 };
   }
@@ -416,6 +478,7 @@ class FlightDSP {
     for (const voice of this.voices) voice.duration = 0;
     this.drone = 0; this.pulse = 0; this.lastGate = false;
     this.launch.reset();
+    this.chantGain = 1; this.chantMask.fill(1);
   }
   releaseAccents() {
     for (const voice of this.voices) if (voice.kind !== 'pattern') voice.releasing = true;
@@ -444,6 +507,12 @@ class FlightDSP {
       const noise = this.random(); this.noiseLow += .018 * (noise - this.noiseLow);
       const air = (noise - this.noiseLow) * .006 * this.speed * this.drone;
       const bed = (Math.sin(this.dronePhase * TAU) * .025 + air) * this.drone;
+      // Own the entire phrase, including its breaths and queued replacement.
+      // Store each sample: a cue can finish inside this render block.
+      this.chantGain = this.launch.active || this.launch.pending
+        ? Math.max(0, this.chantGain - this.chantDuckStep)
+        : Math.min(1, this.chantGain + this.chantReturnStep);
+      this.chantMask[i] = this.chantGain;
       const transition = this.launch.next() * .70710678;
       let mixL = bed + transition, mixR = bed + transition;
       for (const v of this.voices) {
@@ -1416,6 +1485,7 @@ export class WitchDSP {
     this.rate = witchClamp(rate, 8000, 192000, 48000); this.dt = 1 / this.rate;
     this.controls = normalizeWitchControls(); this.enabled = false; this.time = 0;
     this.brew = new CauldronDSP(this.rate, seed); this.hand = new WitchHandDSP(this.rate); this.flight = new FlightDSP(this.rate);
+    this.flight.launch.singer = this.brew;
     this.hand.setWitchControls(this.controls); this.hand.reset();
     this.weights = new Float64Array([.72, .28, 0]); this.fadeFrom = new Float64Array(this.weights);
     this.fadeSamples = Math.round(.04 * this.rate); this.fadePosition = this.fadeSamples;
@@ -1444,7 +1514,8 @@ export class WitchDSP {
       ghostScreamDuration: WITCH_GHOST_SCARE_DURATION, ghostScreamVariant: 0,
       flybyTime: 0, flybyLevel: 0, flybyFrenzy: 0, flybyFrenzyIndex: 0, treeEnvelope: 0, treeLevel: 0, treeShape: 0, treeOnsets: 0, treeBranchCount: this.scene.tree.branchCount,
       delayWet: 0, delayTime: .32, delayLevel: 0, fingerLevels: [0, 0, 0, 0, 0], flightPulse: 0, flightStep: 0, launchEnvelope: 0, launchActive: false,
-      launchKind: 'launch', launchVariant: 0, launchDuration: WITCH_LAUNCH_DURATION, launchAge: WITCH_LAUNCH_DURATION };
+      launchKind: 'launch', launchVariant: 0, launchDuration: WITCH_LAUNCH_DURATION, launchAge: WITCH_LAUNCH_DURATION,
+      launchVoice: 'mutter', singingGain: 1 };
     this.setControls(this.controls);
   }
   get chantPhase() { return this.brew.chantPhase; }
@@ -1590,7 +1661,8 @@ export class WitchDSP {
         this.groundAnimalGain = c.mode === 'flight' ? Math.max(0, this.groundAnimalGain - this.groundAnimalStep) : Math.min(1, this.groundAnimalGain + this.groundAnimalStep);
         // Limit each engine before crossfading: changing scenes never changes
         // the transfer curve underneath a ringing sound.
-        const brewL = b[0][i] * this.weights[0] * this.sourceGains[0], brewR = b[1][i] * this.weights[0] * this.sourceGains[0];
+        const brewL = b[0][i] * this.weights[0] * this.sourceGains[0] * this.flight.chantMask[i];
+        const brewR = b[1][i] * this.weights[0] * this.sourceGains[0] * this.flight.chantMask[i];
         const handL = Math.tanh(b[2][i] * 1.7 / .54) * .54 * this.weights[1] * this.sourceGains[1];
         const handR = Math.tanh(b[3][i] * 1.7 / .54) * .54 * this.weights[1] * this.sourceGains[1];
         const soloMix = this.drops.levels[i] * .58, backing = 1 - this.drops.levels[i] * .28;
@@ -1705,7 +1777,8 @@ export class WitchDSP {
     this.visual.launchEnvelope = this.flight.visual.launchEnvelope;
     this.visual.launchKind = this.flight.visual.launchKind; this.visual.launchVariant = this.flight.visual.launchVariant;
     this.visual.launchDuration = this.flight.visual.launchDuration; this.visual.launchAge = this.flight.visual.launchAge;
-    this.visual.mouth = Math.max(this.visual.mouth * (1 - c.handFocus * .45) * this.sourceGains[0], this.flight.visual.mouth);
+    this.visual.launchVoice = this.flight.launch.voice; this.visual.singingGain = this.flight.chantGain;
+    this.visual.mouth = Math.max(this.visual.mouth * (1 - c.handFocus * .45) * this.sourceGains[0] * this.flight.chantGain, this.flight.visual.mouth);
     if (this.flight.visual.effectEnvelope > this.visual.effectEnvelope) {
       this.visual.effect = this.flight.visual.effect;
       this.visual.effectEnvelope = this.flight.visual.effectEnvelope;

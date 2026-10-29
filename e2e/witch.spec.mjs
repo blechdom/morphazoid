@@ -1069,6 +1069,9 @@ test('flight changes answer with one laugh while presets and hand focus keep the
   const transitions=()=>page.evaluate(()=>window.witchTriggers.filter(kind=>kind==='launch'||kind==='landing'));
   await expect.poll(transitions).toEqual(['launch']);
   await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchKind)).toBe('launch');
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.singingGain)).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel)).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.handLevel??0)).toBeGreaterThan(.0001);
   const first=await page.evaluate(()=>({variant:window.witchVisual.launchVariant,duration:window.witchVisual.launchDuration}));
   await key(page,'w');expect((await state(page)).config.scene).toBe('flight');
   expect(await transitions()).toEqual(['launch']);
@@ -1086,6 +1089,9 @@ test('flight changes answer with one laugh while presets and hand focus keep the
   await expect.poll(transitions).toEqual(['launch','landing','launch','landing']);
   expect(await state(page)).toMatchObject({playing:true,config:{scene:'brew'}});
   await audible(page);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.launchActive)).toBe(false);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.singingGain)).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.witchVisual?.brewLevel??0)).toBeGreaterThan(.0001);
 });
 
 test('broom and moon toggle flight while cloth plays independent wind and hair noodles bend the delay',async({page})=>{
