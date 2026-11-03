@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { restoreRigLabSite } from "./rig-lab-site-reference.mjs";
 import { restoreRigAJigSite } from "./rig-a-jig-site-reference.mjs";
 import { restoreTapezoidSite } from "./tapezoid-site-reference.mjs";
+import { restoreSpartialCustomPresetsSource } from "./spartial-custom-presets-reference.mjs";
 
 export const globuleDamacySiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/globule-damacy-site-changes.json", import.meta.url), "utf8",
@@ -35,6 +36,7 @@ export function restorePreviousGlobuleCopy(source, file) {
 /** Peel exactly this instrument's additions before older frozen proofs. */
 export function restoreGlobuleDamacySite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  source = restoreSpartialCustomPresetsSource(source, file, { allowRestored: true });
   // Tapezoid was added later on several of these same shared metadata files.
   source = restoreTapezoidSite(source, file, { allowRestored: true });
   source = restoreRigLabSite(source, file, { allowRestored: true });

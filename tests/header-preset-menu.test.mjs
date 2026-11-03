@@ -129,6 +129,51 @@ test("unchanged menu refreshes evaluate live state and availability without any 
   } finally { fixture.controller.destroy(); }
 });
 
+test("a dynamic saved scene joins the same menu without reapplying audio or replacing the picker", () => {
+  const fixture = randomFixture();
+  try {
+    fixture.controller.view.select("p-4");
+    const root = fixture.doc.querySelector(".header-preset-controls");
+    const applied = fixture.applies();
+    const saved = { id: "user-1", label: "My · Ribbon", snapshot: { value: 4 } };
+    fixture.controller.setPresets([...fixture.controller.bank, saved], { selectedId: saved.id });
+    assert.equal(fixture.doc.querySelector(".header-preset-controls"), root);
+    assert.equal(fixture.applies(), applied, "saving a scene must not trigger another recall");
+    assert.equal(fixture.controller.selectedId, saved.id);
+    assert.equal(root.dataset.presetId, saved.id);
+    assert.equal(fixture.doc.querySelector(".instrument-picker-current").textContent, saved.label);
+    assert.equal(captureHeaderPresetState(fixture.doc).presetCount, 13);
+    const search = fixture.doc.querySelector(".instrument-picker-search-input");
+    search.value = "ribbon"; search.emit("input");
+    assert.deepEqual(visiblePresetIds(fixture), [saved.id], "saved scenes remain searchable");
+    search.value = ""; search.emit("input");
+    fixture.controller.setPresets(fixture.controller.bank.slice(0, -1), { selectedId: null });
+    assert.equal(fixture.controller.selectedId, null);
+    assert.equal(root.dataset.presetId, "custom");
+    assert.equal(fixture.doc.querySelector(".instrument-picker-current").textContent, "Preset · Custom");
+    assert.equal(fixture.applies(), applied, "removal leaves the live settings untouched");
+    assert.equal(captureHeaderPresetState(fixture.doc).presetCount, 12);
+    assert.throws(() => fixture.controller.setPresets([...fixture.controller.bank, fixture.controller.bank[0]]), /unique/);
+    assert.throws(() => fixture.controller.setPresets([...fixture.controller.bank, saved], { selectedId: "p-8" }), /match/);
+    assert.equal(captureHeaderPresetState(fixture.doc).presetCount, 12, "invalid replacements are atomic");
+    fixture.doc.querySelector(".header-preset-next").emit("click");
+    assert.equal(fixture.controller.selectedId, "p-0");
+  } finally { fixture.controller.destroy(); }
+});
+
+test("a pending asynchronous recall cannot have its bank replaced underneath it", async () => {
+  let release;
+  const fixture = randomFixture({ apply: snapshot => new Promise(resolve => { release = () => resolve(snapshot); }) });
+  try {
+    fixture.controller.view.select("p-3");
+    const bank = fixture.controller.bank;
+    assert.throws(() => fixture.controller.setPresets([...bank, { id: "user-1", label: "My test", snapshot: { value: 3 } }]), /during recall/);
+    assert.equal(fixture.controller.bank, bank);
+    release(); await settle();
+    assert.equal(fixture.controller.selectedId, "p-3");
+  } finally { fixture.controller.destroy(); }
+});
+
 test("one task of automatic edit events queues one live refresh, including on a hidden document", () => {
   let captures = 0;
   const queued = [], fixture = randomFixture({ onCapture: () => captures++, queueMicrotask: callback => queued.push(callback) });

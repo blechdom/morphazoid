@@ -1,3 +1,8 @@
+import {
+  SPARTIAL_PRESET_FILE_LIMIT, SPARTIAL_USER_PRESETS_KEY, emptySpartialPresetBank,
+  mergeSpartialPresetBanks, parseSpartialPresetBank, removeSpartialUserPreset, saveSpartialUserPreset,
+  spartialPresetMenuBank, spartialPresetName, stringifySpartialPresetBank,
+} from "./full-presets.js";
 import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, SPARTIAL_CHORDS, spartialChordIntervals, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
 import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audio.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
@@ -725,11 +730,97 @@ function draw(now) {
 
 buildModulationMonitor(); buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
 frame = requestAnimationFrame(draw);
-registerHeaderPresets({
-  id: "spartial", presets: SPARTIAL_FULL_PRESETS,
+let userBank = emptySpartialPresetBank();
+try {
+  const saved = localStorage.getItem(SPARTIAL_USER_PRESETS_KEY);
+  if (saved) {
+    userBank = parseSpartialPresetBank(saved);
+    $("userPresetStatus").textContent = `${userBank.presets.length} saved presets loaded from this browser.`;
+  }
+} catch {
+  $("userPresetStatus").textContent = "Saved presets could not be read. Load a JSON backup or download new saves.";
+}
+const presetController = registerHeaderPresets({
+  id: "spartial", presets: spartialPresetMenuBank(userBank),
   capture: () => captureSpartialPreset(state),
   apply: applyFullSnapshot,
   randomize: randomizeSpartialPreset,
+});
+const presetDownloads = new Map();
+function updateUserPresetControls() {
+  $("userPresetCount").textContent = String(userBank.presets.length);
+  $("removeUserPreset").disabled = !userBank.presets.some(item => item.id === presetController.selectedId);
+}
+const presetSelectionObserver = new MutationObserver(updateUserPresetControls);
+presetSelectionObserver.observe($("spartialControls").querySelector(".header-preset-controls"), {
+  attributes: true, attributeFilter: ["data-preset-id"],
+});
+updateUserPresetControls();
+function updateUserBank(next, message, selectedId) {
+  presetController.setPresets(spartialPresetMenuBank(next), selectedId === undefined ? {} : { selectedId });
+  userBank = next;
+  updateUserPresetControls();
+  try {
+    localStorage.setItem(SPARTIAL_USER_PRESETS_KEY, stringifySpartialPresetBank(userBank));
+    $("userPresetStatus").textContent = message;
+  } catch {
+    $("userPresetStatus").textContent = "Browser storage is unavailable or full. Download JSON now to keep these presets.";
+  }
+}
+$("addUserPreset").addEventListener("click", () => {
+  const previous = userBank.presets.find(item => item.id === presetController.lastPresetId);
+  $("userPresetName").value = previous?.name ?? "";
+  $("userPresetForm").hidden = false;
+  $("userPresetName").focus();
+});
+$("cancelUserPreset").addEventListener("click", () => { $("userPresetForm").hidden = true; $("addUserPreset").focus(); });
+$("userPresetForm").addEventListener("submit", event => {
+  event.preventDefault();
+  try {
+    const name = spartialPresetName($("userPresetName").value);
+    const existing = userBank.presets.find(item => item.name.toLowerCase() === name.toLowerCase());
+    if (existing && !window.confirm(`Replace saved preset “${existing.name}”?`)) return;
+    const { bank, id } = saveSpartialUserPreset(userBank, name, captureSpartialPreset(state));
+    updateUserBank(bank, `Saved “${name}” in this browser.`, id);
+    $("userPresetForm").hidden = true;
+    $("addUserPreset").focus();
+  } catch (error) { $("userPresetStatus").textContent = error.message; $("userPresetName").focus(); }
+});
+$("removeUserPreset").addEventListener("click", () => {
+  presetController.refresh();
+  const selected = userBank.presets.find(item => item.id === presetController.selectedId);
+  if (!selected || !window.confirm(`Remove saved preset “${selected.name}”?`)) return;
+  try {
+    updateUserBank(removeSpartialUserPreset(userBank, selected.id), `Removed “${selected.name}”.`, null);
+  } catch (error) { $("userPresetStatus").textContent = error.message; }
+});
+$("downloadUserPresets").addEventListener("click", () => {
+  try {
+    const text = stringifySpartialPresetBank(userBank, { includeFactory: true });
+    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = "spartial-presets.json";
+    document.body.append(link); link.click(); link.remove();
+    const timer = setTimeout(() => { URL.revokeObjectURL(url); presetDownloads.delete(url); }, 60_000);
+    presetDownloads.set(url, timer);
+    $("userPresetStatus").textContent = "JSON download started: factory presets and all saved presets.";
+  } catch (error) { $("userPresetStatus").textContent = `Could not download presets: ${error.message}`; }
+});
+$("loadUserPresets").addEventListener("click", () => $("userPresetFile").click());
+$("userPresetFile").addEventListener("change", async () => {
+  const input = $("userPresetFile"), file = input.files?.[0];
+  input.value = ""; // Allow re-importing the same backup.
+  if (!file) return;
+  $("loadUserPresets").disabled = true;
+  try {
+    if (file.size > SPARTIAL_PRESET_FILE_LIMIT) throw new RangeError("Preset JSON must be at most 1 MB.");
+    const imported = parseSpartialPresetBank(await file.text());
+    if (disposed) return;
+    const { bank, added, updated } = mergeSpartialPresetBanks(userBank, imported);
+    updateUserBank(bank, `Loaded JSON: ${added} added, ${updated} updated. Current sound unchanged.`);
+  } catch (error) {
+    if (!disposed) $("userPresetStatus").textContent = `Could not load presets: ${error.message}`;
+  } finally { if (!disposed) $("loadUserPresets").disabled = false; }
 });
 window.addEventListener("pagehide", event => {
   tempoKnob.cancelGesture();
@@ -737,6 +828,9 @@ window.addEventListener("pagehide", event => {
   if (event.persisted) {
     releaseManualNotes(); audio.disable(); state.audioOn = false; updateAudioButton(); cancelAnimationFrame(frame); void audio.context?.suspend(); return;
   }
+  presetSelectionObserver.disconnect();
+  for (const [url, timer] of presetDownloads) { clearTimeout(timer); URL.revokeObjectURL(url); }
+  presetDownloads.clear();
   disposed = true; recording.destroy(); cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
 });
 window.addEventListener("pageshow", event => {

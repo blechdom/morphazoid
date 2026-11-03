@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SPARTIAL_FULL_PRESETS } from "../src/instruments/spartial/full-presets.js";
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from "./helpers/audio-probe.mjs";
 import { enableFakeMidi, installFakeMidi, sendMidi } from "./helpers/fake-midi.mjs";
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
@@ -70,6 +71,14 @@ async function loadFile(page) {
   await page.locator("#granularSource").selectOption("file");
   await expect(page.locator("#clearGrainFile")).toBeEnabled();
 }
+async function selectFullPreset(page, id) {
+  await page.locator(".header-preset-picker > summary").click();
+  await page.locator(`.header-preset-picker button[data-preset-id="${id}"]`).click();
+  await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", id);
+}
+async function fullPresetState(page) {
+  return page.evaluate(async () => (await import("/src/site/header-presets.js")).captureHeaderPresetState()?.snapshot);
+}
 async function peakFrequency(page) {
   // The public recording tap observes the final stereo mix on its original
   // clock. No instrument state or processor test hooks participate.
@@ -116,14 +125,14 @@ test("SPARTIAL full-wet live grains sound, obey master mute, and preserve level 
   await sounding(page, testInfo, "live-full-wet");
   await setRange(page, "level", 0); await silent(page);
   await setRange(page, "level", .43); await sounding(page, testInfo, "live-volume-restored");
-  for (const selector of ["#nextGrainPreset", "#randomGrainPreset", "#nextPreset", "#randomPreset"]) {
+  for (const selector of ["#nextGrainPreset", "#randomGrainPreset", ".header-preset-next", ".header-preset-random"]) {
     await page.locator(selector).click();
     await expect(page.locator("#level")).toHaveValue("0.43");
     await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
   }
-  await page.locator("#preset").selectOption("still");
+  await selectFullPreset(page, "still");
   await prepareCloud(page); await sounding(page, testInfo, "live-after-preset-changes");
   await page.locator("#panicButton").click(); await silent(page);
 });
@@ -274,11 +283,11 @@ test("SPARTIAL a late file decode preserves a newer instrument preset and never 
   await open(page);
   await page.locator("#grainFile").setInputFiles(sourceWave());
   await expect.poll(() => page.evaluate(() => typeof window.finishGrainDecode)).toBe("function");
-  await page.locator("#preset").selectOption("grain-cloud");
+  await selectFullPreset(page, "grain-cloud");
   await page.evaluate(() => window.finishGrainDecode());
   await expect(page.locator("#grainFileStatus")).toContainText("tone-then-silence.wav");
   await expect(page.locator("#granularSource")).toHaveValue("additive");
-  await expect(page.locator("#preset")).toHaveValue("grain-cloud");
+  await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "grain-cloud");
   await expect(page.locator("#granularMix")).toHaveValue("0.65");
   await expect(page.locator("#clearGrainFile")).toBeEnabled();
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
@@ -294,8 +303,10 @@ test("SPARTIAL MIDI program changes select the complete instrument rather than a
   await enableFakeMidi(page);
   await page.locator(".header-settings-menu > summary").click();
   await sendMidi(page, [0xc0, 12]);
-  await expect(page.locator("#preset")).toHaveValue("grain-cloud");
-  await expect(page.locator("#spectrumPreset")).toHaveValue("soft");
+  const expected = SPARTIAL_FULL_PRESETS[12].snapshot, actual = await fullPresetState(page);
+  expect(actual.settings.gains).toHaveLength(expected.settings.gains.length);
+  for (const [index, gain] of expected.settings.gains.entries()) expect(actual.settings.gains[index]).toBeCloseTo(gain, 12);
+  expect({ ...actual, settings: { ...actual.settings, gains: expected.settings.gains } }).toEqual(expected);
   await expect(page.locator("#granularMix")).toHaveValue("0.65");
   await expect(page.locator("#grainSize")).toHaveValue("220");
   await expect(page.locator("#level")).toHaveValue("0.43");

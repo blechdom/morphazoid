@@ -97,6 +97,26 @@ export function registerHeaderPresets({
     controller.view?.destroy(); controller.view = null; disposed = true;
   };
   controller.refresh = () => controller.view?.refresh();
+  // An instrument may add/remove its own complete user scenes without
+  // remounting the picker or replaying the currently sounding state.
+  controller.setPresets = (presets, { selectedId } = {}) => {
+    if (disposed || controller.view?.isApplying()) throw new Error("Cannot change a preset bank during recall or after teardown");
+    validateFullPresetBank(presets);
+    const nextBank = JSON.parse(JSON.stringify(presets));
+    if (selectedId !== undefined && selectedId !== null) {
+      const selected = nextBank.find(item => item.id === selectedId);
+      if (!selected || presetStateKey(selected.snapshot) !== presetStateKey(capture())) {
+        throw new Error("A newly saved preset must match the current musical state");
+      }
+    }
+    controller.bank = nextBank;
+    controller.view?.setPresets(nextBank);
+    if (selectedId !== undefined) {
+      controller.lastPresetId = selectedId;
+      if (selectedId !== null) controller.hasPresetInteraction = true;
+    } else if (!nextBank.some(item => item.id === controller.lastPresetId)) controller.lastPresetId = null;
+    controller.refresh();
+  };
   registrations.set(doc, controller);
   mountHeaderPresets(doc);
   return controller;
@@ -107,7 +127,8 @@ export function mountHeaderPresets(doc) {
   if (!controller || controller.view) return;
   const host = controller.host ?? doc.querySelector?.("[data-instrument-preset-host]");
   if (!host) return;
-  const { bank, capture, apply, runtime } = controller;
+  const { capture, apply, runtime } = controller;
+  let bank = controller.bank;
   const abort = new runtime.AbortController();
   const listen = (node, type, handler, options = {}) => node.addEventListener(type, handler, { ...options, signal: abort.signal });
   const shell = createChoosePickerShell(doc, {
@@ -159,7 +180,7 @@ export function mountHeaderPresets(doc) {
   status.setAttribute("role", "status");
   root.append(details, next, dice, status);
   const buttons = [];
-  const keys = new Map(bank.map(preset => [preset.id, presetStateKey(preset.snapshot)]));
+  let keys = new Map(bank.map(preset => [preset.id, presetStateKey(preset.snapshot)]));
   const isAvailable = preset => controller.isPresetAvailable(preset);
   let applying = false;
   let destroyed = false;
@@ -262,25 +283,36 @@ export function mountHeaderPresets(doc) {
       if (isAvailable(preset)) { select(preset.id); return; }
     }
   };
-  for (const preset of bank) {
-    const row = doc.createElement("div");
-    row.className = "instrument-picker-row";
-    const button = doc.createElement("button");
-    button.type = "button";
-    button.className = "instrument-picker-link";
-    button.dataset.presetId = preset.id;
-    button.dataset.fullPreset = "";
-    button.textContent = preset.label;
-    button.title = preset.description ?? preset.label;
-    button.setAttribute("aria-pressed", "false");
-    listen(button, "click", () => { select(preset.id); details.open = false; summary.focus(); });
-    row.append(button); list.append(row); buttons.push(button);
-  }
   const empty = doc.createElement("p");
   empty.className = "instrument-picker-empty";
   empty.textContent = "No presets found";
   empty.hidden = true;
   list.append(empty);
+  let rowsAbort = new runtime.AbortController();
+  const renderRows = () => {
+    if (buttons.some(button => button.parentNode.contains(doc.activeElement))) {
+      (details.open ? searchInput : summary).focus();
+    }
+    rowsAbort.abort();
+    rowsAbort = new runtime.AbortController();
+    for (const button of buttons) button.parentNode.remove();
+    buttons.length = 0;
+    for (const preset of bank) {
+      const row = doc.createElement("div");
+      row.className = "instrument-picker-row";
+      const button = doc.createElement("button");
+      button.type = "button";
+      button.className = "instrument-picker-link";
+      button.dataset.presetId = preset.id;
+      button.dataset.fullPreset = "";
+      button.textContent = preset.label;
+      button.title = preset.description ?? preset.label;
+      button.setAttribute("aria-pressed", "false");
+      button.addEventListener("click", () => { select(preset.id); details.open = false; summary.focus(); }, { signal: rowsAbort.signal });
+      row.append(button); empty.before(row); buttons.push(button);
+    }
+  };
+  renderRows();
   const filter = () => {
     const query = searchInput.value.trim().toLocaleLowerCase();
     let count = 0, availableCount = 0, hiddenFocus = false;
@@ -339,6 +371,12 @@ export function mountHeaderPresets(doc) {
   const anchoredPanel = anchorChoosePickerPanel(shell, runtime);
   controller.view = {
     refresh, select, randomize,
+    isApplying: () => applying,
+    setPresets(nextBank) {
+      bank = nextBank;
+      keys = new Map(bank.map(preset => [preset.id, presetStateKey(preset.snapshot)]));
+      renderRows();
+    },
     setActive(active) {
       if (destroyed) return;
       if (active) { attach(); refresh(); }
@@ -346,6 +384,7 @@ export function mountHeaderPresets(doc) {
     },
     destroy() {
       destroyed = true;
+      rowsAbort.abort();
       abort.abort();
       anchoredPanel.destroy();
       root.remove();

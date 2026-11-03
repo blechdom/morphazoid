@@ -3,6 +3,28 @@
 **SPARTIAL** is a surround additive and granular synthesizer built on Surround for Safety's output layouts. It starts with sixteen stationary partials and supports up to thirty-two per note. Hold sustains the selected single note or chord; a chromatic keyboard and MIDI supply independent note gates. Instrument presets and eight harmonic fingerprints have Next and parameter dice controls. Frequency spacing compresses or expands the harmonic series, while seeded inharmonicity offsets upper partials; held frequencies glide and ultrasonic partials fade out. Spatial turns distribute the whole bank once around the speakers at 1, squeeze it into an arc below 1, or wrap it repeatedly above 1. Across speakers offers rotation by dragging; One speaker replaces the colored partial field with one highlighted destination selected by click or drag. Optional clockwise, counterclockwise, and opposite-direction motion follows BPM and beats per turn while rotation Play is active; motion starts off. Rotation Play/Pause never starts or releases a note. Starting rotation from Off selects clockwise movement. Hold and Silence control notes independently. The Shape-style panel places presets, note/chord selection and chromatic keys above the labelled Rotation Play/Pause and tempo knob on the right. The knob keeps its 30–240 BPM range, keyboard adjustment and Tap control. On mobile, the graphic stays fixed while the fingerprint and parameter controls share one scroll pane; landscape places that pane beside the graphic. The current master knob, next-instrument link, square Audio button and MIDI-in-Settings presentation preserve the existing native controls. Cascade delay and initial wait use exact millisecond entry with 1 ms steps. An accelerating/slowing curve and seeded variation reshape the gaps while preserving total span; the timing strip previews scheduled entrances, including silent partial slots. Restart cascade briefly fades only the held note or chord before replaying it with the new timing, leaving other notes and transport intact. An eight-voice sample-clock engine renders the numbered discrete patch when it fits, with a labeled left/right stereo fallback and LFE omitted by default. Artwork is generated from the instrument's canvas. Routing follows the [Web Audio channel contracts](https://www.w3.org/TR/webaudio-1.0/); physical channel assignments and spatial feel still need a hardware listening pass.
 
 
+## My presets
+
+The **− / +** buttons beneath the main instrument preset menu remove the
+selected saved preset or save the current complete musical settings under a
+name. Press **+**, type a name, then **Save**; saved scenes appear in the same
+searchable menu as **My · name** and participate in Next. Editing a recalled
+scene marks it Custom; select it again before removing it. Saving with an
+existing name asks before replacing it. The harmonic fingerprint and granular
+texture menus remain focused editors, not separate saved banks.
+
+Saved presets persist automatically in this browser's local storage, without
+arming Audio or applying one at startup. **Download all JSON** includes the
+built-in scenes for reference and all saved scenes for backup; **Load JSON**
+adds new saved names and updates matching ones, without changing the current
+sound or replacing the current built-in scenes. Only the musical preset
+snapshot is saved: Audio state, master Volume, speaker layout, physical
+output/preview choice, live note gates, loaded audio files and grain buffers
+are not embedded in JSON. Import accepts the versioned SPARTIAL JSON format
+only (up to 1 MB and 128 saved presets); a failed import leaves the bank
+unchanged. If storage is unavailable or full, the presets still work for this
+tab; download JSON before leaving to keep them.
+
 ## Chords and clusters
 
 Choose **Chord** under Sound, then a **Chord / cluster**. The menu includes major,

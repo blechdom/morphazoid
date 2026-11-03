@@ -17,6 +17,12 @@ test("SPARTIAL bank is complete, valid and distinct", () => {
   const bad = structuredClone(SPARTIAL_FULL_PRESETS[1].snapshot);
   bad.settings.attack = 99;
   assert.throws(() => validateSpartialPreset(bad), TypeError);
+  bad.settings.attack = SPARTIAL_FULL_PRESETS[1].snapshot.settings.attack;
+  bad.chord = "not-a-chord";
+  assert.throws(() => validateSpartialPreset(bad), TypeError);
+  bad.chord = "minor";
+  bad.chordIntervals = [0, 7, 3];
+  assert.throws(() => validateSpartialPreset(bad), TypeError);
 });
 
 test("SPARTIAL capture round-trips and excludes session state", () => {

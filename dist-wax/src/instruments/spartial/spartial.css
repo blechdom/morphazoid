@@ -135,6 +135,25 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 
 .spartial-recording { padding: 16px 18px 0; }
 .spartial-preset-host { display: contents; }
+.spartial-user-presets { padding: 10px 12px 12px; border-bottom: 1px solid var(--line); }
+.spartial-user-presets-heading, .spartial-user-presets-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.spartial-user-presets-heading { color: var(--muted); font-size: 11px; }
+.spartial-user-presets-heading output { margin-left: 5px; color: var(--accent); }
+.spartial-user-presets-heading button { width: 38px; min-height: 38px; padding: 0; font-size: 19px; }
+.spartial-user-preset-form { display: grid; gap: 8px; margin-top: 10px; font-size: 11px; }
+.spartial-user-preset-form input { box-sizing: border-box; width: 100%; min-height: 38px; padding: 7px; border: 1px solid var(--line-strong); background: var(--bg-deep); color: var(--ink); font: 12px var(--mono); }
+.spartial-user-preset-form > div, .spartial-user-preset-files { display: flex; flex-wrap: wrap; gap: 8px; }
+.spartial-user-presets button { min-height: 38px; }
+.spartial-user-preset-files { margin-top: 10px; }
+.spartial-user-preset-files button { flex: 1 1 auto; font-size: 10px; }
+.spartial-user-presets .control-note { margin: 8px 0 0; overflow-wrap: anywhere; }
+@media (max-width: 960px), (pointer: coarse) {
+  .spartial-user-presets button, .spartial-user-presets-heading button, .spartial-user-preset-form input { min-height: 48px; }
+  .spartial-user-presets-heading button { width: 48px; }
+}
+@media (max-width: 960px) {
+  .spartial-controls { scroll-padding-top: 70px; }
+}
 .spartial-recording > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .spartial-recording button { min-height: 48px; color: #ff8593; }
 .spartial-recording button::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: currentColor; }

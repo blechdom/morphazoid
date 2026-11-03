@@ -1,5 +1,5 @@
 import {
-  SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, randomSpartialInstrument, sanitizeSpartialSettings, spartialChordIntervals,
+  SPARTIAL_CHORDS, SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, randomSpartialInstrument, sanitizeSpartialSettings, spartialChordIntervals,
 } from "./spartial.js";
 import { SPARTIAL_ORGAN_PRESETS } from "./spartial-organ.js";
 import { presetStateKey } from "../../site/header-presets.js";
@@ -46,9 +46,13 @@ export function captureSpartialPreset(state) {
 }
 
 export function validateSpartialPreset(snapshot) {
+  const chord = SPARTIAL_CHORDS.find(item => item.id === snapshot?.chord);
+  const intervals = snapshot?.chordIntervals;
+  const validChord = chord && Array.isArray(intervals) && intervals.length === chord.noteCount && intervals[0] === 0
+    && intervals.every((note, index) => Number.isInteger(note) && note >= 0 && note < 12 && (index === 0 || note > intervals[index - 1]))
+    && (!chord.intervals || intervals.every((note, index) => note === chord.intervals[index]));
   const ok = snapshot && MODES.includes(snapshot.mode) && MOTIONS.includes(snapshot.motion) && ROUTES.includes(snapshot.routingMode)
-    && BEATS.includes(snapshot.beatsPerTurn) && Array.isArray(snapshot.chordIntervals) && snapshot.chordIntervals.length > 0
-    && snapshot.chordIntervals.every(note => Number.isInteger(note) && note >= 0 && note < 12) && typeof snapshot.chord === "string"
+    && BEATS.includes(snapshot.beatsPerTurn) && validChord
     && snapshot.settings && typeof snapshot.settings === "object"
     && presetStateKey(snapshot) === presetStateKey(captureSpartialPreset({ ...snapshot, settings: { ...snapshot.settings, speakerCount: 16 } }));
   if (!ok) throw new TypeError("Invalid complete SPARTIAL preset");
@@ -92,4 +96,141 @@ export function randomizeSpartialPreset(current, random = Math.random) {
     mode: rolled.mode, chord: rolled.chord, chordIntervals: rolled.chordIntervals, motion: rolled.motion,
     beatsPerTurn: rolled.beatsPerTurn, routingMode: rolled.routingMode, settings,
   }));
+}
+
+/** Browser-local saved scenes and their versioned JSON backup. */
+export const SPARTIAL_USER_PRESETS_KEY = "morphazoid:spartial:presets:v1";
+export const SPARTIAL_PRESET_FILE_LIMIT = 1024 * 1024;
+export const SPARTIAL_USER_PRESET_LIMIT = 128;
+const FORMAT = "morphazoid-spartial-presets";
+const VERSION = 1;
+const USER_ID = /^user-([1-9]\d{0,14})$/;
+const MAX_NEXT_ID = 999_999_999_999_999;
+
+export function emptySpartialPresetBank() {
+  return { format: FORMAT, version: VERSION, nextId: 1, presets: [] };
+}
+
+export function spartialPresetName(value) {
+  if (typeof value !== "string") throw new TypeError("Enter a preset name.");
+  const name = value.trim().replace(/\s+/g, " ");
+  if (!name || [...name].length > 64 || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new RangeError("Preset names must be 1–64 visible characters.");
+  }
+  return name;
+}
+
+function cleanBank(raw) {
+  if (!raw || Object.getPrototypeOf(raw) !== Object.prototype || raw.format !== FORMAT || raw.version !== VERSION) {
+    throw new TypeError("This is not a supported SPARTIAL preset JSON file (version 1).");
+  }
+  if (!Number.isSafeInteger(raw.nextId) || raw.nextId < 1 || raw.nextId > MAX_NEXT_ID
+    || !Array.isArray(raw.presets) || raw.presets.length > SPARTIAL_USER_PRESET_LIMIT) {
+    throw new RangeError("Invalid or oversized SPARTIAL preset bank.");
+  }
+  // Factory records in exported backups are informational. The current built-in
+  // bank always comes from the application, never from an imported file.
+  if (raw.factoryPresets !== undefined && (!Array.isArray(raw.factoryPresets) || raw.factoryPresets.length > 256)) {
+    throw new TypeError("Invalid factory preset reference list.");
+  }
+  const ids = new Set(), names = new Set();
+  let highestId = 0;
+  const presets = raw.presets.map(entry => {
+    const match = typeof entry?.id === "string" && USER_ID.exec(entry.id);
+    if (!match || ids.has(entry.id)) throw new TypeError("Saved preset IDs must be unique.");
+    ids.add(entry.id);
+    highestId = Math.max(highestId, Number(match[1]));
+    const name = spartialPresetName(entry.name);
+    if (name !== entry.name || names.has(name.toLowerCase())) throw new TypeError("Saved preset names must be unique.");
+    names.add(name.toLowerCase());
+    return { id: entry.id, name, snapshot: JSON.parse(presetStateKey(validateSpartialPreset(entry.snapshot))) };
+  });
+  if (raw.nextId <= highestId) throw new RangeError("Invalid next preset ID.");
+  return { format: FORMAT, version: VERSION, nextId: raw.nextId, presets };
+}
+
+export function parseSpartialPresetBank(text) {
+  if (typeof text !== "string" || text.length > SPARTIAL_PRESET_FILE_LIMIT
+    || new TextEncoder().encode(text).length > SPARTIAL_PRESET_FILE_LIMIT) {
+    throw new RangeError("Preset JSON must be at most 1 MB.");
+  }
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new TypeError("Could not read preset JSON."); }
+  return cleanBank(data);
+}
+
+export function stringifySpartialPresetBank(bank, { includeFactory = false } = {}) {
+  const clean = cleanBank(bank);
+  const data = includeFactory ? { ...clean, factoryPresets: SPARTIAL_FULL_PRESETS } : clean;
+  const text = `${JSON.stringify(data, null, 2)}\n`;
+  if (new TextEncoder().encode(text).length > SPARTIAL_PRESET_FILE_LIMIT) {
+    throw new RangeError("Too many presets to export as one JSON file.");
+  }
+  return text;
+}
+
+export function saveSpartialUserPreset(bank, name, snapshot) {
+  const clean = cleanBank(bank);
+  const label = spartialPresetName(name);
+  const saved = JSON.parse(presetStateKey(validateSpartialPreset(snapshot)));
+  const index = clean.presets.findIndex(item => item.name.toLowerCase() === label.toLowerCase());
+  if (index !== -1) {
+    const id = clean.presets[index].id;
+    clean.presets[index] = { id, name: label, snapshot: saved };
+    return { bank: clean, id, replaced: true };
+  }
+  if (clean.presets.length === SPARTIAL_USER_PRESET_LIMIT) throw new RangeError("The 128-preset limit has been reached.");
+  if (clean.nextId === MAX_NEXT_ID) throw new RangeError("No more preset IDs are available.");
+  const id = `user-${clean.nextId++}`;
+  clean.presets.push({ id, name: label, snapshot: saved });
+  return { bank: clean, id, replaced: false };
+}
+
+export function removeSpartialUserPreset(bank, id) {
+  const clean = cleanBank(bank);
+  const index = clean.presets.findIndex(item => item.id === id);
+  if (index < 0) throw new RangeError("Select a saved preset before removing it.");
+  clean.presets.splice(index, 1);
+  return clean;
+}
+
+/** Import by name: update matching saves, add new names, preserve other saves. */
+export function mergeSpartialPresetBanks(bank, imported) {
+  const result = cleanBank(bank);
+  const incoming = cleanBank(imported);
+  const used = new Set(result.presets.map(item => item.id));
+  let added = 0, updated = 0;
+  result.nextId = Math.max(result.nextId, incoming.nextId);
+  for (const entry of incoming.presets) {
+    const index = result.presets.findIndex(item => item.name.toLowerCase() === entry.name.toLowerCase());
+    if (index !== -1) {
+      if (presetStateKey(result.presets[index].snapshot) !== presetStateKey(entry.snapshot)
+        || result.presets[index].name !== entry.name) updated++;
+      result.presets[index] = { ...entry, id: result.presets[index].id };
+      continue;
+    }
+    if (result.presets.length === SPARTIAL_USER_PRESET_LIMIT) throw new RangeError("Import would exceed the 128-preset limit.");
+    let id = entry.id;
+    if (used.has(id)) {
+      while (used.has(`user-${result.nextId}`)) {
+        if (result.nextId === MAX_NEXT_ID) throw new RangeError("No more preset IDs are available.");
+        result.nextId++;
+      }
+      if (result.nextId === MAX_NEXT_ID) throw new RangeError("No more preset IDs are available.");
+      id = `user-${result.nextId++}`;
+    }
+    result.nextId = Math.max(result.nextId, Number(id.slice(5)) + 1);
+    used.add(id);
+    result.presets.push({ ...entry, id });
+    added++;
+  }
+  return { bank: result, added, updated };
+}
+
+export function spartialPresetMenuBank(bank) {
+  return [
+    ...SPARTIAL_FULL_PRESETS,
+    ...cleanBank(bank).presets.map(item => ({ id: item.id, label: `My · ${item.name}`, snapshot: item.snapshot })),
+  ];
 }

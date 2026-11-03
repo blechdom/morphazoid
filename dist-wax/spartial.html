@@ -81,6 +81,26 @@
         <p id="multitrackHint" class="control-note">Turn Audio on to record all speaker channels.</p>
       </div>
       <div class="spartial-preset-host" data-instrument-preset-host></div>
+      <div class="spartial-user-presets" role="group" aria-label="My presets">
+        <div class="spartial-user-presets-heading">
+          <span>My presets <output id="userPresetCount" aria-label="Saved preset count">0</output></span>
+          <div>
+            <button id="removeUserPreset" class="mini-action" type="button" aria-label="Remove selected saved preset" title="Remove selected saved preset" disabled>−</button>
+            <button id="addUserPreset" class="mini-action" type="button" aria-label="Save current settings as a preset" title="Save current settings as a preset">+</button>
+          </div>
+        </div>
+        <form id="userPresetForm" class="spartial-user-preset-form" novalidate hidden>
+          <label for="userPresetName">Preset name</label>
+          <input id="userPresetName" type="text" maxlength="64" autocomplete="off" />
+          <div><button class="mini-action" type="submit">Save</button><button id="cancelUserPreset" class="mini-action" type="button">Cancel</button></div>
+        </form>
+        <div class="spartial-user-preset-files">
+          <button id="downloadUserPresets" class="mini-action" type="button">Download all JSON</button>
+          <button id="loadUserPresets" class="mini-action" type="button">Load JSON</button>
+          <input id="userPresetFile" type="file" accept=".json,application/json" aria-label="Load SPARTIAL presets JSON" hidden />
+        </div>
+        <p id="userPresetStatus" class="control-note" role="status" aria-live="polite">Saved presets stay in this browser. Download JSON for a backup.</p>
+      </div>
       <section class="spartial-mixer" aria-label="Additive and granular mixer">
         <label class="control" for="granularMix"><span><b>Layer mix</b><output id="granularMixOut" for="granularMix">100% / 0%</output></span><input id="granularMix" type="range" min="0" max="1" step="0.01" value="0" aria-label="Additive to granular mix" /></label>
         <div class="mixer-labels"><span>Additive</span><span>Granular</span></div>
