@@ -16,13 +16,21 @@ function trackChunk(events) {
   return chunk;
 }
 
-/** Bounds for a pitch resize; a one-pitch line remains one pitch wide. */
-export function midiStampPitchBounds(notes, pitchWidth = null) {
+/** Bounds for a pitch resize; ordinary one-pitch MIDI remains one pitch wide.
+ * Generated graph scores can supply the fixed pitch coordinates of their
+ * canvas so changing the expression does not move or resize its frame. */
+export function midiStampPitchBounds(notes, pitchWidth = null, pitchRange = null) {
   let sourceLow = 127, sourceHigh = 0;
   for (const note of notes) { sourceLow = Math.min(sourceLow, note.note); sourceHigh = Math.max(sourceHigh, note.note); }
   if (!notes.length) sourceLow = sourceHigh = 0;
+  if (pitchRange) {
+    const { low, high } = pitchRange;
+    if (!Number.isInteger(low) || !Number.isInteger(high) || low < 0 || high > 127
+      || low > high || notes.some(note => note.note < low || note.note > high)) throw new RangeError('The graph pitch range must contain its MIDI notes.');
+    sourceLow = low; sourceHigh = high;
+  }
   const sourceWidth = sourceHigh - sourceLow + 1;
-  const width = sourceWidth === 1 ? 1 : pitchWidth == null ? sourceWidth : Math.round(clamp(pitchWidth, 1, 128, sourceWidth));
+  const width = sourceWidth === 1 && !pitchRange ? 1 : pitchWidth == null ? sourceWidth : Math.round(clamp(pitchWidth, 1, 128, sourceWidth));
   const low = Math.min(sourceLow, 128 - width);
   return { sourceLow, sourceWidth, width, low, high: low + width - 1 };
 }
@@ -33,7 +41,7 @@ export function midiStampPitchBounds(notes, pitchWidth = null) {
  * Compression is FIFO-safe for repeated pitches: each paired on and off moves
  * by the same convex interpolation, so releases cannot cross one another.
  */
-export function transformMidiStamp(input, { gateScale = 1, channel = null, transpose = 0, pitchWidth = null, timeScale = 1, removeNoteIds = [] } = {}) {
+export function transformMidiStamp(input, { gateScale = 1, channel = null, transpose = 0, pitchWidth = null, pitchRange = null, timeScale = 1, removeNoteIds = [] } = {}) {
   const source = bytesOf(input?.buffer && !ArrayBuffer.isView(input) ? input.buffer : input);
   if (!source) throw new Error('Choose a MIDI stamp first.');
   const analysis = parseMidi(source), gate = clamp(gateScale, .01, 1, 1);
@@ -43,7 +51,7 @@ export function transformMidiStamp(input, { gateScale = 1, channel = null, trans
   // Quarter-beat size controls need representable loop edges even in low-PPQ files.
   const outputPpq = resizeTime ? Math.min(32764, Math.max(960, Math.ceil(analysis.ppq / 4) * 4)) : analysis.ppq;
   const stretch = resizeTime ? clamp(timeScale, 1 / (outputPpq * analysis.durationBeats), MIDI_SAMPLE_LIMITS.beats / analysis.durationBeats, 1) : 1;
-  const pitch = midiStampPitchBounds(analysis.notes, pitchWidth);
+  const pitch = midiStampPitchBounds(analysis.notes, pitchWidth, pitchRange);
   const mapPitch = value => (pitch.width === pitch.sourceWidth ? value : Math.round(clamp(pitch.low + (value - pitch.sourceLow) * (pitch.width - 1) / Math.max(1, pitch.sourceWidth - 1), 0, 127))) + appliedTranspose;
   const scaleTick = value => Math.round(value * stretch * outputPpq / analysis.ppq);
   const targetChannel = channel == null ? null : Math.round(clamp(channel, 0, 15, 0));
@@ -138,7 +146,7 @@ export function transformMidiStamp(input, { gateScale = 1, channel = null, trans
  * so port changes cannot reroute them. Track ends move to the phrase boundary.
  * Zero/full turns use the existing byte-preserving resize path.
  */
-export function rotateMidiStamp(input, { rotationDegrees = 0, pitchWidth = null, heightBeats = null } = {}) {
+export function rotateMidiStamp(input, { rotationDegrees = 0, pitchWidth = null, pitchRange = null, heightBeats = null } = {}) {
   const source = bytesOf(input?.buffer && !ArrayBuffer.isView(input) ? input.buffer : input);
   if (!source) throw new Error('Choose a MIDI stamp first.');
   const analysis = parseMidi(source);
@@ -147,14 +155,15 @@ export function rotateMidiStamp(input, { rotationDegrees = 0, pitchWidth = null,
   const outputPpq = Math.min(32764, Math.max(960, Math.ceil(analysis.ppq / 4) * 4));
   const requestedHeight = heightBeats == null ? analysis.durationBeats : clamp(heightBeats, 1 / outputPpq, MIDI_SAMPLE_LIMITS.beats, analysis.durationBeats);
   if (!angle) {
-    const result = transformMidiStamp(source, { pitchWidth, timeScale: requestedHeight / analysis.durationBeats });
-    const bounds = midiStampPitchBounds(result.analysis.notes);
+    const result = transformMidiStamp(source, { pitchWidth, pitchRange, timeScale: requestedHeight / analysis.durationBeats });
+    const bounds = pitchRange ? midiStampPitchBounds(analysis.notes, pitchWidth, pitchRange) : midiStampPitchBounds(result.analysis.notes);
     return { ...result, rotationDegrees: 0, heightBeats: result.analysis.durationBeats, pitchLow: bounds.low, pitchHigh: bounds.high };
   }
   if (requestedHeight > MIDI_SAMPLE_LIMITS.beats) throw new Error('The rotated stamp exceeds the MIDI sample phrase limit; no notes were removed.');
   const endTick = Math.max(1, Math.round(requestedHeight * outputPpq));
   const height = endTick / outputPpq, stretch = height / analysis.durationBeats;
-  const sourcePitch = midiStampPitchBounds(analysis.notes);
+  const sourcePitch = midiStampPitchBounds(analysis.notes, null, pitchRange);
+  const fixedCanvas = pitchRange != null;
   let firstBeat = Infinity, lastBeat = -Infinity, smallestGate = Infinity;
   for (const note of analysis.notes) {
     firstBeat = Math.min(firstBeat, note.beat); lastBeat = Math.max(lastBeat, note.beat);
@@ -173,16 +182,22 @@ export function rotateMidiStamp(input, { rotationDegrees = 0, pitchWidth = null,
   const points = []; let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const note of analysis.notes) {
     const x = sourcePitch.sourceWidth === 1 ? 0 : (note.note - sourcePitch.sourceLow) / (sourcePitch.sourceWidth - 1) - .5;
-    const y = lastBeat === firstBeat ? 0 : (note.beat - firstBeat) / (lastBeat - firstBeat) - .5;
+    const y = fixedCanvas ? note.beat / analysis.durationBeats - .5
+      : lastBeat === firstBeat ? 0 : (note.beat - firstBeat) / (lastBeat - firstBeat) - .5;
     const rx = x * cos - y * sin, ry = x * sin + y * cos;
     points.push({ note, x: rx, y: ry });
     minX = Math.min(minX, rx); maxX = Math.max(maxX, rx); minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
   }
   // Floating-point cancellation must not stretch a diagonal's near-zero axis.
   const normalized = (value, min, max) => max - min < 1e-12 ? .5 : (value - min) / (max - min);
+  // A graph's empty pitch/time margins belong to its frame. Fit the rotated
+  // graph canvas, not just its occupied notes; a flat equation must not
+  // suddenly fill the keyboard when the frame turns a single degree.
+  const span = Math.abs(cos) + Math.abs(sin);
+  const project = (value, min, max) => fixedCanvas ? Math.max(0, Math.min(1, .5 + value / span)) : normalized(value, min, max);
   const rotated = points.map(({ note, x, y }) => {
-    const tick = Math.round(normalized(y, minY, maxY) * attackTicks);
-    return { note, tick, pitch: low + Math.round(normalized(x, minX, maxX) * (width - 1)),
+    const tick = Math.round(project(y, minY, maxY) * attackTicks);
+    return { note, tick, pitch: low + Math.round(project(x, minX, maxX) * (width - 1)),
       offTick: Math.min(endTick, tick + Math.max(1, Math.round(note.duration * stretch * outputPpq))) };
   });
   // Once distinct source pitches land on the same key, preserve FIFO pairing

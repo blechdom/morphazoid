@@ -2045,6 +2045,36 @@ copy+require	src/instruments/midi-mixer/midi-mixer-monitor.js
 copy+require	assets/instruments/blech-midi.webp
 copy+require	docs/blech-midi.md
 
+# BLECH-MIDI-ULTRA: independent copy of BLECH-owned source and artwork.
+copy+require	src/instruments/blech-midi-ultra/blech-midi-app.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-art-controls.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-art.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-black-loader.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-black-renderer.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-black-score.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-black-worker.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-drop-stage.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-file-player.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-frames-controls.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-frames.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-generator-preview.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-generators.css
+copy+require	src/instruments/blech-midi-ultra/blech-midi-live-score.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-math-controls.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-math.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-note-history.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-score-view.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-spigot-engine.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-spigots.css
+copy+require	src/instruments/blech-midi-ultra/blech-midi-spigots.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-stamp-picker.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-text-controls.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-timing.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi.css
+copy+require	assets/blech-midi-ultra/blech-mark.svg
+copy+require	assets/instruments/blech-midi-ultra.webp
+copy+require	docs/blech-midi-ultra.md
+
 # Sound Fonts collection, workshop and redistributable banks.
 copy+require	src/site/sound-fonts/app.js
 copy+require	src/site/sound-fonts/library.js

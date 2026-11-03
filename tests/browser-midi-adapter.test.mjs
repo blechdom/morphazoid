@@ -481,7 +481,7 @@ test("every route either keeps its native client or receives the intended browse
     });
 
     if (!support.midiInput) {
-      assert.equal(support.id, "blech-midi");
+      assert.ok(["blech-midi", "blech-midi-ultra"].includes(support.id));
       assert.equal(adapter, null, "generated MIDI does not install a live-input adapter");
       assert.equal(registrations.length, 0);
       assert.equal(listeners.size, 0);

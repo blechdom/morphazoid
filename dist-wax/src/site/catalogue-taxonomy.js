@@ -193,6 +193,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "trackazoid": ["looper", "audio-effect"],
   "midiphoria": ["2d"],
   "blech-midi": ["2d", "sequencer", "algorithmic"],
+  "blech-midi-ultra": ["2d", "sequencer", "algorithmic"],
   blobs: ["graphic-ui", "2d", "synthesizer"],
   "shape-synth": [
     "2d",
@@ -686,6 +687,13 @@ export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.ent
     "description": "Layer MIDI files, stamps, drawings, equation patterns and frame loops on one falling-note keyboard. Play and capture Automatapoeia, then shape the shared SoundFont output live.",
     "start": "Turn Audio on, choose a source tab, then Play or Drop a prepared pattern. Layer loops while the shared falling-note stage stays visible; Stop all releases every source.",
     "features": ["SoundFont playback", "Falling-note keyboard", "Live layers", "Drawing", "Black MIDI stamps", "Equation patterns", "Frame loops", "Cellular automata", "MIDI file export"],
+    "pluginHref": null
+  },
+  "blech-midi-ultra": {
+    "kind": "Saved MIDI playground",
+    "description": "A separate copy of the November 2026 BLECH MIDI playground: perform with Free Draw and rails, prepare a Math workbox or stamp, and drop layers over a full-width falling-note keyboard.",
+    "start": "Choose Free Draw or a rail to play live, or Drop the prepared Math workbox to create a layer. Enable Audio separately to hear the notes.",
+    "features": ["SoundFont playback", "Falling-note keyboard", "Free Draw", "Note rails", "Math workboxes", "Live layers", "Stamps", "Text", "Cellular automata", "MIDI file export"],
     "pluginHref": null
   },
   "midiphoria": {

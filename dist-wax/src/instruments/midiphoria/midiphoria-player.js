@@ -54,7 +54,7 @@ export class MidiphoriaPlayer {
     this._maxPlaybackRate = clamp(maxPlaybackRate, 1, 64, 8);
     this._noteEffects = sanitizeMidiNoteEffects({});
     this._time = 0; this._duration = 0; this._seekTime = null; this._error = null; this._disposed = false;
-    this._playbackCycle = 0; this._pendingTimeChanges = 0; this._loopStart = 0; this._loopEnd = 0;
+    this._playbackCycle = 0; this._pendingTimeChanges = 0; this._pausedClockRestore = null; this._loopStart = 0; this._loopEnd = 0;
     this._onPageHide = () => { void this.dispose(); };
     this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
@@ -494,6 +494,29 @@ export class MidiphoriaPlayer {
     });
     this._listen(events, 'timeChange', time => {
       if (this._disposed || this._visual) return;
+      // A loop boundary already queued by the worklet can arrive after Pause.
+      // SpessaSynth applies that timeChange to its local paused clock before
+      // notifying us. Restore the position captured on Pause in the worklet
+      // as well, or the display and note count diverge and Replay starts at 0.
+      if (this._pausedClockRestore !== null) {
+        if (Math.abs(finite(time) - this._pausedClockRestore) > 0.05) return;
+        const restored = this._pausedClockRestore;
+        this._pausedClockRestore = null;
+        this._pendingTimeChanges = Math.max(0, this._pendingTimeChanges - 1);
+        if (this._seekTime !== null && Math.abs(this._seekTime - restored) > 0.05) return;
+        this._time = clamp(time, 0, this._duration); this._seekTime = null;
+        this._publish();
+        return;
+      }
+      if (!this._playing && this._loop && !this._pendingTimeChanges && this._sequencer?.paused
+        && finite(time) + 0.05 < this._time) {
+        this._pausedClockRestore = this._time;
+        this._seekTime = this._time;
+        this._pendingTimeChanges++;
+        this._sequencer.currentTime = this._time;
+        this._publish();
+        return;
+      }
       // Every unsolicited time-change while looping is the sequencer's loop
       // boundary. Count messages, not display-frame wraps: very short scores
       // can complete many cycles between two reads. Explicit seeks acknowledge
@@ -606,7 +629,7 @@ export class MidiphoriaPlayer {
     try { this._sequencer?.pause(); this._synth?.stopAll(true); } catch { /* An errored processor may already be closed. */ }
     try { this._synth?.destroy(); } catch { /* Release remaining owned nodes below. */ }
     try { this._padSynth?.destroy(); } catch { /* Release remaining owned nodes below. */ }
-    this._sequencer = null; this._synth = null; this._padSynth = null; this._pendingTimeChanges = 0;
+    this._sequencer = null; this._synth = null; this._padSynth = null; this._pendingTimeChanges = 0; this._pausedClockRestore = null;
     this._releaseOutput?.(); this._releaseOutput = null;
     this._master?.disconnect(); this._master = null;
     this._preamp?.disconnect(); this._preamp = null;

@@ -815,6 +815,45 @@ test('file cycle telemetry retains every fast loop and excludes explicit seek ac
   await h.player.dispose();
 });
 
+test('a late worklet loop boundary after Pause restores the captured clock without recounting or rewinding Replay', async () => {
+  const h = harness(); const seq = await ready(h);
+  h.player.setLoop(true); h.player.play();
+  seq.eventHandler.emit('timeChange', 0);
+  seq.eventHandler.emit('timeChange', 0);
+  const cycle = h.player.state.cycle;
+  seq.currentTime = 7.25;
+  h.player.pause();
+  seq.currentTime = 0; seq.eventHandler.emit('timeChange', 0);
+  assert.equal(h.player.state.time, 7.25);
+  assert.equal(h.player.state.playing, false);
+  assert.equal(h.player.state.cycle, cycle);
+  assert.equal(seq.currentTime, 7.25, 'the worklet receives a paused seek back to the captured position');
+  seq.eventHandler.emit('timeChange', 0);
+  assert.equal(h.player.state.time, 7.25, 'other in-flight boundaries cannot consume the seek acknowledgement');
+  seq.eventHandler.emit('timeChange', 7.25);
+  assert.equal(h.player.state.time, 7.25);
+  assert.equal(h.player._pendingTimeChanges, 0);
+  h.player.play(); seq.currentTime = 7.5;
+  assert.equal(h.player.state.time, 7.5);
+  seq.currentTime = 0; seq.eventHandler.emit('timeChange', 0);
+  assert.equal(h.player.state.cycle, cycle + 1);
+  await h.player.dispose();
+});
+
+test('an explicit seek supersedes an in-flight paused-clock correction', async () => {
+  const h = harness(); const seq = await ready(h);
+  seq.eventHandler.emit('timeChange', 0); seq.eventHandler.emit('timeChange', 0);
+  h.player.setLoop(true); h.player.play(); seq.currentTime = 7.25; h.player.pause();
+  seq.currentTime = 0; seq.eventHandler.emit('timeChange', 0);
+  h.player.seek(3);
+  seq.eventHandler.emit('timeChange', 7.25);
+  assert.equal(h.player.state.time, 3);
+  seq.eventHandler.emit('timeChange', 3);
+  assert.equal(h.player.state.time, 3);
+  assert.equal(h.player._pendingTimeChanges, 0);
+  await h.player.dispose();
+});
+
 test('visual cycle telemetry counts all unseen cycles at 64x and pauses without counting idle time', async () => {
   let now = 0; const h = harness({ clock: () => now, maxPlaybackRate: 64 });
   await h.player.loadVisualTimeline(4, 'Dense artwork'); h.player.setLoop(true); h.player.setPlaybackRate(64);

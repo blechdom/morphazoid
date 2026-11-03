@@ -79,6 +79,19 @@ const INPUT_SCAN_LIMIT = 4096;
 const ROWS = 7, GLYPH_COLUMNS = 5, GLYPH_STRIDE = 6;
 const ROWS_PER_PHRASE = 8, LOWEST_NOTE = 48, TICKS_PER_BEAT = 480;
 const SECONDS_PER_ROW = .25, VELOCITY = 88;
+export const TEXT_MIDI_FONTS = Object.freeze([
+  Object.freeze({ id: 'block', label: 'Block' }),
+  Object.freeze({ id: 'slant', label: 'Slant' }),
+  Object.freeze({ id: 'wide', label: 'Wide' }),
+]);
+export const textMidiGlyphColumns = font => font === 'slant' || font === 'wide' ? 7 : GLYPH_COLUMNS;
+function fontGlyph(character, font) {
+  const glyph = glyphFor(character);
+  if (!glyph || font === 'block') return glyph;
+  if (font === 'slant') return glyph.map((row, index) => ('0'.repeat(Math.floor((ROWS - 1 - index) / 3)) + row).padEnd(7, '0'));
+  // Both variants change the sounding pixels, not just the text label's CSS.
+  return glyph.map(row => `${row[0]}${row[1]}${row[1]}${row[2]}${row[3]}${row[3]}${row[4]}`);
+}
 
 function normalizedInput(input) {
   return typeof input === 'string' ? input.slice(0, INPUT_SCAN_LIMIT).normalize('NFKD')
@@ -192,14 +205,16 @@ export function generateTextMidi(input, { mode = 'word' } = {}) {
  * All geometry is a single bounded raster shared by the preview and MIDI file.
  */
 export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowestNote = 40,
-  beats = 8, fit = true, scale = 1, align = 'center' } = {}) {
+  beats = 8, fit = true, scale = 1, align = 'center', font = 'block' } = {}) {
   const bounded = (value, low, high, fallback) => Number.isFinite(Number(value))
     ? Math.max(low, Math.min(high, Number(value))) : fallback;
-  span = Math.round(bounded(span, GLYPH_COLUMNS, 128, 48));
+  font = TEXT_MIDI_FONTS.some(option => option.id === font) ? font : 'block';
+  const columnsPerGlyph = textMidiGlyphColumns(font), stride = columnsPerGlyph + 1;
+  span = Math.round(bounded(span, columnsPerGlyph, 128, 48));
   lowestNote = Math.round(bounded(lowestNote, 0, 128 - span, Math.min(40, 128 - span)));
   beats = Math.round(bounded(beats, .25, 64, 8) * 4) / 4;
   mode = mode === 'letter' ? 'letter' : 'word'; fit = Boolean(fit);
-  scale = Math.min(Math.round(bounded(scale, 1, 4, 1)), Math.floor(span / GLYPH_COLUMNS));
+  scale = Math.min(Math.round(bounded(scale, 1, 4, 1)), Math.floor(span / columnsPerGlyph));
   align = ['left', 'center', 'right'].includes(align) ? align : 'center';
   const source = normalizedInput(input).replace(/\r\n?/g, '\n');
   const unsupported = [...new Set([...source].filter(character => !glyphFor(character) && !/\s/.test(character)))].slice(0, 8);
@@ -210,7 +225,7 @@ export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowes
   const characters = [...normalized], text = cleanLines(characters.slice(0, MAX_TEXT_MIDI_GLYPHS).join(''));
   let truncated = characters.length > MAX_TEXT_MIDI_GLYPHS || typeof input === 'string' && input.length > INPUT_SCAN_LIMIT;
   if (![...text].some(glyphFor)) throw new Error('Type letters, numbers or punctuation, or try 🙂 😀 ⭐ ❤ ◆.');
-  const capacity = Math.max(1, Math.floor((span + (fit ? 1 : scale)) / (GLYPH_STRIDE * (fit ? 1 : scale))));
+  const capacity = Math.max(1, Math.floor((span + (fit ? 1 : scale)) / (stride * (fit ? 1 : scale))));
   const lines = [], paragraphs = text.split('\n');
   const append = (content, breakReason, sourceLine) => {
     if (lines.length >= 32) { truncated = true; return; }
@@ -237,7 +252,7 @@ export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowes
     }
     if (current) append(current, ending, sourceLine);
   });
-  const nativeWidth = line => Math.max(0, [...line.text].length * GLYPH_STRIDE - 1);
+  const nativeWidth = line => Math.max(0, [...line.text].length * stride - 1);
   const longestWidth = Math.max(...lines.map(nativeWidth));
   const pitchScale = fit ? span / longestWidth : scale;
   const pixels = Array.from({ length: lines.length * ROWS_PER_PHRASE }, () => Array(span).fill(0));
@@ -247,11 +262,11 @@ export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowes
     // same letter size. Scale mode expands each pitch pixel by an integer.
     const outputWidth = Math.max(1, Math.round(width * pitchScale));
     const offset = align === 'left' ? 0 : align === 'right' ? span - outputWidth : Math.floor((span - outputWidth) / 2);
-    const glyphs = [...line.text];
+    const glyphs = [...line.text].map(character => fontGlyph(character, font));
     for (let row = 0; row < ROWS; row++) for (let column = 0; column < outputWidth; column++) {
       const original = Math.floor((column + .5) / pitchScale);
-      const glyph = glyphFor(glyphs[Math.floor(original / GLYPH_STRIDE)]);
-      if (glyph?.[row][original % GLYPH_STRIDE] === '1') {
+      const glyph = glyphs[Math.floor(original / stride)];
+      if (glyph?.[row][original % stride] === '1') {
         // Input lines are in reading/playback order; each upright line enters
         // from the bottom and completes before the line above it starts.
         pixels[pixels.length - (index + 1) * ROWS_PER_PHRASE + 1 + row][offset + column] = 1;
@@ -268,7 +283,8 @@ export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowes
     secondsPerRow: beats / (pixels.length * 2), ticksPerBeat });
   return { ...score, text, lines, phrases: lines.map(line => line.text), rowsPerPhrase: ROWS_PER_PHRASE,
     pixels, unsupported, truncated, mode, layout: { mode, span, lowestNote, beats, fit, scale, align,
-      capacity, lineCount: lines.length, glyphWidth: GLYPH_COLUMNS * pitchScale } };
+      capacity, lineCount: lines.length, glyphWidth: columnsPerGlyph * pitchScale,
+      ...(font === 'block' ? {} : { font }) } };
 }
 
 export function midiIconPixels(icon) { return ICONS[icon]?.map(row => [...row].map(Number)) ?? null; }

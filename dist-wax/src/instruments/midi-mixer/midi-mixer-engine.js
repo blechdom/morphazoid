@@ -11,7 +11,7 @@ export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
 const SOUNDFONT_URL = new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url);
-const safeCall = (callback, value) => { try { callback?.(value); } catch { /* Display callbacks cannot break audio. */ } };
+const safeCall = (callback, value, reason) => { try { callback?.(value, reason); } catch { /* Display callbacks cannot break audio. */ } };
 const emptyDeck = () => ({ name: '', analysis: null, sourceAnalysis: null, config: defaultDeckConfig(), channels: [], token: 0, loaded: false });
 export const MAX_MIDI_CHASE_MESSAGES = 4096;
 /** Compact channel histories support seeks without replaying past attacks. */
@@ -257,7 +257,7 @@ export class MidiMixerEngine {
       }
     }
   }
-  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {}, loop = false, hold = false, sync = true, delayBeats = 0, quantize = true, source = '', channel = null, transpose = 0, muted = false, solo = false, pan = 0 } = {}) {
+  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {}, loop = false, hold = false, sync = true, delayBeats = 0, quantize = true, source = '', channel = null, transpose = 0, muted = false, solo = false, pan = 0, pinned = false } = {}) {
     if (this._disposed) return false;
     if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('MIDI stamps must be 2 MB or smaller.');
     const sourceBuffer = buffer instanceof ArrayBuffer ? buffer.slice(0) : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
@@ -273,11 +273,13 @@ export class MidiMixerEngine {
     const used = new Set(this._samples.map(sample => sample.slot));
     let slot = Array.from({ length: MIDI_SAMPLE_LIMITS.clips }, (_, index) => index).find(index => !used.has(index));
     if (slot === undefined) {
-      const oldestPlaying = this._samples.findIndex(sample => !sample.paused);
-      if (oldestPlaying < 0) throw new Error('All four layers are paused. Stop a layer before dropping another.');
+      const oldestPlaying = this._samples.findIndex(sample => !sample.paused && !sample.pinned);
+      if (oldestPlaying < 0) throw new Error(this._samples.some(sample => sample.pinned)
+        ? 'All available layers are paused or held in the note rail. Remove a layer before adding another.'
+        : 'All four layers are paused. Press Play to resume, or remove a layer before adding another.');
       slot = this._samples.splice(oldestPlaying, 1)[0].slot;
     }
-    const sample = { muted: Boolean(muted), solo: Boolean(solo), pan: clamp(pan, -1, 1, 0), id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, hold: Boolean(hold), sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(quantizedBeats && state.audioEnabled), delayBeats, source: String(source).slice(0, 64), channel: channel == null ? null : Math.round(clamp(channel, 0, 15, 0)), transpose: Math.round(clamp(transpose, -127, 127, 0)), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
+    const sample = { muted: Boolean(muted), solo: Boolean(solo), pan: clamp(pan, -1, 1, 0), pinned: Boolean(pinned), id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, hold: Boolean(hold), sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(quantizedBeats && state.audioEnabled), delayBeats, source: String(source).slice(0, 64), channel: channel == null ? null : Math.round(clamp(channel, 0, 15, 0)), transpose: Math.round(clamp(transpose, -127, 127, 0)), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
     this._sampleBuffers.set(sample, sourceBuffer);
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
@@ -695,7 +697,11 @@ export class MidiMixerEngine {
         if (Number.isFinite(data.sampleBeat)) { this._sampleBeat = data.sampleBeat; this._sampleAudioAnchor = data.at; }
         if (Number.isFinite(data.sampleTime)) this._sampleTime = data.sampleTime;
         this._receiveSampleTimings(data.samples ?? [], data.sampleBeat, data.sampleTime);
-        this._skippedEvents = data.skippedEvents; this._voices = data.voices; this._droppedVisualEvents = data.droppedVisualEvents; this._publish();
+        this._skippedEvents = data.skippedEvents; this._voices = data.voices; this._droppedVisualEvents = data.droppedVisualEvents;
+        // The audio thread remains authoritative. Consumers with their own
+        // display tick can skip this frequent notification without delaying
+        // immediate feedback for user edits or changing sound scheduling.
+        this._publish('clock');
       } else if (data.type === 'notes') this._publishNotes(this._audioEnabled ? data.notes : data.notes.filter(note => note.type === 'noteOff'));
       else if (data.type === 'loaded' && this._decks[data.index]?.token === data.token) { this._decks[data.index].loaded = true; this._publish(); }
     };
@@ -771,6 +777,6 @@ export class MidiMixerEngine {
     if (context && context.state !== 'closed') await context.close().catch(() => {});
   }
   async dispose() { if (this._disposed) return; this._automata.setPlaying(false); this._disposed = true; this._playing = false; this._desiredAudio = false; this.runtime.removeEventListener?.('pagehide', this._onPageHide); await this._close(); this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._finishedSamples = []; this._noteSubscribers.clear(); }
-  _publish() { if (!this._disposed) safeCall(this.onState, this.state); }
+  _publish(reason) { if (!this._disposed) safeCall(this.onState, this.state, reason); }
 }
 export const createMixerEngine = options => new MidiMixerEngine(options);

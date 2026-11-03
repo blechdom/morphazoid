@@ -32,7 +32,7 @@ test("Witches Brew leads Faves while individual geometry instruments remain cate
     "witch", "shapes", "rubix", "hiccup-head", "synthesis",
     "creaturazoid", "hybrinx", "quadruped", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
     "fractal-delay", "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
-    "gesticulating-hand", "simd-chiptune", "blech-midi", "midiphoria", "graphonic-calculator",
+    "gesticulating-hand", "simd-chiptune", "blech-midi", "blech-midi-ultra", "midiphoria", "graphonic-calculator",
   ]);
 });
 

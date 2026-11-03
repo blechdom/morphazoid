@@ -32,8 +32,9 @@ export function createChoosePickerShell(doc, {
   return { details, summary, currentLabel, panel, search, searchInput, list };
 }
 
-/** Fixed popup coordinates: beside its trigger, or the nearest visible viewport edge. */
-export function choosePickerPanelBounds(anchor, viewport) {
+/** Fixed popup coordinates: beside its trigger, or the nearest visible viewport edge.
+ * Callers may reserve the space above a performance toolbar with minTop. */
+export function choosePickerPanelBounds(anchor, viewport, { minTop } = {}) {
   const margin = 8;
   const gap = 4;
   const width = Math.max(0, viewport.width);
@@ -48,12 +49,13 @@ export function choosePickerPanelBounds(anchor, viewport) {
     originX + width - insetX - panelWidth,
   ));
   const bottom = originY + height - insetY;
-  const belowTop = Math.max(originY + insetY, Math.min(anchor.bottom + gap, bottom));
+  const upper = Math.max(originY + insetY, Math.min(bottom, Number.isFinite(minTop) ? minTop : originY + insetY));
+  const belowTop = Math.max(upper, Math.min(anchor.bottom + gap, bottom));
   const below = Math.max(0, bottom - belowTop);
   const aboveBottom = Number.isFinite(anchor.top)
-    ? Math.max(originY + insetY, Math.min(anchor.top - gap, bottom))
-    : originY + insetY;
-  const above = aboveBottom - originY - insetY;
+    ? Math.max(upper, Math.min(anchor.top - gap, bottom))
+    : upper;
+  const above = aboveBottom - upper;
   const desiredHeight = Math.min(540, height * 0.7);
   const upward = below < Math.min(240, desiredHeight) && above > below;
   const panelHeight = Math.min(desiredHeight, upward ? above : below);
@@ -69,7 +71,7 @@ export function choosePickerPanelBounds(anchor, viewport) {
  * Keep fixed positioning so the popup escapes scrolling/clipped control rails.
  * No audio, application state, or keyboard-action ownership lives here.
  */
-export function anchorChoosePickerPanel({ details, summary, panel }, runtime = globalThis) {
+export function anchorChoosePickerPanel({ details, summary, panel }, runtime = globalThis, { minTop } = {}) {
   const doc = summary.ownerDocument;
   const removers = [];
   let destroyed = false;
@@ -89,7 +91,7 @@ export function anchorChoosePickerPanel({ details, summary, panel }, runtime = g
       height: viewport?.height ?? (doc.documentElement.clientHeight || runtime.innerHeight),
       offsetLeft: viewport?.offsetLeft ?? 0,
       offsetTop: viewport?.offsetTop ?? 0,
-    });
+    }, { minTop: typeof minTop === "function" ? minTop() : minTop });
     for (const [key, value] of Object.entries(bounds)) panel.style[key] = `${value}px`;
   };
   const update = () => {

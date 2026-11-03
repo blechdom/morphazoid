@@ -399,6 +399,16 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze([
     startsAudio: true,
     computerKeyboardMode: "none",
   }),
+  Object.freeze({
+    id: "blech-midi-ultra",
+    midiInput: false,
+    midiInputMode: "none",
+    noteMode: "sequence",
+    audioInput: false,
+    midiOutput: false,
+    startsAudio: true,
+    computerKeyboardMode: "none",
+  }),
 ]);
 
 const capabilityById = new Map(

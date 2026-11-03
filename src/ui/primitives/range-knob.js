@@ -3,11 +3,14 @@ import { dispatchNativeEvent } from "../internal.js";
 const knobs = new WeakMap();
 
 /** Rotary presentation for an existing native range; its owner keeps the value and events. */
-export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false, interactionRange = null, scale = "linear" } = {}) {
+export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false, interactionRange = null, scale = "linear", curve = null } = {}) {
   if (knobs.has(input)) return knobs.get(input);
   const field = input.parentNode;
   if (input.type !== "range" || !field) throw new TypeError("A mounted native range is required");
   if (!["linear", "log"].includes(scale)) throw new TypeError("A knob scale must be linear or log");
+  if (curve && (wrap || scale !== "linear" || curve.length < 2 || curve.some(([value, fraction], index) =>
+    !Number.isFinite(value) || !Number.isFinite(fraction) || index && (value <= curve[index - 1][0] || fraction <= curve[index - 1][1])
+  ) || curve[0][1] !== 0 || curve.at(-1)[1] !== 1)) throw new TypeError("A knob curve needs ascending values from 0 to 1");
   const logarithmic = scale === "log";
   // Some owners retain exact values beyond the normal dial span. This optional
   // fixed range controls gestures and the needle without changing their input.
@@ -39,14 +42,23 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
   const wrapped = (value, min, max) => max > min ? min + ((value - min) % (max - min) + max - min) % (max - min) : min;
   // log1p keeps zero in the complete native range, including very large counts.
   // Scaling changes gestures and presentation only; the owner retains its bounds.
+  const interpolate = (value, points, inputIndex, outputIndex) => {
+    if (value <= points[0][inputIndex]) return points[0][outputIndex];
+    for (let index = 1; index < points.length; index++) if (value <= points[index][inputIndex]) {
+      const from = points[index - 1], to = points[index];
+      return from[outputIndex] + (value - from[inputIndex]) / (to[inputIndex] - from[inputIndex]) * (to[outputIndex] - from[outputIndex]);
+    }
+    return points.at(-1)[outputIndex];
+  };
   const fractionFromValue = (value, min, max) => max > min
-    ? Math.max(0, Math.min(1, logarithmic
-      ? Math.log1p(Math.max(0, value - min)) / Math.log1p(max - min)
-      : (value - min) / (max - min))) : 0;
+    ? Math.max(0, Math.min(1, curve ? interpolate(value, curve, 0, 1)
+      : logarithmic ? Math.log1p(Math.max(0, value - min)) / Math.log1p(max - min)
+        : (value - min) / (max - min))) : 0;
   const valueFromFraction = (fraction, min, max) => {
     if (fraction <= 0 || max <= min) return min;
     if (fraction >= 1) return max;
-    return Math.max(min, Math.min(max, min + Math.expm1(fraction * Math.log1p(max - min))));
+    return Math.max(min, Math.min(max, curve ? interpolate(fraction, curve, 1, 0)
+      : min + Math.expm1(fraction * Math.log1p(max - min))));
   };
   const update = () => {
     const { min, max } = limits();
@@ -74,7 +86,7 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     // The first vertical movement begins at its nearest normal endpoint.
     const raw = fixedRange ? Math.max(fixedRange.min, Math.min(fixedRange.max, value)) : value;
     drag = { id: event.pointerId, y: event.clientY, raw, start: input.value };
-    if (logarithmic) { const { min, max } = limits(); drag.fraction = fractionFromValue(raw, min, max); }
+    if (logarithmic || curve) { const { min, max } = limits(); drag.fraction = fractionFromValue(raw, min, max); }
     input.setPointerCapture?.(event.pointerId);
   });
   // Touch browsers can still run the range's absolute slider gesture after a
@@ -87,7 +99,7 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     if (input.disabled) { end(event); return; }
     if (event.clientY === drag.y) return;
     const { min, max, step } = limits();
-    if (logarithmic) {
+    if (logarithmic || curve) {
       const next = drag.fraction + (drag.y - event.clientY) / (event.shiftKey ? 1200 : 120);
       drag.fraction = wrap ? next : Math.max(0, Math.min(1, next));
       drag.raw = valueFromFraction(wrap ? wrapped(drag.fraction, 0, 1) : drag.fraction, min, max);
@@ -100,7 +112,7 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     const before = input.value;
     const bounded = wrap ? wrapped(value, min, max) : Math.max(min, Math.min(max, value));
     // Preserve exact integer endpoints such as Number.MAX_SAFE_INTEGER in log mode.
-    input.value = String(logarithmic ? bounded : Number(bounded.toPrecision(12)));
+    input.value = String(logarithmic || curve ? bounded : Number(bounded.toPrecision(12)));
     update();
     if (input.value !== before) dispatchNativeEvent(input, "input", doc);
   });

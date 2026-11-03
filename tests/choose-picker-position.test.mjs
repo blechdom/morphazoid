@@ -167,6 +167,20 @@ test("panel presets open upward when their right-panel trigger is near the viewp
   assert.ok(landscape.height > 240);
 });
 
+test("a reserved toolbar stays clear even when a short-screen picker wants to open upward", () => {
+  const viewport = { width: 844, height: 390 };
+  const anchor = { left: 330, top: 192, bottom: 240 };
+  const original = choosePickerPanelBounds(anchor, viewport);
+  assert.ok(original.top < 158);
+  const protectedBounds = choosePickerPanelBounds(anchor, viewport, { minTop: 158 });
+  assert.ok(protectedBounds.top >= 158);
+  assert.ok(protectedBounds.top + protectedBounds.height <= 382);
+  assert.ok(protectedBounds.height >= 100, "keep the list scrollable below the toolbar");
+  const offscreen = choosePickerPanelBounds({ left: 0, top: -500, bottom: -450 }, viewport, { minTop: 158 });
+  assert.ok(offscreen.top >= 158);
+  assert.ok(offscreen.height >= 100);
+});
+
 test("resize or rail scroll can move the trigger offscreen without losing its open popup", () => {
   for (const viewport of [
     { width: 844, height: 390 },

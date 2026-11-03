@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { restoreSurround71Source, surround71SourceChanges } from "./helpers/surround-71-source-reference.mjs";
+import { restoreBlechMidiUltraSite } from "./helpers/blech-midi-ultra-site-reference.mjs";
 
 const hash = value => createHash("sha256").update(value).digest("hex");
 const root = new URL("../", import.meta.url);
@@ -17,7 +18,9 @@ test("7.1 shared-source additions reverse exactly to fresh main without hiding d
     "src/instruments/surround-field/surround-field.js",
   ]);
   for (const change of surround71SourceChanges) {
-    const source = await readFile(new URL(change.file, root), "utf8");
+    const source = restoreBlechMidiUltraSite(
+      await readFile(new URL(change.file, root), "utf8"), change.file, { allowRestored: true },
+    );
     assert.equal(hash(source), change.afterSha256, `${change.file}: reviewed 7.1 source`);
     const restored = restoreSurround71Source(source, change.file);
     assert.equal(hash(restored), change.beforeSha256, `${change.file}: untouched main source`);

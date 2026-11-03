@@ -232,8 +232,15 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked, applyGate = true, playback = {} } = {}) {
     const score = applyGate ? editScore(rawScore) : rawScore;
     if (!score?.buffer) throw new Error('Draw a score first in BLECH MIDI.');
-    const record = saveKind ? saveScore(score, label, program, saveKind, loop, playback) : null;
-    const sample = launchScore(score, record?.label ?? label, program, record?.id ?? padId, loop, playback);
+    // A full rack of paused clips can reject a new one. Do not save a pad (or
+    // evict an older saved pad) until its sample actually starts.
+    const sample = launchScore(score, saveKind === 'drawing' ? `Drawing ${drawingSerial + 1}` : label,
+      program, saveKind ? null : padId, loop, playback);
+    if (sample && saveKind) {
+      const record = saveScore(score, label, program, saveKind, loop, playback);
+      padSamples.set(record.id, sample.id);
+      reflectPads();
+    }
     canvas.dataset.message = label;
     $('mixerSampleStatus').textContent = `${label} · ${engine.state.audioEnabled ? 'sample' : 'silent preview'}${detail ? ` · ${detail}` : ''}${score.unsupported?.length ? ` · skipped ${score.unsupported.join(' ')}` : ''}${score.warnings?.length ? ` · ${score.warnings.join(' ')}` : ''}`;
     return { ...score, sampleId: sample?.id ?? null };
@@ -549,7 +556,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (onPrepare) return prepareScore(editScore(score), 'Your drawing', { loop: $('mixerSampleLoop').checked });
     return playScore(score, 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
-  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false, widthNotes = null, heightBeats = null, authoredTranspose = null, sourceRotationDegrees = null } = {}) {
+  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false, pinned = false, saveToPads = true, widthNotes = null, heightBeats = null, authoredTranspose = null, sourceRotationDegrees = null } = {}) {
     if (disposed) return null;
     if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
     // Each drop owns a copy: moving or rewriting the preparation never edits a
@@ -568,11 +575,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       snapshot.pixels = undefined;
       if (Array.isArray(snapshot.notes)) snapshot.notes = snapshot.notes.map(note => ({ ...note, note: note.note + transformed.appliedTranspose, ...(transformed.channel === null ? {} : { channel: transformed.channel }) }));
     }
-    const playback = { ...(textResize ? { textResize } : {}), channel: transformed.channel, transpose: authoredTranspose ?? transformed.appliedTranspose, ...(sourceRotationDegrees === null ? {} : { rotationDegrees: sourceRotationDegrees }), delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
+    const playback = { ...(textResize ? { textResize } : {}), channel: transformed.channel, transpose: authoredTranspose ?? transformed.appliedTranspose, ...(sourceRotationDegrees === null ? {} : { rotationDegrees: sourceRotationDegrees }), delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(pinned ? { pinned: true } : {}), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
     snapshot.drop = { ...playback, program, loop: Boolean(loop) };
     cancelPending();
     return playScore(snapshot, String(name).slice(0, 128), '', program,
-      { saveKind: 'art', loop: Boolean(loop), applyGate: false, playback });
+      { saveKind: saveToPads ? 'art' : null, loop: Boolean(loop), applyGate: false, playback });
   }
   async function prepareStamp(id = selected) {
     if (disposed || !stamps.has(id)) return null;
@@ -634,6 +641,12 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (disposed) return;
     cancelPending(); engine.stopSamples(); reflectPads(); $('mixerSampleStatus').textContent = 'Samples stopped';
   }
+  function clearSavedPads() {
+    if (disposed) return;
+    cancelEdit();
+    for (const record of [...saved.values()]) forgetPad(record);
+    filterStamps();
+  }
   on(drawingButton ?? $('mixerSendDrawing'), 'click', () => safely(playDrawing));
   on($('mixerStopSamples'), 'click', stopSamples);
   on($('mixerPerformanceView'), 'change', () => renderer.configure({ view: $('mixerPerformanceView').value }));
@@ -641,7 +654,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, setLayerSourceTransform, getTextLayer, stopSamples, getDrawingScore, refresh, prepareStamp, getStamps,
+    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, setLayerSourceTransform, getTextLayer, stopSamples, clearSavedPads, getDrawingScore, refresh, prepareStamp, getStamps,
     getPreparedScore: () => prepared ? structuredClone(prepared.score) : null,
     getPreparedDrop: () => prepared ? structuredClone(prepared) : null,
     setAutomataSeed: row => automata.setSeedRow(row),

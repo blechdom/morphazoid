@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { restoreSurround71Source } from "./surround-71-source-reference.mjs";
+import { restoreBlechMidiUltraSite } from "./blech-midi-ultra-site-reference.mjs";
 
 export const oculoidSiteChanges = JSON.parse(readFileSync(
   new URL("../../docs/oculoid-site-changes.json", import.meta.url), "utf8",
@@ -9,6 +10,7 @@ export const oculoidSiteChanges = JSON.parse(readFileSync(
 /** Peel off exactly Oculoid's reviewed additions before older frozen proofs. */
 export function restoreOculoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  source = restoreBlechMidiUltraSite(source, file, { allowRestored: true });
   // This later layout has its own exact proof; peel it before frozen site hashes.
   source = restoreSurround71Source(source, file, { allowRestored: true });
   for (const change of oculoidSiteChanges.changes.filter(change => change.file === file)) {

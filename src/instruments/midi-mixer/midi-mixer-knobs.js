@@ -1,7 +1,7 @@
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 
 /** Mixer-only presentation; native inputs remain the owners of values/events. */
-export function mountMixerKnobs(host) {
+export function mountMixerKnobs(host, { curves = {} } = {}) {
   const document = host.ownerDocument, runtime = document.defaultView ?? globalThis;
   const controls = new Map(), owners = new WeakMap();
   let destroyed = false;
@@ -19,7 +19,7 @@ export function mountMixerKnobs(host) {
     const owner = input.closest('.midi-edit-field, .control, label') ?? input.parentElement;
     const wrapper = document.createElement('span'); wrapper.className = 'mixer-range-knob';
     input.before(wrapper); wrapper.append(input);
-    const widget = enhanceRangeKnob(input);
+    const widget = enhanceRangeKnob(input, { curve: curves[input.id] ?? null });
     const record = { input, owner, wrapper, widget };
     controls.set(input, record);
     if (!owners.has(owner)) owners.set(owner, new Set());

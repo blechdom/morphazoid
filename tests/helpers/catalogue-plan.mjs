@@ -75,6 +75,8 @@ export const labAdditions = [
     tags: [{ id: '3d', label: '3D' }, { id: 'geometric', label: 'Geometric' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   { id: 'blech-midi', label: 'BLECH MIDI', href: 'blech-midi.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
     tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
+  { id: 'blech-midi-ultra', label: 'BLECH-MIDI-ULTRA', href: 'blech-midi-ultra.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
+    tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-midiphoria.json', import.meta.url), 'utf8')).additions,
   { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-synthesis.json', import.meta.url), 'utf8')).additions,
@@ -113,7 +115,7 @@ export const expectedFaveToolIds = Object.freeze([
   // Owner follow-up on September 27: promote SIMD Chiptune into Faves.
   "simd-chiptune",
   // Owner follow-up October 12: BLECH MIDI and Midiophilia join Faves.
-  "blech-midi", "midiphoria",
+  "blech-midi", "blech-midi-ultra", "midiphoria",
   // Owner follow-up October 15: Graphonic Calculator joins Faves while still filed under WIP.
   "graphonic-calculator",
 ]);

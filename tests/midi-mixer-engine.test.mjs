@@ -8,6 +8,19 @@ import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-
 import { encodeSoundFont } from '../src/site/sound-fonts/soundfont.js';
 
 const data = (beats = 4) => ({ events: [{ beat: 0, kind: 9, channel: 0, a: 60, b: 90 }, { beat: beats / 2, kind: 8, channel: 0, a: 60, b: 0 }], controllers: [], channels: [{ channel: 0, drums: false }], loopBeats: beats });
+test('audio-clock notifications are distinguishable from immediate control edits', async () => {
+  const updates = [], engine = new MidiMixerEngine({
+    runtime: { performance: { now: () => 0 } },
+    onState: (state, reason) => updates.push({ tempo: state.tempo, reason }),
+  });
+  engine.setTempo(180);
+  assert.deepEqual(updates.at(-1), { tempo: 180, reason: undefined });
+  engine._publish('clock');
+  assert.deepEqual(updates.at(-1), { tempo: 180, reason: 'clock' });
+  engine.setVolume(.5);
+  assert.deepEqual(updates.at(-1), { tempo: 180, reason: undefined });
+  await engine.dispose();
+});
 test('two deck clocks stay aligned over an hour, loop against absolute beats and change tempo without phase reset', () => {
   const attacks = [[], []]; let frames = 0;
   const clock = new MidiMixerClock({ emit: (deck, event, frame) => { if (event.kind === 9) attacks[deck].push(frames + frame); } });

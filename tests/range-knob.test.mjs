@@ -50,6 +50,20 @@ test("enhancement preserves the actual input, value, bounds, owner events and on
   f.knob.destroy();
 });
 
+test("a piecewise tempo curve uses most of the turn for 60–300 while retaining native BPM values", () => {
+  const points = [[0, 0], [60, .14], [300, .85], [1000, 1]];
+  const f = fixture({ min: '0', max: '1000', step: '.1', value: '60' }, { curve: points });
+  const angle = () => Number(f.field.children[1].children[0].attributes.get('style').match(/rotate\(([-\d.]+)/)[1]);
+  const low = angle();
+  f.input.value = '300'; f.knob.update();
+  assert.ok(angle() - low > 190, '240 BPM takes over 70% of the dial');
+  f.input.value = '60'; f.knob.update();
+  f.pointer('pointerdown'); f.pointer('pointermove', { clientY: 53 }); f.pointer('pointerup', { clientY: 53 });
+  assert.ok(Number(f.input.value) > 180 && Number(f.input.value) < 200);
+  assert.equal(f.events.length, 2);
+  f.knob.destroy();
+});
+
 test("fine adjustment, minimum-relative stepping and clamps retain the native range contract", () => {
   const f = fixture({ min: "0.1", max: "1.1", step: "0.05", value: "0.4" });
   f.pointer("pointerdown");

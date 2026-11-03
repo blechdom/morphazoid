@@ -947,6 +947,15 @@
       "status": "deferred"
     },
     {
+      "id": "blech-midi-ultra",
+      "label": "BLECH-MIDI-ULTRA",
+      "href": "blech-midi-ultra.html",
+      "category": "graphic-ui",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "surround-field",
       "label": "Surround for Safety",
       "href": "surround-field.html",
@@ -1897,6 +1906,7 @@
       "gesticulating-hand",
       "simd-chiptune",
       "blech-midi",
+      "blech-midi-ultra",
       "midiphoria",
       "graphonic-calculator"
     ],
@@ -1963,6 +1973,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "blech-midi-ultra",
       "oculoid",
       "wobblini",
       "striped-staircase-rust",
