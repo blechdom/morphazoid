@@ -73,12 +73,12 @@ export function mountBlechStampPicker(host, {
     canvas.width = THUMB_WIDTH; canvas.height = THUMB_HEIGHT; canvas.setAttribute('aria-hidden', 'true');
     const context = canvas.getContext('2d');
     if (!context) return canvas;
-    context.fillStyle = '#090e12'; context.fillRect(0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+    context.fillStyle = '#0d100f'; context.fillRect(0, 0, THUMB_WIDTH, THUMB_HEIGHT);
     if (entry.thumbnail?.nodeName === 'CANVAS' && entry.thumbnail.width && entry.thumbnail.height) {
       context.drawImage(entry.thumbnail, 0, 0, THUMB_WIDTH, THUMB_HEIGHT); return canvas;
     }
     const rectangles = stampThumbnailRects(entry), stroke = clamp(Number(entry.thumbnailStroke) || 1, 1, 4);
-    context.fillStyle = stroke > 1 ? '#96f4cc' : '#caa0db';
+    context.fillStyle = stroke > 1 ? '#c7ff2a' : '#ffb6d3';
     for (const rect of rectangles) context.fillRect(rect.x, rect.y, Math.max(stroke, rect.width), Math.max(stroke, rect.height));
     if (!rectangles.length) {
       context.font = '14px monospace'; context.textAlign = 'center'; context.textBaseline = 'middle';

@@ -40,14 +40,14 @@ export const blechMidiUltraSiteChanges = Object.freeze([
   {
     file: 'README.md',
     before: '**[L-system Delay Rust](l-mic-rust.html)**',
-    after: `**[BLECH-MIDI-ULTRA](blech-midi-ultra.html)** preserves the November 3, 2026
+    after: `**[BLECH MIDI ULTRA](blech-midi-ultra.html)** preserves the November 3, 2026
 BLECH MIDI playground as a separate instrument. Its Free Draw, rails, Math
 workboxes, stamps, text, layers and falling notes can evolve independently of
 BLECH MIDI; both use the shared MIDI and SoundFont engine. Audio starts off.
 [Saved controls and limits](docs/blech-midi-ultra.md).
 
 **[L-system Delay Rust](l-mic-rust.html)**`,
-    markers: ['**[BLECH-MIDI-ULTRA](blech-midi-ultra.html)**'],
+    markers: ['**[BLECH MIDI ULTRA](blech-midi-ultra.html)**'],
   },
   {
     file: 'src/pages/manifest.js',
@@ -64,7 +64,7 @@ BLECH MIDI; both use the shared MIDI and SoundFont engine. Audio starts off.
   {
     file: 'src/site/instrument-registry.js',
     before: '    { id: "blech-midi", label: "BLECH MIDI", href: "blech-midi.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi.webp" },\n  ]),',
-    after: '    { id: "blech-midi", label: "BLECH MIDI", href: "blech-midi.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi.webp" },\n    { id: "blech-midi-ultra", label: "BLECH-MIDI-ULTRA", href: "blech-midi-ultra.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi-ultra.webp" },\n  ]),',
+    after: '    { id: "blech-midi", label: "BLECH MIDI", href: "blech-midi.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi.webp" },\n    { id: "blech-midi-ultra", label: "BLECH MIDI ULTRA", href: "blech-midi-ultra.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi-ultra.webp" },\n  ]),',
     markers: ['    { id: "blech-midi-ultra",'],
   },
   {

@@ -4,7 +4,14 @@ import { blackMidiStatistics, queryBlackMidiNotes } from './blech-midi-black-sco
 import { parseBlackMidi } from './blech-midi-black-loader.js';
 import { createBlechLiveProjector, BLECH_LIVE_NOTE_LIMIT } from './blech-midi-live-score.js';
 
-export const BLACK_MIDI_PALETTES = Object.freeze(['rainbow', 'candy', 'ember', 'ice', 'acid']);
+export const BLACK_MIDI_PALETTES = Object.freeze(['ultra', 'rainbow', 'candy', 'ember', 'ice', 'acid']);
+const ULTRA_NOTE_INKS = Object.freeze([
+  [199, 255, 42], // logo green
+  [255, 79, 146], // hot pink
+  [242, 221, 113], // paper yellow
+  [255, 37, 50], // original BLECH MIDI logo red
+  [119, 189, 255], // electric blue
+]);
 const clamp = (value, min, max, fallback) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
 const wrap = value => ((value % 1) + 1) % 1;
 const blackKey = pitch => [1, 3, 6, 8, 10].includes(pitch % 12);
@@ -83,6 +90,13 @@ export function createBlackMidiKeyboardState({ onNoteOn, onNoteOff, onChange } =
 export function blackMidiColor({ pitch, velocity, channel, track }, options = {}) {
   const custom = options.trackColors?.[track];
   if (/^#[0-9a-f]{6}$/i.test(custom)) return [1, 3, 5].map(at => parseInt(custom.slice(at, at + 2), 16) / 255);
+  if (options.palette === 'ultra') {
+    const index = options.colorBy === 'pitch' ? Math.floor(pitch / 12)
+      : options.colorBy === 'velocity' ? Math.min(4, Math.floor((127 - velocity) / 26))
+        : options.colorBy === 'channel' ? channel : track;
+    const safeIndex = Number.isFinite(index) ? ((Math.trunc(index) % ULTRA_NOTE_INKS.length) + ULTRA_NOTE_INKS.length) % ULTRA_NOTE_INKS.length : 0;
+    return ULTRA_NOTE_INKS[safeIndex].map(value => value / 255);
+  }
   let hue = options.colorBy === 'pitch' ? pitch / 128 : options.colorBy === 'velocity' ? (1 - velocity / 127) * 2 / 3
     : options.colorBy === 'channel' ? channel / 16 : wrap(track * .61803398875 + .55);
   const phase = Math.sin(hue * Math.PI * 2);
@@ -169,7 +183,7 @@ function createGpu(canvas) {
     gl.bindVertexArray(vertexArray); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 28, 0); gl.vertexAttribDivisor(0, 1);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 16); gl.vertexAttribDivisor(1, 1);
-    gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.clearColor(.025, .03, .045, 1);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.clearColor(13 / 255, 16 / 255, 15 / 255, 1);
     let capacity = 0;
     return { name: 'WebGL2', limit: 200_000, draw(data, count) {
       gl.viewport(0, 0, canvas.width, canvas.height); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(program);
@@ -185,7 +199,7 @@ function createCpu(canvas) {
   if (!context) throw new Error('This browser cannot create a note display.');
   return { name: 'Canvas2D', limit: 25_000, draw(data, count) {
     const { width, height } = canvas;
-    context.fillStyle = '#06080c'; context.fillRect(0, 0, width, height);
+    context.fillStyle = '#0d100f'; context.fillRect(0, 0, width, height);
     for (let index = 0; index < count * 7; index += 7) {
       context.fillStyle = `rgb(${Math.round(data[index + 4] * 255)} ${Math.round(data[index + 5] * 255)} ${Math.round(data[index + 6] * 255)})`;
       const left = Math.round(data[index] * width), right = Math.round((data[index] + data[index + 2]) * width);
@@ -204,7 +218,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   if (!mount?.ownerDocument) throw new Error('Falling notes requires a mount element.');
   const document = mount.ownerDocument, window = document.defaultView;
   const wrapper = document.createElement('div'); wrapper.className = 'midiphoria-black-stage';
-  Object.assign(wrapper.style, { position: 'relative', width: '100%', height: '100%', minHeight: '0', overflow: 'hidden', background: '#06080c' });
+  Object.assign(wrapper.style, { position: 'relative', width: '100%', height: '100%', minHeight: '0', overflow: 'hidden', background: '#0d100f' });
   const makeCanvas = (label, accessible = false) => {
     const canvas = document.createElement('canvas'); canvas.setAttribute('aria-label', label);
     canvas.setAttribute(accessible ? 'role' : 'aria-hidden', accessible ? 'img' : 'true');
@@ -217,7 +231,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   let backend = forceCanvas ? null : createGpu(canvas);
   // A canvas with a failed/lost WebGL context cannot acquire a 2D context.
   if (!backend) { const replacement = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas); }
-  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'rainbow', trackColors: {}, hiddenTracks: [], keyboardHeight: .08, keyboardPosition: .78, pastSeconds: 4, trails: true };
+  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'ultra', trackColors: {}, hiddenTracks: [], keyboardHeight: .08, keyboardPosition: .78, pastSeconds: 4, trails: true };
   let layout = blackMidiKeyLayout(), pixelLayout = [], score = null, visible = true, disposed = false, frame = null, lastFrame = -Infinity, lastStats = -Infinity;
   let previousTime = NaN, dirty = true, serial = 0, controller = null, latestStats = null;
   let visualInterval = 1000 / 30, visualsActive = false;
@@ -281,7 +295,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     dirty = true;
   });
   listenKeyboard(keyboardSurface, 'keyup', event => { if (event.key === 'Enter') { event.preventDefault(); enterHeld = false; keyboardState.release('blech:keyboard:enter'); } });
-  listenKeyboard(keyboardSurface, 'focus', () => { keyboardSurface.style.outline = '2px solid #b4ffdf'; dirty = true; });
+  listenKeyboard(keyboardSurface, 'focus', () => { keyboardSurface.style.outline = '2px solid #c7ff2a'; dirty = true; });
   listenKeyboard(keyboardSurface, 'blur', () => { keyboardSurface.style.outline = ''; releaseKeyboard(); dirty = true; });
   listenKeyboard(window, 'blur', releaseKeyboard);
   const status = (state, message) => safe(onStatus, { state, message, renderer: backend.name });
@@ -301,27 +315,27 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     const strike = geometry.keyboardTop * height, keyHeight = (geometry.keyboardBottom - geometry.keyboardTop) * height;
     keyboardSurface.style.top = `${geometry.keyboardTop * 100}%`; keyboardSurface.style.height = `${(geometry.keyboardBottom - geometry.keyboardTop) * 100}%`;
     context.clearRect(0, 0, width, height);
-    context.fillStyle = '#11131a'; context.fillRect(0, strike, width, keyHeight);
+    context.fillStyle = '#252b25'; context.fillRect(0, strike, width, keyHeight);
     for (let pitch = 0; pitch < 128; pitch++) {
       const key = pixelLayout[pitch], rgb = lit[pitch];
-      context.fillStyle = rgb ? `rgb(${rgb.map(value => Math.round(value * 255)).join(' ')})` : layout[pitch].black ? '#10131b' : '#d7dbe5';
+      context.fillStyle = rgb ? `rgb(${rgb.map(value => Math.round(value * 255)).join(' ')})` : layout[pitch].black ? '#171c18' : '#e2e3d6';
       context.fillRect(key.left, strike + 1, key.width, keyHeight - 1);
     }
     if (document.activeElement === keyboardSurface) {
       const key = pixelLayout[selectedPitch], lineWidth = Math.max(1, Math.round(2 * width / dimensions.cssWidth));
-      context.strokeStyle = '#b4ffdf'; context.lineWidth = lineWidth;
+      context.strokeStyle = '#c7ff2a'; context.lineWidth = lineWidth;
       context.strokeRect(key.left + lineWidth / 2, strike + 2, Math.max(0, key.width - lineWidth),
         keyHeight - 3);
     }
-    context.fillStyle = '#aebbd3'; context.fillRect(0, strike, width, 1);
+    context.fillStyle = '#819178'; context.fillRect(0, strike, width, 1);
     if (dimensions.cssHeight >= 180) {
       context.font = `${Math.max(9, 10 * (width / dimensions.cssWidth))}px sans-serif`;
-      context.fillStyle = '#687184';
+      context.fillStyle = '#899783';
       context.fillText('FUTURE', 6, 13 * (width / dimensions.cssWidth));
       context.fillText('PAST', 6, Math.min(height - 5, strike + keyHeight + 14 * (width / dimensions.cssWidth)));
     }
     if (dimensions.cssWidth >= 540) {
-      context.fillStyle = '#596174'; context.font = `${Math.max(8, 9 * (width / dimensions.cssWidth))}px sans-serif`;
+      context.fillStyle = '#71816e'; context.font = `${Math.max(8, 9 * (width / dimensions.cssWidth))}px sans-serif`;
       for (let pitch = 0; pitch < 128; pitch += 12) context.fillText(`C${pitch / 12 - 1}`, pixelLayout[pitch].left + 2, strike + keyHeight - 3);
     }
   }
@@ -508,7 +522,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
         pastSeconds: clamp(value.pastSeconds ?? options.pastSeconds, 0, 30, 4), trails: value.trails === undefined ? options.trails : Boolean(value.trails),
         alignment: (value.alignment ?? options.alignment) === 'equal' ? 'equal' : 'piano',
         colorBy: ['track', 'channel', 'pitch', 'velocity'].includes(value.colorBy ?? options.colorBy) ? value.colorBy ?? options.colorBy : 'track',
-        palette: BLACK_MIDI_PALETTES.includes(value.palette ?? options.palette) ? value.palette ?? options.palette : 'rainbow',
+        palette: BLACK_MIDI_PALETTES.includes(value.palette ?? options.palette) ? value.palette ?? options.palette : 'ultra',
         trackColors: { ...(value.trackColors ?? options.trackColors) }, hiddenTracks: [...(value.hiddenTracks ?? options.hiddenTracks)],
       };
       layout = blackMidiKeyLayout(options.alignment); pixelLayout = blackMidiPixelLayout(layout, dimensions.width);

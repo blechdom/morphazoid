@@ -187,7 +187,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
       <button id="blechDropLoop" data-stage-loop type="button" aria-label="Loop new layer" aria-pressed="false" title="Loop on: repeat after the last beat · off: play once">↻</button>
       <button id="blechDropSave" data-stage-save type="button" aria-label="Save to Layers" title="Drop and keep playing in Layers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h14l3 3v15H3V3h1Zm1 0v6h12V3M7 21v-8h10v8m-8-4 2 2 4-4"/></svg></button>
       <div id="blechDropSourceTools" class="blech-drop-source-tools" hidden></div>
-      <button id="blechDropMathSettings" type="button" aria-label="Math graph and note controls" title="Math · edit the equation and graph knobs" aria-controls="blechPanel-math" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#111916"/><circle cx="16" cy="12" r="2" fill="#111916"/><circle cx="10" cy="17" r="2" fill="#111916"/></svg></button>
+      <button id="blechDropMathSettings" type="button" aria-label="Math graph and note controls" title="Math · edit the equation and graph knobs" aria-controls="blechPanel-math" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#171c18"/><circle cx="16" cy="12" r="2" fill="#171c18"/><circle cx="10" cy="17" r="2" fill="#171c18"/></svg></button>
       <button id="blechDropChannelButton" type="button" aria-label="MIDI channel 1 and instrument" title="Choose MIDI channel and instrument" aria-expanded="false" aria-controls="blechDropChannelMenu"><span>ch<span data-channel-number>1</span></span><span class="blech-drop-caret" aria-hidden="true">⌄</span></button>
       <label class="blech-drop-volume" for="blechDropGain" title="Workbox volume · drag up/down or use arrow keys · 0–127">
         <input id="blechDropGain" aria-label="Workbox volume, 0 to 127" type="range" min="0" max="127" step="1" value="95">
@@ -339,7 +339,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
     const inkPixels = blackMidiPixelLayout(layout, width);
     const lowKey = layout[workbox ? dimensions.low : dimensions.low + settings.transpose], highKey = layout[workbox ? dimensions.high : dimensions.high + settings.transpose];
     let left = lowKey.x * g.width, right = (highKey.x + highKey.width) * g.width, top = present - (settings.delayBeats + dimensions.heightBeats) * scale, bottom = present - settings.delayBeats * scale;
-    ctx.fillStyle = '#b4ffe3';
+    ctx.fillStyle = '#c7ff2a';
     // Preview is bounded independently of the audible score. Sending retains every note.
     const stride = Math.max(1, Math.ceil(notes.length / 8192));
     for (let i = 0; i < notes.length; i += stride) {
@@ -608,7 +608,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
     paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
     if (!paintPointer || overlay.hidden) return;
     const g = paintPointer.g, layout = paintPointer.layout, scale = g.velocity * g.height * 60 / Math.max(1, getTempo());
-    paintCtx.lineWidth = 3; paintCtx.strokeStyle = '#b4ffe3'; paintCtx.lineCap = 'round'; paintCtx.lineJoin = 'round';
+    paintCtx.lineWidth = 3; paintCtx.strokeStyle = '#c7ff2a'; paintCtx.lineCap = 'round'; paintCtx.lineJoin = 'round';
     const screen = point => {
       const key = layout[point.pitch];
       return { x: (key.x + key.width / 2) * g.width,
@@ -642,14 +642,14 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
     paintCtx.stroke();
     paintCtx.setLineDash([]);
     if (tool === 'line') {
-      paintCtx.fillStyle = '#fff3dc';
+      paintCtx.fillStyle = '#f2f1e6';
       for (const point of points) {
         const { x, y } = screen(point); paintCtx.fillRect(x - 3, y - 3, 6, 6);
       }
     }
     if (tool === 'pencil' && points.length === 1) {
       const point = points[0], key = layout[point.pitch];
-      paintCtx.fillStyle = '#b4ffe3'; paintCtx.fillRect(key.x * g.width,
+      paintCtx.fillStyle = '#c7ff2a'; paintCtx.fillRect(key.x * g.width,
         g.keyboardTop * g.height - (settings.delayBeats + point.beat) * scale - 2, Math.max(3, key.width * g.width), 4);
     }
   }

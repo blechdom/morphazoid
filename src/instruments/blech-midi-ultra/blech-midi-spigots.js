@@ -261,7 +261,7 @@ export function mountBlechSpigots(viewport, {
   function drawCombPreview(g, pixels, scale) {
     if (!combGesture) return;
     const block = blechCombBlock(performance.now() - combGesture.startedAt), y = g.present - combGesture.delayBeats * g.pixelsPerBeat;
-    context.fillStyle = '#ffc099'; context.globalAlpha = .9;
+    context.fillStyle = '#c7ff2a'; context.globalAlpha = .9;
     for (let pitch = 0; pitch < 128; pitch++) {
       if (!combPitchOn(pitch, block)) continue;
       const key = pixels[pitch];
@@ -280,9 +280,9 @@ export function mountBlechSpigots(viewport, {
     const left = low.x * g.width, right = (high.x + high.width) * g.width;
     const bottom = g.present - placed.delayBeats * g.pixelsPerBeat;
     const top = bottom - score.analysis.durationBeats * g.pixelsPerBeat;
-    context.strokeStyle = '#b4ffe3'; context.lineWidth = 1; context.setLineDash([5, 4]);
+    context.strokeStyle = '#c7ff2a'; context.lineWidth = 1; context.setLineDash([5, 4]);
     context.strokeRect(left, top, right - left, bottom - top); context.setLineDash([]);
-    context.fillStyle = '#96f4cc'; context.globalAlpha = .65;
+    context.fillStyle = '#c7ff2a'; context.globalAlpha = .65;
     const stride = Math.max(1, Math.ceil(notes.length / 4096));
     for (let index = 0; index < notes.length; index += stride) {
       const note = notes[index], key = pixels[note.note + placed.transpose];
@@ -352,11 +352,11 @@ export function mountBlechSpigots(viewport, {
       const cells = blackMidiPixelLayout(g.layout, gridWidth);
       for (let pitch = 0; pitch < cells.length; pitch++) {
         const cell = cells[pitch];
-        railGridContext.fillStyle = g.layout[pitch].black ? '#273431' : '#4a5852';
+        railGridContext.fillStyle = g.layout[pitch].black ? '#2b322c' : '#495148';
         railGridContext.fillRect(cell.left, 0, cell.noteWidth, gridHeight);
         // A one-pixel cell must show its pitch color, not just a divider.
         if (cell.noteWidth >= 3) {
-          railGridContext.fillStyle = '#82918b';
+          railGridContext.fillStyle = '#798776';
           railGridContext.fillRect(cell.left, 0, 1, gridHeight);
         }
       }
@@ -538,7 +538,7 @@ export function mountBlechSpigots(viewport, {
     const loop = $('[data-spigot-loop]');
     loop.hidden = cornerOnlyLoop; loop.disabled = cornerOnlyLoop;
     loop.setAttribute('aria-pressed', String(Boolean(settings.loop)));
-    const notes = source.score?.analysis?.notes ?? [], stride = Math.max(1, Math.ceil(notes.length / 4096)); context.fillStyle = '#ff8752'; context.globalAlpha = .55;
+    const notes = source.score?.analysis?.notes ?? [], stride = Math.max(1, Math.ceil(notes.length / 4096)); context.fillStyle = '#ff4f92'; context.globalAlpha = .55;
     for (let i = 0; i < notes.length; i += stride) {
       const note = notes[i], key = inkPixels[note.note]; if (!key) continue;
       const y = g.present - (d.delayBeats + note.beat + note.duration) * g.pixelsPerBeat, end = g.present - (d.delayBeats + note.beat) * g.pixelsPerBeat;
@@ -549,7 +549,7 @@ export function mountBlechSpigots(viewport, {
     if (source.active && !source.lastSample?.pending) {
       const phase = clamp((source.lastSample?.positionBeats ?? 0) / Math.max(.001, d.heightBeats), 0, 1);
       const y = clamp(g.present - (d.delayBeats + phase * d.heightBeats) * g.pixelsPerBeat, top, bottom);
-      context.strokeStyle = '#ffe0cf'; context.lineWidth = 1;
+      context.strokeStyle = '#f2f1e6'; context.lineWidth = 1;
       context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke();
     }
     drawCombPreview(g, inkPixels, dpr);
@@ -563,7 +563,7 @@ export function mountBlechSpigots(viewport, {
         shapeDraft.end, shapeDraft.brush, shapeDraft.fill); }
       catch (error) { shapeDraft.notes = []; status(error.message); }
     }
-    context.fillStyle = '#b4ffe3'; context.globalAlpha = .8;
+    context.fillStyle = '#c7ff2a'; context.globalAlpha = .8;
     for (const note of shapeDraft.notes) {
       const key = pixels[note.note]; if (!key) continue;
       const y = g.present - (note.beat + note.duration) * g.pixelsPerBeat;
@@ -574,7 +574,7 @@ export function mountBlechSpigots(viewport, {
     if (shapeDraft.tool === 'line') {
       const screen = point => ({ x: (g.layout[point.pitch].x + g.layout[point.pitch].width / 2) * g.width,
         y: g.present - point.delayBeats * g.pixelsPerBeat });
-      context.strokeStyle = '#96f4cc'; context.fillStyle = '#fff3dc'; context.lineWidth = 1.5;
+      context.strokeStyle = '#c7ff2a'; context.fillStyle = '#f2f1e6'; context.lineWidth = 1.5;
       context.beginPath();
       for (const [index, point] of shapeDraft.points.entries()) {
         const { x, y } = screen(point);
@@ -596,7 +596,7 @@ export function mountBlechSpigots(viewport, {
     const high = g.layout[Math.max(shapeDraft.start.pitch, shapeDraft.end.pitch)];
     const first = Math.min(shapeDraft.start.delayBeats, shapeDraft.end.delayBeats);
     const last = Math.max(shapeDraft.start.delayBeats, shapeDraft.end.delayBeats);
-    context.strokeStyle = '#96f4cc'; context.setLineDash([5, 3]);
+    context.strokeStyle = '#c7ff2a'; context.setLineDash([5, 3]);
     context.strokeRect(low.x * g.width - 5, g.present - last * g.pixelsPerBeat - 5,
       Math.max(24, (high.x + high.width - low.x) * g.width + 10), Math.max(24, (last - first) * g.pixelsPerBeat + 10));
     context.setLineDash([]);

@@ -1,6 +1,6 @@
-# BLECH-MIDI-ULTRA
+# BLECH MIDI ULTRA
 
-[Open BLECH-MIDI-ULTRA](../blech-midi-ultra.html). Saved from the in-progress
+[Open BLECH MIDI ULTRA](../blech-midi-ultra.html). Saved from the in-progress
 [BLECH MIDI](../blech-midi.html) playground on November 3, 2026. This page,
 its BLECH-owned modules, styling, mark and guide are separate copies so work
 on BLECH MIDI need not change this version. Shared MIDI Mixer, Midiophilia,
@@ -351,11 +351,13 @@ Local import accepts up to 20 files and 200 MiB total per session. Scores above
 10 MiB use silent visual playback unless the collection supplies a separate
 creator AUDIO edition. The complete score still has the limits below.
 
-**Black MIDI** is the file-based falling-note view in BLECH-MIDI-ULTRA. Future rectangles descend onto the full **128 MIDI pitches (0–127)**;
+**Black MIDI** is the file-based falling-note view in BLECH MIDI ULTRA. Future rectangles descend onto the full **128 MIDI pitches (0–127)**;
 choose piano-key spacing or equal pitch lanes. All tracks overlap on the same
 keyboard. Track checkboxes isolate only the picture, and per-track color
-selectors, five palettes and track/channel/pitch/velocity mappings differentiate
-voices. Switching away from Visuals preserves the file clock.
+selectors, six palettes and track/channel/pitch/velocity mappings differentiate
+voices. ULTRA (logo green, hot pink, yellow, BLECH MIDI red and blue) is the
+default; the other palettes remain available. Switching away from Visuals
+preserves the file clock.
 
 The keyboard is the **present**: upcoming notes descend above it, and played
 notes continue below it as fading **past trails** in the same voice colors.
@@ -707,7 +709,7 @@ and do not arm Audio.
 
 Compared with the original Automatapoeia instrument:
 
-| Feature | BLECH-MIDI-ULTRA behavior |
+| Feature | BLECH MIDI ULTRA behavior |
 | --- | --- |
 | Rule catalog and thumbnails | Same 256 elementary and 64 totalistic rules, search, symmetry filters, Previous/Next, boundaries and transforms. |
 | Play/Pause, Restart and New seed | Independent MIDI transport. New seed now preserves history like the original; Restart clears it. Paused actions prepare a seed until Play. |
@@ -739,7 +741,7 @@ worklet processes every rendered quantum independently of UI frames. Empty evolu
 The same original Automatapoeia catalogue, thumbnail raster, evolution, edge
 and post-step-transform functions are reused. The original instrument's
 oscillator voices, spectral/contour mappings and audio ADSR are synthesis
-controls, not cellular generation controls; BLECH-MIDI-ULTRA instead uses its
+controls, not cellular generation controls; BLECH MIDI ULTRA instead uses its
 SoundFont, Stamp MIDI and live-effects controls for those sound changes.
 The MIDI generator remains distinct from the
 [standalone Automatapoeia instrument](../automatapoeia.html).
@@ -899,7 +901,7 @@ Drum pitches stay unchanged unless **Transpose & harmonize drums too** is on.
 Pitches outside MIDI 0–127 are omitted rather than folded onto the endpoints.
 
 Timing is in beats: the file player follows the file's current tempo and speed;
-Mixer and BLECH-MIDI-ULTRA use the shared tempo. A gate limit shortens key holds;
+Mixer and BLECH MIDI ULTRA use the shared tempo. A gate limit shortens key holds;
 source sustain pedals still apply. Edits and bypass affect new attacks, while
 held notes and pending echoes finish with their captured settings. Stop, seek,
 source replacement cancel the affected pending notes. Audio off releases pads

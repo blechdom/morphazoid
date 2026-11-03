@@ -11,7 +11,7 @@ test('the fluorescent Ultra logo appears immediately after BLECH MIDI in Faves',
   const ids = await faves.evaluateAll(cards => cards.map(card => card.dataset.instrumentId));
   expect(ids[ids.indexOf('blech-midi') + 1]).toBe('blech-midi-ultra');
   const ultra = page.locator('.catalogue-group[data-category-id="faves"] .instrument-card[data-instrument-id="blech-midi-ultra"]');
-  await expect(ultra.locator('.instrument-card-title')).toHaveText('BLECH-MIDI-ULTRA');
+  await expect(ultra.locator('.instrument-card-title')).toHaveText('BLECH MIDI ULTRA');
   await ultra.scrollIntoViewIfNeeded();
   const icon = ultra.locator('img.instrument-card-image');
   await expect(icon).toHaveAttribute('src', 'assets/instruments/blech-midi-ultra.webp');
@@ -39,7 +39,9 @@ test('ULTRA loads its own BLECH modules; the original still opens independently'
   page.on('request', request => requested.push(new URL(request.url()).pathname));
   await page.goto(route);
   await settlePage(page);
-  await expect(page).toHaveTitle('BLECH-MIDI-ULTRA — Morphazoid');
+  await expect(page).toHaveTitle('BLECH MIDI ULTRA — Morphazoid');
+  await expect(page.getByRole('heading', { name: 'BLECH MIDI ULTRA', exact: true })).toBeVisible();
+  await expect(page.locator('.masthead .tabs .instrument-picker-current')).toHaveText('BLECH MIDI ULTRA');
   await expect(page.locator('#blechDropSend')).toBeEnabled();
   await expect(page.locator('.blech-drop-overlay')).toBeVisible();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
@@ -56,10 +58,57 @@ test('ULTRA loads its own BLECH modules; the original still opens independently'
     await expect(original.getByRole('heading', { name: 'BLECH MIDI', exact: true })).toBeVisible();
     await expect(original.locator('#blechDropSend')).toBeEnabled();
     await expect(original.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+    expect(await original.locator('#blechMidiTitle').evaluate(node => getComputedStyle(node).color)).toBe('rgb(150, 244, 204)');
     expect(pageDiagnosticMessages(originalDiagnostics)).toEqual([]);
   } finally {
     await original.close();
   }
+});
+
+test('the logo green reaches the toolbar, rails and workbox, with pink for removal', async ({ page, baseURL }) => {
+  const diagnostics = watchPageDiagnostics(page, { baseURL });
+  await page.goto(route);
+  await expect(page.locator('#blechDropSend')).toBeEnabled();
+  const look = await page.evaluate(() => {
+    const color = (selector, property) => getComputedStyle(document.querySelector(selector))[property];
+    return {
+      accent: getComputedStyle(document.body).getPropertyValue('--blech-acid').trim(),
+      red: getComputedStyle(document.body).getPropertyValue('--blech-red').trim(),
+      title: color('#blechMidiTitle', 'color'),
+      titleShadow: color('#blechMidiTitle', 'textShadow'),
+      activeTool: color('#blechTab-math', 'backgroundColor'),
+      drop: color('#blechDropSend', 'backgroundColor'),
+      frame: color('.blech-drop-handle', 'borderTopColor'),
+      trash: color('#blechToolClear', 'color'),
+      rail: color('.blech-note-rail', 'backgroundColor'),
+      palette: document.querySelector('[data-palette]').value,
+    };
+  });
+  const originalLogo = await page.request.get('/assets/blech-midi/blech-mark.svg');
+  expect(originalLogo.ok()).toBe(true);
+  const originalRed = (await originalLogo.text()).match(/<g fill="(#[0-9a-f]{6})"/i)?.[1];
+  expect(look.red).toBe(originalRed);
+  expect(look).toMatchObject({
+    accent: '#c7ff2a',
+    red: '#ff2532',
+    title: 'rgb(255, 37, 50)',
+    titleShadow: 'none',
+    activeTool: 'rgb(199, 255, 42)',
+    drop: 'rgb(199, 255, 42)',
+    frame: 'rgb(199, 255, 42)',
+    trash: 'rgb(255, 79, 146)',
+    rail: 'rgb(59, 66, 61)',
+    palette: 'ultra',
+  });
+  await page.locator('#blechDropSend').click();
+  await page.locator('#blechLayersToggle').click();
+  await expect(page.locator('#blechLiveLayers .blech-live-layer')).toHaveCount(1);
+  expect(await page.locator('#blechLiveLayers .blech-live-layer').evaluate(node => node.style.getPropertyValue('--blech-layer-ink'))).toBe('#c7ff2a');
+  await page.locator('#blechLayersToggle').click();
+  await page.locator('#blechToolErase').click();
+  await page.locator('#blechToolErase').hover();
+  expect(await page.locator('#blechToolErase').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(255, 79, 146)');
+  expect(pageDiagnosticMessages(diagnostics)).toEqual([]);
 });
 
 test('ULTRA Drop makes a layer, while Free Draw and either rail remain live-only', async ({ page, baseURL }) => {

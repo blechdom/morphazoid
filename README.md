@@ -85,7 +85,7 @@ Prepare a drawing, launch black MIDI or geometric stamps, or play messages and
 cellular-automata rules. SoundFont audio and moving note trails share Loop and
 Sync to tempo controls. Audio starts off. [Drawing, stamps and rules](docs/blech-midi.md).
 
-**[BLECH-MIDI-ULTRA](blech-midi-ultra.html)** preserves the November 3, 2026
+**[BLECH MIDI ULTRA](blech-midi-ultra.html)** preserves the November 3, 2026
 BLECH MIDI playground as a separate instrument. Its Free Draw, rails, Math
 workboxes, stamps, text, layers and falling notes can evolve independently of
 BLECH MIDI; both use the shared MIDI and SoundFont engine. Audio starts off.

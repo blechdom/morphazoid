@@ -75,7 +75,7 @@ export const labAdditions = [
     tags: [{ id: '3d', label: '3D' }, { id: 'geometric', label: 'Geometric' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   { id: 'blech-midi', label: 'BLECH MIDI', href: 'blech-midi.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
     tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
-  { id: 'blech-midi-ultra', label: 'BLECH-MIDI-ULTRA', href: 'blech-midi-ultra.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
+  { id: 'blech-midi-ultra', label: 'BLECH MIDI ULTRA', href: 'blech-midi-ultra.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
     tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-midiphoria.json', import.meta.url), 'utf8')).additions,
   { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },

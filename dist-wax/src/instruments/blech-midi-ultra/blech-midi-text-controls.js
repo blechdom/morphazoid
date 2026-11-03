@@ -308,7 +308,7 @@ export function mountBlechFreeText(viewport, { getTempo = () => 120, getView = (
       } catch (error) { status.value = error.message; }
     } else status.value = placement ? 'Type a word · Return ↵ or tap elsewhere drops' : 'Tap to place text · arrows + Enter also work';
     if (prepared) {
-      context.fillStyle = '#b4ffe3'; context.globalAlpha = .65;
+      context.fillStyle = '#c7ff2a'; context.globalAlpha = .65;
       for (const note of prepared.notes) {
         const key = g.layout[note.note];
         if (!key) continue;

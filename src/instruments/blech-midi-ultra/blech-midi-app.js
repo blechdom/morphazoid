@@ -336,7 +336,7 @@ function mountBlechMidi() {
       const name = `${sample.name || 'Pattern'} · ${sample.id}`;
       node.querySelector('[data-layer-name]').setAttribute('aria-label', `Select ${name}`);
       field(node.querySelector('.blech-layer-number'), source?.id?.split('-').at(-1) ?? String(sample.id));
-      const ink = ['#96f4cc', '#f3c595', '#cbb9fc', '#92d8f0', '#efa9c9'][((Number(source?.id?.split('-').at(-1)) || sample.id) - 1) % 5];
+      const ink = ['#c7ff2a', '#ff4f92', '#f2dd71', '#ff2532', '#77bdff'][((Number(source?.id?.split('-').at(-1)) || sample.id) - 1) % 5];
       if (node.style.getPropertyValue('--blech-layer-ink') !== ink) node.style.setProperty('--blech-layer-ink', ink);
       node.setAttribute('aria-label', name);
       node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
@@ -844,7 +844,7 @@ function mountBlechMidi() {
     $('blechBrushSizeValue').value = String(brushSize);
     tipPreview.setAttribute('aria-label', `${brushNib} brush tip, size ${brushSize}`);
     tipContext.clearRect(0, 0, tipPreview.width, tipPreview.height);
-    tipContext.fillStyle = '#96f4cc';
+    tipContext.fillStyle = '#c7ff2a';
     const pitches = brushPitches(60, brushSize), cell = 7;
     const inset = Math.floor((tipPreview.width - brushSize * cell) / 2);
     for (const mark of blechBrushImprint(60, 2, getBrush()))

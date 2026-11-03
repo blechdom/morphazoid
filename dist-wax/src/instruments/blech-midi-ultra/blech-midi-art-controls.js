@@ -1,7 +1,7 @@
 import { ART_LIMITS, ART_SCRIPTS, ART_CURVES, imageArtwork, transformArtwork, encodeArtwork, artworkStatistics } from './blech-midi-art.js';
 import { parseMidi } from '../midi-mixer/midi-mixer-model.js';
 
-const COLORS = ['#96f4cc', '#e9a1ff', '#ffd878', '#79beff', '#ff969d', '#c0e883', '#cea6ff', '#80e4e7'];
+const COLORS = ['#c7ff2a', '#ff4f92', '#f2dd71', '#ff2532', '#77bdff', '#f2f1e6', '#d9f3a7', '#ffb6d3'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const range = (id, label, min, max, step, value) => `<label class="control" for="art${id}"><span><b>${label}</b><output id="art${id}Out">${value}</output></span><input id="art${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></label>`;
 const curve = (id, label) => `<label>${label}<select id="art${id}">${ART_CURVES.map(name => `<option value="${name}">${name}</option>`).join('')}</select></label>`;
@@ -47,9 +47,9 @@ export function mountMidiArtCreator(host, { getDrawingScore, getSourceScore, onS
     if (disposed) return;
     const width = Math.max(300, Math.min(1440, Math.round(canvas.clientWidth * Math.min(devicePixelRatio || 1, 2)))), height = Math.round(width * .44);
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-    context.fillStyle = '#080d10'; context.fillRect(0, 0, width, height);
+    context.fillStyle = '#0d100f'; context.fillRect(0, 0, width, height);
     const duration = Math.max(number('Beats'), processed.durationBeats || 0, ...original.map(n => n.beat + n.duration));
-    context.strokeStyle = '#23302f'; context.lineWidth = 1;
+    context.strokeStyle = '#343f35'; context.lineWidth = 1;
     for (let x = 0; x <= 128; x += 12) { context.beginPath(); context.moveTo(x / 128 * width, 0); context.lineTo(x / 128 * width, height); context.stroke(); }
     for (let y = 0; y <= 8; y++) { context.beginPath(); context.moveTo(0, y / 8 * height); context.lineTo(width, y / 8 * height); context.stroke(); }
     const draw = (notes, alpha) => { context.globalAlpha = alpha; for (const n of notes) { context.fillStyle = COLORS[n.layer % COLORS.length]; context.fillRect(n.note / 128 * width, height - (n.beat + n.duration) / duration * height, Math.max(1, width / 128 - .4), Math.max(1, n.duration / duration * height)); } };

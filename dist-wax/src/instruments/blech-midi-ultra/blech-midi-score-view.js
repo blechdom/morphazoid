@@ -45,7 +45,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     </div>
     <p class="midiphoria-help" role="status" data-score-status>Choose a MIDI to see its complete score.</p>
     <label class="control"><span><b>Color by</b></span><select data-color-by><option value="track">Track</option><option value="channel">MIDI channel</option><option value="pitch">Pitch</option><option value="velocity">Velocity</option></select></label>
-    <label class="control"><span><b>Palette</b></span><select data-palette><option value="rainbow">Rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
+    <label class="control"><span><b>Palette</b></span><select data-palette><option value="ultra">ULTRA · lime / pink</option><option value="rainbow">Rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
     <label class="control"><span><b>Future</b><output data-look-output>6 s</output></span><input data-look aria-label="Future window" type="range" min="1" max="20" step="0.5" value="6"></label>
     <label class="control"><span><b>Trail lifetime</b><output data-past-output>4 s</output></span><input data-past aria-label="Past trail lifetime" type="range" min="0.5" max="20" step="0.5" value="4"></label>
@@ -120,7 +120,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
         const input = document.createElement('input'); input.type = 'checkbox'; input.checked = true; input.dataset.track = track.id;
         input.setAttribute('aria-label', `Show ${track.name || `Track ${track.id + 1}`}`);
         const name = document.createElement('span'); name.textContent = `${track.name || `Track ${track.id + 1}`} · ${count(track.noteCount)}`;
-        const color = document.createElement('input'); color.type = 'color'; color.value = '#96f4cc'; color.dataset.track = track.id;
+        const color = document.createElement('input'); color.type = 'color'; color.value = '#c7ff2a'; color.dataset.track = track.id;
         color.setAttribute('aria-label', `Color for ${track.name || `Track ${track.id + 1}`}`);
         label.append(input, name, color); return label;
       });
