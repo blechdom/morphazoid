@@ -206,9 +206,9 @@ feedback networks and timed preset morphing remain possible later extensions.
 A reproduced touch-browser defect let the native range underneath the shared
 Volume knob handle a tap as an absolute slider position: a tap at its left edge
 could change 65% to zero. The shared knob now cancels that native touch gesture
-and retains relative vertical dragging. Intentional zero, native keyboard edits
-and MIDI CC7 remain supported. This is one confirmed cause; an unobserved report
-of silence may have a different cause.
+and retains relative vertical dragging. Intentional zero and native keyboard
+edits remain supported; SPARTIAL does not map MIDI CC7 to Volume. This is one
+confirmed cause; an unobserved report of silence may have a different cause.
 
 Automated rendering and browser checks can establish bounded signals, gates,
 control response, routing and continuity. They do not establish subjective

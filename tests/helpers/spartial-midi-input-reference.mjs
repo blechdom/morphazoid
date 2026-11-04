@@ -26,6 +26,15 @@ never change it. SPARTIAL ignores aftertouch and CC7/11 rather than redirecting
 them to a different volume control; other mapped MIDI controls still work.
 
 `, "",
+  ], [
+    `and retains relative vertical dragging. Intentional zero and native keyboard
+edits remain supported; SPARTIAL does not map MIDI CC7 to Volume. This is one
+confirmed cause; an unobserved report of silence may have a different cause.
+`,
+    `and retains relative vertical dragging. Intentional zero, native keyboard edits
+and MIDI CC7 remain supported. This is one confirmed cause; an unobserved report
+of silence may have a different cause.
+`,
   ]]],
 ]);
 
