@@ -1,7 +1,7 @@
 import { ART_LIMITS, ART_SCRIPTS, ART_CURVES, imageArtwork, transformArtwork, encodeArtwork, artworkStatistics } from './blech-midi-art.js';
 import { parseMidi } from '../midi-mixer/midi-mixer-model.js';
 
-const COLORS = ['#c7ff2a', '#ff4f92', '#f2dd71', '#ff2532', '#77bdff', '#f2f1e6', '#d9f3a7', '#ffb6d3'];
+const COLORS = ['#c7ff2a', '#ff2532', '#32ffdf', '#f2dd71', '#f2f1e6', '#13bea4', '#d9f3a7', '#ff7b50'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const range = (id, label, min, max, step, value) => `<label class="control" for="art${id}"><span><b>${label}</b><output id="art${id}Out">${value}</output></span><input id="art${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></label>`;
 const curve = (id, label) => `<label>${label}<select id="art${id}">${ART_CURVES.map(name => `<option value="${name}">${name}</option>`).join('')}</select></label>`;

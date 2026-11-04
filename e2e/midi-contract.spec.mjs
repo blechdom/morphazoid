@@ -21,6 +21,12 @@ test("the MIDI requirement declaration accounts for every catalogue instrument a
   });
 
   const midiRoutes = [...INSTRUMENTS, ...LABS.filter((lab) => lab.features.includes("MIDI"))];
+  // These two browsable labs generate/export MIDI but have no live MIDI input
+  // port. Keep their explicit "none" policies without claiming input support.
+  const generatedOnlyLabIds = ["blech-midi", "blech-midi-ultra"];
+  const inputCapabilities = INSTRUMENT_MIDI_CAPABILITIES.filter(
+    ({ id }) => !generatedOnlyLabIds.includes(id),
+  );
   const instrumentsById = new Map(midiRoutes.map((instrument) => [instrument.id, instrument]));
   const capabilitiesById = new Map(
     INSTRUMENT_MIDI_CAPABILITIES.map((capability) => [capability.id, capability]),
@@ -38,16 +44,22 @@ test("the MIDI requirement declaration accounts for every catalogue instrument a
   });
 
   expect(INSTRUMENTS.length).toBeGreaterThan(0);
-  expect(INSTRUMENT_MIDI_CAPABILITIES).toHaveLength(midiRoutes.length);
-  expect(capabilitiesById.size).toBe(instrumentsById.size);
-  expect([...capabilitiesById.keys()].sort()).toEqual([...instrumentsById.keys()].sort());
+  expect(inputCapabilities).toHaveLength(midiRoutes.length);
+  expect(capabilitiesById.size).toBe(instrumentsById.size + generatedOnlyLabIds.length);
+  expect(inputCapabilities.map(({ id }) => id).sort()).toEqual([...instrumentsById.keys()].sort());
   expect(
     INSTRUMENT_MIDI_CAPABILITIES.filter(({ midiInputMode }) => midiInputMode === "native")
       .map(({ id }) => id)
       .sort(),
   ).toEqual([...NATIVE_INSTRUMENT_MIDI_IDS].sort());
 
-  for (const capability of INSTRUMENT_MIDI_CAPABILITIES) {
+  for (const id of generatedOnlyLabIds) {
+    expect(LABS.find((lab) => lab.id === id)?.features).toContain("MIDI file export");
+    expect(capabilitiesById.get(id)).toMatchObject({
+      midiInput: false, midiInputMode: "none", computerKeyboardMode: "none",
+    });
+  }
+  for (const capability of inputCapabilities) {
     expect(capability.midiInput, `${capability.id} must explicitly declare MIDI input`).toBe(true);
     expect(["native", "universal-control"], `${capability.id} has an unknown input owner`)
       .toContain(capability.midiInputMode);

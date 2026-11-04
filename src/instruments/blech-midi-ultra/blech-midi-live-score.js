@@ -9,6 +9,17 @@ export const BLECH_LIVE_NOTE_LIMIT = 12288;
 export const BLECH_LIVE_CYCLE_LIMIT = 256;
 export const BLECH_AUTOMATA_ROW_LIMIT = 256;
 const bound = (value, low, high, fallback) => Math.max(low, Math.min(high, Number.isFinite(Number(value)) ? Number(value) : fallback));
+const railTrack = source => 262144 + (source === 'rail' ? 0 : source === 'comb' ? 1 : 2);
+
+/** The square is already down at the rail: its key outline need not wait for
+ * a MIDI sample or an animation tick to travel through the future plane. */
+export function blechRailHeldOutlines(state) {
+  return (state?.rails ?? []).filter(rail => rail.source === 'rail' && rail.held && !rail.paused
+    && (state.sampleBeat ?? 0) >= rail.startBeat + rail.delayBeats).flatMap(rail => rail.notes.map(note => ({
+    pitch: note.note, velocity: note.velocity, channel: rail.channel, track: railTrack(rail.source),
+    source: rail.id, fromRail: true, start: 0, end: 0,
+  }))).slice(0, 192);
+}
 
 /** The audio clock parks a latched key just before its finite MIDI key-off.
  * Remember its real elapsed time instead of mistaking that parked score phase
@@ -205,8 +216,10 @@ export function createBlechLiveProjector() {
       }
     }
     const pastIds = new Set(), pastSourceCounts = new Map();
-    const historyPerSource = Math.max(1, Math.floor(BLECH_LIVE_NOTE_LIMIT / Math.max(1, sourceList.length + Number(Boolean(hasAutomata)))));
-    const perSource = Math.max(1, Math.floor(limit / Math.max(1, activeSamples.length + pendingForecasts.length + Number(Boolean(hasAutomata)))));
+    const rails = (state?.rails ?? []).slice(0, 192);
+    const forecastRails = rails.filter(rail => !rail.held && !rail.paused);
+    const historyPerSource = Math.max(1, Math.floor(BLECH_LIVE_NOTE_LIMIT / Math.max(1, sourceList.length + forecastRails.length + Number(Boolean(hasAutomata)))));
+    const perSource = Math.max(1, Math.floor(limit / Math.max(1, activeSamples.length + pendingForecasts.length + forecastRails.length + Number(Boolean(hasAutomata)))));
     function emit(note, source, sourceLimit, drums = false, historyOnly = false) {
       if (!(note.gain > .0001) || !Number.isInteger(note.pitch) || note.pitch < 0 || note.pitch > 127
         || !Number.isFinite(note.velocity) || note.velocity <= 0 || !(note.end > note.start)) return;
@@ -323,6 +336,50 @@ export function createBlechLiveProjector() {
         }
       }
     }
+    // The editable Layers have their own four clip slots. These independent
+    // rail sources are projected from their audio-clock beat, never inserted
+    // into the layer rack or expanded into a repeatedly parsed MIDI score.
+    const secondsPerBeat = 60 / tempo;
+    for (const rail of forecastRails) {
+      if (!rail.notes?.length) continue;
+      const source = rail.id, sourceLimit = Math.min(limit, notes.length + perSource);
+      const base = rail.startBeat + rail.delayBeats;
+      const chord = rail.notes;
+      if (notes.length >= sourceLimit) { truncated = true; continue; }
+      sources.push(source);
+      const projectNote = (note, beat, step) => {
+        const start = (beat - state.sampleBeat) * secondsPerBeat;
+        const end = start + note.duration * secondsPerBeat;
+        if (start > lookAhead || end <= -pastSeconds) return;
+        scanned++;
+        emit({ id: `${source}:${step}:${note.note}`, pitch: note.note, velocity: note.velocity,
+          channel: rail.channel, track: railTrack(rail.source), gain: rail.gain,
+          start, end }, source, sourceLimit, rail.channel === 9);
+      };
+      if (rail.loop) {
+        const period = rail.periodBeats, offset = (state.sampleBeat - base) / period;
+        const first = Math.max(0, Math.floor(offset - pastSeconds / secondsPerBeat / period));
+        const last = Math.max(-1, Math.ceil(offset + lookAhead / secondsPerBeat / period));
+        // Reserve a fair visual budget per rail. Audio still schedules every
+        // subdivision, even if the browser drops graphic frames under load.
+        const maxRows = Math.min(BLECH_LIVE_CYCLE_LIMIT, Math.max(1, Math.floor(perSource / chord.length)));
+        if (last - first + 1 > maxRows) truncated = true;
+        for (let row = first; row <= Math.min(last, first + maxRows - 1) && notes.length < sourceLimit; row++) {
+          const beat = base + row * period;
+          for (const note of chord) projectNote(note, beat, row);
+        }
+      } else {
+        // Search the sorted one-shot block from its visible interval. A huge
+        // drag still visits at most a small multiple of its frame budget.
+        let low = 0, high = chord.length;
+        const begin = state.sampleBeat - base - pastSeconds / secondsPerBeat - .25;
+        while (low < high) { const middle = (low + high) >>> 1; if (chord[middle].beat < begin) low = middle + 1; else high = middle; }
+        const stop = Math.min(chord.length, low + perSource * 4);
+        for (let index = low; index < stop && notes.length < sourceLimit; index++)
+          projectNote(chord[index], base + chord[index].beat, index);
+        if (stop < chord.length && base + chord[stop].beat <= state.sampleBeat + lookAhead / secondsPerBeat) truncated = true;
+      }
+    }
     if (hasAutomata && notes.length < limit) {
       const source = 'automata', sourceLimit = Math.min(limit, notes.length + perSource);
       const key = JSON.stringify([automata.generation, automata.rowStart, automata.rowLength, automata.row, automata.rowSettings, automata.settings, lookAhead, tempo]);
@@ -367,6 +424,8 @@ export function createBlechLiveProjector() {
     const pastNotes = history.update(past, now, { seconds: pastSeconds, limit: BLECH_LIVE_NOTE_LIMIT, sourceReleases });
     // Forecast state is released as soon as its source stops.
     if (!hasAutomata) evolution = null;
-    return { notes, pastNotes, heldOutlines: heldOutlines(state, now), sources, held, scanned, truncated };
+    const railOutlines = blechRailHeldOutlines(state);
+    return { notes, pastNotes, heldOutlines: [...heldOutlines(state, now), ...railOutlines],
+      sources: [...sources, ...railOutlines.map(note => note.source)], held: held + railOutlines.length, scanned, truncated };
   };
 }

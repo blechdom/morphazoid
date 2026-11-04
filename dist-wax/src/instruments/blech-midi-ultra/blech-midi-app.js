@@ -6,15 +6,16 @@ import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 import { mountMidiSynthEffectEditor } from '../midi-mixer/midi-mixer-midi-editor.js';
 import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/midiphoria-drawing.js';
-import { GM_PROGRAM_NAMES, parseMidi, MAX_MIDI_MIXER_TEMPO, MIDI_SAMPLE_LIMITS } from '../midi-mixer/midi-mixer-model.js';
+import { GM_PROGRAM_NAMES, parseMidi, MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 import { mountMidiArtCreator } from './blech-midi-art-controls.js';
 import { mountBlechFilePlayer } from './blech-midi-file-player.js';
 import { mountBlechFreeText, mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
 import { mountBlechDropStage, dropScoreDimensions, resizeDropScore } from './blech-midi-drop-stage.js';
-import { createBlechSpigotEngine, isBlechLiveSource, blechStrokeScore, blechRailNoteScore, blechGeometryDrawing, blechBrushImprint, brushPitches, createBlechLoopCatch } from './blech-midi-spigot-engine.js';
+import { createBlechSpigotEngine, isBlechLiveSource, blechStrokeScore, blechGeometryDrawing, blechBrushImprint, brushPitches, createBlechLoopCatch } from './blech-midi-spigot-engine.js';
 import { mountBlechSpigots } from './blech-midi-spigots.js';
+import { BLECH_RAIL_MAX_SOURCES } from './blech-midi-rail-clock.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 
@@ -336,7 +337,7 @@ function mountBlechMidi() {
       const name = `${sample.name || 'Pattern'} · ${sample.id}`;
       node.querySelector('[data-layer-name]').setAttribute('aria-label', `Select ${name}`);
       field(node.querySelector('.blech-layer-number'), source?.id?.split('-').at(-1) ?? String(sample.id));
-      const ink = ['#c7ff2a', '#ff4f92', '#f2dd71', '#ff2532', '#77bdff'][((Number(source?.id?.split('-').at(-1)) || sample.id) - 1) % 5];
+      const ink = ['#c7ff2a', '#ff2532', '#32ffdf', '#f2dd71', '#f2f1e6'][((Number(source?.id?.split('-').at(-1)) || sample.id) - 1) % 5];
       if (node.style.getPropertyValue('--blech-layer-ink') !== ink) node.style.setProperty('--blech-layer-ink', ink);
       node.setAttribute('aria-label', name);
       node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
@@ -459,12 +460,13 @@ function mountBlechMidi() {
     $('previewDrawingMidi').disabled = !drawing?.model.count;
     $('captureDrawingFrame').disabled = !drawing?.model.count;
     const paused = state.samples.filter(sample => sample.paused).length, playing = state.samples.length - paused;
-    const masterPlaying = Boolean(playing || state.automata?.playing || filePlayer?.getTransportState().playing);
+    const railPlaying = state.rails.filter(rail => !rail.paused).length;
+    const masterPlaying = Boolean(playing || railPlaying || state.automata?.playing || filePlayer?.getTransportState().playing);
     $('blechMasterPlay').setAttribute('aria-pressed', String(masterPlaying));
     $('blechMasterPlay').disabled = zeroTempo;
     $('blechMasterPlay').setAttribute('aria-label', zeroTempo ? 'Raise tempo above zero to play' : masterPlaying ? 'Pause all playback' : 'Play or resume playback');
     $('blechMasterPlay').title = zeroTempo ? '0 BPM pauses; turn the tempo up to play' : masterPlaying ? 'Pause running sources together' : masterPause ? 'Resume sources paused together' : 'Play prepared source or resume paused layers';
-    field($('creativePlaybackStatus'), `${playing} playing${paused ? ` · ${paused} paused` : ''}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
+    field($('creativePlaybackStatus'), `${playing} layers${railPlaying ? ` · ${railPlaying} rail patterns` : ''}${paused ? ` · ${paused} paused` : ''}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
     $('blechMidi').dataset.samples = String(state.samples.length);
     field($('mixerFontName'), state.soundfontName || 'TimGM6mb');
@@ -653,7 +655,12 @@ function mountBlechMidi() {
     stampHost: $('blechBrushStampPicker'),
     combHost: $('blechPitchComb'),
     getLayers: () => spigots.getLayers(),
-    getLiveSources: () => spigots.getLiveSources(),
+    getLiveSources: () => [...spigots.getLiveSources(), ...engine.state.rails.map(rail => ({
+      ...rail, score: { analysis: { notes: rail.notes } },
+      settings: { loop: rail.loop, hold: rail.held, delayBeats: rail.delayBeats,
+        periodBeats: rail.periodBeats, stride: rail.stride },
+      playing: !rail.paused, active: true,
+    }))],
     getPreparedScore: mode => (mode ?? spigotView?.getMode()) === 'stamp'
       ? canvasStampPrepared?.options.stampId === canvasStampId
         ? { score: canvasStampPrepared.score, settings: { ...canvasStampPrepared.options, ...dropStage.getSettings(),
@@ -676,42 +683,41 @@ function mountBlechMidi() {
     onCreate: (score, settings) => spigots.create(score, settings),
     onCreateMath: (score, settings) => spigots.create(score, settings),
     onCreateComb: ({ notes, delayBeats, name }) => {
-      const draft = dropStage.getSettings(), title = `Pitch comb · ${name}`;
-      return spigots.create(blechStrokeScore(notes, .25, title), {
-        name: title, source: 'comb', channel: draft.channel, program: draft.program === 'original' ? '0' : draft.program,
-        gain: Math.min(.5, .65 / Math.sqrt(notes.length / 8)), loop: false, hold: false, saveToPads: false,
-        transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, delayBeats,
-      });
+      const draft = dropStage.getSettings();
+      return engine.addRail({ source: 'comb', notes, delayBeats, name: `Left rail · ${name}`,
+        channel: draft.channel ?? 0, program: draft.program,
+        gain: Math.min(.5, .65 / Math.sqrt(notes.filter(note => note.beat === 0).length / 8)) });
     },
-    onCreateCrossing: ({ notes, block, periodBeats }) => {
-      // One pinned clock source, not 128 independent clips. A rail gesture
-      // cannot evict a workbox layer or another rail note.
-      if (engine.state.samples.length >= MIDI_SAMPLE_LIMITS.clips)
-        throw new Error('Four sounds are already playing. Stop a sound or remove a rail square to start both rails.');
-      const draft = dropStage.getSettings(), name = 'Both rails · rain grid';
-      return spigots.create(blechStrokeScore(notes, Math.max(4, periodBeats), name), {
-        name, source: 'crossing', channel: draft.channel, program: draft.program === 'original' ? '0' : draft.program,
-        gain: .04, loop: true, hold: false, pinned: true, saveToPads: false, quantize: false, block, periodBeats,
-        transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, delayBeats: 0,
-      });
+    onCreateCrossing: ({ notes, stride, periodBeats }) => {
+      const draft = dropStage.getSettings();
+      return engine.addRail({ source: 'crossing', notes, stride, periodBeats, name: 'Both rails · rain grid',
+        channel: draft.channel ?? 0, program: draft.program, gain: .04 });
     },
     onCreateRail: ({ pitch, periodBeats, held }) => {
-      // The mixer can replace its oldest clip when full. A rail gesture must
-      // never quietly steal a layer (or an existing rail note).
-      if (engine.state.samples.length >= MIDI_SAMPLE_LIMITS.clips)
-        throw new Error('Four sounds are already playing. Stop a sound or remove a rail square to add another.');
-      const draft = dropStage.getSettings(), name = `Note rail · ${held ? 'held' : `every ${periodBeats} beats`} · ${pitch}`;
-      return spigots.create(blechRailNoteScore(pitch, periodBeats, held), {
-        name, source: 'rail', channel: draft.channel, program: draft.program === 'original' ? '0' : draft.program,
-        gain: Math.min(.5, draft.gain ?? .5), loop: !held, hold: held, periodBeats: held ? null : periodBeats,
-        pinned: true, saveToPads: false, quantize: false, transpose: 0, widthNotes: null, heightBeats: null, rotationDegrees: 0, delayBeats: 0,
-      });
+      const draft = dropStage.getSettings();
+      return engine.addRail({ source: 'rail', notes: [{ note: pitch, beat: 0,
+        duration: held ? 1 : periodBeats / 2, velocity: 88 }], held, periodBeats,
+      name: `Note rail · ${held ? 'held' : `every ${periodBeats} beats`} · ${pitch}`,
+      channel: draft.channel ?? 0, program: draft.program, gain: Math.min(.5, draft.gain ?? .5) });
+    },
+    onCreateRailCluster: pitches => {
+      const draft = dropStage.getSettings();
+      const existing = engine.state.rails.filter(rail => rail.source === 'rail' && pitches.includes(rail.notes[0].note));
+      const held = new Set(existing.filter(rail => rail.held).map(rail => rail.notes[0].note));
+      const needed = pitches.filter(pitch => !held.has(pitch));
+      if (engine.state.rails.length - existing.filter(rail => !rail.held).length + needed.length > BLECH_RAIL_MAX_SOURCES)
+        throw new Error('The note rail is full. Tap a square to remove a note first.');
+      for (const rail of existing) if (!rail.held) engine.stopRail(rail.id);
+      return engine.addRails(needed.map(pitch => ({ source: 'rail',
+        notes: [{ note: pitch, beat: 0, duration: 1, velocity: 88 }],
+        held: true, name: `Note rail · held · ${pitch}`, channel: draft.channel ?? 0,
+        program: draft.program, gain: Math.min(.5, draft.gain ?? .5) })));
     },
     onEdit: (id, settings) => spigots.edit(id, settings),
     onOpenSettings: id => { const source = selectLayer(id); if (source) openLayerEditor(source, document.querySelector('[data-spigot-settings]')); },
     onToggleLoop: (id, enabled) => spigots.loop(id, enabled),
     onTogglePlay: id => { const source = spigots.getLayers().find(layer => layer.id === id); if (source) masterPause?.samples.delete(source.sampleId); spigots.togglePlay(id); },
-    onRemove: id => spigots.remove(id),
+    onRemove: id => id?.startsWith('rail:') ? engine.stopRail(id) : spigots.remove(id),
     onBrushStart: options => {
       const id = spigots.brushStart({ ...options, ...getBrush(), repeatBeats: brushRepeatBeats });
       if (options.mode === 'draw' && id) liveDrawing = id;
@@ -756,7 +762,15 @@ function mountBlechMidi() {
   });
   const applyTextScore = (id, score, options) => {
     const result = performanceView.replaceScore(id, score, options);
-    if (result) spigots.adoptText(id, score);
+    if (result) {
+      spigots.adoptText(id, score);
+      if (score.textSettings?.freeStyle) {
+        const mix = { channel: score.textSettings.channel ?? 0, gain: score.textSettings.gain ?? .75 };
+        const record = spigots.bySample(id);
+        if (record) spigots.configure(record.id, mix);
+        else engine.configureSample(id, mix);
+      }
+    }
     return result;
   };
   freeText = mountBlechFreeText($('blackMidiViewport'), {
@@ -1325,7 +1339,7 @@ function mountBlechMidi() {
   on($('blechCatchAgain'), 'click', catchLastFourBeats);
   const clearEverything = () => {
     closeBrushMenu(); closeStampMenu(); closeLoopStampMenu(); closeTextMenu(); closeFreeMathMenu(); closeWorkboxMathMenu(); freeText.deactivate();
-    masterPause = null; zeroPausedPlayback = false; spigotView?.cancelGesture(); spigots?.clearAll();
+    masterPause = null; zeroPausedPlayback = false; spigotView?.cancelGesture(); spigots?.clearAll(); engine.stopRails();
     performanceView.stopSamples(); performanceView.clearSavedPads(); engine.setAutomataPlaying(false);
     filePlayer.clearSelection(); filePlayer.releaseKeyboard();
     dropStage.discard(); dropStage.clearWorkbox(); drawing.loadPixels([]); prepared.clear(); loopCatch.clear();
@@ -1430,16 +1444,18 @@ function mountBlechMidi() {
     if (disposed) return;
     const state = engine.state, file = filePlayer.getTransportState();
     const running = state.samples.filter(sample => !sample.paused);
-    const playing = Boolean(running.length || state.automata.playing || file.playing);
+    const rails = state.rails.filter(rail => !rail.paused);
+    const playing = Boolean(running.length || rails.length || state.automata.playing || file.playing);
     if (playing || filePlayer.keyboardHeldCount) {
       spigotView?.cancelGesture();
       filePlayer.releaseKeyboard();
       if (playing) {
-        const snapshot = masterPause ?? { samples: new Map(), file: null, automata: false };
+        const snapshot = masterPause ?? { samples: new Map(), rails: new Set(), file: null, automata: false };
         for (const sample of running) {
           const paused = engine.setSamplePaused(sample.id, true);
           if (paused) snapshot.samples.set(sample.id, { scoreVersion: paused.scoreVersion, playbackEpoch: paused.playbackEpoch });
         }
+        for (const rail of rails) if (engine.setRailPaused(rail.id, true)) snapshot.rails.add(rail.id);
         if (file.playing) snapshot.file = filePlayer.pause();
         if (state.automata.playing) { engine.setAutomataPlaying(false); snapshot.automata = true; }
         masterPause = snapshot;
@@ -1450,11 +1466,16 @@ function mountBlechMidi() {
         const previous = snapshot.samples.get(sample.id);
         if (sample.paused && previous && previous.scoreVersion === sample.scoreVersion && previous.playbackEpoch === sample.playbackEpoch) engine.setSamplePaused(sample.id, false);
       }
+      for (const rail of state.rails) if (rail.paused && snapshot.rails?.has(rail.id)) engine.setRailPaused(rail.id, false);
       if (snapshot.file) filePlayer.play(snapshot.file);
       if (snapshot.automata) engine.setAutomataPlaying(true);
     } else {
       const paused = state.samples.filter(sample => sample.paused);
-      if (paused.length) for (const sample of paused) engine.setSamplePaused(sample.id, false);
+      const pausedRails = state.rails.filter(rail => rail.paused);
+      if (paused.length || pausedRails.length) {
+        for (const sample of paused) engine.setSamplePaused(sample.id, false);
+        for (const rail of pausedRails) engine.setRailPaused(rail.id, false);
+      }
       else if (activeKey() === 'files') filePlayer.play();
       else if (!freeText.active && spigotView.getMode() !== 'math') dropStage.send();
     }
@@ -1470,7 +1491,8 @@ function mountBlechMidi() {
       if (!zeroTempo) {
         zeroTempo = true;
         const state = engine.state;
-        zeroPausedPlayback = state.samples.some(sample => !sample.paused) || state.automata.playing || filePlayer.getTransportState().playing;
+        zeroPausedPlayback = state.samples.some(sample => !sample.paused) || state.rails.some(rail => !rail.paused)
+          || state.automata.playing || filePlayer.getTransportState().playing;
         if (zeroPausedPlayback) toggleMasterPlayback();
       }
       value($('creativeTempo'), 0);

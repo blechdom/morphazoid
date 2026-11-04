@@ -5,16 +5,17 @@ import { mergeMidiParameters, sanitizeMidiParameters, sanitizeMidiSynthEffects, 
 import { midiStateMessages } from './midi-mixer-reverse.js';
 import { MidiMixerClock, MidiSampleClock, sampleSecondsAt, lowerBound, mixerLoopBounds } from './midi-mixer-clock.js';
 import { MidiAutomataClock, AUTOMATA_SOURCE } from './midi-mixer-automata.js';
+import { BlechRailClock, BLECH_RAIL_SOURCE, BLECH_RAIL_MAX_VOICES } from '../blech-midi-ultra/blech-midi-rail-clock.js';
 
 /** SoundFont and both sequencers live on this single audio thread and clock. */
 class MidiMixerProcessor extends AudioWorkletProcessor {
   constructor() {
     super(); this.alive = true; this.ready = false; this.synth = null; this.telemetryFrames = 0;
-    this.suppressedNotes = Array.from({ length: 7 }, () => new Set()); this.sourceChannels = new Map(); this.effectiveMidi = new Map(); this.effectDefaults = {}; this.effectOverrides = {};
-    this.deckChannels = Array.from({ length: 7 }, () => new Map()); this.channelSettings = Array.from({ length: 7 }, () => []); this.deckConfigs = Array(7).fill(null);
-    this.sourceIds = ['deck:0', 'deck:1', '', '', '', '', 'automata']; this.sampleIds = Array(7).fill(null); this.noteSerial = 0;
-    this.activeVisualNotes = Array.from({ length: 7 }, () => new Map()); this.visualCount = 0; this.sampleVisualCount = 0;
-    this.channelVolumes = new Float32Array(193).fill(100 / 127); this.channelExpressions = new Float32Array(193).fill(1);
+    this.suppressedNotes = Array.from({ length: 8 }, () => new Set()); this.sourceChannels = new Map(); this.effectiveMidi = new Map(); this.effectDefaults = {}; this.effectOverrides = {};
+    this.deckChannels = Array.from({ length: 8 }, () => new Map()); this.channelSettings = Array.from({ length: 8 }, () => []); this.deckConfigs = Array(8).fill(null);
+    this.sourceIds = ['deck:0', 'deck:1', '', '', '', '', 'automata', 'rail']; this.sampleIds = Array(8).fill(null); this.noteSerial = 0;
+    this.activeVisualNotes = Array.from({ length: 8 }, () => new Map()); this.visualCount = 0; this.sampleVisualCount = 0;
+    this.channelVolumes = new Float32Array(241).fill(100 / 127); this.channelExpressions = new Float32Array(241).fill(1);
     this.audible = true; this.masterVolume = 1;
     this.crossfade = 0; this.noteEvents = []; this.droppedVisualEvents = 0; this.renderOffset = 0; this.actions = null;
     this.clock = new MidiMixerClock({
@@ -31,6 +32,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       rehydrate: (source, events, frame = 0) => this.schedule('rehydrate', frame, [source, events]),
       configure: (source, config, channels, frame = 0) => this.schedule('configure', frame, [source, config, channels]),
       replace: (source, data, frame = 0) => this.schedule('replaceSampleSource', frame, [source, data]),
+    });
+    this.railClock = new BlechRailClock({
+      emit: (event, frame) => this.schedule('emit', frame, [BLECH_RAIL_SOURCE, event]),
     });
     this.noteFx = new MidiNoteEffects({ emit: note => this.soundEffectNote(note) });
     this.automataRevision = 0;
@@ -51,7 +55,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     else this[method](...args, 0);
   }
   async command(message) {
-    if (message.type === 'dispose') { this.noteFx.clear(this.synth?.currentTime ?? 0); this.sampleClock.stopAll(); this.alive = false; this.synth?.destroySynthProcessor(); this.synth = null; return; }
+    if (message.type === 'dispose') { this.noteFx.clear(this.synth?.currentTime ?? 0); this.sampleClock.stopAll(); this.railClock.stopAll(); this.alive = false; this.synth?.destroySynthProcessor(); this.synth = null; return; }
     if (message.type === 'initialize') {
       SpessaLog.setLogLevel(false, false, false);
       const synth = new SpessaSynthProcessor(sampleRate, { eventsEnabled: false }); this.synth = synth;
@@ -86,7 +90,24 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       case 'automataRestart': this.automataRevision = message.revision; this.automata.restart(); break;
       case 'automataReseed': this.automataRevision = message.revision; this.automata.reseed(); break;
       case 'automataCapture': this.port.postMessage({ type: 'automataCapture', token: message.token, state: this.automata.snapshot(true) }); break;
-      case 'sampleClock': this.sampleClock.beat = Math.max(0, Number(message.beat) || 0); this.sampleClock.seconds = Math.max(0, Number(message.seconds) || 0); break;
+      case 'sampleClock': this.sampleClock.beat = this.railClock.beat = Math.max(0, Number(message.beat) || 0); this.sampleClock.seconds = Math.max(0, Number(message.seconds) || 0); break;
+      case 'railAdd': {
+        if (!Array.isArray(message.rails)) break;
+        if (!this.deckChannels[BLECH_RAIL_SOURCE].size) this.prepareRailChannels();
+        for (const rail of message.rails) this.railClock.add(rail);
+        break;
+      }
+      case 'railRemove':
+        this.railClock.remove(message.id);
+        this.noteFx.clear(this.synth.currentTime, meta => meta.source === BLECH_RAIL_SOURCE && meta.event.sourceId === message.id);
+        break;
+      case 'railPause':
+        this.railClock.pause(message.id, message.paused);
+        if (message.paused) this.noteFx.clear(this.synth.currentTime, meta => meta.source === BLECH_RAIL_SOURCE && meta.event.sourceId === message.id);
+        break;
+      case 'railStopAll':
+        this.railClock.stopAll(); this.noteFx.clear(this.synth.currentTime, meta => meta.source === BLECH_RAIL_SOURCE);
+        this.release(BLECH_RAIL_SOURCE); break;
       case 'sample': {
         const slot = message.slot, source = slot + 2;
         if (!Number.isInteger(slot) || slot < 0 || slot > 3 || message.data.channels.length > 16) break;
@@ -179,7 +200,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       case 'stopSamples': this.sampleClock.stopAll(); break;
       case 'audibility':
         this.audible = Boolean(message.enabled); this.masterVolume = Math.max(0, Math.min(1, message.volume));
-        if (!this.audible || !this.masterVolume) for (let source = 0; source < 7; source++) this.releaseVisual(source);
+        if (!this.audible || !this.masterVolume) for (let source = 0; source < 8; source++) this.releaseVisual(source);
         break;
       case 'load': {
         const map = new Map(message.data.channels.map((channel, i) => [channel.channel, message.index * 64 + i]));
@@ -200,10 +221,13 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
           this.synth.soundBankManager.addSoundBank(bank, 'midi-mixer');
           this.synth.synthCore.eventQueue.length = 0;
           this.synth.stopAllChannels(true);
+          this.noteFx.clear(this.synth.currentTime, meta => meta.source === BLECH_RAIL_SOURCE);
+          this.releaseVisual(BLECH_RAIL_SOURCE);
           this.captureEffectDefaults(); this.applyEffects(this.effectOverrides);
           for (let slot = 0; slot < 4; slot++) { const sample = this.sampleClock.samples[slot]; if (sample) this.sampleClock.load(slot, sample); }
           for (let i = 0; i < 2; i++) this.clock.resync(i);
           this.automata.rejoin();
+          this.railClock.rejoin();
           this.activeSoundBank = bank;
           this.port.postMessage({ type: 'soundfont', token: message.token });
         } catch (error) {
@@ -211,6 +235,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
             this.synth.soundBankManager.addSoundBank(previous, 'midi-mixer');
             for (let i = 0; i < 2; i++) this.clock.resync(i);
             this.automata.rejoin();
+            this.railClock.rejoin();
           }
           this.port.postMessage({ type: 'soundfont', token: message.token, error: error.message });
         }
@@ -225,7 +250,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < 2; i++) if (this.deckConfigs[i]) this.configure(i, this.deckConfigs[i], this.channelSettings[i]);
         break;
       case 'rejoin': for (let i = 0; i < 2; i++) this.clock.resync(i); this.automata.rejoin(); break;
-      case 'release': this.noteFx.clear(this.synth.currentTime); this.sampleClock.stopAll(); this.synth.synthCore.eventQueue.length = 0; this.synth.stopAllChannels(true); for (let source = 0; source < 7; source++) this.releaseVisual(source); break;
+      case 'release': this.noteFx.clear(this.synth.currentTime); this.sampleClock.stopAll(); this.railClock.stopAll(); this.synth.synthCore.eventQueue.length = 0; this.synth.stopAllChannels(true); for (let source = 0; source < 8; source++) this.releaseVisual(source); break;
     }
     this.publish();
   }
@@ -250,6 +275,22 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   sampleReplacement(replacement, program) {
     return { ...replacement, channels: replacement.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : program })) };
   }
+  prepareRailChannels() {
+    // Lazy: other instruments keep their original 193 synth channels/192-voice
+    // budget. Rails have three isolated 16-channel lanes, so a one-shot note-off
+    // cannot cut off a held top note of the same pitch.
+    this.synth.setSystemParameter('voiceCap', 512);
+    while (this.synth.midiChannels.length < 241) this.synth.createMIDIChannel();
+    const channels = Array.from({ length: 48 }, (_, channel) => ({ channel, drums: channel % 16 === 9 }));
+    this.deckChannels[BLECH_RAIL_SOURCE] = new Map(channels.map(({ channel }) => [channel, 193 + channel]));
+    for (const { channel, drums } of channels) {
+      const synthChannel = this.synth.midiChannels[193 + channel];
+      synthChannel.reset(false); synthChannel.setDrums(drums);
+    }
+    this.prepareSourceChannels(BLECH_RAIL_SOURCE, channels);
+    this.configure(BLECH_RAIL_SOURCE, { gain: .35, mute: false, pan: 0, transpose: 0, rate: 1, midi: {} },
+      channels.map(({ channel }) => ({ channel, program: null, mute: false, solo: false })));
+  }
   replaceSampleSource(source, data) {
     const slot = source - 2;
     this.deckChannels[source] = new Map(data.channels.map((channel, index) => [channel.channel, 128 + slot * 16 + index]));
@@ -265,6 +306,10 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     if (!restoring && patchEvent && this.patchHeld(midi)) { this.applyMidi(channel, midi, true, 'patch'); return; }
     if (!restoring && event.kind === 10 && midi.polyPressure !== undefined) event = { ...event, b: midi.polyPressure };
     if (event.kind === 9) {
+      if (deck === BLECH_RAIL_SOURCE && event.program !== null && event.program !== undefined
+        && !this.synth.midiChannels[channel].drumChannel
+        && this.synth.midiChannels[channel].patch?.program !== event.program)
+        this.synth.programChange(channel, event.program);
       if (deck >= 2 && deck < 6 && this.deckConfigs[deck]?.mute) return;
       if (event.sourceBeat === undefined || shadow?.polyPressureAt[event.a] < event.sourceBeat) { shadow.polyPressureValues[event.a] = 0; shadow.polyPressureAt[event.a] = -Infinity; }
       const velocity = Math.max(0, Math.min(127, Math.round(event.b * (midi.velocityScale ?? 1) + (midi.velocityOffset ?? 0))));
@@ -313,31 +358,36 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     const active = this.activeVisualNotes[deck];
     if (event.kind === 8) {
       const note = active.get(event.noteId);
-      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; if (deck > 1) this.sampleVisualCount--; }
+      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; if (deck >= 2 && deck < 6) this.sampleVisualCount--; }
     }
     if (!restoring && event.kind === 9) {
       const parameters = this.synth.midiChannels[channel].systemParameters;
       const gain = parameters.gain * this.masterVolume * this.channelVolumes[channel] * this.channelExpressions[channel];
       if (!this.audible || parameters.isMuted || gain <= 1e-6) return;
-      // Four drawings can each hold 48 pitches. Reserve their 192 active slots;
-      // black-score deck attacks use the other 320, never stealing that reserve.
+      // Rails get their own 384 visual gates, independent of the four sample
+      // clips' 192. Graphics shed work before the audio scheduler does.
       const automataCount = this.activeVisualNotes[AUTOMATA_SOURCE].size;
-      if (deck === AUTOMATA_SOURCE ? automataCount >= 128 : deck < 2 ? this.visualCount - this.sampleVisualCount >= 320 : this.sampleVisualCount - automataCount >= 192) { this.droppedVisualEvents++; return; }
+      const railCount = this.activeVisualNotes[BLECH_RAIL_SOURCE].size;
+      if (deck === BLECH_RAIL_SOURCE ? railCount >= BLECH_RAIL_MAX_VOICES
+        : deck === AUTOMATA_SOURCE ? automataCount >= 128
+          : deck < 2 ? this.visualCount - this.sampleVisualCount - automataCount - railCount >= 320
+            : this.sampleVisualCount >= 192) { this.droppedVisualEvents++; return; }
       const config = this.deckConfigs[deck], rate = config?.rate ?? 1;
       const boundary = deck < 2 ? mixerLoopBounds(this.clock.decks[deck]).end : event.sampleEndBeats ?? this.sampleClock.samples[deck - 2]?.data.durationBeats ?? Infinity;
       const durationBeats = Math.max(0, Math.min(event.durationBeats ?? 0, boundary - event.beat));
-      const note = { type: 'noteOn', id: `${this.sourceIds[deck]}:${++this.noteSerial}`, sourceId: this.sourceIds[deck], deck: deck < 2 ? deck : null, sampleId: this.sampleIds[deck], channel: event.channel,
+      const note = { type: 'noteOn', id: `${event.sourceId ?? this.sourceIds[deck]}:${++this.noteSerial}`, sourceId: event.sourceId ?? this.sourceIds[deck], deck: deck < 2 ? deck : null, sampleId: this.sampleIds[deck], channel: event.channel % 16,
         note: event.a + this.synth.midiChannels[channel].systemParameters.keyShift, velocity: event.b, gain,
         beat: event.beat, generation: event.generation, at: currentTime + (this.renderOffset + frame) / sampleRate, durationBeats, duration: event.durationSeconds ?? (deck > 1 && this.sampleClock.samples[deck - 2]?.sync === false ? sampleSecondsAt(this.sampleClock.samples[deck - 2].data, event.beat + durationBeats) - sampleSecondsAt(this.sampleClock.samples[deck - 2].data, event.beat) : durationBeats * 60 / (this.clock.tempo * rate)), published: false };
       if (!this.queueVisual(note)) return;
-      if (!active.has(event.noteId)) { this.visualCount++; if (deck > 1) this.sampleVisualCount++; }
+      if (!active.has(event.noteId)) { this.visualCount++; if (deck >= 2 && deck < 6) this.sampleVisualCount++; }
       active.set(event.noteId, note);
     }
   }
   queueVisual(note) {
-    const limit = this.automata.playing || this.activeVisualNotes[AUTOMATA_SOURCE].size ? 384 : 256;
+    const limit = this.railClock.sources.size ? 768
+      : this.automata.playing || this.activeVisualNotes[AUTOMATA_SOURCE].size ? 384 : 256;
     if (this.noteEvents.length >= limit) {
-      const sample = note.sampleId !== null || note.sourceId === 'automata';
+      const sample = note.sampleId !== null || note.sourceId === 'automata' || note.sourceId?.startsWith('rail:');
       let replace = this.noteEvents.findIndex(event => event.sampleId === null && event.sourceId !== 'automata' && event.type === 'noteOn');
       if (!sample && note.type === 'noteOn') replace = -1;
       if (sample && replace < 0) replace = this.noteEvents.findIndex(event => event.sampleId === null && event.sourceId !== 'automata');
@@ -356,7 +406,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   releaseVisual(source, frame = 0, channel = null) {
     const active = this.activeVisualNotes[source];
     for (const [key, note] of active) if (channel === null || note.channel === channel) {
-      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate }); active.delete(key); this.visualCount--; if (source > 1) this.sampleVisualCount--;
+      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate }); active.delete(key); this.visualCount--; if (source >= 2 && source < 6) this.sampleVisualCount--;
     }
   }
   release(deck, frame = 0, hard = false) {
@@ -554,7 +604,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
   }
   publish() {
-    this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, sampleTime: this.sampleClock.seconds, samples: this.sampleClock.snapshot(), automata: this.automata.snapshot(), automataNotes: this.automata.takeNoteChanges(), automataRevision: this.automataRevision, tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
+    this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, sampleTime: this.sampleClock.seconds, samples: this.sampleClock.snapshot(), automata: this.automata.snapshot(), automataNotes: this.automata.takeNoteChanges(), automataRevision: this.automataRevision, tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents + this.railClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
     if (this.noteEvents.length) {
       for (const note of this.noteEvents) if (note.type === 'noteOn') note.published = true;
       this.port.postMessage({ type: 'notes', notes: this.noteEvents.map(({ published, ...note }) => note) }); this.noteEvents = [];
@@ -568,6 +618,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       this.actions = [];
       this.clock.process(left.length, sampleRate);
       this.sampleClock.process(left.length, sampleRate, this.clock.tempo);
+      this.railClock.process(left.length, sampleRate, this.clock.tempo);
       this.automata.process(left.length, sampleRate, this.clock.tempo);
       const actions = this.actions; this.actions = null;
       actions.sort((a, b) => a.frame - b.frame);

@@ -1,8 +1,8 @@
 import { blackMidiKeyLayout, blackMidiPitchAtX, blackMidiPixelLayout, blackMidiTimeGeometry } from './blech-midi-black-renderer.js';
 import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
 import { midiStampPitchBounds, transformMidiStamp, rotateMidiStamp } from '../midi-mixer/midi-mixer-score-transform.js';
-import { generateLaidOutTextMidi } from '../midiphoria/midiphoria-text-midi.js';
 import { blechStrokeScore, blechBrushImprint, blechGeometryNotes } from './blech-midi-spigot-engine.js';
+import { generateUltraTextMidi, ULTRA_TEXT_FONTS, ultraTextGlyphColumns } from './blech-midi-text-fonts.js';
 
 const bound = (value, low, high, fallback = 0) => Math.max(low, Math.min(high, Number.isFinite(Number(value)) ? Number(value) : fallback));
 const WORKBOX_NOTE_LIMIT = 4096, WORKBOX_GRID = 1 / 16, PPQ = 480, WORKBOX_VOLUME_MAX = 127;
@@ -220,7 +220,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
       <button id="blechWorkboxMore" type="button" aria-controls="blechPanel-frames">More sources →</button>
       <output id="blechWorkboxStatus" role="status"></output>
     </section>
-    <form id="blechDropTextMenu" class="blech-drop-menu blech-drop-text-menu" role="dialog" aria-label="Workbox text" hidden><label for="blechDropText">Text to place</label><textarea id="blechDropText" rows="2" maxlength="128" placeholder="Write a word or symbol…"></textarea><button type="submit">Place text</button></form>`;
+    <form id="blechDropTextMenu" class="blech-drop-menu blech-drop-text-menu" role="dialog" aria-label="Workbox text" hidden><label for="blechDropText">Text to place</label><textarea id="blechDropText" rows="2" maxlength="128" placeholder="Write a word or symbol…"></textarea><label for="blechDropTextFont">Note font<select id="blechDropTextFont" aria-label="Workbox note font">${ULTRA_TEXT_FONTS.map(({ id, label }) => `<option value="${id}">${label}</option>`).join('')}</select></label><button type="submit">Place text</button></form>`;
   viewport.append(overlay);
   const canvas = overlay.querySelector('canvas'), ctx = canvas.getContext('2d'), paintCanvas = overlay.querySelector('.blech-workbox-stroke'), paintCtx = paintCanvas.getContext('2d');
   const handle = overlay.querySelector('.blech-drop-handle'), paintSurface = overlay.querySelector('.blech-workbox-paint');
@@ -579,7 +579,10 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
       const message = inputs('Text').value;
       // Generate and parse once per submitted message, not per pointer move
       // or visual refresh. Place the cached score using the bounded stamp map.
-      const next = generateLaidOutTextMidi(message, { span: Math.min(48, workbox.width), lowestNote: 0,
+      const font = inputs('TextFont').value;
+      if (workbox.width < ultraTextGlyphColumns(font))
+        throw new Error(`Widen the workbox to at least ${ultraTextGlyphColumns(font)} notes to place legible text.`);
+      const next = generateUltraTextMidi(message, { font, span: Math.min(48, workbox.width), lowestNote: 0,
         beats: Math.min(2, workbox.heightBeats), fit: true });
       workboxText = { ...next, analysis: parseMidi(next.buffer) };
       if (workboxText.analysis.notes.length > WORKBOX_NOTE_LIMIT) throw new Error('Try shorter text (up to 4,096 notes).');
@@ -667,7 +670,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
     // keeps the same canvas envelope as a tall one, not a one-pitch stamp.
     const stampSize = tool === 'math' ? { widthNotes: Math.ceil(workbox.width / 2),
       heightBeats: Math.max(.25, workbox.heightBeats / 2), pitchRange: stamp.pitchRange }
-      : stamp ? { ...getWorkboxStampSize() } : null;
+      : tool === 'text' ? {} : stamp ? { ...getWorkboxStampSize() } : null;
     let stampBounds = null;
     if (stamp) {
       try {
@@ -823,7 +826,7 @@ export function mountBlechDropStage(host, viewport, { getTempo = () => 120, getV
       // Reset a handmade box to an empty canvas without discarding its frame
       // or touching already-playing Layers. Generator formula/file stays put.
       workbox = { low: 40, width: 48, heightBeats: 4, notes: [] };
-      workboxText = null; workboxMath = null; inputs('Text').value = ''; painting = true; workboxTool = 'draw';
+      workboxText = null; workboxMath = null; inputs('Text').value = ''; inputs('TextFont').value = 'digital'; painting = true; workboxTool = 'draw';
       prepared = null; onWorkboxToolChange?.(workboxTool);
     }
     configure(initialSettings ?? { channel: 0, program: '0', gain: .75, transpose: 0,

@@ -74,6 +74,9 @@ const ICONS = Object.freeze({
   '◆': ['00100', '01110', '11011', '10001', '11011', '01110', '00100'],
 });
 const glyphFor = character => GLYPHS[character] ?? ICONS[character];
+// Read-only glyph rows for instruments that need other fixed-pixel faces.
+// This accessor does not alter the legacy Block/Slant/Wide MIDI generators.
+export const textMidiGlyphRows = character => glyphFor(character)?.slice() ?? null;
 export const MAX_TEXT_MIDI_GLYPHS = 32;
 const INPUT_SCAN_LIMIT = 4096;
 const ROWS = 7, GLYPH_COLUMNS = 5, GLYPH_STRIDE = 6;

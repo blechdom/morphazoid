@@ -7,10 +7,10 @@ import { createBlechLiveProjector, BLECH_LIVE_NOTE_LIMIT } from './blech-midi-li
 export const BLACK_MIDI_PALETTES = Object.freeze(['ultra', 'rainbow', 'candy', 'ember', 'ice', 'acid']);
 const ULTRA_NOTE_INKS = Object.freeze([
   [199, 255, 42], // logo green
-  [255, 79, 146], // hot pink
-  [242, 221, 113], // paper yellow
   [255, 37, 50], // original BLECH MIDI logo red
-  [119, 189, 255], // electric blue
+  [50, 255, 223], // fluorescent turquoise
+  [242, 221, 113], // paper yellow
+  [242, 241, 230], // warm white
 ]);
 const clamp = (value, min, max, fallback) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
 const wrap = value => ((value % 1) + 1) % 1;
@@ -350,7 +350,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     const now = liveState?.sampleTime ?? window.performance.now() / 1000;
     const live = projectLive(liveState, { lookAhead: options.lookAhead, pastSeconds: onPerformed ? Math.max(8, pastSeconds) : pastSeconds,
       now, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, frameLimit / 4) });
-    visualsActive = Boolean(transport.playing || liveState?.samples?.length || liveState?.automata?.playing
+    visualsActive = Boolean(transport.playing || liveState?.samples?.length || liveState?.rails?.length || liveState?.automata?.playing
       || keyboardState.notes.length || live.heldOutlines.length || (pastSeconds && live.pastNotes.length));
     if (onPerformed) {
       const file = [];
@@ -426,12 +426,14 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     for (const note of live.heldOutlines) lit[note.pitch] = blackMidiColor(note, options);
     for (const pitch of keyboardState.notes) lit[pitch] = blackMidiColor({ pitch, velocity: 100, channel: 0, track: 0 }, { ...options, colorBy: 'pitch' });
     backend.draw(data, count); drawKeyboard();
-    // Render the ongoing gate as an outline over both WebGL and Canvas. Unlike
-    // ordinary fading past trails, a held key remains visible when trails are
-    // disabled, and its length follows the independent sample clock.
+    // Held rail keys immediately connect the rail to the keyboard in the
+    // future plane. Older sample latches still grow below the keyboard in the
+    // past plane. Neither outline waits for another MIDI or animation event.
     let heldOutlineExtent = 0;
     if (context) for (const note of live.heldOutlines) {
-      const segment = blackMidiNoteSegment(Math.min(-.02, note.start), 0, { ...geometry, pastSeconds: 30 }, true);
+      const segment = note.fromRail
+        ? { top: 0, height: geometry.keyboardTop }
+        : blackMidiNoteSegment(Math.min(-.02, note.start), 0, { ...geometry, pastSeconds: 30 }, true);
       const key = pixelLayout[note.pitch]; if (!segment || !key) continue;
       const rgb = blackMidiColor(note, options).map(value => Math.round(value * 255));
       const y = Math.round(segment.top * dimensions.height);
@@ -454,6 +456,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     wrapper.dataset.liveNotes = String(live.notes.length);
     wrapper.dataset.liveHeld = String(live.held);
     wrapper.dataset.heldOutlines = String(live.heldOutlines.length);
+    wrapper.dataset.railHeld = String(live.heldOutlines.filter(note => note.fromRail).length);
     wrapper.dataset.heldOutlineExtent = String(Math.round(heldOutlineExtent));
     wrapper.dataset.liveSources = JSON.stringify(live.sources);
     wrapper.dataset.fileNotes = String(fileVisible);

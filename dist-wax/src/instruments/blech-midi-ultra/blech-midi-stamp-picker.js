@@ -4,7 +4,8 @@ const THUMB_WIDTH = 128, THUMB_HEIGHT = 64, MAX_PREVIEW_NOTES = 4096;
 let pickerSequence = 0;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-/** Bounded, pitch-horizontal preview geometry. It never parses a MIDI file. */
+/** Frame the notes in the picture menu so a narrow stamp is still recognizable.
+ * This only reads already prepared artwork; it never parses or fetches MIDI. */
 export function stampThumbnailRects(entry = {}) {
   const notes = entry.notes ?? entry.analysis?.notes ?? entry.score?.analysis?.notes ?? [];
   const count = Math.min(notes.length, MAX_PREVIEW_NOTES), sampled = [];
@@ -18,12 +19,19 @@ export function stampThumbnailRects(entry = {}) {
   if (!(duration > 0) || !Number.isFinite(duration)) {
     duration = sampled.reduce((end, note) => Math.max(end, note.beat + note.duration), 1);
   }
+  const visible = sampled.filter(note => note.beat < duration);
+  if (!visible.length) return [];
+  const low = Math.min(...visible.map(note => note.note)), high = Math.max(...visible.map(note => note.note));
+  const pitchSpan = high - low + 1;
+  const pitchScale = (THUMB_WIDTH - 8) / Math.max(8, pitchSpan);
+  const offset = (THUMB_WIDTH - pitchSpan * pitchScale) / 2;
   const result = [];
-  for (const note of sampled) {
-    if (note.beat >= duration) continue;
+  for (const note of visible) {
     const bottom = clamp(THUMB_HEIGHT * (1 - note.beat / duration), 0, THUMB_HEIGHT);
     const top = clamp(THUMB_HEIGHT * (1 - (note.beat + note.duration) / duration), 0, THUMB_HEIGHT - 1);
-    result.push({ x: Math.floor(note.note), y: top, width: 1, height: Math.min(THUMB_HEIGHT - top, Math.max(1, bottom - top)) });
+    const x = Math.floor(offset + (note.note - low) * pitchScale);
+    result.push({ x, y: top, width: Math.min(THUMB_WIDTH - x, Math.max(1, Math.ceil(pitchScale))),
+      height: Math.min(THUMB_HEIGHT - top, Math.max(1, bottom - top)) });
   }
   return result;
 }
@@ -78,7 +86,7 @@ export function mountBlechStampPicker(host, {
       context.drawImage(entry.thumbnail, 0, 0, THUMB_WIDTH, THUMB_HEIGHT); return canvas;
     }
     const rectangles = stampThumbnailRects(entry), stroke = clamp(Number(entry.thumbnailStroke) || 1, 1, 4);
-    context.fillStyle = stroke > 1 ? '#c7ff2a' : '#ffb6d3';
+    context.fillStyle = stroke > 1 ? '#c7ff2a' : '#32ffdf';
     for (const rect of rectangles) context.fillRect(rect.x, rect.y, Math.max(stroke, rect.width), Math.max(stroke, rect.height));
     if (!rectangles.length) {
       context.font = '14px monospace'; context.textAlign = 'center'; context.textBaseline = 'middle';

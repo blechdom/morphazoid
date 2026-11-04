@@ -7,6 +7,7 @@ import { reverseMidiAnalysis, buildMidiStateHistories, getMidiNoteGates, midiSta
 import { compileSampleTempoMap, advanceSampleTiming, liveSampleReplacementTiming, sampleReplacementBoundary, sampleTempoAt, sampleSecondsAt } from './midi-mixer-clock.js';
 import { transformMidiStamp } from './midi-mixer-score-transform.js';
 import { MidiAutomataClock, captureAutomataMidi } from './midi-mixer-automata.js';
+import { BLECH_RAIL_MAX_SOURCES, normalizeBlechRailSource } from '../blech-midi-ultra/blech-midi-rail-clock.js';
 export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
@@ -69,6 +70,7 @@ export class MidiMixerEngine {
     this._sampleTime = 0; this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._finishedSamples = []; this._completedSampleSources = new WeakSet(); this._sampleMidi = {}; this._noteSubscribers = new Set();
     this._sampleBuffers = new WeakMap();
     this._sampleNoteCount = 0; this._sampleNoteLedger = new WeakMap(); this._generatedNoteBaseline = 0;
+    this._rails = new Map(); this._railNoteCount = 0;
     this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._sources = [null, null]; this._weave = defaultWeaveConfig(); this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
     this._noteEffects = sanitizeMidiNoteEffects();
@@ -84,6 +86,22 @@ export class MidiMixerEngine {
       : Math.max(0, this._now() - this._sampleAnchor) * this._tempo / 60);
     const sampleTime = this._sampleTime + (this._ready && this._sampleAudioAnchor !== null && this.context
       ? Math.max(0, this.context.currentTime - this._sampleAudioAnchor) : Math.max(0, this._now() - this._sampleAnchor));
+    const rails = [];
+    for (const [id, rail] of this._rails) {
+      const position = Math.max(0, (rail.paused ? rail.pauseBeat : sampleBeat) - rail.startBeat - rail.delayBeats);
+      const count = rail.held ? Number(position >= 0 && (rail.paused ? rail.pauseBeat : sampleBeat) >= rail.startBeat + rail.delayBeats)
+        : rail.loop ? Math.max(0, Math.floor(position / rail.periodBeats + 1e-9) + 1) * rail.notes.length
+          : rail.notes.reduce((total, note) => total + Number(note.beat <= position + 1e-9), 0);
+      if ((rail.paused ? rail.pauseBeat : sampleBeat) < rail.startBeat + rail.delayBeats) {
+        // A future row must not add to the trip meter before its first attack.
+      } else if (count > rail.counted) { this._railNoteCount += count - rail.counted; rail.counted = count; }
+      if (!rail.loop && !rail.held && !rail.paused
+        && sampleBeat >= rail.startBeat + rail.delayBeats + rail.durationBeats + .01) {
+        this._rails.delete(id); continue;
+      }
+      const { counted, ...visible } = rail;
+      rails.push(visible);
+    }
     if (this._playing) {
       if (this._ready && this._audioAnchor !== null && this.context) beat += Math.max(0, this.context.currentTime - this._audioAnchor) * this._audioTempo / 60;
       else beat += Math.max(0, this._now() - this._anchor) * this._tempo / 60;
@@ -91,13 +109,13 @@ export class MidiMixerEngine {
     const weave = weavePosition(beat, this._weave, this._weavePhase);
     this._finishedSamples = this._finishedSamples.filter(sample => sample.finishedAt > sampleTime - 30 && sample.finishedAt <= sampleTime);
     return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
-      tempo: this._tempo, beat, sampleBeat, sampleTime, automata: { ...this._automata.snapshot(), skippedSilentBeats: this._automataSkippedSilentBeats }, samples: this._samples.flatMap(sample => {
+      tempo: this._tempo, beat, sampleBeat, sampleTime, rails, automata: { ...this._automata.snapshot(), skippedSilentBeats: this._automataSkippedSilentBeats }, samples: this._samples.flatMap(sample => {
         const timing = this._sampleTiming(sample, sampleBeat, sampleTime);
         if (timing.ended) { this._rememberFinishedSample(sample, timing, sampleBeat, sampleTime); return []; }
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, pendingReplacement, ...visible } = sample;
         return [{ ...visible, effectiveMuted: sample.muted || this._samples.some(other => other.solo && !this._sampleTiming(other, sampleBeat, sampleTime).ended) && !sample.solo, ...(pendingReplacement ? { pendingReplacement: { name: pendingReplacement.name, analysis: pendingReplacement.analysis, token: pendingReplacement.token } } : {}), midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pendingBeats: timing.pendingBeats, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
       }), finishedSamples: this._finishedSamples.map(sample => ({ ...sample, midi: sanitizeMidiParameters(sample.midi) })), sampleMidi: sanitizeMidiParameters(this._sampleMidi), noteEffects: { ...this._noteEffects }, effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
-      generatedNoteCount: Math.max(0, this._sampleNoteCount + this._automata.serial - this._generatedNoteBaseline),
+      generatedNoteCount: Math.max(0, this._sampleNoteCount + this._railNoteCount + this._automata.serial - this._generatedNoteBaseline),
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
       decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
@@ -124,7 +142,7 @@ export class MidiMixerEngine {
     // Settle each source at its current clock without seeking, replaying or
     // clearing it. The cumulative ledger survives the visible counter reset.
     void this.state;
-    this._generatedNoteBaseline = this._sampleNoteCount + this._automata.serial;
+    this._generatedNoteBaseline = this._sampleNoteCount + this._railNoteCount + this._automata.serial;
     this._publish(); return true;
   }
   _advanceAutomata() {
@@ -446,6 +464,43 @@ export class MidiMixerEngine {
     this._post({ type: 'midiAction', ...target, action: normalized }); return true;
   }
   stopSamples() { if (this._samples.length) void this.state; this._samples = []; this._post({ type: 'stopSamples' }); this._publish(); }
+  /** Rails have their own audio-clock bus; never allocate or evict a layer slot. */
+  addRails(inputs) {
+    if (this._disposed || !Array.isArray(inputs) || !inputs.length) return [];
+    const state = this.state;
+    if (this._rails.size + inputs.length > BLECH_RAIL_MAX_SOURCES)
+      throw new Error('The rail is full. Remove a square to add another.');
+    const rails = inputs.map((input, index) => normalizeBlechRailSource(
+      { ...input, id: `rail:${this._serial + index + 1}` }, state.sampleBeat));
+    this._serial += rails.length;
+    for (const rail of rails) this._rails.set(rail.id, { ...rail, counted: 0 });
+    this._post({ type: 'railAdd', rails });
+    this._publish();
+    return rails;
+  }
+  addRail(input) { return this.addRails([input])[0] ?? null; }
+  stopRail(id) {
+    if (this._disposed || !this._rails.has(id)) return false;
+    void this.state;
+    this._rails.delete(id); this._post({ type: 'railRemove', id }); this._publish(); return true;
+  }
+  setRailPaused(id, paused) {
+    if (this._disposed) return false;
+    const rail = this._rails.get(id);
+    if (!rail || rail.paused === Boolean(paused)) return false;
+    const at = this.state.sampleBeat;
+    if (paused) { rail.paused = true; rail.pauseBeat = at; }
+    else {
+      rail.startBeat += Math.max(0, at - rail.pauseBeat); rail.paused = false; rail.pauseBeat = null;
+    }
+    this._post({ type: 'railPause', id, paused: rail.paused }); this._publish();
+    return this.state.rails.find(entry => entry.id === id) ?? false;
+  }
+  stopRails() {
+    if (!this._rails.size) return;
+    void this.state;
+    this._rails.clear(); this._post({ type: 'railStopAll' }); this._publish();
+  }
   _sendSamples() {
     if (!this._audioEnabled) return;
     const state = this.state;
@@ -512,6 +567,7 @@ export class MidiMixerEngine {
       this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
       if (wasReady && this._audioEnabled) this._post({ type: 'rejoin' });
       this._sendSamples();
+      if (!wasReady && this._rails.size) this._post({ type: 'railAdd', rails: [...this._rails.values()] });
       this._updateGain(); this._publish(); return this._audioEnabled;
     } catch (error) {
       if (!this._disposed) { this._error = error.message || 'Could not start MIDI audio.'; this._desiredAudio = false; await this._close(); this._publish(); }
@@ -523,7 +579,7 @@ export class MidiMixerEngine {
     this._desiredAudio = Boolean(enabled);
     this._audioEnabled = this._desiredAudio && this._ready && this.context?.state === 'running';
     this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
-    if (!this._audioEnabled) { this.stopSamples(); this._post({ type: 'release' }); }
+    if (!this._audioEnabled) { this.stopSamples(); this.stopRails(); this._post({ type: 'release' }); }
     else if (!wasEnabled) this._post({ type: 'rejoin' });
     this._sendSamples();
     this._updateGain(); this._publish(); return this._audioEnabled;
@@ -535,9 +591,9 @@ export class MidiMixerEngine {
     this._playing = true; this._post({ type: 'transport', playing: true, beat: this._beat }); this._publish(); return true;
   }
   pause() {
-    this._freezeClock(); this._playing = false; this.stopSamples(); this._post({ type: 'transport', playing: false, beat: this._beat }); this._publish();
+    this._freezeClock(); this._playing = false; this.stopSamples(); this.stopRails(); this._post({ type: 'transport', playing: false, beat: this._beat }); this._publish();
   }
-  stop() { this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._beat = 0; this._playing = false; this._anchor = this._now(); this._audioAnchor = this.context?.currentTime ?? null; this.stopSamples(); this._post({ type: 'transport', playing: false, beat: 0 }); this._post({ type: 'weave', config: this._weave, phase: this._weavePhase }); this._publish(); }
+  stop() { this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._beat = 0; this._playing = false; this._anchor = this._now(); this._audioAnchor = this.context?.currentTime ?? null; this.stopSamples(); this.stopRails(); this._post({ type: 'transport', playing: false, beat: 0 }); this._post({ type: 'weave', config: this._weave, phase: this._weavePhase }); this._publish(); }
   setTempo(value) {
     this._freezeClock(); this._tempo = clamp(value, 30, this._maxTempo, this._tempo); this._audioTempo = this._tempo;
     this._post({ type: 'tempo', tempo: this._tempo }); this._updateEffects(); this._publish(); return this._tempo;
@@ -764,7 +820,7 @@ export class MidiMixerEngine {
     ramp(this._feedback.gain, this._effects.feedback);
   }
   async _close() {
-    this._freezeClock(); this.stopSamples(); this._ready = false; this._audioEnabled = false; this._audioAnchor = this._sampleAudioAnchor = null;
+    this._freezeClock(); this.stopSamples(); this.stopRails(); this._ready = false; this._audioEnabled = false; this._audioAnchor = this._sampleAudioAnchor = null;
     const context = this.context; this.context = null; this._promise = null;
     this._abort?.abort(); this._abort = null; this._waitCancel?.(); this._waitCancel = null;
     for (const request of this._fontWaits.values()) { this.runtime.clearTimeout(request.timer); request.reject(new Error('SoundFont load cancelled.')); } this._fontWaits.clear();

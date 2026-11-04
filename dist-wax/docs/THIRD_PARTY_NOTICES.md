@@ -71,6 +71,13 @@ audio-clock mixer uses a pinned SpessaSynth Core 4.3.22 bundle with stb-vorbis
 The mixer, inspector, rectangular renderer and scheduling code are original
 Morphazoid implementations.
 
+## BLECH MIDI ULTRA font
+
+BLECH MIDI ULTRA's title uses the unmodified DSEG14 Classic Mini Bold font
+by keshikan (copyright © 2017), licensed under the SIL Open Font License 1.1.
+The bundled WOFF2 and [complete license](../assets/blech-midi-ultra/DSEG-LICENSE.txt)
+are distributed together; “DSEG” is a reserved font name.
+
 ## I/O setup synthesized voice
 
 The original `assets/audio/midi-received.wav` announcement was generated with

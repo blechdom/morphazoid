@@ -2,6 +2,7 @@ import { blackMidiKeyLayout, blackMidiKeyboardPitch, blackMidiPitchAtX, blackMid
 import { midiStampPitchBounds } from '../midi-mixer/midi-mixer-score-transform.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
 import { blechGeometryNotes } from './blech-midi-spigot-engine.js';
+import { BLECH_RAIL_MAX_NOTES } from './blech-midi-rail-clock.js';
 
 const clamp = (value, min, max, fallback = min) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
 const quarter = value => Math.round(value * 4) / 4;
@@ -15,22 +16,41 @@ const TOOL_ICONS = {
 const toolIcon = mode => `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${TOOL_ICONS[mode]}</svg>`;
 const noteName = pitch => `${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][pitch % 12]}${Math.floor(pitch / 12) - 1}`;
 
-/** Tap for every pitch. Holding chooses equally sized on/off blocks across
- * the 128-key row; the pattern always starts with the first pitch on.
+const RAIL_FIRST_HOLD_MS = 250, RAIL_STEP_HOLD_MS = 550, MAX_COMB_STRIDE = 16;
+
+/** Tap for every pitch; hold to choose every second, third, fourth… pitch.
+ * The first key stays on. Match the top rail's hold-step timing.
  */
-export function blechCombBlock(milliseconds) {
-  if (!Number.isFinite(milliseconds) || milliseconds < 420) return 0;
-  // Leave time to see and release on each block size, even on a busy canvas.
-  return Math.min(8, 1 + Math.floor((milliseconds - 420) / 1000));
+export function blechCombStride(milliseconds) {
+  if (!Number.isFinite(milliseconds) || milliseconds < RAIL_FIRST_HOLD_MS) return 1;
+  return Math.min(MAX_COMB_STRIDE, 2 + Math.floor((milliseconds - RAIL_FIRST_HOLD_MS) / RAIL_STEP_HOLD_MS));
 }
-const combPitchOn = (pitch, block) => block === 0 || pitch % (2 * block) < block;
-export function blechCombNotes(block = 0) {
-  const size = Math.floor(clamp(block, 0, 8, 0));
+const combPitchOn = (pitch, stride) => pitch % stride === 0;
+export function blechCombNotes(stride = 1) {
+  const step = Math.floor(clamp(stride, 1, MAX_COMB_STRIDE, 1));
   return Array.from({ length: 128 }, (_, pitch) => pitch)
-    .filter(pitch => combPitchOn(pitch, size))
+    .filter(pitch => combPitchOn(pitch, step))
     .map(note => ({ note, channel: 0, velocity: 64, beat: 0, duration: .25 }));
 }
-const combName = block => block === 0 ? 'Every pitch' : `${block} on / ${block} off`;
+/** A drag fills musical time with distinct one-shot rows, never a loop.
+ * Spread very long drags rather than sending more than the rail bus can hold. */
+export function blechCombBlockNotes(stride = 1, startBeat = 0, endBeat = startBeat) {
+  const chord = blechCombNotes(stride);
+  const start = quarter(clamp(Math.min(startBeat, endBeat), 0, 64));
+  const end = quarter(clamp(Math.max(startBeat, endBeat), 0, 64));
+  const steps = Math.round((end - start) * 4);
+  const rows = Math.min(steps + 1, Math.floor(BLECH_RAIL_MAX_NOTES / chord.length));
+  const notes = [];
+  for (let row = 0; row < rows; row++) {
+    const beat = rows === 1 ? 0 : quarter(steps / (rows - 1) * row / 4);
+    const duration = Math.min(.25, rows === 1 ? .25 : Math.max(.125, (end - start) / (rows - 1) / 2));
+    for (const pitch of chord) notes.push({ ...pitch, beat, duration });
+  }
+  return { notes, delayBeats: start, rows };
+}
+const ordinal = number => `${number}${number % 100 >= 11 && number % 100 <= 13 ? 'th'
+  : { 1: 'st', 2: 'nd', 3: 'rd' }[number % 10] ?? 'th'}`;
+const combName = stride => stride === 1 ? 'Every key' : `Every ${ordinal(stride)} key`;
 
 const CROSSING_PERIODS = [1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8];
 const periodLabel = period => period < 1 ? `1/${1 / period}` : String(period);
@@ -38,24 +58,14 @@ const periodLabel = period => period < 1 ? `1/${1 / period}` : String(period);
 /** A corner tap keeps its last subdivision; holding chooses a slower one. */
 export function blechCrossingPeriod(milliseconds, selected = 1 / 8) {
   const current = CROSSING_PERIODS.includes(selected) ? selected : 1 / 8;
-  if (!Number.isFinite(milliseconds) || milliseconds < 250) return current;
-  return CROSSING_PERIODS[Math.min(CROSSING_PERIODS.length - 1, 1 + Math.floor((milliseconds - 250) / 550))];
+  if (!Number.isFinite(milliseconds) || milliseconds < RAIL_FIRST_HOLD_MS) return current;
+  return CROSSING_PERIODS[Math.min(CROSSING_PERIODS.length - 1, 1 + Math.floor((milliseconds - RAIL_FIRST_HOLD_MS) / RAIL_STEP_HOLD_MS))];
 }
 
-/** The upper corner repeats the *selected* Comb pitch blocks at its beat
- * subdivision. Keep one bounded, audio-clocked clip rather than 128 emitters. */
-export function blechCrossingNotes(block = 0, periodBeats = 1 / 8) {
-  const size = Math.floor(clamp(block, 0, 8, 0));
+/** The *audio clock*, not a stored MIDI loop, repeats this one chord. */
+export function blechCrossingNotes(stride = 1, periodBeats = 1 / 8) {
   const period = CROSSING_PERIODS.includes(periodBeats) ? periodBeats : 1 / 8;
-  const beats = Math.max(4, period);
-  const notes = [];
-  for (let step = 0; step < beats / period; step++) {
-    for (let pitch = 0; pitch < 128; pitch++) {
-      if (combPitchOn(pitch, size))
-        notes.push({ note: pitch, channel: 0, velocity: 56, beat: step * period, duration: period / 2 });
-    }
-  }
-  return notes;
+  return blechCombNotes(stride).map(note => ({ ...note, velocity: 56, duration: period / 2 }));
 }
 
 /** Tap for the quickest safe gate; longer presses double the beat interval.
@@ -63,7 +73,8 @@ export function blechCrossingNotes(block = 0, periodBeats = 1 / 8) {
 export function blechRailPeriod(milliseconds) {
   const choices = [.25, .5, 1, 2, 4, 8];
   const held = Number.isFinite(milliseconds) ? Math.max(0, milliseconds) : 0;
-  return choices[Math.min(choices.length - 1, held < 250 ? 0 : 1 + Math.floor((held - 250) / 550))];
+  return choices[Math.min(choices.length - 1, held < RAIL_FIRST_HOLD_MS ? 0
+    : 1 + Math.floor((held - RAIL_FIRST_HOLD_MS) / RAIL_STEP_HOLD_MS))];
 }
 
 /** The future plane shares the renderer's pitch positions and audio-time scale. */
@@ -103,7 +114,7 @@ export function mountBlechSpigots(viewport, {
   controlsHost, eraseControl, stampHost, combHost, getLayers = () => [], getLiveSources = () => [], getPreparedScore = () => null, getTempo = () => 120, getView = () => ({}),
   getBrush = () => ({ size: 1, velocity: 88 }), getDrawingGesture = () => ({ tool: 'pencil', fill: 'outline' }),
   getStampEntries = () => [], getSelectedStampId = () => null, onSelectStamp,
-  onCreate, onCreateMath, onCreateComb, onCreateCrossing, onCreateRail, onEdit, onOpenSettings, onToggleLoop, onTogglePlay, onRemove,
+  onCreate, onCreateMath, onCreateComb, onCreateCrossing, onCreateRail, onCreateRailCluster, onEdit, onOpenSettings, onToggleLoop, onTogglePlay, onRemove,
   onBrushStart, onBrushMove, onBrushEnd, onLatch, onGeometryDraft, onModeChange, onSelectionChange,
 } = {}) {
   const events = new AbortController(), listen = (node, type, callback) => node.addEventListener(type, callback, { signal: events.signal });
@@ -113,7 +124,7 @@ export function mountBlechSpigots(viewport, {
   controlsHost.innerHTML = `<div class="blech-spigot-mode" role="group" aria-label="Canvas tools"><button type="button" data-spigot-mode="draw" aria-label="Free Draw" title="Free Draw · play once as you draw${stampHost ? '; corner arrow or Down Arrow opens brushes' : ''}" aria-pressed="false"${stampHost ? ' aria-expanded="false" aria-controls="blechBrushMenu" aria-haspopup="dialog" aria-keyshortcuts="ArrowDown"' : ''}>${toolIcon('draw')}${stampHost ? '<span id="blechBrushToggle" class="blech-icon-caret" aria-hidden="true"><svg viewBox="0 0 16 8"><path d="m4 2 4 4 4-4"/></svg></span>' : ''}</button>${eraseControl ? '' : `<button type="button" data-spigot-mode="erase" aria-label="Eraser" title="Eraser" aria-pressed="false">${toolIcon('erase')}</button>`}${stampHost ? '' : '<div data-spigot-stamp-picker></div>'}<output data-spigot-status role="status">Choose a tool, or select a layer to reshape it.</output></div>`;
   if (combHost) {
     combHost.classList.add('blech-pitch-comb');
-    combHost.innerHTML = `<button type="button" data-comb-surface aria-label="Pitch comb. Tap to play every key once; hold to choose one on, one off, then two on, two off, and larger blocks across the keyboard. Drag up to delay; double-click to delete the last row. Up and Down move the row in time." title="Tap: all keys once · hold: 1 on / 1 off, 2 on / 2 off… · drag up: delay · double-click: delete last row" data-space-key-owner><span class="blech-comb-icon" aria-hidden="true">≡</span><span>COMB</span><output data-comb-status aria-live="polite">ALL</output><span class="blech-comb-markers" aria-hidden="true"></span></button>${onCreateCrossing ? '<button type="button" class="blech-rail-crossing" data-rail-crossing aria-label="Loop the selected Comb pattern every eighth of a beat; hold to choose another subdivision" aria-pressed="false" title="Loop this pitch pattern · hold to choose a beat subdivision · tap again to stop" data-space-key-owner><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4v16M12 4v16M20 4v16M4 4h16M4 12h16M4 20h16"/></svg><span class="blech-crossing-rate" aria-hidden="true">1/8</span></button>' : ''}`;
+    combHost.innerHTML = `<button type="button" data-comb-surface aria-label="Left note rail. Tap to play one row at this time; hold to choose every second, third, fourth key and beyond; drag to paint rows through time. Double-click removes the last row. Up and Down move the time cursor." title="Tap: one row here · hold: space pitches · drag: rows through time · double-click: remove last" data-space-key-owner><span class="blech-comb-icon" aria-hidden="true">≡</span><output data-comb-status aria-live="polite">1/1</output><span class="blech-comb-markers" aria-hidden="true"></span></button>${onCreateCrossing ? '<button type="button" class="blech-rail-crossing" data-rail-crossing aria-label="Loop the selected pitch pattern every eighth of a beat; hold to choose another subdivision" aria-pressed="false" title="Loop this pitch pattern · hold to choose a beat subdivision · tap again to stop" data-space-key-owner><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4v16M12 4v16M20 4v16M4 4h16M4 12h16M4 20h16"/></svg><span class="blech-crossing-rate" aria-hidden="true">1/8</span></button>' : ''}`;
   }
   const overlay = document.createElement('div'); overlay.className = 'blech-spigot-overlay';
   overlay.innerHTML = `<canvas class="blech-spigot-preview" aria-label="Drawing preview and selected MIDI source pattern"></canvas><div class="blech-spigot-paint" tabindex="-1" role="group" aria-label="MIDI flow canvas. Arrow keys position; hold Enter to draw, erase or stamp; Escape returns to layer editing." data-space-key-owner></div><div class="blech-spigot-notice" aria-hidden="true" hidden></div><div class="blech-spigot-sources"></div><div class="blech-spigot-selection" hidden><button type="button" class="blech-spigot-move" aria-label="Move source; arrows change pitch and delay" data-space-key-owner></button>${['left','right','top','bottom','top-left','top-right','bottom-left','bottom-right'].map(edge => `<button type="button" class="blech-spigot-grip" data-spigot-resize="${edge}" aria-label="Resize source ${edge.replace('-', ' ')}; arrow keys adjust" data-space-key-owner></button>`).join('')}<button type="button" class="blech-spigot-rotate" aria-label="Rotate source; left and right arrows change angle" data-space-key-owner>↻</button><div class="blech-spigot-valves" role="toolbar" aria-label="Layer workbox actions"><button type="button" data-spigot-play aria-label="Pause source" title="Play or pause this layer">Ⅱ</button><button type="button" data-spigot-loop aria-label="Loop source" title="Loop this layer" aria-pressed="false">↻</button><button type="button" data-spigot-deselect aria-label="Keep in Layers and close frame" title="Save to Layers · keep playing">✓</button><button type="button" data-spigot-remove aria-label="Remove source" title="Cancel · remove and stop this layer">×</button><button type="button" data-spigot-settings aria-label="Edit frame geometry and instrument" aria-expanded="false" aria-controls="blechLayerEditor" title="MIDI and workbox settings">⚙</button><button type="button" data-spigot-transform aria-label="Transform drawn frame" title="Move, resize and rotate this frame">⌖</button></div></div>`;
@@ -121,7 +132,7 @@ export function mountBlechSpigots(viewport, {
   // Give the rail its own row above the playable viewport. A standalone
   // canvas fixture without that column keeps the old overlay placement.
   const noteRail = document.createElement('div'); noteRail.className = 'blech-note-rail';
-  noteRail.innerHTML = `<canvas class="blech-note-rail-grid" aria-hidden="true"></canvas><button type="button" class="blech-note-rail-surface" data-note-rail data-space-key-owner title="Tap for fast repeat · hold for slower repeat · double-tap to sustain · tap a square to remove"></button><span class="blech-note-rail-cursor" aria-hidden="true"></span><span class="blech-note-rail-preview" aria-hidden="true" hidden></span><span class="blech-note-rail-markers"></span><output class="blech-note-rail-status sr-only" role="status"></output>`;
+  noteRail.innerHTML = `<canvas class="blech-note-rail-grid" aria-hidden="true"></canvas><button type="button" class="blech-note-rail-surface" data-note-rail data-space-key-owner title="Tap to repeat · hold to slow · double-tap to sustain · drag pitches to hold a cluster · tap a square to remove"></button><span class="blech-note-rail-cursor" aria-hidden="true"></span><span class="blech-note-rail-preview" aria-hidden="true" hidden></span><span class="blech-note-rail-markers"></span><output class="blech-note-rail-status sr-only" role="status"></output>`;
   const railColumn = viewport.parentElement?.classList.contains('blech-file-note-column') ? viewport.parentElement : null;
   if (railColumn) railColumn.prepend(noteRail);
   else { noteRail.classList.add('is-overlay'); viewport.append(noteRail); }
@@ -141,7 +152,7 @@ export function mountBlechSpigots(viewport, {
   let mathDraft = null, mathPointerId = null, mathFrame = null, mathDirty = false;
   const MAX_LINE_ANCHORS = 64;
   let shapeFrame = null;
-  let combGesture = null, combPulse = null, combDelayBeats = 2, combLastBlock = 0, combCreated = [], recentCombGestures = [], suppressValvesUntil = 0, revealTimer = null;
+  let combGesture = null, combPulse = null, combDelayBeats = 2, combLastStride = 1, combCreated = [], recentCombGestures = [], suppressValvesUntil = 0, revealTimer = null;
   let crossingGesture = null, crossingPulse = null, crossingPeriod = 1 / 8, suppressCrossingActivation = false, crossingActivationTimer = null;
   let railGesture = null, railPulse = null, railCursor = 60, lastRailTap = null, railSignature = '', railGridAlignment = '', suppressRailActivation = false;
   let pendingEdit = null, editTimer = null, stampTicket = 0, stampBusy = false, stampMenu = null, recentDrawGestures = [];
@@ -253,22 +264,26 @@ export function mountBlechSpigots(viewport, {
     // Dense artwork is parsed once per update, never once per pointer sample.
     if (editTimer === null) editTimer = setTimeout(flushEdit, 80);
   }
-  function combLabel(block) {
-    const output = combSurface.querySelector('[data-comb-status]'), text = block === 0 ? 'ALL' : `${block} ON\n${block} OFF`;
-    if (output.value !== text) output.value = text;
-    combSurface.dataset.block = String(block);
+  function combLabel(stride) {
+    const output = combSurface.querySelector('[data-comb-status]'), text = `1/${stride}`;
+    if (output.value !== text) {
+      output.value = text;
+      combSurface.setAttribute('aria-label', `Left note rail · ${combName(stride)} in each row. Release to play once; drag to paint through time; double-click to remove the last row.`);
+      combSurface.title = `${combName(stride)} · tap to play here · drag to paint time`;
+    }
+    combSurface.dataset.stride = String(stride);
   }
   function drawCombPreview(g, pixels, scale) {
     if (!combGesture) return;
-    const block = blechCombBlock(performance.now() - combGesture.startedAt), y = g.present - combGesture.delayBeats * g.pixelsPerBeat;
+    const stride = blechCombStride(performance.now() - combGesture.startedAt);
+    const block = blechCombBlockNotes(stride, combGesture.startBeat, combGesture.endBeat);
     context.fillStyle = '#c7ff2a'; context.globalAlpha = .9;
-    for (let pitch = 0; pitch < 128; pitch++) {
-      if (!combPitchOn(pitch, block)) continue;
-      const key = pixels[pitch];
-      context.fillRect(key.left / scale, clamp(y - 2, 0, g.present - 4), key.noteWidth / scale, 4);
+    for (const note of block.notes) {
+      const key = pixels[note.note], y = g.present - (block.delayBeats + note.beat) * g.pixelsPerBeat;
+      context.fillRect(key.left / scale, clamp(y - 3, 0, g.present - 6), key.noteWidth / scale, 6);
     }
     context.globalAlpha = 1;
-    combLabel(block);
+    combLabel(stride);
     combSurface.dataset.holding = 'true';
   }
   function drawMathPreview(g, pixels, scale) {
@@ -302,7 +317,7 @@ export function mountBlechSpigots(viewport, {
     railCursorMark.style.left = `${x}px`; railCursorMark.style.setProperty('--rail-key-width', `${width}px`);
     railCursorMark.dataset.black = String(black);
     railSurface.dataset.pitch = String(railCursor);
-    railSurface.setAttribute('aria-label', `Note rail · ${noteName(railCursor)}. Left and right choose pitch; press and hold Enter or Space for a repeating note, press twice to sustain; Delete removes the selected note.`);
+    railSurface.setAttribute('aria-label', `Note rail · ${noteName(railCursor)}. Left and right choose pitch; hold Enter or Space to set repeat speed, press twice to sustain, or drag across keys for a sustained chord. Delete removes the selected note.`);
   }
   function updateCrossingHint(crossing = liveSources().find(source => source.source === 'crossing')) {
     if (!crossingSurface) return;
@@ -310,15 +325,15 @@ export function mountBlechSpigots(viewport, {
     const period = crossingGesture && !active
       ? blechCrossingPeriod(performance.now() - crossingGesture.startedAt, crossingPeriod)
       : crossing?.settings?.periodBeats ?? crossingPeriod;
-    const block = active ? crossing.settings?.block ?? 0 : combLastBlock;
+    const stride = active ? crossing.settings?.stride ?? 1 : combLastStride;
     const interval = `${periodLabel(period)} ${period <= 1 ? 'beat' : 'beats'}`;
     const label = active
-      ? `Stop both rails: ${combName(block)} every ${interval}`
-      : `Loop ${combName(block)} every ${interval}; hold to choose a subdivision; tap again to stop`;
+      ? `Stop both rails: ${combName(stride)} every ${interval}`
+      : `Loop ${combName(stride)} every ${interval}; hold to choose a subdivision; tap again to stop`;
     crossingSurface.setAttribute('aria-pressed', String(active));
     crossingSurface.dataset.playing = String(Boolean(crossing?.playing));
     crossingSurface.dataset.period = String(period);
-    crossingSurface.dataset.block = String(block);
+    crossingSurface.dataset.stride = String(stride);
     crossingSurface.querySelector('.blech-crossing-rate').textContent = periodLabel(period);
     if (crossingSurface.getAttribute('aria-label') !== label) crossingSurface.setAttribute('aria-label', label);
     crossingSurface.title = label;
@@ -330,16 +345,16 @@ export function mountBlechSpigots(viewport, {
     const byId = new Map(current.map(source => [source.id, source]));
     const activeComb = combCreated.filter(row => byId.has(row.id));
     if (!combGesture) {
-      // Once a one-shot row has finished, its chosen pitch blocks still
+      // Once a one-shot row has finished, its chosen pitch spacing still
       // belong to the corner's next loop until the user changes them.
-      const block = activeComb.at(-1)?.block ?? combLastBlock;
-      if (combLastBlock !== block) { combLastBlock = block; combLabel(block); }
+      const stride = activeComb.at(-1)?.stride ?? combLastStride;
+      if (combLastStride !== stride) { combLastStride = stride; combLabel(stride); }
     }
     updateCrossingHint(crossing);
     const signature = [viewport.clientWidth, viewport.clientHeight, getTempo(), alignment,
-      `${crossing?.id ?? ''}:${crossing?.settings?.loop}:${crossing?.settings?.periodBeats}:${crossing?.settings?.block}:${crossing?.playing}`,
+      `${crossing?.id ?? ''}:${crossing?.settings?.loop}:${crossing?.settings?.periodBeats}:${crossing?.settings?.stride}:${crossing?.playing}`,
       ...railLayers.map(source => `${source.id}:${source.score?.analysis?.notes?.[0]?.note}:${source.settings?.periodBeats}:${source.settings?.hold}:${source.playing}:${source.paused}`),
-      ...activeComb.map(row => `${row.id}:${byId.get(row.id).settings?.delayBeats}:${byId.get(row.id).playing}`)].join('|');
+      ...activeComb.map(row => `${row.id}:${byId.get(row.id).delayBeats}:${byId.get(row.id).durationBeats}:${byId.get(row.id).playing}`)].join('|');
     if (!force && signature === railSignature) return;
     railSignature = signature;
     const g = geometry();
@@ -384,9 +399,14 @@ export function mountBlechSpigots(viewport, {
       const marks = combSurface.querySelector('.blech-comb-markers');
       marks.replaceChildren(...activeComb.map(row => {
         const mark = document.createElement('span'); mark.className = 'blech-comb-marker';
-        mark.dataset.playing = String(byId.get(row.id).playing);
-        mark.style.top = `${(railColumn ? noteRail.offsetHeight : 0)
-          + clamp(g.present - (byId.get(row.id).settings?.delayBeats ?? 0) * g.pixelsPerBeat, 4, Math.max(4, g.present - 4))}px`;
+        const source = byId.get(row.id), offset = railColumn ? noteRail.offsetHeight : 0;
+        const first = source.delayBeats ?? 0, last = first + (source.notes?.at(-1)?.beat ?? 0);
+        const near = clamp(g.present - first * g.pixelsPerBeat, 4, Math.max(4, g.present - 4));
+        const far = clamp(g.present - last * g.pixelsPerBeat, 4, Math.max(4, g.present - 4));
+        mark.dataset.railId = row.id;
+        mark.dataset.playing = String(source.playing);
+        mark.style.top = `${offset + (near + far) / 2}px`;
+        mark.style.height = `${Math.max(12, near - far + 6)}px`;
         return mark;
       }));
     }
@@ -410,7 +430,8 @@ export function mountBlechSpigots(viewport, {
     const valveCount = (mode === 'select' || compactValves ? 5 : 6) - Number(cornerOnlyLoop);
     const valveWidth = valveCount * (coarse ? 48 : 40) + (valveCount - 1) * 4 + 6;
     overlay.style.height = `${Math.max(0, g.present - 2)}px`; canvas.style.height = `${g.height}px`;
-    if (combSurface) combSurface.style.height = `${Math.max(48, g.height + (railColumn ? noteRail.offsetHeight : 0))}px`;
+    // The left rail ends at the keyboard, not below it in the past-note area.
+    if (combSurface) combSurface.style.height = `${Math.max(48, g.present + (railColumn ? noteRail.offsetHeight : 0))}px`;
     overlay.dataset.mode = mode; overlay.dataset.geometry = getDrawingGesture(mode)?.tool ?? 'pencil';
     surface.style.height = `${Math.max(0, g.present - 2)}px`; surface.tabIndex = mode === 'select' ? -1 : 0;
     surface.setAttribute('aria-label', mode === 'draw' && getDrawingGesture(mode)?.tool === 'line'
@@ -435,7 +456,7 @@ export function mountBlechSpigots(viewport, {
     for (const control of selection.querySelectorAll('button')) control.tabIndex = mode === 'select' || frameControls && control.closest('.blech-spigot-valves') ? 0 : -1;
     if (!source) {
       drawGeometryPreview(g, inkPixels, dpr);
-      // During a Comb hold, show only its selected pitch blocks, not the
+      // During a Comb hold, show only its selected pitches, not the
       // unrelated Free Math preview beneath them. Restore Math on release.
       if (!combGesture) drawMathPreview(g, inkPixels, dpr);
       drawCombPreview(g, inkPixels, dpr);
@@ -538,7 +559,7 @@ export function mountBlechSpigots(viewport, {
     const loop = $('[data-spigot-loop]');
     loop.hidden = cornerOnlyLoop; loop.disabled = cornerOnlyLoop;
     loop.setAttribute('aria-pressed', String(Boolean(settings.loop)));
-    const notes = source.score?.analysis?.notes ?? [], stride = Math.max(1, Math.ceil(notes.length / 4096)); context.fillStyle = '#ff4f92'; context.globalAlpha = .55;
+    const notes = source.score?.analysis?.notes ?? [], stride = Math.max(1, Math.ceil(notes.length / 4096)); context.fillStyle = '#ff2532'; context.globalAlpha = .55;
     for (let i = 0; i < notes.length; i += stride) {
       const note = notes[i], key = inkPixels[note.note]; if (!key) continue;
       const y = g.present - (d.delayBeats + note.beat + note.duration) * g.pixelsPerBeat, end = g.present - (d.delayBeats + note.beat) * g.pixelsPerBeat;
@@ -617,21 +638,24 @@ export function mountBlechSpigots(viewport, {
     return spigotPoint(event.clientX - rect.left, event.clientY - rect.top, spigotGeometry(rect.width, rect.height, getTempo(), getView()));
   }
   let combActivationTimer = null, suppressCombActivation = false;
-  function combPoint(event, startY) {
-    return quarter(clamp((startY - event.clientY) / Math.max(.001, geometry().pixelsPerBeat), 0, 64));
+  function combPoint(event) {
+    const g = geometry(), rect = viewport.getBoundingClientRect();
+    return quarter(clamp((rect.top + g.present - event.clientY) / Math.max(.001, g.pixelsPerBeat), 0, 64));
   }
   function beginComb(event = null) {
     if (!combSurface || !onCreateComb || disposed || combGesture || brush || drag) return;
+    const startBeat = event ? combPoint(event) : combDelayBeats;
+    const marker = event && [...combSurface.querySelectorAll('.blech-comb-marker')]
+      .find(mark => { const rect = mark.getBoundingClientRect(); return event.clientY >= rect.top - 5 && event.clientY <= rect.bottom + 5; });
     if (event) {
       event.preventDefault(); combSurface.focus({ preventScroll: true });
-      // A tap sounds now, even high up the bar. Drag upward to put the chord
-      // further into the future; a steady hold changes its on/off pitch blocks.
-      combDelayBeats = 0; combSurface.setPointerCapture(event.pointerId);
+      combDelayBeats = startBeat; combSurface.setPointerCapture(event.pointerId);
     }
     const active = new Set(liveSources().map(source => source.id));
     combCreated = combCreated.filter(row => active.has(row.id));
-    combGesture = { pointerId: event?.pointerId ?? null, startedAt: performance.now(), delayBeats: combDelayBeats,
-      x: event?.clientX, y: event?.clientY, dragging: false, priorCombId: combCreated.at(-1)?.id ?? null, priorSelectionId: selectedId };
+    combGesture = { pointerId: event?.pointerId ?? null, startedAt: performance.now(), startBeat, endBeat: startBeat,
+      x: event?.clientX, y: event?.clientY, dragging: false, markerId: marker?.dataset.railId ?? null,
+      priorCombId: combCreated.at(-1)?.id ?? null, priorSelectionId: selectedId };
     combPulse = setInterval(render, 100); render();
   }
   function finishComb(cancelled = false) {
@@ -639,31 +663,40 @@ export function mountBlechSpigots(viewport, {
     const previous = combGesture; combGesture = null;
     clearInterval(combPulse); combPulse = null;
     if (previous.pointerId !== null && combSurface.hasPointerCapture?.(previous.pointerId)) combSurface.releasePointerCapture(previous.pointerId);
-    const block = blechCombBlock(performance.now() - previous.startedAt), notes = blechCombNotes(block);
     combSurface.dataset.holding = 'false';
+    if (!cancelled && previous.markerId && !previous.dragging) {
+      act(() => onRemove?.(previous.markerId));
+      combCreated = combCreated.filter(row => row.id !== previous.markerId);
+      recentCombGestures = [];
+      status('Left-rail row removed.'); render(true); return;
+    }
+    const stride = blechCombStride(performance.now() - previous.startedAt);
+    const { notes, delayBeats, rows } = blechCombBlockNotes(stride, previous.startBeat, previous.endBeat);
     if (!cancelled) {
-      const result = act(() => onCreateComb?.({ block, notes, delayBeats: previous.delayBeats, name: combName(block) }));
+      const result = act(() => onCreateComb?.({ stride, notes, delayBeats,
+        name: `${combName(stride)}${rows > 1 ? ` · ${rows} rows` : ''}` }));
       if (result?.id && liveSources().some(source => source.id === result.id)) {
-        combCreated.push({ id: result.id, block });
+        combCreated.push({ id: result.id, stride });
         if (previous.pointerId !== null && performance.now() - previous.startedAt <= 350 && !previous.dragging) {
           recentCombGestures.push({ id: result.id, x: previous.x, y: previous.y, endedAt: performance.now(),
             priorCombId: previous.priorCombId, priorSelectionId: previous.priorSelectionId });
           recentCombGestures = recentCombGestures.slice(-2);
         } else recentCombGestures = [];
-        combLastBlock = block;
-        status(`${combName(block)} · ${notes.length} notes · plays once. Only the corner repeats this pattern.`);
+        combLastStride = stride;
+        status(`${combName(stride)} · ${rows} row${rows === 1 ? '' : 's'} · ${notes.length} notes · plays once. Only the corner repeats.`);
       }
     } else recentCombGestures = [];
-    combLabel(combLastBlock);
+    combLabel(combLastStride);
     render(mode === 'math' && Boolean(mathDraft));
   }
   if (combSurface) {
     listen(combSurface, 'pointerdown', event => { if (event.button === 0 && event.isPrimary) beginComb(event); });
     listen(combSurface, 'pointermove', event => {
       if (combGesture?.pointerId !== event.pointerId) return;
-      if (Math.abs(event.clientY - combGesture.y) > 6 || combGesture.dragging) {
+      const beat = combPoint(event);
+      if (Math.abs(event.clientY - combGesture.y) > 6 || beat !== combGesture.startBeat || combGesture.dragging) {
         combGesture.dragging = true;
-        combGesture.delayBeats = combDelayBeats = combPoint(event, combGesture.y);
+        combGesture.endBeat = beat; combDelayBeats = beat;
         render();
       }
     });
@@ -683,19 +716,22 @@ export function mountBlechSpigots(viewport, {
       for (const id of remove) act(() => onRemove?.(id));
       const remaining = new Set(liveSources().map(source => source.id));
       combCreated = combCreated.filter(row => remaining.has(row.id));
-      combLastBlock = combCreated.at(-1)?.block ?? 0;
-      combLabel(combLastBlock);
+      combLastStride = combCreated.at(-1)?.stride ?? 1;
+      combLabel(combLastStride);
       const restore = near[0].priorSelectionId;
       if (selectedId !== restore) setSelection(sources().some(source => source.id === restore) ? restore : null);
-      status(target && active.has(target) ? 'Deleted the last Comb row.' : 'Double-click cancelled the new Comb row.');
+      status(target && active.has(target) ? 'Deleted the last left-rail row.' : 'Double-click cancelled the new left-rail row.');
     });
     listen(combSurface, 'keydown', event => {
       if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
         combDelayBeats = event.key === 'Home' ? 0 : event.key === 'End' ? 64
           : quarter(clamp(combDelayBeats + (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 1 : .25), 0, 64));
-        if (combGesture?.pointerId === null) combGesture.delayBeats = combDelayBeats;
-        status(`Pitch comb · ${combDelayBeats} beats before the keyboard.`);
+        if (combGesture?.pointerId === null) {
+          combGesture.endBeat = combDelayBeats;
+          combGesture.dragging = combGesture.startBeat !== combDelayBeats;
+        }
+        status(`Left rail · ${combDelayBeats} beats before the keyboard.`);
         render();
       }
       if (['Enter', ' '].includes(event.key)) { event.preventDefault(); if (!event.repeat) beginComb(); }
@@ -720,10 +756,10 @@ export function mountBlechSpigots(viewport, {
         status('Both rails stopped.'); render(true); return;
       }
     }
-    const block = combLastBlock;
-    const result = act(() => onCreateCrossing({ notes: blechCrossingNotes(block, period), block, periodBeats: period }));
+    const stride = combLastStride;
+    const result = act(() => onCreateCrossing({ notes: blechCrossingNotes(stride, period), stride, periodBeats: period }));
     if (result?.id && liveSources().some(source => source.id === result.id))
-      status(`Both rails · ${combName(block)} every ${periodLabel(period)} ${period <= 1 ? 'beat' : 'beats'}. Tap the corner again to stop.`);
+      status(`Both rails · ${combName(stride)} every ${periodLabel(period)} ${period <= 1 ? 'beat' : 'beats'}. Tap the corner again to stop.`);
     render(true);
   }
   function beginCrossing(event = null) {
@@ -794,6 +830,16 @@ export function mountBlechSpigots(viewport, {
     railPreview.hidden = false; railPreview.style.left = `${x}px`;
     railPreview.style.setProperty('--rail-key-width', `${width}px`);
     railPreview.dataset.black = String(black);
+    const cluster = railGesture.pitches.size > 1;
+    railPreview.dataset.cluster = String(cluster);
+    if (cluster) {
+      const keys = [...railGesture.pitches], low = Math.min(...keys), high = Math.max(...keys);
+      const left = g.layout[low].x * g.width, right = (g.layout[high].x + g.layout[high].width) * g.width;
+      railPreview.style.left = `${left}px`; railPreview.style.width = `${Math.max(2, right - left)}px`;
+      railPreview.dataset.held = 'true'; railPreview.textContent = '';
+      return;
+    }
+    railPreview.style.removeProperty('width');
     const doubleTap = railGesture.id && lastRailTap?.id === railGesture.id
       && performance.now() - lastRailTap.at <= 550;
     railPreview.dataset.held = String(Boolean(doubleTap));
@@ -811,9 +857,16 @@ export function mountBlechSpigots(viewport, {
       if (!id) railSurface.focus({ preventScroll: true });
     }
     railCursor = pitch; railCursorPosition(geometry());
-    railGesture = { pointerId: event?.pointerId ?? null, id, pitch, startedAt: performance.now() };
+    railGesture = { pointerId: event?.pointerId ?? null, id, pitch, pitches: new Set([pitch]), startedAt: performance.now() };
     updateRailPreview();
     railPulse = setInterval(updateRailPreview, 80); // Visual feedback only; audio uses the MIDI clock.
+  }
+  function visitRailPitch(pitch) {
+    if (!railGesture || pitch === railGesture.pitch || pitch === null) return;
+    const from = railGesture.pitch, direction = pitch > from ? 1 : -1;
+    for (let note = from; note !== pitch + direction; note += direction) railGesture.pitches.add(note);
+    railGesture.pitch = railCursor = pitch;
+    railCursorPosition(geometry()); updateRailPreview();
   }
   function removeRail(id) {
     if (!liveSources().some(source => source.id === id && source.source === 'rail')) return false;
@@ -831,6 +884,13 @@ export function mountBlechSpigots(viewport, {
       noteRail.releasePointerCapture(gesture.pointerId);
     if (cancelled) { lastRailTap = null; return; }
     const now = performance.now(), pitch = gesture.pitch;
+    if (gesture.pitches.size > 1) {
+      const pitches = [...gesture.pitches].sort((a, b) => a - b);
+      const results = act(() => onCreateRailCluster?.(pitches));
+      if (Array.isArray(results) && results.length)
+        railStatus.value = `${results.length} pitches sustained. Tap their squares to remove them.`;
+      lastRailTap = null; refreshRails(liveSources()); return;
+    }
     const prior = lastRailTap?.pitch === pitch && now - lastRailTap.at <= 550
       && liveSources().some(source => source.id === lastRailTap.id) ? lastRailTap : null;
     if (gesture.id && gesture.id !== prior?.id) {
@@ -859,15 +919,11 @@ export function mountBlechSpigots(viewport, {
   });
   listen(noteRail, 'pointermove', event => {
     if (railGesture?.pointerId !== event.pointerId) return;
-    const pitch = railPitch(event);
-    if (pitch !== railGesture.pitch) {
-      railGesture.pitch = railCursor = pitch;
-      railGesture.id = railAtPitch(pitch);
-      railCursorPosition(geometry()); updateRailPreview();
-    }
+    for (const point of event.getCoalescedEvents?.() ?? [event]) visitRailPitch(railPitch(point));
+    visitRailPitch(railPitch(event));
   });
   listen(noteRail, 'pointerup', event => {
-    if (railGesture?.pointerId === event.pointerId) finishRail();
+    if (railGesture?.pointerId === event.pointerId) { visitRailPitch(railPitch(event)); finishRail(); }
   });
   for (const type of ['pointercancel', 'lostpointercapture'])
     listen(noteRail, type, event => { if (railGesture?.pointerId === event.pointerId) finishRail(true); });
@@ -878,7 +934,7 @@ export function mountBlechSpigots(viewport, {
     if (Object.hasOwn(directions, event.key) || ['Home', 'End'].includes(event.key)) {
       event.preventDefault();
       railCursor = event.key === 'Home' ? 0 : event.key === 'End' ? 127 : Math.round(clamp(railCursor + directions[event.key], 0, 127));
-      if (railGesture) railGesture.pitch = railCursor;
+      if (railGesture) visitRailPitch(railCursor);
       railCursorPosition(geometry()); updateRailPreview();
       railStatus.value = noteName(railCursor);
     }

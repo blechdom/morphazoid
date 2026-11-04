@@ -603,7 +603,15 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   }
   function getTextLayer(sampleId) {
     const record = textRecord(sampleId);
-    return record ? { sampleId, settings: structuredClone(record.score.textSettings) } : null;
+    if (!record) return null;
+    const settings = structuredClone(record.score.textSettings);
+    if (settings.freeStyle) {
+      // Free Text edits should open with the *current* layer mix, including
+      // changes made from Layers after the original word was dropped.
+      const sample = engine.state.samples.find(item => item.id === sampleId);
+      if (sample) { settings.channel = sample.channel ?? 0; settings.gain = sample.gain; }
+    }
+    return { sampleId, settings };
   }
   function setLayerSourceTransform(sampleId, { sourceScore, settings } = {}) {
     const record = textRecord(sampleId); if (!record || !sourceScore?.textSettings || !settings) return;
@@ -626,6 +634,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (!result) return false;
     const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };
     record.pendingTextEdit = result.pendingReplacement ? { ...previous, sampleId, token: result.pendingReplacement.token } : null;
+    if (snapshot.textSettings.freeStyle) {
+      // Saved-pad replays must use the edited mix, not the first Drop's mix.
+      record.playback.channel = snapshot.textSettings.channel;
+      record.playback.gain = snapshot.textSettings.gain;
+    }
     updateSavedScore(record, snapshot, label); reflectPads();
     return result;
   }

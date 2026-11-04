@@ -7,7 +7,7 @@
 .blech-pitch-comb button { box-sizing: border-box; position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 5px 1px; border: 0; border-radius: 0; background: transparent; color: inherit; cursor: pointer; touch-action: none; font: 10px/1.2 monospace; }
 .blech-pitch-comb button::before { content: ""; position: absolute; z-index: -1; inset: 0 2px; border-right: 1px solid #748075; background: #3b423d; }
 .blech-pitch-comb button:hover, .blech-pitch-comb button[data-holding="true"] { color: var(--blech-acid); }
-.blech-pitch-comb button:hover::before, .blech-pitch-comb button[data-holding="true"]::before { background: #472338; }
+.blech-pitch-comb button:hover::before, .blech-pitch-comb button[data-holding="true"]::before { background: #21433d; }
 .blech-pitch-comb button:focus-visible { outline: 2px solid var(--blech-paper); outline-offset: -3px; }
 .blech-pitch-comb .blech-rail-crossing { position: absolute; z-index: 2; top: 0; left: 0; display: grid; place-items: center; width: 36px; height: 36px; min-height: 0; padding: 0; border: 1px solid #748075; background: #3b423d; color: var(--blech-paper); }
 .blech-pitch-comb .blech-rail-crossing::before { content: none; }
@@ -19,7 +19,7 @@
 .blech-comb-icon { font-size: 20px; letter-spacing: -3px; }
 .blech-pitch-comb output { font-weight: 700; font-size: 9px; line-height: 1.15; text-align: center; white-space: pre-line; color: var(--blech-acid); }
 .blech-comb-markers { position: absolute; inset: 0; pointer-events: none; }
-.blech-comb-marker { position: absolute; left: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); background: var(--blech-acid); border: 1px solid var(--blech-paper); box-sizing: border-box; box-shadow: 0 0 6px #c7ff2a66; }
+.blech-comb-marker { position: absolute; left: 50%; width: 12px; min-height: 12px; transform: translate(-50%, -50%); background: repeating-linear-gradient(to bottom, var(--blech-acid) 0 6px, #141f1a 6px 8px); border: 1px solid var(--blech-paper); box-sizing: border-box; box-shadow: 0 0 6px #c7ff2a66; }
 .blech-comb-marker[data-playing="false"] { opacity: .45; box-shadow: none; }
 .blech-note-rail { position: relative; z-index: 6; box-sizing: border-box; flex: 0 0 36px; width: 100%; height: 36px; border-block: 1px solid #748075; background: #3b423d; touch-action: none; }
 .blech-note-rail.is-overlay { position: absolute; top: 0; left: 0; right: 0; }
@@ -37,18 +37,19 @@
 .blech-note-rail-surface:focus-visible ~ .blech-note-rail-cursor { opacity: 1; }
 .blech-note-rail-preview { z-index: 2; display: grid; place-items: center; background: #1b241b; border: 1px solid var(--blech-acid); color: #fff; font: 10px/1 ui-monospace, monospace; white-space: nowrap; }
 .blech-note-rail-preview[data-held="true"] { border-width: 2px; background: transparent; }
+.blech-note-rail-preview[data-cluster="true"] { transform: translateY(-50%); border-color: var(--blech-acid); }
 .blech-note-rail-preview[hidden] { display: none; }
 .blech-midi-stage .blech-file-viewport #blackFullscreen { top: 42px; z-index: 6; }
 .blech-spigot-overlay { position: absolute; inset: 0; z-index: 4; overflow: hidden; pointer-events: none; }
 .blech-spigot-preview { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .blech-spigot-paint { position: absolute; inset: 0 0 auto; pointer-events: none; touch-action: none; outline-offset: -3px; }
-.blech-spigot-notice { position: absolute; z-index: 12; top: 38px; left: 8px; box-sizing: border-box; max-width: min(340px, calc(100% - 16px)); padding: 7px 10px; pointer-events: none; background: #35202c; border: 1px solid var(--blech-hot); color: var(--blech-paper); font: 12px/1.4 sans-serif; }
+.blech-spigot-notice { position: absolute; z-index: 12; top: 38px; left: 8px; box-sizing: border-box; max-width: min(340px, calc(100% - 16px)); padding: 7px 10px; pointer-events: none; background: #331818; border: 1px solid var(--blech-hot); color: var(--blech-paper); font: 12px/1.4 sans-serif; }
 .blech-spigot-notice[hidden] { display: none; }
 .blech-spigot-overlay[data-mode="stamp"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="draw"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="erase"] .blech-spigot-paint, .blech-spigot-overlay[data-mode="math"] .blech-spigot-paint { pointer-events: auto; cursor: crosshair; }
 .blech-spigot-paint:focus-visible { outline: 2px solid var(--blech-paper); }
 .blech-spigot-selection[hidden] { display: none; }
 .blech-spigot-label { position: absolute; z-index: 1; padding: 2px 4px; pointer-events: none; background: #101610d9; color: var(--blech-paper); font: 10px monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.blech-spigot-move { position: absolute; pointer-events: auto; touch-action: none; cursor: move; background: #ff4f9210; border: 1px dashed var(--blech-hot); border-radius: 0; padding: 0; min-height: 0; }
+.blech-spigot-move { position: absolute; pointer-events: auto; touch-action: none; cursor: move; background: #ff253210; border: 1px dashed var(--blech-hot); border-radius: 0; padding: 0; min-height: 0; }
 .blech-spigot-move:focus-visible { outline: 2px solid var(--blech-paper); outline-offset: -3px; }
 .blech-spigot-selection .blech-spigot-grip { position: absolute; z-index: 3; pointer-events: auto; touch-action: none; transform: translate(-50%, -50%); box-sizing: border-box; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0; border: 8px solid transparent; border-radius: 0; background: var(--blech-hot); background-clip: padding-box; }
 .blech-spigot-selection .blech-spigot-grip::after { content: ""; position: absolute; inset: -1px; border: 1px solid var(--blech-paper); pointer-events: none; }

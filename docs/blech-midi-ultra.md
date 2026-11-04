@@ -6,6 +6,13 @@ its BLECH-owned modules, styling, mark and guide are separate copies so work
 on BLECH MIDI need not change this version. Shared MIDI Mixer, Midiophilia,
 SoundFont and site infrastructure remain shared.
 
+The title uses keshikan’s unmodified
+[DSEG14 Classic Mini Bold](https://github.com/keshikan/DSEG/releases/tag/v0.46)
+font, self-hosted under the SIL Open Font License 1.1. Its
+[complete license](../assets/blech-midi-ultra/DSEG-LICENSE.txt) ships beside
+the WOFF2 font. The words have extra spacing; the original BLECH MIDI title
+is unchanged.
+
 Drawing, black MIDI and geometric stamps,
 words, MIDI artwork, the Black MIDI file player and live Automatapoeia evolution
 share one falling-note stage. The light-trail visualizer, ordinary file player and two-deck
@@ -102,10 +109,11 @@ are independent of the GM SoundFont bank, master output volume and existing
 layers. Draw options share their next-drop settings. Choosing a channel does
 not request an external MIDI device.
 
-After Drop, the prepared overlay hides and the new layer appears in **Layers**,
-queued until its delay expires. The falling forecast then reaches the keyboard
-when its notes sound. A finished one-shot keeps its layer controls for replay;
-a loop continues until closed or stopped. Edit another
+After Drop, the silent preview closes; the new layer appears in **Layers** with
+its editable frame selected, including for a looping workbox. The frame's
+checkmark tucks it into Layers without stopping playback. The falling forecast
+reaches the keyboard when the layer's delay expires. A finished one-shot keeps
+its controls for replay; a loop continues until closed or stopped. Edit another
 draft while that snapshot plays. The floating workbox toolbar handles Loop and Drop.
 Files Stop ends only the file transport; Automata has its own Play/Pause.
 Use an individual layer's **×** to remove one copy or **Trash** to delete all.
@@ -178,7 +186,9 @@ works with any selected tool, even while a workbox is open. Tap a pitch to repea
 beat; keep pressing before release for slower pulses (½, 1, 2, 4 or 8 beats).
 The note is on for half a cycle and off for the other half. Double-tap at the
 same pitch to replace that first pulse with one sustained note; its rail mark is
-outlined and its note grows an outline below the keyboard while held. In Piano
+outlined and an outline immediately connects it to the keyboard from above
+while the note is held. Drag across pitches to sustain a cluster; each pitch
+gets its own rail mark and outline. In Piano
 alignment each black or white key has a separate, filled rectangle across the full rail
 height; black-key rectangles are narrower. Equal alignment uses 128 even columns.
 A colored mark stays inside each active note's pitch rectangle in the
@@ -186,10 +196,9 @@ rail: tap it again (after the double-tap window) to remove that note. Arrow
 keys choose a pitch (Shift moves an octave), Enter or Space can be held to set
 the rate, pressing twice sustains, and Delete removes the selected pitch.
 The master MIDI clock drives the notes, not a visual timer. Rail notes do not
-create Layers. Four active MIDI clip slots are available: a fifth rail note
-reports that limit rather than
-replacing another sound. Rail notes keep their slots when other tools start
-layers. The rail never turns on Audio.
+create Layers or consume any of the four editable clip slots. All 128 pitches
+can sustain simultaneously on an independent, audio-clock-driven rail bus;
+other tools can start layers without displacing them. The rail never turns on Audio.
 
 **Workbox → Draw** lets you draw a silent, editable box directly above the
 keyboard. Release the pointer to inspect or add another stroke; choose Loop to
@@ -200,32 +209,36 @@ the previous four master beats (even with past trails hidden); it opens an
 editable workbox without changing the original performance. Catch again
 updates that draft. It cannot select unheard future notes.
 
-The narrow grey **Comb** at the left of the falling graphic makes a horizontal chord
-across the full 128-pitch keyboard. Tap anywhere on the bar to play every pitch
-immediately; keep holding to preview repeating blocks across the pitches:
-one note on / one off (after about 0.42 seconds), two on / two off (after about
-1.42 seconds), three on / three off, and so on up to eight on / eight off.
-The leftmost pitch starts each pattern on. Drag up before release to delay the row.
-Each release makes one quieter, quarter-beat one-shot row without a layer.
-A small square appears on the left rail while its notes play, then disappears.
+The narrow grey **left note rail** ends alongside the playable area, above the
+keyboard. Where you tap sets the time of a single horizontal row across the
+128-pitch keyboard; the row falls to the keyboard from that position.
+Keep holding to preview every second pitch (after about 0.25 seconds),
+every third (0.8 seconds), fourth (1.35 seconds), fifth (1.9 seconds),
+and so on up to every sixteenth, at the same hold-step pace as the top rail.
+Spacing reads **1/1**, **1/2**, **1/3**, **1/4**, **1/5**… instead of
+showing pitch blocks; the leftmost pitch always sounds.
+Selected pitches preview above the keyboard while holding. Drag along the
+left rail before release to paint a block of distinct rows through musical
+time. Each release makes a quieter one-shot row or block without a layer;
+the left rail alone never loops. A little mark shows its time span until
+the notes have finished.
 The whole bar accepts a press, including near the keyboard. Double-click the
-rail to cancel the two quick rows and stop the last active Comb row. Other
-sounds are untouched. The same on/off blocks repeat *across the pitches*, not
-over time. Only the upper corner makes a repeating version of this pattern.
+rail to cancel the two quick rows and stop the last active left-rail row. Other
+sounds are untouched. The skipped notes are *across the pitches*, not over
+time. Only the upper corner makes a repeating version of this pattern.
 
-The small **grid square** where the left Comb meets the top note rail switches
-**Both rails** on and off. It repeats the most recent Comb's selected pitch blocks
-at the beat subdivision shown in the square. With no Comb row yet, a quick tap
+The small **grid square** where the left rail meets the top note rail switches
+**Both rails** on and off. It repeats the most recent left rail's selected pitches
+at the beat subdivision shown in the square. With no left-rail row yet, a quick tap
 loops all 128 pitches together every **1/8 beat**. Hold the square before release
 to choose 1/4, 1/2, 1, 2, 4 or 8 beats between rows; the note gate occupies
 half of that interval. The chosen rate stays displayed for the next quick tap.
-Tap again to stop and remove *only* that repeating grid; one-shot Comb rows and
-top-rail notes remain. To change a running grid's pitch blocks, stop it and tap
-the corner again after selecting a different Comb block. The grid's default
-gain is low because the simultaneous attack is dense. It uses one reserved
-audio clip, not 128 separate clips or a layer. If all
-four sound slots are occupied, remove a sound before switching it on; it never
-steals another layer or rail note.
+Tap again to stop and remove *only* that repeating grid; one-shot left-rail rows and
+top-rail notes remain. To change a running grid's pitch spacing, stop it and tap
+the corner again after selecting a different left-rail spacing. The grid's default
+gain is low because the simultaneous attack is dense. It repeats from the
+independent rail bus, not from a Layer or any of the four editable clip
+slots. All 128 pitches can play on the rail at once.
 Pause and Resume retain the square's selection; tap it again or use Trash to
 clear it. It never turns on Audio.
 
@@ -257,7 +270,7 @@ grips to the gear so they cannot collide with the stage controls.
 A looping Workbox Drop keeps its frame while it loops. Free Draw and the rails
 stay unboxed and out of Layers; use Workbox → Draw for an editable pattern.
 The frame's small Play/Pause pauses or replays an editable layer; the corner
-square alone repeats Comb patterns. **Transform** reveals the existing move, resize and rotation
+square alone repeats left-rail patterns. **Transform** reveals the existing move, resize and rotation
 handles; the playing layer's gear opens the same exact Pitch, Delay, Width, Height, Rotation and
 Instrument editor as a layer selected from the rack. The checkmark tucks the
 frame away but keeps the layer in Layers; select that row to reopen it.
@@ -355,8 +368,8 @@ creator AUDIO edition. The complete score still has the limits below.
 choose piano-key spacing or equal pitch lanes. All tracks overlap on the same
 keyboard. Track checkboxes isolate only the picture, and per-track color
 selectors, six palettes and track/channel/pitch/velocity mappings differentiate
-voices. ULTRA (logo green, hot pink, yellow, BLECH MIDI red and blue) is the
-default; the other palettes remain available. Switching away from Visuals
+voices. ULTRA (logo lime, the original BLECH MIDI red, fluorescent turquoise,
+yellow and warm white) is the default; the other palettes remain available. Switching away from Visuals
 preserves the file clock.
 
 The keyboard is the **present**: upcoming notes descend above it, and played
@@ -379,10 +392,10 @@ tools such as Wasabi; our browser GPU path is WebGL2. This is an original
 Piano From Above-style presentation, not a port of that application.
 
 The upper-right edge of the graphic shows one lightweight trip-style **Notes
-played** total for files, generated
-layers, live Automata and keyboard attacks since Reset. Repeated loops add to
+played** total for files, layers, Free Draw, rails, live Automata and keyboard
+attacks since Reset. Repeated loops add to
 the total; seeking, rewinding or selecting a file does not count skipped notes.
-Stopping keeps the total. The zero-arrow button to the left clears it without interrupting
+Stopping keeps the total. The small trip-meter plunger button to the left clears it without interrupting
 playback. Pending drops and held-note rejoins add no attacks.
 These are source-note counts before MIDI effects and synthesizer voice limits;
 they do not depend on how many rectangles fit on screen. Full-file totals and
@@ -474,11 +487,19 @@ double-click can latch a pulse. A double-clicked Held note is not a layer:
 master Pause releases its gate, and Trash clears it. Removing a layer ends its
 loop immediately.
 
-Four audio clip slots are shared by layers and temporary Free Draw/rail sounds.
-A fifth Drop replaces the oldest unpinned playing clip; paused layers and
-pinned note-rail sounds are retained. If every occupied slot is paused or pinned
-by the rail, stop a sound or remove a rail square before adding another; a visible canvas notice
-explains why a new stamp did not play. **Trash** is the page-wide delete action; Play/Pause
+Four sounding clip slots are shared by editable layers and temporary Free Draw
+sounds. A fifth Free Stamp or Drop can stop the oldest unpinned playing clip
+to make room, but its editable layer remains in Layers for replay. Six
+stamps can therefore remain as six distinct layers without six simultaneous
+clip slots.
+If all four clips are paused, Play to resume one or remove a layer before
+placing another; a visible canvas notice explains why it was not added.
+The top rail, left-rail one-shots and looping corner instead share a
+separate, audio-clock-driven bus: they never steal clip slots or appear in Layers.
+It supports 128 simultaneous sustained pitches; its safety ceilings are 192
+rail sources, 384 active rail voices, 4,096 notes per left-rail block and
+1,024 rail events per audio block. An oversized block is bounded rather than
+delaying the audio clock. **Trash** is the page-wide delete action; Play/Pause
 stops playback without deleting layers. Up to 16 spigots retain their source
 for replay; a seventeenth layer reports an error rather
 than silently removing an earlier performance. This does not increase the four
@@ -497,9 +518,14 @@ controls and never arms Audio. Inside the drawing canvas, arrows move, Space or
 Enter paints, Delete erases, and Ctrl/Cmd+Z undoes. One captured stroke is one
 undo action. Generator icons and Draw-option tabs support Left/Right and Home/End.
 
-The stamp pulldown combines generated textures and bundled black MIDI/geometric
-files. Its filter searches names and collections; each result
-has a thumbnail. Selecting prepares a copy. Shared Drop launches it. Selecting
+Free Stamp and Math share a compact grid of pictured choices and a searchable
+pulldown. Narrow stamp thumbnails are framed and enlarged within their picture
+tiles without changing their MIDI pitch or size when placed.
+The stamp collection combines generated textures and bundled black MIDI/geometric
+files; its filter searches names and collections. Free Stamp places a one-shot
+copy each time you tap the stage, even after several stamps. A Free Stamp
+remains an editable layer, unlike Free Draw or the rails. Selecting
+in a prepared workbox instead readies a silent copy for its explicit Drop. Selecting
 another file cancels an unfinished preparation download without stopping
 already-playing layers. Wave, Zigzag, Braid, Stripes, Chevrons, Lattice, Mesh
 and Ladder fill the phrase and match at the top and bottom, so repeated copies
@@ -790,17 +816,31 @@ there; tapping with no word just moves the cursor. Formatting controls do not
 drop the word. Press **Escape** to cancel without sounding. The keyboard
 remains playable below the field.
 Font and size appear beside the cursor with **B** (bold), **I** (italic), and
-**↔/↕** (horizontal/vertical). Ctrl/⌘ B and I toggle the same styles while
-typing. Six browser-font stacks (Sans, Serif, Mono, Round, Poster, Hand) work
-offline; the browser rasterizes the selected face into the actual MIDI notes,
-so exact letter outlines depend on fonts installed on the device but the dropped
-MIDI stays fixed. Horizontal words cross pitches; vertical words stack upright
-letters in time. Large words wrap before reaching the keyboard's right edge.
+**↔/↕** (horizontal/vertical), a **ch1–ch16** selector and a 0–127 volume
+knob. Set channel and level *before* Return or tapping elsewhere to drop;
+each dropped word retains its settings, and the controls keep their values
+for the next word until changed. Ctrl/⌘ B and I toggle the same
+styles while typing. **Digital** is the default: the typing cursor uses the
+self-hosted clock face, while its MIDI notes use authored 7×7 segment letters.
+**Arcade** (5×7), **Square** and **Chunky** (7×7) are other square, authored
+note fonts—not browser faces squeezed into the MIDI grid. Each cell is at
+least one whole pitch and one time row; Bold and Italic also reshape the
+notes. Horizontal words cross pitches; vertical words turn as a
+whole 90° counterclockwise, with the first letter nearest the keyboard and
+first to play. A 90° turn keeps each note pixel's pitch width and beat height
+at the selected size instead of swapping a wide cell for a thin one. Long
+vertical words wrap into adjacent pitch bands rather than clipping; if an
+especially long styled word would exceed 128 pitches, its size steps down
+to fit. Large horizontal words wrap before reaching the keyboard's right edge.
 Select a dropped Free Text layer's Edit button to return to its inline editor
 without stopping it; Return applies the new word. The corner menu opens the
-advanced **Text workbox** for loops and longer documents, retaining its authored
-pixel-font choices. The separate Text icon beside an empty Workbox places silent
-lettering *inside* that box until its Drop.
+advanced **Text workbox** for loops and longer documents. Its Digital, Arcade,
+Square and Chunky note fonts have 7×7 or 5×7 cells, with no fractional pitch
+downsampling: **Fit whole pixels** enlarges them only by whole notes. The
+preview zooms to the selected keyboard span so the notes can be read before
+Drop. The separate Text icon beside an empty Workbox offers these same note
+fonts and places silent lettering *inside* that box until its Drop. Widen a
+very narrow box to at least five or seven notes to fit a complete glyph.
 
 Messages use authored pixel letters and curated 🙂 😀 ⭐ ❤ ◆ symbols.
 In the advanced editor **Rows of text** fits characters alongside each other

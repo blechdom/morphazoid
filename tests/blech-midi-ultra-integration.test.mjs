@@ -78,6 +78,8 @@ test('the saved BLECH-owned modules and assets enter the uncommitted release bui
   }
   for (const path of [
     'assets/blech-midi-ultra/blech-mark.svg',
+    'assets/blech-midi-ultra/DSEG14ClassicMini-Bold.woff2',
+    'assets/blech-midi-ultra/DSEG-LICENSE.txt',
     `assets/instruments/${ultra}.webp`,
     'docs/blech-midi-ultra.md',
   ]) assert.deepEqual(entries.filter(row => row.path === path).map(row => row.policy), ['copy+require'], path);
@@ -90,41 +92,54 @@ test('the saved BLECH-owned modules and assets enter the uncommitted release bui
   assert.equal(icon.toString('ascii', 8, 12), 'WEBP');
   const mark = await readFile(new URL('../assets/blech-midi-ultra/blech-mark.svg', import.meta.url), 'utf8');
   const originalMark = await readFile(new URL('../assets/blech-midi/blech-mark.svg', import.meta.url), 'utf8');
+  const font = await readFile(new URL('../assets/blech-midi-ultra/DSEG14ClassicMini-Bold.woff2', import.meta.url));
+  const fontLicense = await readFile(new URL('../assets/blech-midi-ultra/DSEG-LICENSE.txt', import.meta.url), 'utf8');
+  assert.equal(font.toString('ascii', 0, 4), 'wOF2');
+  assert.match(fontLicense, /SIL OPEN FONT LICENSE Version 1\.1/);
   assert.match(mark, /fill="#c7ff2a"/);
   assert.match(originalMark, /fill="#ff2532"/);
   assert.doesNotMatch(mark, /fill="#ff2532"/);
 });
 
-test('ULTRA ink follows its logo, with separate pink edits and opt-in classic palettes', async () => {
+test('ULTRA ink uses the exact BLECH logo red, lime and turquoise without pink accents', async () => {
   const css = await readFile(new URL(`../${owned}blech-midi.css`, import.meta.url), 'utf8');
   const rail = await readFile(new URL(`../${owned}blech-midi-spigots.css`, import.meta.url), 'utf8');
   const html = await readFile(new URL(`../src/pages/${page}`, import.meta.url), 'utf8');
+  assert.match(css, /@font-face\s*\{[\s\S]*?DSEG14ClassicMini-Bold\.woff2/);
+  assert.match(css, /blech-midi-ultra-page \.blech-midi-heading h1 \{[\s\S]*?font-family: "DSEG14 Classic Mini"/);
   assert.match(css, /--blech-acid: #c7ff2a;/);
   assert.match(css, /--blech-red: #ff2532;/);
+  assert.match(css, /--blech-turquoise: #32ffdf;/);
   assert.match(css, /\.blech-midi-heading h1 \{[^\n]*color: var\(--blech-red\)/);
   assert.match(css, /--violet: var\(--blech-red\);/);
-  assert.match(css, /--blech-hot: #ff4f92;/);
+  assert.match(css, /--blech-hot: #ff2532;/);
+  assert.match(css, /--mixer-b: var\(--blech-turquoise\);/);
   assert.match(css, /--accent-glow: var\(--mz-color-accent-glow\);/);
   assert.match(css, /#drawingErase\[aria-pressed="true"\][^\n]+var\(--blech-hot\)/);
   assert.match(rail, /blech-note-rail-marker::before[^\n]+var\(--blech-acid\)/);
   assert.match(html, /<meta name="theme-color" content="#090b0a"/);
+  const reset = html.match(/<button id="blechResetNoteCount"[^>]+><svg[^>]+>(.*?)<\/svg><\/button>/)?.[1];
+  assert.ok(reset, 'the trip counter has its own accessible reset button');
+  assert.match(reset, /<rect x="6" y="4" width="12" height="5" rx="2"\/>/);
+  assert.doesNotMatch(reset, /ellipse|m3-3|↻/, 'a plunger is not a zero or another loop arrow');
   for (const sheet of [css, rail, await readFile(new URL(`../${owned}blech-midi-generators.css`, import.meta.url), 'utf8')]) {
     assert.doesNotMatch(sheet, /#96f4cc|#c94420|#ff8752/);
-    assert.doesNotMatch(sheet, /#bda6ff|#221722|#512b3a/);
+    assert.doesNotMatch(sheet, /#bda6ff|#221722|#512b3a|#ff4f92|#ffb6d3|#472338|#35202c|#632941/);
   }
-  for (const name of ['blech-midi-app.js', 'blech-midi-art-controls.js', 'blech-midi-generator-preview.js']) {
+  for (const name of ['blech-midi-app.js', 'blech-midi-art-controls.js', 'blech-midi-generator-preview.js', 'blech-midi-spigots.js', 'blech-midi-stamp-picker.js', 'blech-midi-score-view.js']) {
     const source = await readFile(new URL(`../${owned}${name}`, import.meta.url), 'utf8');
-    assert.match(source, /#ff2532/, name);
-    assert.doesNotMatch(source, /#bda6ff/, name);
+    assert.doesNotMatch(source, /#bda6ff|#ff4f92|#ffb6d3|#77bdff|pink|magenta/i, name);
   }
+  assert.match(await readFile(new URL(`../${owned}blech-midi-score-view.js`, import.meta.url), 'utf8'), /lime \/ red \/ turquoise/);
 
   assert.equal(BLACK_MIDI_PALETTES[0], 'ultra');
   assert.ok(BLACK_MIDI_PALETTES.includes('rainbow'));
   assert.ok(!ORIGINAL_PALETTES.includes('ultra'), 'the original renderer keeps its own palettes');
   const note = { track: 0, channel: 0, pitch: 60, velocity: 127 };
   assert.deepEqual(blackMidiColor(note, { palette: 'ultra' }), [199, 255, 42].map(value => value / 255));
-  assert.deepEqual(blackMidiColor({ ...note, track: 1 }, { palette: 'ultra' }), [255, 79, 146].map(value => value / 255));
-  assert.deepEqual(blackMidiColor({ ...note, track: 3 }, { palette: 'ultra' }), [255, 37, 50].map(value => value / 255));
+  assert.deepEqual(blackMidiColor({ ...note, track: 1 }, { palette: 'ultra' }), [255, 37, 50].map(value => value / 255));
+  assert.deepEqual(blackMidiColor({ ...note, track: 2 }, { palette: 'ultra' }), [50, 255, 223].map(value => value / 255));
+  assert.deepEqual(blackMidiColor({ ...note, track: 3 }, { palette: 'ultra' }), [242, 221, 113].map(value => value / 255));
   assert.notDeepEqual(blackMidiColor(note, { palette: 'rainbow' }), blackMidiColor(note, { palette: 'ultra' }));
   assert.deepEqual(blackMidiColor(note, { palette: 'ultra', trackColors: { 0: '#ff0080' } }), [1, 0, 128 / 255]);
 });

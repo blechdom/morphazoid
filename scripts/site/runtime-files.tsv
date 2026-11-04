@@ -2063,15 +2063,19 @@ copy+require	src/instruments/blech-midi-ultra/blech-midi-live-score.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-math-controls.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-math.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-note-history.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-rail-clock.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-score-view.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-spigot-engine.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-spigots.css
 copy+require	src/instruments/blech-midi-ultra/blech-midi-spigots.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-stamp-picker.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-text-controls.js
+copy+require	src/instruments/blech-midi-ultra/blech-midi-text-fonts.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi-timing.js
 copy+require	src/instruments/blech-midi-ultra/blech-midi.css
 copy+require	assets/blech-midi-ultra/blech-mark.svg
+copy+require	assets/blech-midi-ultra/DSEG14ClassicMini-Bold.woff2
+copy+require	assets/blech-midi-ultra/DSEG-LICENSE.txt
 copy+require	assets/instruments/blech-midi-ultra.webp
 copy+require	docs/blech-midi-ultra.md
 
