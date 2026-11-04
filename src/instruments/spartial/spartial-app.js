@@ -626,6 +626,11 @@ window.addEventListener("morphazoid:midi-input", event => {
     event.preventDefault();
     const prefix = message.synthetic && message.sourceId === "web-midi:manager" ? "midi:" : `midi:${message.sourceId ?? "default"}:${message.synthetic ? "" : `${message.channel ?? 0}:`}`;
     for (const id of [...held.keys()]) if (id.startsWith(prefix)) releaseGroup(id);
+  } else if (message.type === "channelPressure" || message.type === "polyPressure"
+    || message.type === "controlChange" && [7, 11].includes(message.controller)) {
+    // SPARTIAL has no pressure/expression voice mapping. Do not reinterpret
+    // these messages as master or percussion gain (including at note release).
+    event.preventDefault();
   }
 });
 function canvasPoint(event) { const rect = canvas.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top }; }

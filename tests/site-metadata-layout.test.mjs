@@ -26,6 +26,7 @@ import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { localPath, referencesIn } from "../scripts/inspect-instrument.mjs";
 import { restoreIphoneStartup } from "./helpers/iphone-startup-reference.mjs";
 import { gesticulesMetadataAmendments, restoreGesticulesMetadata } from "./helpers/gesticules-metadata-reference.mjs";
+import { restoreSpartialMidiInputSource } from "./helpers/spartial-midi-input-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("../docs/site-metadata-layout.json", import.meta.url)));
@@ -98,7 +99,10 @@ test("every changed runtime module reverses byte-for-byte to the fresh-main refe
   for (const record of proof.files) {
     const current = restoreFractalSignalsSite(restoreSpelling(await readBeforeDomino(record.after), record.after), record.after);
     const beforeGesticules = restoreGesticulesMetadata(restoreRubixoidsSite(restoreHeaderInteractions(restoreSimdChiptuneSite(restoreRainVolumeMeters(current, record.after), record.after), record.after), record.after), record.after);
-    const beforeIphone = restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after);
+    const beforeIphone = restoreSpartialMidiInputSource(
+      restoreIphoneStartup(restorePresetToolbar(beforeGesticules, record.after), record.after),
+      record.after, { allowRestored: true },
+    );
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeIphone, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
     for (const reference of referencesIn(current, record.after)) {
