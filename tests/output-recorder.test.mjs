@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setImmediate } from "node:timers/promises";
 import {
-  OutputRecorder, wavHeader, wavHeaderBytes, MAX_MEMORY_BYTES, MAX_FILE_BYTES,
+  OutputRecorder, wavHeader, wavHeaderBytes, wavFrameCapacity, MAX_MEMORY_BYTES, MAX_FILE_BYTES,
   WAV_HEADER_BYTES, BYTES_PER_FRAME,
 } from "../src/output-recorder.js";
 
@@ -245,6 +245,25 @@ test("mono and multichannel WAV headers preserve PCM24, unspecified speaker orde
     assert.doesNotThrow(() => wavHeader({ sampleRate: 48_000, frames: maxFrames, channelCount }));
     assert.throws(() => wavHeader({ sampleRate: 48_000, frames: maxFrames + 1, channelCount }), /limit/);
   }
+});
+
+test("multichannel duration uses the channel-specific WAV header, padding and actual sample rate", () => {
+  assert.equal(Math.floor(wavFrameCapacity(MAX_MEMORY_BYTES, 8) / 48_000), 116);
+  assert.equal(Math.floor(wavFrameCapacity(MAX_FILE_BYTES, 8) / 48_000), 3728);
+  assert.equal(Math.floor(wavFrameCapacity(MAX_FILE_BYTES, 12) / 48_000), 2485);
+  assert.equal(Math.floor(wavFrameCapacity(MAX_FILE_BYTES, 16) / 48_000), 1864);
+  for (const channelCount of [1, 2, 4, 8, 12, 16, 32]) {
+    for (const limit of [MAX_MEMORY_BYTES, MAX_FILE_BYTES]) {
+      const frames = wavFrameCapacity(limit, channelCount);
+      const bytes = count => wavHeaderBytes(channelCount) + count * channelCount * 3 + (count * channelCount * 3) % 2;
+      assert.ok(bytes(frames) <= limit);
+      assert.ok(bytes(frames + 1) > limit);
+      assert.doesNotThrow(() => wavHeader({ frames, sampleRate: 44_100, channelCount }));
+    }
+  }
+  assert.throws(() => wavFrameCapacity(MAX_FILE_BYTES, 0), /channel count/);
+  assert.throws(() => wavFrameCapacity(0, 8), /byte limit/);
+  assert.throws(() => wavFrameCapacity(0xffff_ffff + 9, 8), /byte limit/);
 });
 
 test("recorder and encoders reject invalid channel counts instead of silently changing the patch", () => {

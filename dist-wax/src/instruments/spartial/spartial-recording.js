@@ -1,11 +1,24 @@
-import { OutputRecorder, MAX_MEMORY_BYTES } from "../../output-recorder.js";
+import { OutputRecorder, MAX_FILE_BYTES, MAX_MEMORY_BYTES, wavFrameCapacity } from "../../output-recorder.js";
 import { spartialLayout } from "./spartial-audio.js";
 import { buildSpartialTracks, createSpartialZip, saveSpartialFolder } from "./spartial-recording-export.js";
 
 const active = state => ["starting", "recording", "stopping"].includes(state);
-const time = seconds => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
+const time = seconds => {
+  const total = Math.max(0, Math.floor(seconds || 0));
+  const minutes = Math.floor(total / 60);
+  return minutes >= 60
+    ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
+const pickerOptions = name => ({
+  suggestedName: name,
+  types: [{ description: "Multichannel WAV audio", accept: { "audio/wav": [".wav"] } }],
+});
+function abortWritable(writable) {
+  try { Promise.resolve(writable?.abort?.()).catch(() => {}); } catch { /* Already closed or unavailable. */ }
+}
 
-/** One clock, one immutable physical patch, and both exports from the same take. */
+/** One clock and one immutable physical patch, with buffered or direct-file capture. */
 export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = document, runtime = globalThis }) {
   return mountChannelRecording({ audio, getPatch, onLockChange, doc, runtime });
 }
@@ -26,33 +39,68 @@ export function mountChannelRecording({ audio, getPatch, onLockChange, doc = doc
   const zip = $("multitrackZip");
   const wav = $("multitrackWav");
   const discard = $("multitrackDiscard");
+  const fileOption = $("multitrackFileOption");
+  const fileInput = $("multitrackToFile");
   const supported = typeof runtime.AudioWorkletNode === "function" && runtime.isSecureContext !== false;
-  folder.hidden = typeof runtime.showDirectoryPicker !== "function";
+  const canPick = supported && typeof runtime.showSaveFilePicker === "function";
+  if (fileOption) fileOption.hidden = !canPick;
   let recorder = null, status = { state: "idle" }, metadata = null;
-  let busy = false, destroyed = false, exported = false, lastState = "idle";
+  let busy = false, picking = false, destroyed = false, exported = false, lastState = "idle", localError = "";
   let tracksPromise = null;
   const urls = new Map();
   const listeners = [];
   const listen = (target, event, handler) => { target.addEventListener(event, handler); listeners.push(() => target.removeEventListener(event, handler)); };
   const open = () => { if (!destroyed && !dialog.open) dialog.showModal(); };
+  async function createWritable(handle) {
+    if (typeof handle?.createWritable !== "function") throw new Error("The selected file does not support direct writing.");
+    const schedule = (runtime.setTimeout ?? globalThis.setTimeout).bind(runtime);
+    const cancel = (runtime.clearTimeout ?? globalThis.clearTimeout).bind(runtime);
+    let settled = false, timer;
+    const timeout = new Promise((resolve, reject) => {
+      timer = schedule(() => reject(new Error("Opening the recording file timed out.")), 15_000);
+    });
+    const opening = Promise.resolve().then(() => handle.createWritable()).then(writable => {
+      if (settled || destroyed) abortWritable(writable);
+      return writable;
+    });
+    try {
+      const writable = await Promise.race([opening, timeout]);
+      if (typeof writable?.write !== "function" || typeof writable?.close !== "function") {
+        abortWritable(writable);
+        throw new Error("The selected file does not provide a writable stream.");
+      }
+      return writable;
+    }
+    finally { settled = true; cancel(timer); }
+  }
   function update() {
     if (destroyed) return;
-    const locked = active(status.state);
-    const ready = Boolean(status.blob);
+    const locked = picking || active(status.state);
+    const ready = Boolean(status.blob || status.saved);
+    const direct = (active(status.state) || ready) ? status.mode === "file" : canPick && Boolean(fileInput?.checked);
     const patch = getPatch();
     const count = spartialLayout(patch.layoutId).speakers.length;
-    const maxSeconds = (locked || ready) ? status.maxSeconds : Math.floor((MAX_MEMORY_BYTES - 68) / (count * 3)) / audio.recordingSampleRate();
-    button.textContent = status.state === "starting" ? "Cancel recording" : status.state === "stopping" ? "Finishing…"
-      : locked ? labels.stop || "Stop multitrack" : ready ? labels.export || "Export multitrack" : labels.record || "Record multitrack";
-    button.setAttribute("aria-pressed", String(locked));
+    const maxSeconds = (active(status.state) || ready) && status.maxSeconds != null
+      ? status.maxSeconds : wavFrameCapacity(direct ? MAX_FILE_BYTES : MAX_MEMORY_BYTES, count) / audio.recordingSampleRate();
+    button.textContent = picking ? "Choosing file…" : status.state === "starting" ? "Cancel recording"
+      : status.state === "stopping" ? "Finishing…" : active(status.state) ? labels.stop || "Stop multitrack"
+        : status.saved ? "Saved multitrack" : ready ? labels.export || "Export multitrack" : labels.record || "Record multitrack";
+    button.setAttribute("aria-pressed", String(active(status.state)));
     button.dataset.state = status.state;
-    button.disabled = !supported || status.state === "stopping" || busy || (!locked && !ready && !audio.canRecord());
+    button.disabled = !supported || picking || status.state === "stopping" || busy || (!locked && !ready && !audio.canRecord());
     clock.textContent = time(status.seconds || 0);
     hint.textContent = !supported ? "Recording needs a browser with AudioWorklet support."
+      : status.state === "error" ? status.error || "Recording could not start. Try again."
+      : localError || (status.saved ? `${status.channelCount} tracks · saved to ${status.filename}`
       : ready ? `${status.channelCount} tracks · 24-bit WAV · take ready`
-      : locked ? `${status.channelCount} tracks · stops at ${time(maxSeconds)} · speaker setup locked`
+      : picking ? "Choose a WAV file before recording; speaker setup is locked."
+      : active(status.state) ? `${status.channelCount} tracks · ${direct ? "writing to file" : "buffered"} · stops at ${time(maxSeconds)} · speaker setup locked`
       : !audio.canRecord() ? labels.unavailable || "Turn Audio on to record all speaker channels."
-      : `${count} tracks · up to ${time(maxSeconds)} per take · folder / ZIP + multichannel WAV`;
+      : `${count} tracks · ${direct ? "direct to WAV file" : "buffered, folder / ZIP + WAV"} · up to ${time(maxSeconds)} at ${audio.recordingSampleRate().toLocaleString()} Hz`);
+    if (fileInput) fileInput.disabled = !canPick || locked || ready || busy;
+    folder.hidden = !status.blob || typeof runtime.showDirectoryPicker !== "function";
+    zip.hidden = wav.hidden = Boolean(status.saved);
+    discard.textContent = status.saved ? "New take" : "Discard take";
     for (const control of [folder, zip, wav, discard]) control.disabled = busy || !ready;
     onLockChange?.(locked);
   }
@@ -63,19 +111,30 @@ export function mountChannelRecording({ audio, getPatch, onLockChange, doc = doc
     if (next.state === "ready" && lastState !== "ready") {
       summary.textContent = `${next.channelCount} channels · ${time(next.seconds)} · ${next.sampleRate.toLocaleString()} Hz · 24-bit WAV`;
       $("multitrackChannelMap").textContent = metadata.speakers.map(speaker => `${speaker.channel}: ${speaker.label}${metadata.omitLfe && speaker.kind === "lfe" ? " (silent)" : ""}`).join(" · ");
-      message.textContent = next.error || (next.reason === "buffer-limit"
-        ? "The take reached its time limit. Both exports are ready."
+      message.textContent = next.saved
+        ? `${next.error ? `${next.error} Only the completed portion of ${next.filename} was saved.`
+          : `${next.reason === "file-limit" ? "The WAV size limit was reached. " : ""}Saved ${next.filename} to the selected file.`} Choose New take to record again; the saved file stays on disk.`
+        : next.error || (next.reason === "buffer-limit"
+        ? "The buffered take reached its time limit. Both exports are ready."
         : "Save separate tracks together in a folder, or download one multichannel WAV. Both use the same channel order.");
       open();
-    } else if (next.state === "error") {
-      hint.textContent = next.error || "Recording could not start. Try again.";
     }
     lastState = next.state;
   }
+  if (fileInput) listen(fileInput, "change", () => {
+    localError = "";
+    if (status.state === "error" && !status.blob && !status.saved) {
+      recorder?.discard();
+      metadata = null;
+    }
+    update();
+  });
   listen(button, "click", async () => {
+    if (picking || busy || destroyed) return;
     if (active(status.state)) { await recorder.stop(); return; }
-    if (status.blob) { open(); return; }
+    if (status.blob || status.saved) { open(); return; }
     if (!audio.canRecord()) { update(); return; }
+    localError = "";
     // Musical controls may continue changing during a take. Capture plain
     // metadata now instead of retaining references to their mutable objects.
     const patch = JSON.parse(JSON.stringify(getPatch()));
@@ -83,11 +142,30 @@ export function mountChannelRecording({ audio, getPatch, onLockChange, doc = doc
     const createdAt = new Date();
     metadata = { ...patch, instrumentName, namePrefix, layoutName: layout.name, speakers: layout.speakers.map(speaker => ({ ...speaker })), createdAt,
       name: `${namePrefix}-${createdAt.toISOString().replace(/[:.]/g, "-")}` };
+    let filename = `${metadata.name}.wav`, writable, opened = false;
+    if (canPick && fileInput?.checked) {
+      picking = true; update();
+      try {
+        const handle = await runtime.showSaveFilePicker(pickerOptions(`${metadata.name}-multichannel.wav`));
+        if (destroyed) return;
+        writable = await createWritable(handle);
+        if (destroyed) return;
+        filename = handle.name || filename;
+        if (!audio.canRecord()) throw new Error("Audio stopped before recording could start.");
+        opened = true;
+      } catch (error) {
+        abortWritable(writable);
+        metadata = null;
+        if (error.name !== "AbortError") localError = `Could not open recording file: ${error.message} Choose another file or turn off direct recording.`;
+        return;
+      } finally { picking = false; if (!opened) update(); }
+    }
+    if (destroyed) { abortWritable(writable); return; }
     exported = false; tracksPromise = null;
     void recorder?.destroy();
     recorder = new Recorder({ manager: audio, channelCount: layout.speakers.length, runtime, onchange: changed });
-    try { await recorder.start({ filename: `${metadata.name}.wav` }); }
-    catch (error) { hint.textContent = error.message; }
+    try { await recorder.start({ filename, writable }); }
+    catch (error) { abortWritable(writable); if (!destroyed) { localError = error.message; update(); } }
   });
   function download(blob, filename) {
     const url = runtime.URL.createObjectURL(blob);
@@ -137,15 +215,15 @@ export function mountChannelRecording({ audio, getPatch, onLockChange, doc = doc
   listen($("multitrackClose"), "click", () => dialog.close());
   listen(dialog, "cancel", event => { if (busy) event.preventDefault(); });
   function beforeUnload(event) {
-    if (active(status.state) || (status.blob && status.frames > 0 && !exported) || busy) { event.preventDefault(); event.returnValue = ""; }
+    if (picking || active(status.state) || (status.blob && status.frames > 0 && !exported) || busy) { event.preventDefault(); event.returnValue = ""; }
   }
   listen(runtime, "beforeunload", beforeUnload);
   update();
   return {
-    get locked() { return active(status.state); },
+    get locked() { return picking || active(status.state); },
     getStatus() {
       const { blob, ...plain } = status;
-      return { ...plain, hasTake: Boolean(blob), metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null };
+      return { ...plain, hasTake: Boolean(blob || status.saved), metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null };
     },
     update,
     stop(reason = "interrupted") { return recorder?.stop(reason); },

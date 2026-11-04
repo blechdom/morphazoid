@@ -27,6 +27,15 @@ function frameCapacity(maxBytes, headerBytes, bytesPerFrame) {
   return frames;
 }
 
+/** Frame budget for a PCM24 WAV, including its channel-specific header and pad. */
+export function wavFrameCapacity(maxBytes, channelCount = 2) {
+  const headerBytes = wavHeaderBytes(channelCount);
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < headerBytes || maxBytes > 0xffff_ffff + 8) {
+    throw new RangeError("Invalid WAV byte limit.");
+  }
+  return frameCapacity(maxBytes, headerBytes, channelCount * 3);
+}
+
 /** Header only; callers append PCM data and one zero byte if its length is odd. */
 export function wavHeader({ sampleRate, frames, channelCount = 2 }) {
   const headerBytes = wavHeaderBytes(channelCount);

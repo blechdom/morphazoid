@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { restoreSpartialDirectFileSource } from "./spartial-direct-file-reference.mjs";
 
 // Peel later custom-preset additions before older byte-exact 7.1 and header
 // rollout proofs. Older content and unrelated drift remain visible.
@@ -36,6 +37,7 @@ const additions = new Map([
 ]);
 
 export function restoreSpartialCustomPresetsSource(source, file, { allowRestored = false } = {}) {
+  source = restoreSpartialDirectFileSource(source, file, { allowRestored: true });
   if (typeof source !== "string") return source;
   const change = additions.get(file);
   if (!change) return source;
