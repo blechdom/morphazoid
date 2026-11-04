@@ -7,6 +7,7 @@ import { restoreSoundFontsSite, soundFontsSiteChanges } from './helpers/sound-fo
 import { readTrackazoidSiteReference, restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
 import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
+import { restoreBlechUltraFontNotice } from './helpers/blech-midi-ultra-site-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 // Keep the published Sound Fonts evidence intact after the independent organ
@@ -16,7 +17,9 @@ const read = async (file, encoding = 'utf8') => {
     restoreSpartialOrganRuntime(await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true }),
     file, { allowRestored: true },
   );
-  return typeof source === 'string' ? restoreRoachPerformance(source, file) : source;
+  return typeof source === 'string'
+    ? restoreBlechUltraFontNotice(restoreRoachPerformance(source, file), file, { allowRestored: true })
+    : source;
 };
 
 test('Sound Fonts amendments preserve exact shared files from the published parent', async () => {
@@ -34,9 +37,9 @@ test('Sound Fonts amendments preserve exact shared files from the published pare
     assert.equal(restoreTrackazoidSite(source, change.file, { allowRestored: true }),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }),
       'the existing historical reader peels Sound Fonts before Trackazoid');
-    assert.equal(restoreRoachPerformance(restoreSpartialOrganRuntime(
+    assert.equal(restoreBlechUltraFontNotice(restoreRoachPerformance(restoreSpartialOrganRuntime(
       await readTrackazoidSiteReference(new URL(`../${change.file}`, import.meta.url), 'utf8'),
-      change.file, { allowRestored: true }), change.file),
+      change.file, { allowRestored: true }), change.file), change.file, { allowRestored: true }),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }));
   }
 });

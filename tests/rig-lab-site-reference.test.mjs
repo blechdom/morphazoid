@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
+import { restoreBlechUltraFontNotice } from "./helpers/blech-midi-ultra-site-reference.mjs";
 import { rigLabSiteChanges, restoreRigLabSite } from "./helpers/rig-lab-site-reference.mjs";
 import { restorePreviousGlobuleCopy } from "./helpers/globule-damacy-site-reference.mjs";
 import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
@@ -22,7 +23,8 @@ test("Rig Lab registrations reverse exactly to the preceding site and runtime in
   ]);
   for (const change of rigLabSiteChanges.changes) {
     const current = restoreWitchesBrewRefresh(restoreOculoidSite(
-      await readFile(new URL(change.file, root), "utf8"), change.file,
+      restoreBlechUltraFontNotice(await readFile(new URL(change.file, root), "utf8"),
+        change.file, { allowRestored: true }), change.file,
     ), change.file);
     const source = restorePreviousGlobuleCopy(current, change.file);
     const restored = restoreRigLabSite(source, change.file);

@@ -144,3 +144,31 @@ export function restoreBlechMidiUltraSite(source, file, { allowRestored = false 
   }
   return source;
 }
+
+// The font credit postdates several frozen site-reference hashes. Reverse
+// only this complete, positioned notice before comparing those old bytes.
+const fontNoticeFile = 'docs/THIRD_PARTY_NOTICES.md';
+const fontNoticeAnchor = `The mixer, inspector, rectangular renderer and scheduling code are original
+Morphazoid implementations.
+
+`;
+export const blechUltraFontNotice = `## BLECH MIDI ULTRA font
+
+BLECH MIDI ULTRA's title uses the unmodified DSEG14 Classic Mini Bold font
+by keshikan (copyright © 2017), licensed under the SIL Open Font License 1.1.
+The bundled WOFF2 and [complete license](../assets/blech-midi-ultra/DSEG-LICENSE.txt)
+are distributed together; “DSEG” is a reserved font name.
+
+`;
+const fontNoticeBefore = `${fontNoticeAnchor}## I/O setup synthesized voice`;
+const fontNoticeAfter = `${fontNoticeAnchor}${blechUltraFontNotice}## I/O setup synthesized voice`;
+
+export function restoreBlechUltraFontNotice(source, file, { allowRestored = false } = {}) {
+  if (typeof source !== 'string' || file !== fontNoticeFile) return source;
+  const marker = '## BLECH MIDI ULTRA font';
+  if (allowRestored && !source.includes(marker)) return source;
+  const error = `${file}: exact BLECH MIDI ULTRA font notice`;
+  assert.equal(source.split(marker).length - 1, 1, error);
+  assert.equal(source.split(fontNoticeAfter).length - 1, 1, error);
+  return source.replace(fontNoticeAfter, fontNoticeBefore);
+}

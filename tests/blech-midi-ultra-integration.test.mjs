@@ -10,7 +10,10 @@ import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { BLACK_MIDI_PALETTES, blackMidiColor } from '../src/instruments/blech-midi-ultra/blech-midi-black-renderer.js';
 import { BLACK_MIDI_PALETTES as ORIGINAL_PALETTES } from '../src/instruments/blech-midi/blech-midi-black-renderer.js';
-import { blechMidiUltraSiteChanges, restoreBlechMidiUltraSite } from './helpers/blech-midi-ultra-site-reference.mjs';
+import {
+  blechMidiUltraSiteChanges, blechUltraFontNotice,
+  restoreBlechMidiUltraSite, restoreBlechUltraFontNotice,
+} from './helpers/blech-midi-ultra-site-reference.mjs';
 
 const ultra = 'blech-midi-ultra';
 const page = `${ultra}.html`;
@@ -165,4 +168,24 @@ test('Ultra additions can be removed exactly for older frozen site references', 
       );
     }
   }
+});
+
+test('the DSEG notice reverses exactly without changing historical site hashes', async () => {
+  const file = 'docs/THIRD_PARTY_NOTICES.md';
+  const current = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+  assert.ok(current.includes(blechUltraFontNotice));
+  const restored = restoreBlechUltraFontNotice(current, file);
+  assert.doesNotMatch(restored, /## BLECH MIDI ULTRA font/);
+  assert.equal(restoreBlechUltraFontNotice(restored, file, { allowRestored: true }), restored);
+  assert.throws(() => restoreBlechUltraFontNotice(restored, file), /exact BLECH MIDI ULTRA font notice/);
+  assert.throws(() => restoreBlechUltraFontNotice(current + blechUltraFontNotice, file), /exact BLECH MIDI ULTRA font notice/);
+  assert.throws(() => restoreBlechUltraFontNotice(current.replace('by keshikan', 'by an unknown author'), file),
+    /exact BLECH MIDI ULTRA font notice/);
+  const relocated = current.replace(blechUltraFontNotice, '')
+    .replace('## Midiophilia visual lab', `${blechUltraFontNotice}## Midiophilia visual lab`);
+  assert.throws(() => restoreBlechUltraFontNotice(relocated, file), /exact BLECH MIDI ULTRA font notice/);
+  assert.equal(restoreBlechUltraFontNotice(current + '\nUnrelated edit', file), restored + '\nUnrelated edit');
+  assert.equal(restoreBlechUltraFontNotice(current, 'unrelated.md'), current);
+  const bytes = Buffer.from('opaque bytes');
+  assert.equal(restoreBlechUltraFontNotice(bytes, file), bytes);
 });

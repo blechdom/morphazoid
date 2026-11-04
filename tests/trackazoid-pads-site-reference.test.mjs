@@ -9,11 +9,14 @@ import { restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreBlackMidiArtRuntime } from './helpers/black-midi-art-runtime-reference.mjs';
 import { restoreSoundFontsShared, soundFontsSharedChanges } from './helpers/sound-fonts-shared-reference.mjs';
 import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
+import { restoreBlechUltraFontNotice } from './helpers/blech-midi-ultra-site-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 // The independent SoundFont registration postdates the captured pad baseline.
 // Peel only its reviewed bytes before exercising the unchanged pad guards.
-const read = async file => restoreSoundFontsShared(restoreRoachPerformance(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file), file);
+const read = async file => restoreBlechUltraFontNotice(restoreSoundFontsShared(
+  restoreRoachPerformance(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file), file),
+  file, { allowRestored: true });
 
 test('pad and demo amendments restore exact captured main bytes without rewriting historical fixtures', async () => {
   assert.equal(trackazoidPadsChanges.baseCommit, '98bdd239757195367921d30c57e7457238ec8f87');
@@ -89,7 +92,9 @@ test('shared historical reading peels this addition without weakening the old be
 
 test('independent SoundFont and pad amendments commute while retaining their exact captured hashes', async () => {
   for (const change of soundFontsSharedChanges.changes) {
-    const source = restoreBlackMidiArtRuntime(restoreRoachPerformance(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file);
+    const source = restoreBlechUltraFontNotice(restoreBlackMidiArtRuntime(
+      restoreRoachPerformance(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file),
+      change.file), change.file, { allowRestored: true });
     const soundFontsOnly = restoreTrackazoidPadsSite(source, change.file);
     assert.equal(digest(soundFontsOnly), change.approvedSha256, change.file);
     const restored = restoreSoundFontsShared(soundFontsOnly, change.file);

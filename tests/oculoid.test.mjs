@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 import * as THREE from "../vendor/three/three.module.min.js";
+import { restoreBlechUltraFontNotice } from "./helpers/blech-midi-ultra-site-reference.mjs";
 import { restoreGlobuleDamacySite } from "./helpers/globule-damacy-site-reference.mjs";
 import { oculoidSiteChanges, restoreOculoidSite } from "./helpers/oculoid-site-reference.mjs";
 import { restoreWitchesBrewRefresh } from "./helpers/witches-brew-refresh-reference.mjs";
@@ -340,7 +341,10 @@ test("the twelve exact shared-source additions reverse to captured pre-Oculoid h
   for (const change of oculoidSiteChanges.changes) {
     const source = restoreGlobuleDamacySite(
       restoreWitchesBrewRefresh(
-        await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"),
+        restoreBlechUltraFontNotice(
+          await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"),
+          change.file, { allowRestored: true },
+        ),
         change.file, { allowRestored: true },
       ),
       change.file, { allowRestored: true },
