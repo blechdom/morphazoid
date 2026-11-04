@@ -591,6 +591,8 @@ test("generic control discovery excludes MIDI and navigation UI while retaining 
   const headerNavigation = select("instrumentJump", "header");
   const midiPanelSlider = slider("midiVelocity", ".midi-toolbar");
   const disabledSlider = slider("disabledPatchControl", "", true);
+  const performerVolume = slider("level");
+  performerVolume.hasAttribute = name => name === "data-midi-no-input";
   const candidates = [
     instrumentSlider,
     instrumentSelect,
@@ -599,6 +601,7 @@ test("generic control discovery excludes MIDI and navigation UI while retaining 
     headerNavigation,
     midiPanelSlider,
     disabledSlider,
+    performerVolume,
   ];
   const documentObject = { querySelectorAll() { return candidates; } };
 
@@ -608,6 +611,37 @@ test("generic control discovery excludes MIDI and navigation UI while retaining 
   assert.equal(isBrowserMidiControl(headerNavigation), false);
   assert.equal(isBrowserMidiControl(midiPanelSlider), false);
   assert.equal(isBrowserMidiControl(disabledSlider), false);
+  assert.equal(isBrowserMidiControl(performerVolume), false);
+});
+
+test("generic MIDI maps other controls but cannot override an opted-out master level", async () => {
+  const documentObject = testDocument();
+  const master = range("level", { value: 0.37 });
+  master.hasAttribute = name => name === "data-midi-no-input";
+  const originalQuery = documentObject.querySelectorAll.bind(documentObject);
+  documentObject.querySelectorAll = selector => (
+    selector.startsWith("input[type='range']")
+      ? [master, ...originalQuery(selector)]
+      : originalQuery(selector)
+  );
+  const common = {
+    documentObject, runtime: testRuntime(), routeId: "spartial",
+    support: instrumentMidiCapabilityForId("spartial"),
+  };
+  for (const message of [
+    { type: "channelPressure", pressure: 127 },
+    { type: "polyPressure", note: 60, pressure: 0 },
+    { type: "controlChange", controller: 7, value: 0 },
+    { type: "controlChange", controller: 11, value: 0 },
+    { type: "controlChange", controller: 14, value: 0, logical: { type: "macro", index: 0 } },
+  ]) applyBrowserMidiMessage({ ...common, message });
+  assert.equal(master.value, "0.37");
+  assert.deepEqual(master.events, []);
+  assert.equal(documentObject.intensity.value, "0", "the generic guard does not disable other controls");
+  assert.ok(documentObject.intensity.events.includes("input"));
+  assert.equal(documentObject.frequency.value, "20", "macro 1 skips the performer-owned master");
+  assert.match(await readFile(new URL("../src/pages/spartial.html", import.meta.url), "utf8"),
+    /id="level"[^>]*data-midi-no-input/, "the SPARTIAL page opts its master out");
 });
 
 test("universal browser mapping handles notes, note-off events, CC, bend, presets, pressure, and transport", () => {

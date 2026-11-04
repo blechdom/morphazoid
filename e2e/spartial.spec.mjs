@@ -726,6 +726,41 @@ test("SPARTIAL MIDI note-on and note-off own independent sustained voices", asyn
   await waitForStableAudioState(page, false);
 });
 
+test("SPARTIAL MIDI note releases, aftertouch and controllers leave master volume to the performer", async ({ page }) => {
+  await installFakeMidi(page);
+  await openSpartial(page);
+  await page.locator(".header-settings-menu > summary").click();
+  await enableFakeMidi(page);
+  await page.locator(".header-settings-menu > summary").click();
+  await setRange(page, "level", 0.37);
+  const level = page.locator("#level");
+  const output = page.locator("#levelOut");
+  const percussion = page.locator("#percussionLevel");
+  const percussionBefore = await percussion.inputValue();
+
+  for (const bytes of [
+    MIDI_BYTES.noteOn(60, 100),
+    [0xd0, 127], [0xa0, 60, 100],
+    MIDI_BYTES.noteOff(60), [0xd0, 0], [0xa0, 60, 0],
+    [0x90, 60, 0], // MIDI note-on at zero velocity is another note-off.
+    MIDI_BYTES.controlChange(7, 0), MIDI_BYTES.controlChange(11, 0),
+    MIDI_BYTES.controlChange(14, 0), // General MIDI profile macro 1.
+  ]) {
+    await sendMidi(page, bytes);
+    await expect(level, `master volume changed after ${bytes}`).toHaveValue("0.37");
+    await expect(output).toHaveText("37%");
+    await expect(percussion, "aftertouch/CC7 must not be redirected to percussion gain").toHaveValue(percussionBefore);
+  }
+
+  const releaseBefore = await page.locator("#release").inputValue();
+  await sendMidi(page, MIDI_BYTES.controlChange(72, 100));
+  expect(await page.locator("#release").inputValue()).not.toBe(releaseBefore);
+  await setRange(page, "level", 0.58);
+  await expect(level).toHaveValue("0.58", "the performer's volume knob remains functional");
+  await sendMidi(page, [0xd0, 0]);
+  await expect(level).toHaveValue("0.58");
+});
+
 for (const [key, padIndex] of [["a", 0], ["w", 1]]) {
   test(`SPARTIAL ${key.toUpperCase()} key holds and releases a chromatic note in the default mode`, async ({ page }, testInfo) => {
     await openSpartial(page);

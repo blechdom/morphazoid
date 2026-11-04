@@ -140,6 +140,10 @@ test("generic control guards cannot map a macro onto navigation or MIDI profile 
   };
   assert.equal(isUniversalMidiControl(globalSelect), false);
   assert.equal(isUniversalMidiControl(instrumentRange), true);
+  assert.equal(isUniversalMidiControl({
+    ...instrumentRange,
+    hasAttribute: name => name === "data-midi-no-input",
+  }), false, "WAX also skips opted-out master controls");
 });
 
 test("user automation maps semantic controls without substring false positives", () => {

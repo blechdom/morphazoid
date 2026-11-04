@@ -200,6 +200,10 @@ call `preventDefault()` to own that message and suppress the fallback.
   navigation, MIDI-profile, and preset selects are excluded from macro mapping.
 - Program Change selects an explicit preset, and polyphonic or channel
   aftertouch targets pressure, intensity, force, or level.
+- A range/select marked `data-midi-no-input` is excluded from generic browser
+  and WAX input-control discovery, including CC, macro, and aftertouch mapping.
+  SPARTIAL uses this for its performer-owned master Volume and handles
+  aftertouch and CC7/11 as no-ops rather than retargeting another level.
 - MIDI Clock estimates tempo independently per source at 24 PPQN and updates a
   page control at most four times per second, skipping unchanged stepped values.
   Start/Continue and Stop drive an explicit page transport where one exists.

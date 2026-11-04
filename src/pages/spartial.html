@@ -17,7 +17,7 @@
     <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape-synth.html">shape</option><option value="surround-field.html">surround for safety</option><option value="spartial.html" selected>SPARTIAL</option></select></label>
     <div class="audio-strip" aria-label="Audio controls">
       <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-speaker-icon" aria-hidden="true"></span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
-      <label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">65%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+      <label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">65%</output></span><input id="level" aria-label="Master audio level" data-midi-no-input type="range" min="0" max="1" step="0.01" value="0.65" /></label>
     </div>
   </header>
   <main class="shell spartial-shell">
@@ -58,6 +58,7 @@
     <aside class="panel spartial-panel" aria-label="SPARTIAL controls">
       <div class="spartial-recording" id="multitrackControls" aria-label="Multitrack recording">
         <div><button id="multitrackRecord" class="mini-action" type="button" aria-pressed="false" disabled>Record multitrack</button><output id="multitrackTime" aria-label="Recording duration">00:00</output></div>
+        <label id="multitrackFileOption" class="spartial-record-to-file" for="multitrackToFile"><input id="multitrackToFile" type="checkbox" />Record multichannel WAV directly to a file</label>
         <p id="multitrackHint" class="control-note">Turn Audio on to record all speaker channels.</p>
       </div>
       <div class="spartial-preset-host" data-instrument-preset-host></div>

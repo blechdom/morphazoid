@@ -3,6 +3,11 @@
 **SPARTIAL** is a surround additive and granular synthesizer built on Surround for Safety's output layouts. It starts with sixteen stationary partials and supports up to thirty-two per note. Hold sustains the selected single note or chord; a chromatic keyboard and MIDI supply independent note gates. Instrument presets and eight harmonic fingerprints have Next and parameter dice controls. Frequency spacing compresses or expands the harmonic series, while seeded inharmonicity offsets upper partials; held frequencies glide and ultrasonic partials fade out. Spatial turns distribute the whole bank once around the speakers at 1, squeeze it into an arc below 1, or wrap it repeatedly above 1. Across speakers offers rotation by dragging; One speaker replaces the colored partial field with one highlighted destination selected by click or drag. Optional clockwise, counterclockwise, and opposite-direction motion follows BPM and beats per turn while rotation Play is active; motion starts off. Rotation Play/Pause never starts or releases a note. Starting rotation from Off selects clockwise movement. Hold and Silence control notes independently. The Shape-style panel places presets, note/chord selection and chromatic keys above the labelled Rotation Play/Pause and tempo knob on the right. The knob keeps its 30–240 BPM range, keyboard adjustment and Tap control. On mobile, the graphic stays fixed while the fingerprint and parameter controls share one scroll pane; landscape places that pane beside the graphic. The current master knob, next-instrument link, square Audio button and MIDI-in-Settings presentation preserve the existing native controls. Cascade delay and initial wait use exact millisecond entry with 1 ms steps. An accelerating/slowing curve and seeded variation reshape the gaps while preserving total span; the timing strip previews scheduled entrances, including silent partial slots. Restart cascade briefly fades only the held note or chord before replaying it with the new timing, leaving other notes and transport intact. An eight-voice sample-clock engine renders the numbered discrete patch when it fits, with a labeled left/right stereo fallback and LFE omitted by default. Artwork is generated from the instrument's canvas. Routing follows the [Web Audio channel contracts](https://www.w3.org/TR/webaudio-1.0/); physical channel assignments and spatial feel still need a hardware listening pass.
 
 
+The master Volume knob is performer-owned: incoming MIDI notes, note release,
+aftertouch, expression (CC11), master level (CC7), and generic controller macros
+never change it. SPARTIAL ignores aftertouch and CC7/11 rather than redirecting
+them to a different volume control; other mapped MIDI controls still work.
+
 ## My presets
 
 The **− / +** buttons beneath the main instrument preset menu remove the
@@ -247,12 +252,36 @@ The speaker layout and Omit LFE controls are fixed during a take; notes, presets
 rotation, layer mix and volume remain playable. The separate masthead Record
 button continues to capture the stereo monitoring mix.
 
-The available time appears beside the multitrack control. Capture uses a bounded
-128 MiB buffer: at 48 kHz, approximately 3:53 for four channels, 1:56 for eight,
-1:17 for twelve, or 0:58 for sixteen. At the limit, capture stops and preserves
-the take for export. Audio off or an interrupted audio context also finalizes
-the captured portion. Save cancellation or failure keeps the original take;
-**Discard take** frees it for a new recording. Export before closing the page.
+The available time appears beside the multitrack control. With **Record
+multichannel WAV directly to a file** unchecked (the default), capture uses a
+bounded 128 MiB buffer: at 48 kHz, approximately 3:53 for four channels, 1:56
+for eight, 1:17 for twelve, or 0:58 for sixteen. At the limit, capture stops
+and preserves the take for export. Audio off or an interrupted audio context
+also finalizes the captured portion. Save cancellation or failure keeps the
+original take; **Discard take** frees it for a new recording. Export before
+closing the page.
+
+On browsers with a writable save picker (usually desktop Chrome/Edge), check
+**Record multichannel WAV directly to a file** before pressing Record. Choose
+the file first; the recorder then writes bounded chunks of all physical
+channels to it and finalizes the WAV header on Stop. **Saved** appears only
+after the file closes successfully. This avoids the 128 MiB browser buffer;
+the ordinary WAV format still limits one file to approximately 4 GiB, or about
+**1:02:08 for 7.1 at 48 kHz** (0:41:25 for twelve channels, 0:31:04 for
+sixteen). The displayed limit uses the *actual* audio sample rate and channel
+count. Direct recording produces one multichannel WAV, not a tracks ZIP or
+folder; choose buffered recording if you need those exports. **New take**
+clears the recorder's status but does not delete the saved file.
+
+Browsers do not reliably expose free RAM or the remaining space in the chosen
+folder. `navigator.storage.estimate()` describes this site's browser-storage
+quota, not the selected disk. Disk speed, permissions, full storage, sleep, or
+an interrupted tab can end recording before the format limit. Browser writes
+may be transactional, so an unfinished file is not guaranteed to be visible
+or recoverable until Stop completes. Keep the page and device awake; if the
+file picker or write permission is unavailable, use the buffered mode. The
+separate masthead Record button also offers direct-to-file recording, but
+captures only the stereo monitoring mix.
 
 The multichannel WAV uses WAVEFORMATEXTENSIBLE with an unspecified speaker mask
 because SPARTIAL supports custom patches. Its channel order is the numbered

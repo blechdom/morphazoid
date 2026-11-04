@@ -99,7 +99,7 @@ export function universalMidiControlText(control, documentObject, runtime = glob
 
 /** Keep global navigation, MIDI, and preset selectors outside generic knob mapping. */
 export function isBrowserMidiControl(control) {
-  if (!control || control.disabled) return false;
+  if (!control || control.disabled || control.hasAttribute?.("data-midi-no-input")) return false;
   if (control.closest?.(".midi-toolbar, .wax-midi-panel")) return false;
   if (control.tagName === "SELECT" && control.closest?.(
     "header, nav, .masthead, .topbar, .mobile-instrument-nav, .instrument-picker, [data-midi-toolbar]",

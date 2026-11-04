@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { MAX_FILE_BYTES, wavFrameCapacity } from "../src/output-recorder.js";
 
 function wave(bytes) {
   expect(bytes.toString("ascii", 0, 4)).toBe("RIFF");
@@ -37,6 +38,78 @@ async function download(page, id) {
 }
 async function range(page, id, value) {
   await page.locator(`#${id}`).evaluate((input, value) => { input.value = value; input.dispatchEvent(new Event("input", { bubbles: true })); }, String(value));
+}
+
+// The file boundary is fake; the page still uses real Web Audio, AudioWorklet,
+// PCM encoding, sequential writes and WAV finalization.
+async function installMultitrackFilePicker(page) {
+  await page.addInitScript(() => {
+    const state = { options: [], files: [], cancelNext: false, denyNext: false, failHeader: false,
+      concurrent: 0, maxConcurrent: 0 };
+    window.__multitrackFilePicker = state;
+    Object.defineProperty(window, "showSaveFilePicker", { configurable: true, value: async (options) => {
+      state.options.push(options);
+      if (state.cancelNext) {
+        state.cancelNext = false;
+        throw new DOMException("Picker cancelled", "AbortError");
+      }
+      const file = { bytes: new Uint8Array(0), cursor: 0, closed: false, closeCalls: 0, aborted: false, writes: [] };
+      state.files.push(file);
+      return { name: `selected-${state.files.length}.wav`, async createWritable() {
+        if (state.denyNext) {
+          state.denyNext = false;
+          throw new DOMException("File access denied", "NotAllowedError");
+        }
+        return {
+          async write(value) {
+            state.concurrent++;
+            state.maxConcurrent = Math.max(state.concurrent, state.maxConcurrent);
+            try {
+              await new Promise(resolve => setTimeout(resolve, 2));
+              if (state.failHeader && !file.writes.length) {
+                state.failHeader = false;
+                throw new DOMException("Disk write failed", "QuotaExceededError");
+              }
+              if (value?.type === "write") {
+                file.cursor = value.position ?? file.cursor;
+                value = value.data;
+              }
+              const data = value instanceof ArrayBuffer
+                ? new Uint8Array(value)
+                : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+              const next = new Uint8Array(Math.max(file.bytes.length, file.cursor + data.length));
+              next.set(file.bytes);
+              next.set(data, file.cursor);
+              file.writes.push({ position: file.cursor, length: data.length });
+              file.cursor += data.length;
+              file.bytes = next;
+            } finally { state.concurrent--; }
+          },
+          async truncate(length) {
+            const next = new Uint8Array(length);
+            next.set(file.bytes.subarray(0, length));
+            file.bytes = next;
+          },
+          async close() { file.closeCalls++; file.closed = true; },
+          async abort() { file.aborted = true; },
+        };
+      } };
+    } });
+  });
+}
+
+async function recordedFile(page) {
+  const saved = await page.evaluate(() => {
+    const state = window.__multitrackFilePicker;
+    const file = state.files.at(-1);
+    let binary = "";
+    for (let offset = 0; offset < file.bytes.length; offset += 16_384) {
+      binary += String.fromCharCode(...file.bytes.subarray(offset, offset + 16_384));
+    }
+    return { base64: btoa(binary), closed: file.closed, closeCalls: file.closeCalls, aborted: file.aborted,
+      writes: file.writes, maxConcurrent: state.maxConcurrent, options: state.options };
+  });
+  return { ...saved, bytes: Buffer.from(saved.base64, "base64") };
 }
 
 test.beforeEach(async ({ page }) => {
@@ -221,4 +294,90 @@ test("cancelling module startup releases speaker setup without arming Audio", as
   if (await page.locator("#multitrackDialog").isVisible()) await page.locator("#multitrackDiscard").click();
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#multitrackRecord")).toHaveText("Record multitrack");
+});
+
+test("direct-to-file 7.1 advertises the extended limit and finalizes every physical channel on Stop", async ({ page }) => {
+  await installMultitrackFilePicker(page);
+  const errors = []; page.on("pageerror", error => errors.push(error.message));
+  await page.goto("spartial.html");
+  await expect(page.locator("#multitrackFileOption")).toBeVisible();
+  await page.locator('[data-section="sound"] > summary').click();
+  await page.locator("#layout").selectOption("7-1");
+  await page.locator("#routingMode").selectOption("focus");
+  await page.locator("#target").selectOption({ label: "Ls · channel 5" });
+  await range(page, "cascade", 0);
+  await page.locator("#audioButton").click();
+  await page.locator("#holdButton").click();
+  await page.locator("#multitrackToFile").check();
+  const limitHint = await page.locator("#multitrackHint").textContent();
+  expect(limitHint).toContain("direct to WAV file");
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackRecord")).toHaveText("Stop multitrack");
+  await expect(page.locator("#multitrackHint")).toContainText("writing to file");
+  await expect(page.locator("#layout")).toBeDisabled();
+  await expect(page.locator("#omitLfe")).toBeDisabled();
+  await expect(page.locator("#multitrackToFile")).toBeDisabled();
+  await expect(page.locator("#multitrackTime")).not.toHaveText("00:00", { timeout: 10_000 });
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackDialog")).toBeVisible();
+  await expect(page.locator("#multitrackMessage")).toContainText("Saved selected-1.wav to the selected file.");
+  await expect(page.locator("#multitrackRecord")).toHaveText("Saved multitrack");
+  await expect(page.locator("#multitrackWav")).toBeHidden();
+  await expect(page.locator("#multitrackZip")).toBeHidden();
+  await expect(page.locator("#multitrackFolder")).toBeHidden();
+  await expect(page.locator("#multitrackDiscard")).toHaveText("New take");
+  const saved = await recordedFile(page);
+  expect(saved.closed).toBe(true); expect(saved.closeCalls).toBe(1); expect(saved.aborted).toBe(false);
+  expect(saved.maxConcurrent).toBe(1);
+  expect(saved.options).toHaveLength(1);
+  expect(saved.options[0].suggestedName).toMatch(/^spartial-.*-multichannel\.wav$/);
+  expect(saved.options[0].types[0].accept["audio/wav"]).toEqual([".wav"]);
+  expect(saved.writes[0]).toEqual({ position: 0, length: 68 });
+  expect(saved.writes.at(-1).position).toBe(0);
+  const take = wave(saved.bytes);
+  expect(take.channels).toBe(8);
+  expect(take.frames).toBeGreaterThan(take.rate * .9);
+  expect(take.peaks[4]).toBeGreaterThan(.001);
+  expect(take.peaks.filter((_, index) => index !== 4)).toEqual(Array(7).fill(0));
+  const limit = Math.floor(wavFrameCapacity(MAX_FILE_BYTES, 8) / take.rate);
+  const hours = Math.floor(limit / 3600), minutes = Math.floor(limit % 3600 / 60), seconds = limit % 60;
+  expect(limitHint).toContain(`${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} at ${take.rate.toLocaleString("en-US")} Hz`);
+  await page.locator("#multitrackDiscard").click();
+  await expect(page.locator("#layout")).toBeEnabled();
+  await expect(page.locator("#multitrackToFile")).toBeEnabled();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  expect(errors).toEqual([]);
+});
+
+test("direct-file picker cancellation and write failure leave the layout unlocked and the buffered mode usable", async ({ page }) => {
+  await installMultitrackFilePicker(page);
+  await page.goto("spartial.html");
+  await page.locator("#audioButton").click();
+  await page.locator("#holdButton").click();
+  await page.locator("#multitrackToFile").check();
+  await page.evaluate(() => { window.__multitrackFilePicker.cancelNext = true; });
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackRecord")).toHaveText("Record multitrack");
+  await expect(page.locator("#layout")).toBeEnabled();
+  expect(await page.evaluate(() => window.__multitrackFilePicker.files.length)).toBe(0);
+  await page.evaluate(() => { window.__multitrackFilePicker.denyNext = true; });
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackHint")).toContainText("Could not open recording file: File access denied");
+  await expect(page.locator("#layout")).toBeEnabled();
+  await page.evaluate(() => { window.__multitrackFilePicker.failHeader = true; });
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackHint")).toContainText("Disk write failed");
+  await expect(page.locator("#multitrackRecord")).toHaveText("Record multitrack");
+  await expect(page.locator("#layout")).toBeEnabled();
+  const failed = await recordedFile(page);
+  expect(failed.closed).toBe(false);
+  expect(failed.aborted).toBe(true);
+  await page.locator("#multitrackToFile").uncheck();
+  await expect(page.locator("#multitrackHint")).toContainText("buffered, folder / ZIP + WAV");
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackRecord")).toHaveText("Stop multitrack");
+  await expect(page.locator("#multitrackTime")).not.toHaveText("00:00", { timeout: 10_000 });
+  await page.locator("#multitrackRecord").click();
+  await expect(page.locator("#multitrackDialog")).toBeVisible();
+  expect(wave(await download(page, "#multitrackWav")).channels).toBe(8);
 });

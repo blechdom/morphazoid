@@ -7,6 +7,7 @@ import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
 import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
 import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
+import { restoreSpartialMidiInputSource } from "./helpers/spartial-midi-input-reference.mjs";
 import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -77,6 +78,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreSpartialMidiInputSource(current, record.after, { allowRestored: true });
     current = restoreRubixMobile(current, record.after);
     current = restoreRubixColorKit(current, record.after);
     current = restoreTapTempo(current, record.after);
