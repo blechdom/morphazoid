@@ -20,6 +20,8 @@
     "src/media-element-output.js",
     "src/midi-note-effects.js",
     "src/midi-note-effects-controls.js",
+    "src/midi-output-routes.js",
+    "src/midi-output-stream.js",
     "src/processor-sample-player.js"
   ],
   "boundaries": [
@@ -27,6 +29,7 @@
     "Preserve every public HTML route, catalogue field, preset, storage key and MIDI identity.",
     "Keep shared audio/MIDI runtime utilities and the WASM engine/toolchain in their existing directories.",
     "Retain the shared MIDI note-effects scheduler and its editor at src/: Midiophilia, MIDI Mixer and Blech MIDI use them, while each instrument owns its audio and transport adapters.",
+    "Retain the MIDI output-route registry and timestamped output stream at src/: shared Settings owns destination selection and the stream owns device-clock conversion and note cleanup; instruments own their musical events and transport adapters.",
     "Retain the shared recorded-input player at src/: Candy Coil Delay, Sandy Syrup Delay and Slippery Resynthesis share its sample UI and bounded loader; each instrument keeps its own Audio arming and effect graph.",
     "Retain browser recording storage at src/: the shared recorder offers continuous takes and numbered WAV recovery across instruments, with Wobblini selecting that mode by default.",
     "Regenerate dist-wax from source; do not edit generated files.",

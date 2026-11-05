@@ -685,8 +685,8 @@ export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.ent
   "blech-midi": {
     "kind": "Layered MIDI performance",
     "description": "Layer MIDI files, stamps, drawings, equation patterns and frame loops on one falling-note keyboard. Play and capture Automatapoeia, then shape the shared SoundFont output live.",
-    "start": "Turn Audio on, choose a source tab, then Play or Drop a prepared pattern. Layer loops while the shared falling-note stage stays visible; Stop all releases every source.",
-    "features": ["SoundFont playback", "Falling-note keyboard", "Live layers", "Drawing", "Black MIDI stamps", "Equation patterns", "Frame loops", "Cellular automata", "MIDI file export"],
+    "start": "Turn Audio on for internal sound, or enable MIDI in Settings and choose a MIDI Out destination. Choose a source, then Play or Drop; Stop all releases every source.",
+    "features": ["SoundFont playback", "MIDI output", "Falling-note keyboard", "Live layers", "Drawing", "Black MIDI stamps", "Equation patterns", "Frame loops", "Cellular automata", "MIDI file export"],
     "pluginHref": null
   },
   "blech-midi-ultra": {

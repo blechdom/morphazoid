@@ -5,6 +5,86 @@ words, MIDI artwork, the Black MIDI file player and live Automatapoeia evolution
 share one falling-note stage. The light-trail visualizer, ordinary file player and two-deck
 mixer remain in [Midiophilia](../midiphoria.html).
 
+## Live MIDI output
+
+Open **Settings**, turn **MIDI connection** on, then choose a destination under
+**MIDI Out**. Output starts Off in an ordinary browser. Choose a virtual MIDI
+port connected to your DAW or an attached MIDI device. Enabling the connection
+alone does not route notes. **Audio** independently controls BLECH's internal
+SoundFont: leave it off to hear only the receiving DAW synth, or turn it on to
+hear both. Muting Audio while MIDI output is active keeps the layers playing.
+
+Drawings, stamps, text, math, live Automata, playable MIDI files and the falling
+keyboard send their actual notes, including MIDI note effects, to the selected
+destination. Loop, pause, source replacement and stop release the affected notes.
+**Stop all**, output Off, destination changes and page teardown clear pending
+output and release held notes. MIDI output carries channel messages; SoundFont
+selection, reverb, filtering and other audio processing remain local.
+
+Use different **Channel** settings for layers that need independent programs,
+pitch bend or sustain. MIDI 1.0 shares these settings across every note on a
+channel, including channel-mode changes and overlapping same-pitch voices;
+a single output has 16 channels. Multiport files are not folded
+together: their live file output is disabled with an explanation, while layers
+and the keyboard remain available. Large visual-only scores have no playable
+event stream; when a collection entry supplies a smaller audio edition, MIDI
+output follows that playable edition.
+
+MIDI events originate on the audio thread, after note effects, with audio-clock
+timestamps. Each render block forwards a bounded batch independently of the
+visualizer. The output converts these timestamps using the audio device's
+presentation clock and passes them to Web MIDI. It adds no fixed timing delay.
+If the main thread misses a deadline by more than 8 ms, the overdue attack is
+skipped rather than played in a burst; releases are still delivered. Capacity
+overflow, a disconnected destination or an interrupted audio clock stops output
+safely. Choose the destination again to resume after an error.
+
+This preserves the engine's timing within the browser/device scheduling limits;
+it is not a claim of sample-accurate DAW recording. WAX's handling of Web MIDI
+timestamps and operation with its editor closed still require a native host
+test. Dense black MIDI can exceed a physical MIDI connection's bandwidth.
+
+### Browser to REAPER on Linux
+
+1. Open BLECH MIDI in Chrome from the local preview. In REAPER's
+   **Preferences → Audio → MIDI Devices**, enable **Midi Through Port-0** as an
+   input. If your system uses another virtual MIDI port, use its matching input
+   and output instead. `aconnect -l` lists the available ALSA MIDI ports.
+2. Create a REAPER track with **ReaControlMIDI → ReaSynth**. Select
+   **Input: MIDI → Midi Through Port-0 → All channels**, arm the track and turn
+   input monitoring on. Open ReaControlMIDI's **Show Log**.
+3. In BLECH **Settings**, turn **MIDI connection** on and choose
+   **Midi Through Port-0** under **MIDI Out**. Leave BLECH **Audio** off.
+4. Set BLECH and REAPER to 120 BPM. Make a drawing with a few separated notes,
+   select Loop and zero Drop delay, then Drop. ReaSynth should sound the notes;
+   the log should show matching note-ons and note-offs.
+5. Record two passes as MIDI and inspect the note spacing and loop repetition.
+   Press BLECH **Stop all** and confirm that every note releases. A browser Drop
+   starts when you perform it; use WAX for DAW Play/Stop and tempo control.
+
+### WAX and DAW test
+
+In WAX, load the WAX build at `https://morphazoid.com/dist-wax/blech-midi.html`
+after the updated build has been published. Positive host detection enables the
+native MIDI output and selects **Auto DAW / host** in Settings. No companion
+pattern is generated. BLECH Audio stays off until explicitly enabled.
+
+For a simple REAPER test, place **WAX MIDI FX → ReaControlMIDI → ReaSynth** on one track,
+open ReaControlMIDI's **Show Log**, and set the DAW to 120 BPM. Make a small
+drawing, choose Loop and zero Drop delay, then Drop. The log should show its
+notes and matching releases; ReaSynth should sound them. DAW Stop pauses the
+sources and clears MIDI; DAW Play resumes them. Host BPM updates the master
+tempo. Host seeks and loops rebase the existing layers and file position;
+live Automata restarts its seed on those discontinuities. An initial host
+position establishes the performance's origin, so a new drop remains relative
+to when it was performed.
+
+WAX currently lists macOS and Windows support. On Linux aarch64, REAPER can test
+exported MIDI files, but a native WAX test needs a supported host. To check a
+file export, use **Frames → Drawing → Drop → Download MIDI**, drag the file into
+a REAPER track with ReaSynth, and compare its notes and durations. An export is
+a source score, not a recording of the combined live performance.
+
 ## Prepare, position, Drop
 
 The five generator views are **Math**, **Files**, **Frames**, **Text** and
@@ -573,7 +653,9 @@ The shared output connection supports stereo meters and main-output recording.
 Page departure aborts downloads and listeners, revokes generated URLs, releases
 the audio graph and removes render observers. A back/forward-cache return mounts
 fresh owners with Audio off and restores the prepared drawing without restarting
-playback. No microphone, MIDI input, MIDI output or device permission is requested.
+playback. No microphone or device permission is requested merely by opening the
+browser page. MIDI output requires its explicit connection and destination;
+the positively detected WAX host path can enable it automatically.
 
 The existing sample limits remain: at most four clips, 32,768 notes, 16 channels,
 512 beats, 131,072 events and 2 MiB per generated/excerpted sample. Dense file stamps use bounded
@@ -650,7 +732,8 @@ Mixer and BLECH MIDI use the shared tempo. A gate limit shortens key holds;
 source sustain pedals still apply. Edits and bypass affect new attacks, while
 held notes and pending echoes finish with their captured settings. Stop, seek,
 source replacement cancel the affected pending notes. Audio off releases pads
-and stamps; song transports keep moving.
+and stamps when MIDI output is off; with MIDI output active it mutes only local
+sound. Song transports keep moving.
 
 The layer runs before synthesis on the audio thread, and the visualizer receives
 the resulting notes. Playing, Audio permission, source MIDI bytes and download

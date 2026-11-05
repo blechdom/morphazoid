@@ -457,7 +457,7 @@ export function installUniversalWaxAdapter(runtime = globalThis, documentObject 
   const routeId = routeIdForLocation(runtime.location);
   const legacyRouteId = legacyInstrumentId(routeId);
   const support = waxSupportForId(routeId);
-  if (!support || support.available === false) return null;
+  if (!support || support.available === false || support.adapter === "native") return null;
 
   const controlDocument = activeInstrumentControls(documentObject);
   addStylesheet(documentObject);

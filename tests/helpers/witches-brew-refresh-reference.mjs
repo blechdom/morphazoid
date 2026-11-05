@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { restoreWitchesBrewFaves } from "./witches-brew-faves-reference.mjs";
+import { restoreBlechMidiOutputSite } from "./blech-midi-output-site-reference.mjs";
 
 export const witchesBrewRefreshAmendments = JSON.parse(readFileSync(
   new URL("../fixtures/witches-brew-refresh-amendments.json", import.meta.url), "utf8",
@@ -10,6 +11,7 @@ export const witchesBrewRefreshAmendments = JSON.parse(readFileSync(
  * deliberately separate from restoreWitchSite, which removes its first addition. */
 export function restoreWitchesBrewRefresh(source, file, { allowRestored = false } = {}) {
   if (typeof source !== "string") return source;
+  source = restoreBlechMidiOutputSite(source, file, { allowRestored: true });
   const change = witchesBrewRefreshAmendments.changes.find(change => change.file === file);
   if (!change) return source;
   source = restoreWitchesBrewFaves(source, file, { allowRestored: true });

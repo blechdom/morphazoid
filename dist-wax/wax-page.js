@@ -1,11 +1,11 @@
-import { INSTRUMENTS } from "./src/site/instrument-catalog.js";
+import { CATALOGUE_ITEMS } from "./src/site/instrument-catalog.js";
 import {
   WAX_INSTRUMENT_SUPPORT,
   WAX_ROLE_DEFINITIONS,
   waxSupportForId,
 } from "./src/instruments/wax/wax-instrument-roles.js";
 
-const instrumentById = new Map(INSTRUMENTS.map((instrument) => [instrument.id, instrument]));
+const instrumentById = new Map(CATALOGUE_ITEMS.map((instrument) => [instrument.id, instrument]));
 
 function element(doc, tag, className, text) {
   const node = doc.createElement(tag);

@@ -117,8 +117,20 @@ function caveatFor(instrument, noteMode, midiOutput) {
   return null;
 }
 
-export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
+export const WAX_NATIVE_LABS = Object.freeze(CATALOGUE_ITEMS.filter(({ id }) => id === "blech-midi"));
+
+export const WAX_INSTRUMENT_SUPPORT = Object.freeze([...INSTRUMENTS, ...WAX_NATIVE_LABS].map((instrument) => {
   const midiCapability = instrumentMidiCapabilityForId(instrument.id);
+  if (instrument.id === "blech-midi") {
+    return Object.freeze({
+      id: instrument.id, adapter: "native", recommended: WAX_ROLE_IDS.midiFx,
+      roles: Object.freeze([WAX_ROLE_IDS.midiFx, WAX_ROLE_IDS.instrument]),
+      audioInput: false, midiInput: false, midiInputMode: "none", computerKeyboardMode: "none",
+      midiOutput: true, hostSync: true, noteMode: "sequence",
+      summary: "Send BLECH MIDI's actual layers, files, live Automata and keyboard notes to a downstream instrument, with optional SoundFont audio.",
+      caveat: "Native MIDI output follows the audio clock. Confirm timestamp scheduling and transport in your WAX host before a render.",
+    });
+  }
   // Browser playback is available; this route has no verified WAX bus adapter.
   if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {
     return Object.freeze({

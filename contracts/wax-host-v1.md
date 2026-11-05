@@ -76,6 +76,15 @@ broad first pass, not a claim that each fallback exactly mirrors the page's
 native audio-event stream; page-specific adapters replace it as their event
 semantics are validated.
 
+BLECH MIDI is an explicitly supported lab with a native adapter. Its Settings
+MIDI Out route forwards the generated layer, live Automata, playable file and
+keyboard streams after note effects. It bypasses the universal companion
+adapter and initializes a muted audio clock for MIDI-only use. Host Play waits
+for both playback engines; Stop pauses existing sources, clears output and
+retains them for resume. Host BPM changes preserve phase and held notes.
+Output uses audio presentation timestamps without a fixed added delay. Native
+WAX timestamp accuracy and editor-closed behavior remain unverified boundaries.
+
 WAX Instrument, WAX Audio FX, and WAX MIDI FX are separate fixed DAW I/O roles.
 They can load the same page URL, but changing the page's output-mode control
 does not change the scanned plug-in's bus topology. The per-instrument guide on

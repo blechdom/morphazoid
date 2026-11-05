@@ -101,7 +101,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     $('blackSongPosition').max = String(state.duration || 1);
     if (document.activeElement !== $('blackSongPosition')) $('blackSongPosition').value = String(state.time || 0);
     $('blackSongTime').value = `${timeLabel(state.time)} / ${timeLabel(state.duration)}`;
-    $('blackPlayerStatus').textContent = error || state.error || (loading || state.loading ? 'Loading MIDI…' : '');
+    $('blackPlayerStatus').textContent = error || state.error || (state.midiOutputEnabled ? state.midiOutputError : '') || (loading || state.loading ? 'Loading MIDI…' : '');
     host.dataset.playing = String(state.playing);
   }
   function setTempo() {
@@ -250,11 +250,14 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   on($('blackOriginalTiming'), 'click', () => { freeTempo = null; $('blackSyncTempo').checked = false; $('blackPlaybackRate').value = '1'; $('blackPlaybackRate').dispatchEvent(new Event('input', { bubbles: true })); });
   on($('blackFileLevel'), 'input', () => { player.setVolume(Number($('blackFileLevel').value)); $('blackFileLevelOut').value = `${Math.round(Number($('blackFileLevel').value) * 100)}%`; });
   on($('blackSongPosition'), 'input', () => { $('blackSongTime').value = `${timeLabel(Number($('blackSongPosition').value))} / ${timeLabel(player.state.duration)}`; });
-  on($('blackSongPosition'), 'change', () => {
+  function seek(seconds) {
     getPlayedNoteCount(); transportRevision++; rebasingCounter = true;
-    try { player.seek(Number($('blackSongPosition').value)); } finally { rebasingCounter = false; }
+    let result;
+    try { result = player.seek(seconds); } finally { rebasingCounter = false; }
     noteCounter.rebase(player.state); reflect();
-  });
+    return result;
+  }
+  on($('blackSongPosition'), 'change', () => seek(Number($('blackSongPosition').value)));
   on($('blackMidiFile'), 'change', () => {
     const files = [...$('blackMidiFile').files]; $('blackMidiFile').value = '';
     if (!files.length) return;
@@ -285,7 +288,20 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   showHash(); view.setVisible(!document.hidden); setTempo(); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   return {
-    play, pause, stop, getTransportState, reflect, setTempo, getSettings, getPlayedNoteCount, resetNoteCount,
+    play, pause, stop, seek, getTransportState, reflect, setTempo, getSettings, getPlayedNoteCount, resetNoteCount,
+    seekByBeats(beats) {
+      if (!Number.isFinite(beats) || !ready || loading) return false;
+      const state = player.state;
+      return seek(state.time + beats * 60 / engine.state.tempo * state.rate);
+    },
+    subscribeMidiOutput: callback => player.subscribeMidiOutput(callback),
+    getMidiOutputState: () => ({ enabled: player.state.midiOutputEnabled, error: selected ? player.state.midiOutputError : '' }),
+    getMidiOutputError: () => selected ? player.state.midiOutputError : '',
+    async setMidiOutput(enabled, epoch = 0) {
+      const active = await player.setMidiOutput(enabled, epoch);
+      if (!disposed && !loading && active && player.state.ready && preparedSongId === selected?.id) { ready = true; error = ''; }
+      reflect(); return active;
+    },
     getPreparedScore: () => preparedScore ? structuredClone(preparedScore) : null,
     setCollection(songs) { collection = songs; renderList(); },
     async enableAudio() {
@@ -296,7 +312,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
       if (!disposed && !loading && enabled && player.state.ready && preparedSongId === selected?.id) { ready = true; error = ''; }
       reflect(); return enabled;
     },
-    setAudioEnabled(enabled) { if (!enabled) view.releaseKeyboard(); player.setAudioEnabled(enabled); },
+    setAudioEnabled(enabled) { if (!enabled && !player.state.midiOutputEnabled) view.releaseKeyboard(); player.setAudioEnabled(enabled); },
     releaseKeyboard() { view.releaseKeyboard(); player.releasePads(); },
     setNoteEffects: value => player.setNoteEffects(value),
     loadSoundFont: (bytes, name) => player.loadSoundFont(bytes, name),

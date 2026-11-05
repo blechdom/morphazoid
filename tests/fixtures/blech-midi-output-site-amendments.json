@@ -1,0 +1,73 @@
+{
+  "baseCommit": "6bbd1e82224ecf367a80dd9a3c2977ee7fa25ccc",
+  "changes": [
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "0e3030726a9897de3bbc308a570a5fbb44aab4ed4469c099f89dc0ff45c59731",
+      "replacements": [
+        {
+          "before": "    \"start\": \"Turn Audio on, choose a source tab, then Play or Drop a prepared pattern. Layer loops while the shared falling-note stage stays visible; Stop all releases every source.\",\n    \"features\": [\"SoundFont playback\", \"Falling-note keyboard\", \"Live layers\", \"Drawing\", \"Black MIDI stamps\", \"Equation patterns\", \"Frame loops\", \"Cellular automata\", \"MIDI file export\"],\n",
+          "after": "    \"start\": \"Turn Audio on for internal sound, or enable MIDI in Settings and choose a MIDI Out destination. Choose a source, then Play or Drop; Stop all releases every source.\",\n    \"features\": [\"SoundFont playback\", \"MIDI output\", \"Falling-note keyboard\", \"Live layers\", \"Drawing\", \"Black MIDI stamps\", \"Equation patterns\", \"Frame loops\", \"Cellular automata\", \"MIDI file export\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "0280fcca120c8df940870347e9f6ec27ad7440a3a6992e48955e6999846bc695",
+      "replacements": [
+        {
+          "before": "",
+          "after": "copy+require\tsrc/midi-output-routes.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/midi-output-stream.js\n"
+        },
+        {
+          "before": "",
+          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-output.js\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/wax/wax-universal-adapter.js",
+      "sha256": "90f85f610ad519afce7eb1fc19d81c8872ef5dc598186bd89b41d48a5806cf85",
+      "replacements": [
+        {
+          "before": "  const routeId = routeIdForLocation(runtime.location);\n  const legacyRouteId = legacyInstrumentId(routeId);\n  const support = waxSupportForId(routeId);\n  if (!support || support.available === false) return null;\n\n  const controlDocument = activeInstrumentControls(documentObject);\n  addStylesheet(documentObject);\n",
+          "after": "  const routeId = routeIdForLocation(runtime.location);\n  const legacyRouteId = legacyInstrumentId(routeId);\n  const support = waxSupportForId(routeId);\n  if (!support || support.available === false || support.adapter === \"native\") return null;\n\n  const controlDocument = activeInstrumentControls(documentObject);\n  addStylesheet(documentObject);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/wax/wax-instrument-roles.js",
+      "sha256": "8ddbae7638c14e3c2be0fd9a3dd6f7e4c6678d1d649d1689bf57d66df4cca696",
+      "replacements": [
+        {
+          "before": "  return null;\n}\n\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  // Browser playback is available; this route has no verified WAX bus adapter.\n  if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {\n    return Object.freeze({\n",
+          "after": "  return null;\n}\n\nexport const WAX_NATIVE_LABS = Object.freeze(CATALOGUE_ITEMS.filter(({ id }) => id === \"blech-midi\"));\n\nexport const WAX_INSTRUMENT_SUPPORT = Object.freeze([...INSTRUMENTS, ...WAX_NATIVE_LABS].map((instrument) => {\n  const midiCapability = instrumentMidiCapabilityForId(instrument.id);\n  if (instrument.id === \"blech-midi\") {\n    return Object.freeze({\n      id: instrument.id, adapter: \"native\", recommended: WAX_ROLE_IDS.midiFx,\n      roles: Object.freeze([WAX_ROLE_IDS.midiFx, WAX_ROLE_IDS.instrument]),\n      audioInput: false, midiInput: false, midiInputMode: \"none\", computerKeyboardMode: \"none\",\n      midiOutput: true, hostSync: true, noteMode: \"sequence\",\n      summary: \"Send BLECH MIDI's actual layers, files, live Automata and keyboard notes to a downstream instrument, with optional SoundFont audio.\",\n      caveat: \"Native MIDI output follows the audio clock. Confirm timestamp scheduling and transport in your WAX host before a render.\",\n    });\n  }\n  // Browser playback is available; this route has no verified WAX bus adapter.\n  if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {\n    return Object.freeze({\n"
+        }
+      ]
+    },
+    {
+      "file": "wax-page.js",
+      "sha256": "bcda018ea0baaf1a456b782b4624396561d03c30cf591a2568b196b640ccb902",
+      "replacements": [
+        {
+          "before": "import { INSTRUMENTS } from \"./src/site/instrument-catalog.js\";\nimport {\n  WAX_INSTRUMENT_SUPPORT,\n  WAX_ROLE_DEFINITIONS,\n  waxSupportForId,\n} from \"./src/instruments/wax/wax-instrument-roles.js\";\n\nconst instrumentById = new Map(INSTRUMENTS.map((instrument) => [instrument.id, instrument]));\n\nfunction element(doc, tag, className, text) {\n  const node = doc.createElement(tag);\n",
+          "after": "import { CATALOGUE_ITEMS } from \"./src/site/instrument-catalog.js\";\nimport {\n  WAX_INSTRUMENT_SUPPORT,\n  WAX_ROLE_DEFINITIONS,\n  waxSupportForId,\n} from \"./src/instruments/wax/wax-instrument-roles.js\";\n\nconst instrumentById = new Map(CATALOGUE_ITEMS.map((instrument) => [instrument.id, instrument]));\n\nfunction element(doc, tag, className, text) {\n  const node = doc.createElement(tag);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "e913c388ca235a5ab071d0778b3762f181cc5528a113719faccba32a4c301ee1",
+      "replacements": [
+        {
+          "before": "      ? \"page\"\n      : noGenericNoteKeyboardIds.has(id) ? \"none\" : \"midi\",\n  }))),\n  // Generates MIDI files and internal SoundFont notes; no live MIDI port or piano-key mapping.\n  Object.freeze({\n    id: \"blech-midi\",\n    midiInput: false,\n    midiInputMode: \"none\",\n    noteMode: \"sequence\",\n    audioInput: false,\n    midiOutput: false,\n    startsAudio: true,\n    computerKeyboardMode: \"none\",\n  }),\n",
+          "after": "      ? \"page\"\n      : noGenericNoteKeyboardIds.has(id) ? \"none\" : \"midi\",\n  }))),\n  // Native timestamped output follows the actual performance; no input or QWERTY mapping.\n  Object.freeze({\n    id: \"blech-midi\",\n    midiInput: false,\n    midiInputMode: \"none\",\n    noteMode: \"sequence\",\n    audioInput: false,\n    midiOutput: true,\n    midiOutputMode: \"native\",\n    startsAudio: true,\n    computerKeyboardMode: \"none\",\n  }),\n"
+        }
+      ]
+    }
+  ]
+}

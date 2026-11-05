@@ -132,6 +132,13 @@ function createGpu(canvas) {
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 28, 0); gl.vertexAttribDivisor(0, 1);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 28, 16); gl.vertexAttribDivisor(1, 1);
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.clearColor(.025, .03, .045, 1);
+    // Some drivers defer compilation until the first nonempty draw. Complete
+    // that work at mount, before a first Drop can compete with MIDI delivery.
+    // This rectangle is entirely outside the viewport and produces no mark.
+    gl.useProgram(program);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([2, 2, .001, .001, 0, 0, 0]), gl.DYNAMIC_DRAW);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
+    gl.finish();
     let capacity = 0;
     return { name: 'WebGL2', limit: 200_000, draw(data, count) {
       gl.viewport(0, 0, canvas.width, canvas.height); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(program);

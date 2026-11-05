@@ -45,8 +45,8 @@ async function observe(page) {
   await page.route('**/src/instruments/midi-mixer/midi-mixer-engine.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}
-      const qaSubscribe = MidiMixerEngine.prototype.subscribeNotes, qaPublish = MidiMixerEngine.prototype._publishNotes;
-      MidiMixerEngine.prototype.subscribeNotes = function(...args) { __noteFxQA.engine = this; return qaSubscribe.apply(this, args); };
+      const qaVolume = MidiMixerEngine.prototype.setVolume, qaPublish = MidiMixerEngine.prototype._publishNotes;
+      MidiMixerEngine.prototype.setVolume = function(...args) { __noteFxQA.engine = this; return qaVolume.apply(this, args); };
       MidiMixerEngine.prototype._publishNotes = function(notes) { __noteFxQA.notes.push(...notes.map(note => ({ ...note, received: performance.now() }))); return qaPublish.call(this, notes); };` });
   });
   await page.route('**/src/instruments/midiphoria/midiphoria-renderer.js', async route => {
@@ -54,6 +54,21 @@ async function observe(page) {
     await route.fulfill({ response, body: `${await response.text()}
       const qaCapture = MidiphoriaRenderer.prototype.captureEvent;
       MidiphoriaRenderer.prototype.captureEvent = function(event) { __noteFxQA.graphics.push({ ...event }); return qaCapture.call(this, event); };` });
+  });
+  // BLECH's falling score now uses projected live notes rather than the older
+  // Midiphoria renderer. Observe notes crossing its keyboard, not forecasts.
+  await page.route('**/src/instruments/blech-midi/blech-midi-live-score.js', async route => {
+    const response = await route.fetch();
+    const source = (await response.text()).replace('export function createBlechLiveProjector()', 'function qaCreateBlechLiveProjector()');
+    await route.fulfill({ response, body: `${source}
+      export function createBlechLiveProjector() {
+        const project = qaCreateBlechLiveProjector();
+        return (...args) => {
+          const result = project(...args);
+          __noteFxQA.graphics.push(...result.notes.filter(note => note.start <= 0 && note.end > 0).map(note => ({ type: 'noteOn', note: note.pitch })));
+          return result;
+        };
+      }` });
   });
 }
 async function input(page, id, value) {
@@ -76,6 +91,7 @@ async function open(page, view, { load = true } = {}) {
     await page.locator('#midiFile').setInputFiles({ name: 'FX pulse.mid', mimeType: 'audio/midi', buffer: fixture() });
     await expect(page.locator('#songList button[data-song-id="local-1"]')).toHaveAttribute('aria-pressed', 'true');
   }
+  if (view.mode === 'blech') await page.locator('#blechTab-sound').click();
   const details = page.locator(`#${view.prefix}Enabled`).locator('xpath=ancestor::details[1]');
   await details.locator(':scope > summary').click(); await expect(page.locator(`#${view.prefix}Enabled`)).toBeVisible();
 }

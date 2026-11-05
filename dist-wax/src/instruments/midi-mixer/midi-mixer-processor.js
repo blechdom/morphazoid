@@ -18,6 +18,8 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     this.channelVolumes = new Float32Array(241).fill(100 / 127); this.channelExpressions = new Float32Array(241).fill(1);
     this.audible = true; this.masterVolume = 1;
     this.crossfade = 0; this.noteEvents = []; this.droppedVisualEvents = 0; this.renderOffset = 0; this.actions = null;
+    this.midiEnabled = false; this.midiEpoch = 0; this.midiEvents = []; this.midiOverflow = false;
+    this.midiRoutes = new Map(); this.midiVoices = new Map(); this.midiSent = new Map(); this.midiBlockedSources = new Map(); this.midiWarnings = [];
     this.clock = new MidiMixerClock({
       emit: (deck, event, frame) => this.schedule('emit', frame, [deck, event]),
       release: (deck, frame = 0, hard = false) => this.schedule('release', frame, [deck, hard]),
@@ -56,6 +58,16 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   }
   async command(message) {
     if (message.type === 'dispose') { this.noteFx.clear(this.synth?.currentTime ?? 0); this.sampleClock.stopAll(); this.railClock.stopAll(); this.alive = false; this.synth?.destroySynthProcessor(); this.synth = null; return; }
+    if (message.type === 'midiOutput') {
+      this.releaseMidi('*'); this.flushMidi();
+      this.midiEnabled = Boolean(message.enabled); this.midiEpoch = message.epoch ?? 0;
+      if (this.midiEnabled && this.ready) {
+        for (const [deck, source] of this.midiBlockedSources) if (deck < 2 || this.sampleClock.samples[deck - 2]) this.warnMidiPorts(source);
+        for (const [index, route] of this.midiRoutes) if (route.deck < 2 || route.deck === AUTOMATA_SOURCE || this.sampleClock.samples[route.deck - 2]) this.midiState(index);
+        for (const note of this.midiVoices.values()) this.midiNote(note);
+      }
+      this.flushMidi(); return;
+    }
     if (message.type === 'initialize') {
       SpessaLog.setLogLevel(false, false, false);
       const synth = new SpessaSynthProcessor(sampleRate, { eventsEnabled: false }); this.synth = synth;
@@ -250,7 +262,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < 2; i++) if (this.deckConfigs[i]) this.configure(i, this.deckConfigs[i], this.channelSettings[i]);
         break;
       case 'rejoin': for (let i = 0; i < 2; i++) this.clock.resync(i); this.automata.rejoin(); break;
-      case 'release': this.noteFx.clear(this.synth.currentTime); this.sampleClock.stopAll(); this.railClock.stopAll(); this.synth.synthCore.eventQueue.length = 0; this.synth.stopAllChannels(true); for (let source = 0; source < 8; source++) this.releaseVisual(source); break;
+      case 'release': this.noteFx.clear(this.synth.currentTime); this.sampleClock.stopAll(); this.railClock.stopAll(); this.synth.synthCore.eventQueue.length = 0; this.synth.stopAllChannels(true); for (let source = 0; source < 8; source++) this.releaseVisual(source); this.releaseMidi('*'); break;
     }
     this.publish();
   }
@@ -297,6 +309,66 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     for (const channel of data.channels) this.synth.midiChannels[this.deckChannels[source].get(channel.channel)].setDrums(channel.drums);
     this.prepareSourceChannels(source, data.channels);
   }
+  midiTime(frame = 0) { return currentTime + (this.renderOffset + frame) / sampleRate; }
+  queueMidi(event) {
+    if (!this.midiEnabled || this.midiOverflow) return;
+    if (this.midiEvents.length >= 4096) { this.midiEvents = []; this.midiOverflow = true; this.midiSent.clear(); return; }
+    this.midiEvents.push(event);
+  }
+  flushMidi() {
+    if (!this.midiEvents.length && !this.midiOverflow && !this.midiWarnings.length) return;
+    this.port.postMessage({ type: 'midiOutput', epoch: this.midiEpoch, events: this.midiEvents, ...(this.midiOverflow ? { overflow: true } : {}), ...(this.midiWarnings.length ? { warnings: this.midiWarnings } : {}) });
+    this.midiEvents = []; this.midiOverflow = false; this.midiWarnings = [];
+  }
+  warnMidiPorts(source) {
+    if (!this.midiEnabled || this.midiWarnings.length >= 7) return;
+    this.midiWarnings.push(`MIDI output skipped for ${source}: this score uses multiple MIDI ports. Choose a single output channel for the layer.`);
+  }
+  midiMessage(index, data, frame = 0) {
+    const route = this.midiRoutes.get(index); if (!route || !this.midiEnabled) return;
+    const bytes = [...data]; bytes[0] = (bytes[0] & 0xf0) | route.channel;
+    this.queueMidi({ type: 'message', source: route.source, channel: route.channel, data: bytes, time: this.midiTime(frame) });
+  }
+  midiParameter(index, parameter, value) {
+    for (const [cc, byte] of [[101, parameter >> 7], [100, parameter & 127], [6, value >> 7], [38, value & 127], [101,127], [100,127]]) this.midiMessage(index, [0xb0, cc, byte]);
+  }
+  midiState(index) {
+    const source = this.sourceChannels.get(index), midi = this.effectiveMidi.get(index) ?? {};
+    if (!source || !this.midiEnabled) return;
+    this.midiMessage(index, [0xb0, 121, 0]);
+    this.midiMessage(index, [0xb0, 0, midi.bankMSB ?? midi.controllers?.[0] ?? source.patch.bankMSB]);
+    this.midiMessage(index, [0xb0, 32, midi.bankLSB ?? midi.controllers?.[32] ?? source.patch.bankLSB]);
+    this.midiMessage(index, [0xc0, midi.program ?? source.patch.program]);
+    for (let cc = 1; cc < 120; cc++) {
+      if ([6,32,38,96,97,98,99,100,101].includes(cc)) continue;
+      const value = midi.controllers?.[cc] ?? (cc > 32 && cc < 64 && midi.controllers?.[cc - 32] !== undefined ? 0 : source.midiControllers[cc] >> 7);
+      if (value || [7,10,11,64,66].includes(cc)) this.midiMessage(index, [0xb0, cc, value]);
+    }
+    const bend = Math.round(midi.bend ?? source.midiParameters.pitchWheel);
+    this.midiMessage(index, [0xe0, bend & 127, bend >> 7]);
+    this.midiMessage(index, [0xd0, midi.pressure ?? source.midiParameters.pressure]);
+    const range = midi.bendRange ?? source.midiParameters.pitchWheelRange;
+    this.midiParameter(index, 0, (Math.floor(range) << 7) | Math.round((range % 1) * 100));
+  }
+  midiNote(note) {
+    if (!this.midiEnabled) return;
+    if (note.type === 'noteOff') {
+      const active = this.midiSent.get(note.id); if (!active) return;
+      this.queueMidi({ ...active, type: 'noteOff', velocity: 0, time: this.midiTime() }); this.midiSent.delete(note.id); return;
+    }
+    if (this.midiSent.has(note.id)) return;
+    const route = this.midiRoutes.get(note.channel), channel = this.synth?.midiChannels[note.channel];
+    if (!route || !channel || channel.systemParameters.isMuted || channel.systemParameters.gain <= 1e-6) return;
+    const pitch = Math.round(note.note + channel.systemParameters.keyShift);
+    if (pitch < 0 || pitch > 127) return;
+    const event = { type: 'noteOn', source: route.source, id: note.id, channel: route.channel, note: pitch, velocity: note.velocity, time: this.midiTime() };
+    this.midiSent.set(note.id, event); this.queueMidi(event);
+  }
+  releaseMidi(source, frame = 0, channel = null) {
+    if (!source || channel !== null && (!Number.isInteger(channel) || channel < 0 || channel > 15)) return;
+    for (const [id, event] of this.midiSent) if ((source === '*' || event.source === source) && (channel === null || event.channel === channel)) this.midiSent.delete(id);
+    this.queueMidi({ type: 'release', source, ...(channel === null ? {} : { channel }), time: this.midiTime(frame) });
+  }
   emit(deck, event, frame = 0, restoring = false) {
     const channel = this.deckChannels[deck].get(event.channel); if (channel === undefined) return;
     const shadow = this.sourceChannels.get(channel);
@@ -328,15 +400,27 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
     if (!restoring && event.kind === 10) {
       const pitches = this.noteFx.activePitches(channel, event.a);
-      for (const pitch of pitches.length ? pitches : [event.a]) this.synth.processMessage([0xa0 | channel % 16, pitch, event.b], channel - channel % 16,
-        { time: this.synth.currentTime + frame / sampleRate });
+      for (const pitch of pitches.length ? pitches : [event.a]) {
+        this.synth.processMessage([0xa0 | channel % 16, pitch, event.b], channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
+        const shifted = pitch + this.synth.midiChannels[channel].systemParameters.keyShift;
+        if (shifted >= 0 && shifted <= 127) this.midiMessage(channel, [0xa0, shifted, event.b], frame);
+      }
       return;
     }
     const stopsNotes = event.kind === 11 && [120, 123, 124, 125, 126, 127].includes(event.a);
     if (stopsNotes) this.noteFx.clear(this.synth.currentTime, meta => meta.source === deck && meta.event.channel === event.channel);
+    if (event.kind === 11 && [120,123].includes(event.a)) this.releaseMidi(this.sourceIds[deck], frame, event.channel);
     const status = event.kind * 16 + channel % 16;
     const message = event.kind === 12 || event.kind === 13 ? [status, event.a] : [status, event.a, event.b];
     this.synth.processMessage(message, channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
+    if (!(event.kind === 11 && [120,123].includes(event.a))) {
+      const output = [...message];
+      if (event.kind === 11) output[2] = midi.controllers?.[event.a] ?? (event.a > 32 && event.a < 64 && midi.controllers?.[event.a - 32] !== undefined ? 0 : event.b);
+      if (event.kind === 13 && midi.pressure !== undefined) output[1] = midi.pressure;
+      if (event.kind === 14 && midi.bend !== undefined) { output[1] = midi.bend & 127; output[2] = midi.bend >> 7; }
+      this.midiMessage(channel, output, frame);
+      if (event.kind === 11 && event.a === 121) this.midiState(channel);
+    }
     if (event.kind === 11) {
       if (event.a === 7) this.channelVolumes[channel] = (midi.controllers?.[7] ?? event.b) / 127;
       if (event.a === 11) this.channelExpressions[channel] = (midi.controllers?.[11] ?? event.b) / 127;
@@ -351,10 +435,17 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       b: note.velocity ?? 0, noteId: note.id };
     const channel = note.channel, frame = 0;
     const midi = this.effectiveMidi.get(channel) ?? {}, shadow = this.sourceChannels.get(channel);
+    if (event.kind === 9) this.midiVoices.set(note.id, note); else this.midiVoices.delete(note.id);
+    this.midiNote(note);
     if (event.kind === 9 || note.release !== false) {
       this.synth.processMessage([event.kind * 16 + channel % 16, event.a, event.b], channel - channel % 16);
     }
-    if (event.kind === 9 && (midi.polyPressure !== undefined || shadow?.polyPressureValues[original.a])) this.synth.processMessage([0xa0 | channel % 16, event.a, midi.polyPressure ?? shadow.polyPressureValues[original.a]], channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
+    if (event.kind === 9 && (midi.polyPressure !== undefined || shadow?.polyPressureValues[original.a])) {
+      const pressure = midi.polyPressure ?? shadow.polyPressureValues[original.a];
+      this.synth.processMessage([0xa0 | channel % 16, event.a, pressure], channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
+      const shifted = event.a + this.synth.midiChannels[channel].systemParameters.keyShift;
+      if (shifted >= 0 && shifted <= 127) this.midiMessage(channel, [0xa0, shifted, pressure], frame);
+    }
     const active = this.activeVisualNotes[deck];
     if (event.kind === 8) {
       const note = active.get(event.noteId);
@@ -412,6 +503,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   release(deck, frame = 0, hard = false) {
     if (!this.synth) return;
     this.noteFx.clear(this.synth.currentTime + frame / sampleRate, meta => meta.source === deck);
+    this.releaseMidi(this.sourceIds[deck], frame);
     this.suppressedNotes[deck].clear();
     this.releaseVisual(deck, frame);
     if (frame === 0 && this.synth.synthCore.eventQueue.length) {
@@ -446,6 +538,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       // leaves CC7/CC10 alone. Establish normal defaults before source history.
       this.synth.controllerChange(channel, 7, 100); this.synth.controllerChange(channel, 10, 64); this.synth.controllerChange(channel, 11, 127);
       this.synth.programChange(channel, 0); this.synth.pitchWheel(channel, 8192);
+      this.midiState(channel);
     }
     // Restore complete parameter transactions, latched patch and pending bank
     // separately. Strictly-before avoids replaying procedural data at the cursor.
@@ -485,8 +578,13 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
   }
   prepareSourceChannels(deck, channels) {
+    for (const [index, route] of this.midiRoutes) if (route.deck === deck) this.midiRoutes.delete(index);
+    const ports = channels.some(info => info.channel < 0 || info.channel > 15);
+    if (ports) { this.midiBlockedSources.set(deck, this.sourceIds[deck]); this.warnMidiPorts(this.sourceIds[deck]); }
+    else this.midiBlockedSources.delete(deck);
     for (const info of channels) {
       const index = this.deckChannels[deck].get(info.channel);
+      if (Number.isInteger(index) && !ports) this.midiRoutes.set(index, { source: this.sourceIds[deck], channel: info.channel, deck });
       // A control-only channel has no slot in the synthesizer and never gets a
       // note. Its private channel number cannot match any allocated voice.
       const shadow = new this.synth.midiChannels[0].constructor(this.synth.synthCore, this.synth.synthCore.defaultPreset, 4096 + index);
@@ -527,6 +625,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       channel.setPatch({ ...source.patch, program: midi.program ?? source.patch.program, bankMSB: midi.bankMSB ?? midi.controllers?.[0] ?? source.patch.bankMSB, bankLSB: midi.bankLSB ?? midi.controllers?.[32] ?? source.patch.bankLSB, isGMGSDrum: midi.drums === undefined ? source.drumChannel : Boolean(midi.drums) });
       channel.setDrums(midi.drums === undefined ? source.drumChannel : Boolean(midi.drums));
       channel.setSystemParameter('presetLock', this.patchHeld(midi));
+      this.midiMessage(index, [0xb0, 0, midi.bankMSB ?? midi.controllers?.[0] ?? source.patch.bankMSB]);
+      this.midiMessage(index, [0xb0, 32, midi.bankLSB ?? midi.controllers?.[32] ?? source.patch.bankLSB]);
+      this.midiMessage(index, [0xc0, midi.program ?? source.patch.program]);
     }
     if (only === 'patch') return;
     channel.setSystemParameter('pan', midi.pan ?? 0); channel.setSystemParameter('fineTune', midi.fineTune ?? 0);
@@ -537,7 +638,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       if (parent !== null) channel.lockController(parent, false);
       if (cc < 32) channel.lockController(cc + 32, false);
       channel.controllerChange(cc, midi.controllers?.[cc] ?? (source.midiControllers[cc] >> 7), false);
+      this.midiMessage(index, [0xb0, cc, midi.controllers?.[cc] ?? (source.midiControllers[cc] >> 7)]);
       if (cc < 32) channel.controllerChange(cc + 32, midi.controllers?.[cc + 32] ?? (midi.controllers?.[cc] === undefined ? source.midiControllers[cc] & 127 : 0), false);
+      if (cc < 32) this.midiMessage(index, [0xb0, cc + 32, midi.controllers?.[cc + 32] ?? (midi.controllers?.[cc] === undefined ? source.midiControllers[cc] & 127 : 0)]);
       channel.lockController(cc, midi.controllers?.[cc] !== undefined || parent !== null && midi.controllers?.[parent] !== undefined);
       if (parent !== null) channel.lockController(parent, midi.controllers?.[parent] !== undefined);
       if (cc < 32) channel.lockController(cc + 32, midi.controllers?.[cc] !== undefined || midi.controllers?.[cc + 32] !== undefined);
@@ -547,8 +650,17 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       channel.lockMIDIParameter(parameter, false);
       const value = midi[field] === undefined ? source.midiParameters[parameter] : field === 'mono' ? !midi[field] : midi[field];
       channel.setMIDIParameter(parameter, value); channel.lockMIDIParameter(parameter, midi[field] !== undefined);
+      if (field === 'bend') this.midiMessage(index, [0xe0, value & 127, value >> 7]);
+      if (field === 'pressure') this.midiMessage(index, [0xd0, value]);
+      if (field === 'bendRange') this.midiParameter(index, 0, (Math.floor(value) << 7) | Math.round((value % 1) * 100));
+      if (field === 'modulationDepth') this.midiParameter(index, 5, Math.max(0, Math.min(16383, Math.round(value * 128 / 100))));
+      if (field === 'mono') this.midiMessage(index, [0xb0, value ? 127 : 126, 0]);
     }
-    if (midi.polyPressure !== previous.polyPressure) for (let note = 0; note < 128; note++) if (channel.playingNotes[note]) channel.polyPressure(note, midi.polyPressure ?? source.polyPressureValues[note]);
+    if (midi.polyPressure !== previous.polyPressure) for (let note = 0; note < 128; note++) if (channel.playingNotes[note]) {
+      channel.polyPressure(note, midi.polyPressure ?? source.polyPressureValues[note]);
+      const shifted = note + channel.systemParameters.keyShift;
+      if (shifted >= 0 && shifted <= 127) this.midiMessage(index, [0xa0, shifted, midi.polyPressure ?? source.polyPressureValues[note]]);
+    }
     for (const descriptor of MIDI_GENERATOR_PARAMETERS) {
       const id = descriptor.id, value = midi.generators?.[id];
       if (!force && value === previous.generators?.[id]) continue;
@@ -569,6 +681,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     for (const setting of channels) {
       const index = this.deckChannels[deck].get(setting.channel), channel = this.synth.midiChannels[index]; if (!channel) continue;
       const source = this.sourceChannels.get(index), midi = mergeMidiParameters(config.midi, setting.midi);
+      const wasMuted = channel.systemParameters.isMuted || channel.systemParameters.gain <= 1e-6;
       if (config.pan) midi.pan = clamp((midi.pan ?? 0) + config.pan, -1, 1, 0);
       if (source?.sourceDrums && setting.midi?.program === undefined && midi.drums === undefined && midi.bankMSB === undefined && midi.bankLSB === undefined) delete midi.program;
       if (setting.program !== null && setting.program !== undefined) {
@@ -579,6 +692,10 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       if (channel.systemParameters.isMuted || channel.systemParameters.gain <= 1e-6) this.releaseVisual(deck, 0, setting.channel);
       channel.setSystemParameter('keyShift', (source?.sourceDrums ? 0 : config.transpose ?? 0) + (midi.transpose ?? 0));
       this.applyMidi(index, midi);
+      const isMuted = channel.systemParameters.isMuted || channel.systemParameters.gain <= 1e-6;
+      if (isMuted && !wasMuted) {
+        const route = this.midiRoutes.get(index); if (route) this.releaseMidi(route.source, 0, route.channel);
+      } else if (!isMuted && wasMuted) for (const note of this.midiVoices.values()) if (note.channel === index) this.midiNote(note);
     }
   }
   captureEffectDefaults() {
@@ -604,6 +721,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
   }
   publish() {
+    this.flushMidi();
     this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, sampleTime: this.sampleClock.seconds, samples: this.sampleClock.snapshot(), automata: this.automata.snapshot(), automataNotes: this.automata.takeNoteChanges(), automataRevision: this.automataRevision, tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents + this.railClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
     if (this.noteEvents.length) {
       for (const note of this.noteEvents) if (note.type === 'noteOn') note.published = true;
@@ -641,10 +759,11 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         renderTo(frame); this.runAction(action);
       }
       renderTo(left.length);
+      this.flushMidi();
       this.renderOffset = 0;
       this.telemetryFrames += left.length;
       if (this.telemetryFrames >= sampleRate / 30) { this.telemetryFrames = 0; this.publish(); }
-    } catch (error) { this.actions = null; this.renderOffset = 0; this.ready = false; left.fill(0); right?.fill(0); this.port.postMessage({ type: 'error', message: error.message }); }
+    } catch (error) { this.actions = null; this.renderOffset = 0; this.ready = false; this.releaseMidi('*'); this.flushMidi(); left.fill(0); right?.fill(0); this.port.postMessage({ type: 'error', message: error.message }); }
     return true;
   }
 }

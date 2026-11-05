@@ -84,7 +84,22 @@ test("existing labs are browseable without being misrepresented as verified MIDI
     assert.equal(lab.entryType, "lab");
     assert.equal(instrumentById(lab.id), null);
     if (!labAdditions.some(item => item.id === lab.id && (item.midiInput || item.generatedMidi))) assert.equal(instrumentMidiCapabilityForId(lab.id), null);
-    assert.equal(waxSupportForId(lab.id), null);
+    if (lab.id === "blech-midi") {
+      const support = waxSupportForId(lab.id);
+      assert.equal(support.adapter, "native");
+      assert.equal(support.midiOutput, true);
+      assert.equal(support.midiInput, false);
+      assert.equal(support.recommended, "midi-fx");
+      assert.deepEqual(support.roles, ["midi-fx", "instrument"]);
+      const capability = instrumentMidiCapabilityForId(lab.id);
+      assert.equal(capability.midiOutputMode, "native");
+      assert.equal(capability.midiOutput, true);
+      assert.equal(capability.midiInput, false);
+      assert.ok(lab.features.includes("MIDI output"));
+      assert.equal(INSTRUMENTS.some(item => item.id === lab.id), false);
+    } else {
+      assert.equal(waxSupportForId(lab.id), null);
+    }
     assert.equal(lab.features.includes("MIDI"), labAdditions.some(item => item.id === lab.id && item.midiInput));
     assert.ok(catalogueItemById(lab.id));
   }

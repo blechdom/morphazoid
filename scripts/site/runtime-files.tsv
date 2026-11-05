@@ -432,6 +432,8 @@ copy+require	src/audio-output-manager.js
 copy+require	src/browser-midi-adapter.js
 copy+require	src/site/instrument-midi-capabilities.js
 copy+require	src/midi-output-preview.js
+copy+require	src/midi-output-routes.js
+copy+require	src/midi-output-stream.js
 copy+require	src/instruments/shape-synth/shape-midi.js
 copy+require	src/instruments/fm-drums/fm-drums-midi.js
 copy+require	downloads/plugins/chaotic-fm/0.2.1/reaper-jsfx/Morphazoid_Chaotic_FM.jsfx
@@ -2040,6 +2042,7 @@ copy+require	assets/tapezoid/cassette-tape.LICENSE.txt
 copy+require	docs/tapezoid.md
 # Standalone Blech MIDI drawing, stamps and automata.
 copy+require	src/instruments/blech-midi/blech-midi-app.js
+copy+require	src/instruments/blech-midi/blech-midi-output.js
 copy+require	src/instruments/blech-midi/blech-midi.css
 copy+require	src/instruments/midi-mixer/midi-mixer-monitor.js
 copy+require	assets/instruments/blech-midi.webp

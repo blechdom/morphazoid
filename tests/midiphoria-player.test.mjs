@@ -95,7 +95,13 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
   const runtime = {
     AudioContext: Context,
     AudioWorkletNode: class {
-      constructor() { this.listeners = new Map(); this.messages = []; this.port = { postMessage: message => this.messages.push(message) }; }
+      constructor() {
+        this.listeners = new Map(); this.messages = []; const callbacks = new Set();
+        this.port = { postMessage: message => this.messages.push(message),
+          addEventListener: (_type, callback) => callbacks.add(callback), removeEventListener: (_type, callback) => callbacks.delete(callback), start() {},
+          emit: data => { for (const callback of callbacks) callback({ data }); },
+        };
+      }
       addEventListener(type, callback) { this.listeners.set(type, callback); }
       removeEventListener(type, callback) { if (this.listeners.get(type) === callback) this.listeners.delete(type); }
       emit(type) { this.listeners.get(type)?.(); }
@@ -864,4 +870,97 @@ test('visual cycle telemetry counts all unseen cycles at 64x and pauses without 
   h.player.play(); now = 2001; assert.equal(h.player.state.cycle, 16); assert.equal(h.player.state.time, 2);
   h.player.stop(); assert.equal(h.player.state.cycle, 0); assert.equal(h.contexts.length, 0);
   await h.player.dispose();
+});
+
+test('explicit MIDI output starts muted processing, permits pads, and does not borrow Audio arming', async () => {
+  const h = harness();
+  await h.player.load(midi(), 'output.mid');
+  assert.equal(h.contexts.length, 0, 'loading still cannot initialize audio or MIDI');
+  assert.equal(await h.player.setMidiOutput(true, 7), true);
+  assert.equal(h.player.state.audioEnabled, false);
+  assert.equal(h.contexts[0].master.gain.value, 0);
+  assert.equal(h.player.state.ready, true);
+  assert.equal(h.player.play(), true);
+  assert.equal(h.player.padNoteOn('keyboard:1', 60, 100), true);
+  h.player.setAudioEnabled(false);
+  assert.equal(h.player._padSources.size, 1, 'Audio mute does not release a MIDI-only keyboard gesture');
+  h.player.pause();
+  assert.equal(h.player._padSources.size, 1, 'file pause does not release the independent keyboard');
+  assert.equal(h.player.padNoteOff('keyboard:1'), true);
+  const midiConfigs = h.synths.map(synth => synth.worklet.messages.filter(message => message.type === 'midiphoriaMidiOutput').at(-1));
+  assert.deepEqual(midiConfigs.map(({ enabled, epoch, source }) => ({ enabled, epoch, source })), [
+    { enabled: true, epoch: 7, source: 'midiphoria:file' }, { enabled: true, epoch: 7, source: 'midiphoria:pads' },
+  ]);
+  await h.player.dispose();
+});
+
+test('timestamped output preserves worklet time and epoch, ignores stale messages, and releases on disable', async () => {
+  const h = harness(), packets = []; await h.player.load(midi());
+  const unsubscribe = h.player.subscribeMidiOutput((batch, context) => packets.push({ batch, context }));
+  await h.player.setMidiOutput(true, 9);
+  const event = { type: 'noteOn', source: 'midiphoria:file:0', channel: 0, id: 41, note: 60, velocity: 100, time: 1.234 };
+  const port = h.synths[0].worklet.port;
+  port.emit({ type: 'midiphoriaMidiOutput', epoch: 8, events: [event] });
+  assert.equal(packets.length, 0);
+  port.emit({ type: 'midiphoriaMidiOutput', epoch: 9, events: [event] });
+  assert.equal(packets.length, 1);
+  assert.equal(packets[0].context, h.contexts[0]);
+  assert.deepEqual(packets[0].batch.events, [event]);
+  await h.player.setMidiOutput(false, 10);
+  assert.equal(packets.at(-1).batch.epoch, 9, 'old destination receives its release before the epoch changes');
+  assert.ok(packets.at(-1).batch.events.every(event => event.type === 'release' && event.source !== '*'));
+  const count = packets.length;
+  port.emit({ type: 'midiphoriaMidiOutput', epoch: 9, events: [event] });
+  assert.equal(packets.length, count);
+  assert.equal(h.player.padNoteOn('muted', 64, 100), false);
+  unsubscribe(); await h.player.dispose();
+});
+
+test('multi-port and visual-only files report a file restriction while keyboard output remains enabled', async () => {
+  const h = harness(), packets = []; await ready(h);
+  h.player.subscribeMidiOutput(batch => packets.push(batch)); await h.player.setMidiOutput(true, 4);
+  h.sequencers[0].midiData = { isMultiPort: true, tracks: [{ channels: new Set([0]) }, { channels: new Set([0]) }], portChannelOffsetMap: [0, 16] };
+  await h.player.load(midi(), 'two-ports.mid');
+  assert.match(h.player.state.midiOutputError, /additional ports/);
+  assert.equal(h.player.state.midiOutputEnabled, true);
+  assert.equal(h.synths[0].worklet.messages.filter(message => message.type === 'midiphoriaMidiOutput').at(-1).enabled, false);
+  assert.equal(h.synths[1].worklet.messages.filter(message => message.type === 'midiphoriaMidiOutput').at(-1).enabled, true);
+  assert.ok(packets.every(batch => !batch.error), 'file limitation must not panic independent layers and keyboard');
+  await h.player.loadVisualTimeline(60, 'Large score');
+  assert.match(h.player.state.midiOutputError, /visual-only/);
+  h.player.setAudioEnabled(false);
+  assert.equal(h.player.padNoteOn('keyboard', 67, 100), true);
+  await h.player.dispose();
+});
+
+test('processing interruption publishes a fatal MIDI batch before losing its audio clock', async () => {
+  const h = harness(), packets = []; await h.player.setMidiOutput(true, 3);
+  h.player.subscribeMidiOutput((batch, context) => packets.push({ batch, context }));
+  h.contexts[0].changeState('suspended');
+  assert.match(packets.at(-1).batch.error, /interrupted/);
+  assert.equal(packets.at(-1).context, h.contexts[0]);
+  assert.ok(packets.at(-1).batch.events.every(event => event.type === 'release'));
+  await h.player.dispose();
+});
+
+test('disabling the last armed pad destination clears held gestures while local Audio preserves them', async () => {
+  const muted = harness(); await muted.player.setMidiOutput(true, 1);
+  assert.equal(muted.player.padNoteOn('held-output-only', 60, 100), true);
+  const padSynth = muted.synths[1], stopCount = padSynth.stops.length;
+  await muted.player.setMidiOutput(false, 2);
+  assert.equal(muted.player._padSources.size, 0);
+  assert.equal(muted.player._padNotes.size, 0);
+  assert.equal(padSynth.stops.length, stopCount + 1, 'muted native voices are released before Audio can be rearmed');
+  await muted.player.enableAudio();
+  assert.equal(muted.player.padNoteOff('held-output-only'), false, 'an old output-only gesture cannot be revived');
+  await muted.player.dispose();
+
+  const audible = harness(); await audible.player.enableAudio(); await audible.player.setMidiOutput(true, 1);
+  assert.equal(audible.player.padNoteOn('held-audio', 64, 100), true);
+  const activeStops = audible.synths[1].stops.length;
+  await audible.player.setMidiOutput(false, 2);
+  assert.equal(audible.player._padSources.size, 1, 'disconnecting MIDI leaves the independently armed local synth playing');
+  assert.equal(audible.synths[1].stops.length, activeStops);
+  assert.equal(audible.player.padNoteOff('held-audio'), true);
+  await audible.player.dispose();
 });

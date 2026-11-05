@@ -11,7 +11,7 @@ globalThis.AudioWorkletProcessor = class {
   constructor() { this.messages = []; this.port = { postMessage: message => this.messages.push(message) }; }
 };
 globalThis.registerProcessor = (name, implementation) => registrations.push({ name, implementation });
-const { installMidiphoriaNoteEffects, MidiphoriaProcessor } = await import('../src/instruments/midiphoria/midiphoria-processor.js');
+const { installMidiphoriaNoteEffects, MidiphoriaProcessor, createMidiphoriaMidiOutput } = await import('../src/instruments/midiphoria/midiphoria-processor.js');
 
 function harness() {
   const events = [], renders = [];
@@ -227,5 +227,83 @@ test('pinned sequencer clock messages distinguish initialization and seeks from 
   assert.equal(times().length, afterLoops);
   command('setTime', .2); command('setTime', 0);
   assert.equal(times().length, afterLoops + 2, 'each explicit seek has exactly one acknowledgement');
+  host.handleMessage({ type: 'destroyWorklet' });
+});
+
+test('dedicated worklet MIDI output uses post-effect identities and sample timestamps, including native controls and scoped release', async () => {
+  const processor = new MidiphoriaProcessor({ processorOptions: { eventsEnabled: true, oneOutput: false } });
+  const host = processor.core, synth = host.synthesizer;
+  await synth.processorInitialized;
+  host.handleMessage({ type: 'setLogLevel', data: { enableInfo: false, enableWarning: false, enableGroup: false } });
+  const font = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
+  host.handleMessage({ type: 'soundBankManager', data: { type: 'addSoundBank', data: { soundBankBuffer: font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength), id: 'output-test', bankOffset: 0 } } });
+  const output = Array.from({ length: 17 }, () => [new Float32Array(128), new Float32Array(128)]);
+  const packets = () => processor.messages.filter(message => message.type === 'midiphoriaMidiOutput');
+  synth.noteOn(2, 48, 100); processor.process([], output);
+  assert.equal(packets().length, 0, 'the existing visual/audio consumer does not opt into MIDI output');
+  synth.stopAllChannels(true);
+  host.handleMessage({ type: 'midiphoriaMidiOutput', enabled: true, epoch: 12, source: 'midiphoria:file', channels: [2] });
+  const chase = packets().at(-1);
+  assert.ok(chase.events.some(event => event.data?.[0] === 0xc2));
+  assert.ok(chase.events.every(event => event.channel === 2 && event.source === 'midiphoria:file:2'));
+  processor.messages.length = 0;
+  host.handleMessage({ type: 'midiphoriaNoteEffects', config: { enabled: true, transpose: 12, chord: 'major', delayBeats: .002 } });
+  const attackTime = synth.currentTime;
+  synth.noteOn(2, 60, 100); processor.process([], output);
+  const notes = packets().flatMap(packet => packet.events).filter(event => event.type === 'noteOn');
+  assert.deepEqual(notes.map(event => event.note), [72, 76, 79]);
+  assert.equal(new Set(notes.map(event => event.id)).size, 3);
+  assert.ok(notes.every(event => Math.abs(event.time - attackTime - .001) < 1 / 48000));
+  assert.ok(packets().every(packet => packet.epoch === 12 && packet.events.length <= 4096));
+  synth.controllerChange(2, 1, 75); synth.programChange(2, 5); synth.pitchWheel(2, 10000);
+  synth.channelPressure(2, 80); synth.polyPressure(2, 60, 66); processor.process([], output);
+  const messages = packets().flatMap(packet => packet.events).filter(event => event.type === 'message').map(event => event.data);
+  for (const expected of [[0xb2, 1, 75], [0xc2, 5], [0xe2, 16, 78], [0xd2, 80], [0xa2, 72, 66], [0xa2, 76, 66], [0xa2, 79, 66]]) assert.ok(messages.some(message => JSON.stringify(message) === JSON.stringify(expected)), JSON.stringify(expected));
+  synth.noteOff(2, 60); processor.process([], output);
+  const offs = packets().flatMap(packet => packet.events).filter(event => event.type === 'noteOff');
+  assert.deepEqual(offs.map(event => event.id).sort(), notes.map(event => event.id).sort());
+  synth.controllerChange(2, 123, 0); processor.process([], output);
+  const events = packets().flatMap(packet => packet.events);
+  assert.ok(events.some(event => event.type === 'release' && event.source === 'midiphoria:file:2'));
+  assert.ok(!events.some(event => event.type === 'message' && [120, 123].includes(event.data[1]) && (event.data[0] & 0xf0) === 0xb0));
+  host.handleMessage({ type: 'destroyWorklet' });
+});
+
+test('worklet MIDI batches fail closed on overload and never fold a second port onto channel one', () => {
+  const packets = [], core = { currentTime: 3, midiChannels: [] };
+  const stream = createMidiphoriaMidiOutput({ port: { postMessage: packet => packets.push(packet) } }, core);
+  stream.configure({ enabled: true, epoch: 5, source: 'file', channels: [0] });
+  for (let index = 0; index < 5000; index++) stream.message(0, [0xb0, 1, index % 128]);
+  stream.flush();
+  assert.equal(packets.length, 1); assert.equal(packets[0].overflow, true);
+  assert.equal(packets[0].events.length, 0, 'partial dense passage cannot strand unmatched attacks');
+  stream.configure({ enabled: true, epoch: 6, source: 'file', channels: [0] });
+  stream.note({ type: 'noteOn', channel: 16, note: 60, velocity: 100, id: 1, time: 4 }); stream.flush();
+  assert.match(packets.at(-1).fileError, /additional ports/);
+  assert.ok(packets.at(-1).events.every(event => event.type === 'release' && event.channel === 0));
+});
+
+test('a processor created after the shared context has started keeps absolute timestamps and captured native key shifts', async () => {
+  globalThis.currentTime = 37.25;
+  const processor = new MidiphoriaProcessor({ processorOptions: { eventsEnabled: true, oneOutput: false } });
+  globalThis.currentTime = 0;
+  const host = processor.core, synth = host.synthesizer;
+  await synth.processorInitialized;
+  host.handleMessage({ type: 'setLogLevel', data: { enableInfo: false, enableWarning: false, enableGroup: false } });
+  assert.equal(synth.currentTime, 37.25);
+  host.handleMessage({ type: 'midiphoriaMidiOutput', enabled: true, epoch: 1, source: 'late-file', channels: [0] });
+  const channel = synth.midiChannels[0];
+  channel.setSystemParameter('keyShift', 12);
+  synth.noteOn(0, 60, 100);
+  synth.polyPressure(0, 60, 55);
+  channel.setSystemParameter('keyShift', -12);
+  synth.noteOff(0, 60);
+  const output = Array.from({ length: 17 }, () => [new Float32Array(128), new Float32Array(128)]);
+  processor.process([], output);
+  const events = processor.messages.filter(message => message.type === 'midiphoriaMidiOutput').flatMap(message => message.events);
+  const notes = events.filter(event => event.type === 'noteOn' || event.type === 'noteOff');
+  assert.deepEqual(notes.map(event => [event.type, event.note, event.time]), [['noteOn', 72, 37.25], ['noteOff', 72, 37.25]]);
+  assert.ok(events.some(event => event.data?.[0] === 0xa0 && event.data[1] === 72 && event.data[2] === 55));
+  assert.equal(notes[0].id, notes[1].id, 'release keeps the pitch captured before the channel shift changed');
   host.handleMessage({ type: 'destroyWorklet' });
 });

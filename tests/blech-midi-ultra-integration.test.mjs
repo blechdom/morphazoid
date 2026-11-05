@@ -36,8 +36,11 @@ test('BLECH-MIDI-ULTRA has its own browse route, MIDI policy and tempo controls'
   assert.equal(FAVE_TOOL_IDS.filter(id => id === ultra).length, 1);
   assert.ok(catalogueItemById(ultra).tags.some(tag => tag.id === 'faves'));
   assert.equal(pageRouteForSourcePath(`src/pages/${page}`), page);
+  // ULTRA is a saved copy of BLECH MIDI without the native MIDI Out controls.
+  const { midiOutputMode, ...blechCapability } = instrumentMidiCapabilityForId('blech-midi');
+  assert.equal(midiOutputMode, 'native');
   assert.deepEqual(instrumentMidiCapabilityForId(ultra), {
-    ...instrumentMidiCapabilityForId('blech-midi'), id: ultra,
+    ...blechCapability, id: ultra, midiOutput: false,
   });
   assert.deepEqual(
     TAP_TEMPO_TARGETS.filter(target => target.route === page).map(({ selector }) => selector),

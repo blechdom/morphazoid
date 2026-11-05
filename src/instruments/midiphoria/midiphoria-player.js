@@ -55,6 +55,9 @@ export class MidiphoriaPlayer {
     this._noteEffects = sanitizeMidiNoteEffects({});
     this._time = 0; this._duration = 0; this._seekTime = null; this._error = null; this._disposed = false;
     this._playbackCycle = 0; this._pendingTimeChanges = 0; this._pausedClockRestore = null; this._loopStart = 0; this._loopEnd = 0;
+    this._midiOutputEnabled = false; this._midiOutputEpoch = 0; this._midiOutputVersion = 0;
+    this._midiOutputTouched = false;
+    this._midiOutputListeners = new Set(); this._fileMidiChannels = [0]; this._midiOutputError = '';
     this._onPageHide = () => { void this.dispose(); };
     this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
@@ -64,21 +67,51 @@ export class MidiphoriaPlayer {
       const time = this._visualTime(), score = this._visual;
       return { ready: true, hasSong: true, loading: false, playing: score.playing, visualOnly: true,
         audioEnabled: this._audioEnabled && this.context?.state === 'running', time, duration: score.duration,
-        rate: this._rate, loop: this._loop, cycle: this._playbackCycle, loopStart: 0, loopEnd: score.duration, volume: this._volume, fileName: score.name, soundfontName: this._fontName, error: this._error };
+        rate: this._rate, loop: this._loop, cycle: this._playbackCycle, loopStart: 0, loopEnd: score.duration, volume: this._volume, fileName: score.name, soundfontName: this._fontName, error: this._error,
+        midiOutputEnabled: this._midiOutputEnabled, midiOutputError: this._midiOutputError };
     }
     const ready = this._engineReady && Boolean(this._file) && this._readyToken === this._file.token;
     const current = this._seekTime ?? (this._playing ? this._sequencer?.currentTime : this._time);
     return { ready, hasSong: Boolean(this._file), loading: Boolean(this._enginePromise || this._activeLoad),
       playing: this._playing, audioEnabled: this._audioEnabled && this.context?.state === 'running', time: clamp(current, 0, this._duration),
       duration: this._duration, rate: this._rate, loop: this._loop, cycle: this._playbackCycle, loopStart: this._loopStart, loopEnd: this._loopEnd || this._duration, volume: this._volume,
-      fileName: this._file?.fileName ?? '', soundfontName: this._fontName, error: this._error };
+      fileName: this._file?.fileName ?? '', soundfontName: this._fontName, error: this._error,
+      midiOutputEnabled: this._midiOutputEnabled, midiOutputError: this._midiOutputError };
   }
 
-  async enableAudio() {
+  subscribeMidiOutput(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this._midiOutputListeners.add(callback);
+    return () => this._midiOutputListeners.delete(callback);
+  }
+
+  async setMidiOutput(enabled, epoch = 0) {
+    if (this._disposed) return false;
+    const version = ++this._midiOutputVersion;
+    if (!enabled) this._releaseMidiSources();
+    this._midiOutputEnabled = Boolean(enabled); this._midiOutputEpoch = epoch;
+    this._midiOutputTouched ||= Boolean(enabled);
+    if (!enabled) {
+      this._configureMidiOutput();
+      if (!this._audioEnabled) this.releasePads();
+      this._publish(); return false;
+    }
+    // An explicit output-enable gesture may start a muted processing graph.
+    // It does not arm the separate Audio control or reset file transport.
+    const ready = await this._enableProcessing(false);
+    if (this._disposed || version !== this._midiOutputVersion) return false;
+    this._midiOutputEnabled = Boolean(ready);
+    this._configureMidiOutput(); this._publish();
+    return this._midiOutputEnabled;
+  }
+
+  async enableAudio() { return this._enableProcessing(true); }
+
+  async _enableProcessing(armAudio) {
     if (this._disposed) return false;
     // A user gesture can arrive before the browser's queued statechange event.
     if (this.context?.state === 'closed') this._contextStateChanged(this.context);
-    this._desiredAudio = true;
+    if (armAudio) this._desiredAudio = true;
     this._error = null;
     if (this._file && !this._activeLoad && !this._queued && this._readyToken !== this._file.token) {
       let resolve;
@@ -123,7 +156,7 @@ export class MidiphoriaPlayer {
       }
       this._audioEnabled = this._desiredAudio && context.state === 'running';
       this._updateGain(); this._publish();
-      return this._audioEnabled;
+      return armAudio ? this._audioEnabled : this._engineReady && context.state === 'running';
     } catch (error) {
       if (this._disposed || (context && context !== this.context)) return false;
       this._error = error?.message || 'Could not start MIDI audio.';
@@ -140,7 +173,7 @@ export class MidiphoriaPlayer {
     if (this._disposed) return false;
     this._desiredAudio = Boolean(enabled);
     this._audioEnabled = this._desiredAudio && this._engineReady && this.context?.state === 'running';
-    if (!this._audioEnabled) this.releasePads();
+    if (!this._audioEnabled && !this._midiOutputEnabled) this.releasePads();
     this._updateGain(); this._publish();
     return this._audioEnabled;
   }
@@ -214,7 +247,7 @@ export class MidiphoriaPlayer {
 
   padNoteOn(sourceId, note, velocity) {
     // Pads are direct gestures, never queued through Audio initialization or file loading.
-    if (this._disposed || !this._audioEnabled || !this._engineReady || !this._padSynth
+    if (this._disposed || !(this._audioEnabled || this._midiOutputEnabled) || !this._engineReady || !this._padSynth
       || this.context?.state !== 'running' || typeof sourceId !== 'string' || !sourceId.length
       || sourceId.length > 128 || !Number.isInteger(note) || note < 0 || note > 127
       || !Number.isInteger(velocity) || velocity < 1 || velocity > 127) return false;
@@ -262,6 +295,7 @@ export class MidiphoriaPlayer {
       token: ++this._serial, completion, resolve };
     this._file = request; this._queued = request;
     this._readyToken = null; this._time = 0; this._duration = 0; this._seekTime = null; this._error = null;
+    this._midiOutputError = ''; this._releaseMidiSources(SOURCE); this._configureMidiOutput();
     this._playbackCycle = 0; this._loopStart = 0; this._loopEnd = 0;
     this._pumpLoad(); this._publish();
     if (!this.context) return this.state;
@@ -340,6 +374,8 @@ export class MidiphoriaPlayer {
     this.pause(); this._clear('song-replacement');
     const loading = Boolean(this._activeLoad);
     this._cancelLoads(); this._file = null; this._error = null;
+    this._midiOutputError = 'This large file has visual-only playback; it has no playable MIDI stream to send.';
+    this._releaseMidiSources(SOURCE); this._configureMidiOutput();
     this._visual = { duration, name: String(name).slice(0, 256), time: 0, at: this._clock(), playing: false };
     this._playbackCycle = 0;
     // Song-change events have no request IDs. Retire a pending audio loader so
@@ -362,12 +398,14 @@ export class MidiphoriaPlayer {
 
   async dispose() {
     if (this._disposed) return;
+    this._releaseMidiSources(); this._midiOutputEnabled = false; this._midiOutputVersion++;
     this._disposed = true; this._playing = false; this._audioEnabled = false; this._desiredAudio = false;
     this._fontSelection++;
     this._visual = null;
     this.runtime.removeEventListener?.('pagehide', this._onPageHide);
     this._cancelLoads(); this._clear('dispose'); this._file = null;
     await this._closeEngine();
+    this._midiOutputListeners.clear();
   }
 
   async _initialize(context) {
@@ -383,20 +421,29 @@ export class MidiphoriaPlayer {
     const resources = Promise.all([this._loadLibrary(), responsePromise, context.audioWorklet.addModule(WORKLET_URL.href)]);
     const [library, soundfont] = await this._wait(resources, 'Audio resources took too long to load.');
     valid();
-    const audioNodeCreators = {
+    const audioNodeCreators = source => ({
       worklet: (audioContext, name, options) => {
         const node = new this.runtime.AudioWorkletNode(audioContext, name, options);
         const onError = () => this._processorFailed();
         node.addEventListener('processorerror', onError);
         this._listeners.push(() => node.removeEventListener('processorerror', onError));
+        const onMidi = ({ data }) => {
+          if (data?.type !== 'midiphoriaMidiOutput' || this._disposed || !this._midiOutputEnabled
+            || data.epoch !== this._midiOutputEpoch || context !== this.context) return;
+          if (source === SOURCE && (!this._file || this._readyToken !== this._file.token || this._visual || this._midiOutputError)) return;
+          if (data.fileError) { this._midiOutputError = data.fileError; this._configureMidiOutput(); this._publish(); }
+          this._emitMidiBatch({ epoch: data.epoch, events: data.events, ...(data.overflow ? { overflow: true } : {}) }, context);
+        };
+        node.port.addEventListener?.('message', onMidi); node.port.start?.();
+        this._listeners.push(() => node.port.removeEventListener?.('message', onMidi));
         return node;
       },
-    };
-    const synth = new library.WorkletSynthesizer(context, { eventsEnabled: true, audioNodeCreators });
+    });
+    const synth = new library.WorkletSynthesizer(context, { eventsEnabled: true, audioNodeCreators: audioNodeCreators(SOURCE) });
     this._synth = synth;
     // A separate engine isolates pads from file program changes, MIDI ports,
     // sustain/reset messages, and transport-wide all-notes-off commands.
-    const padSynth = new library.WorkletSynthesizer(context, { eventsEnabled: true, audioNodeCreators });
+    const padSynth = new library.WorkletSynthesizer(context, { eventsEnabled: true, audioNodeCreators: audioNodeCreators(PAD_SOURCE) });
     this._padSynth = padSynth;
     this._master = context.createGain(); this._master.gain.value = 0;
     // Lift the complete SoundFont mix, including effects, before peak control.
@@ -438,6 +485,7 @@ export class MidiphoriaPlayer {
     this._bindEvents();
     this.setNoteEffects(this._noteEffects);
     this._engineReady = true; this._enginePromise = null;
+    this._configureMidiOutput();
     this._pumpLoad(); this._publish();
   }
 
@@ -475,7 +523,7 @@ export class MidiphoriaPlayer {
     // The app suppresses its immediate raw pad drawing when padNoteOn succeeds;
     // input gestures can still draw directly while Audio is off.
     const padForward = (type, data) => {
-      if (this._disposed || !this._engineReady || (type === 'noteOn' && !this._audioEnabled)
+      if (this._disposed || !this._engineReady || (type === 'noteOn' && !(this._audioEnabled || this._midiOutputEnabled))
         || data?.channel !== 0 || !Number.isInteger(data.midiNote) || data.midiNote < 0 || data.midiNote > 127) return;
       const velocity = type === 'noteOff' ? 0 : Math.round(clamp(data.velocity, 0, 127));
       safeCall(this.onMidi, { type: velocity ? 'noteOn' : 'noteOff', channel: 0, sourceId: PAD_SOURCE,
@@ -560,12 +608,20 @@ export class MidiphoriaPlayer {
       this._readyToken = error ? null : request.token;
       if (!error) {
         const data = this._sequencer.midiData;
+        // A Web MIDI destination is one 16-channel port. Keep extra source ports
+        // separate by refusing file output instead of silently aliasing channels.
+        const channels = new Set((data?.tracks ?? []).flatMap(track => [...(track.channels ?? [])]));
+        this._fileMidiChannels = channels.size ? [...channels].filter(channel => Number.isInteger(channel)) : [0];
+        const extraPorts = Boolean(data?.isMultiPort) || (data?.portChannelOffsetMap ?? []).some(offset => Number.isFinite(offset) && offset > 0);
+        this._midiOutputError = extraPorts || this._fileMidiChannels.some(channel => channel > 15)
+          ? 'Live MIDI output supports one MIDI port (16 channels). This file uses additional ports; keyboard and layers still work.' : '';
         const secondsAt = tick => typeof data?.midiTicksToSeconds === 'function' && Number.isFinite(tick) ? data.midiTicksToSeconds(tick) : NaN;
         this._loopStart = clamp(secondsAt(data?.loop?.start), 0, duration);
         this._loopEnd = clamp(secondsAt(data?.loop?.end), this._loopStart, duration, duration);
         this._pendingTimeChanges++; this._sequencer.currentTime = 0;
         this._sequencer.loopCount = this._loop ? Infinity : 0;
       }
+      this._configureMidiOutput();
     }
     request.resolve(current && !error);
     this._pumpLoad(); this._publish();
@@ -598,6 +654,7 @@ export class MidiphoriaPlayer {
     this._error = 'The MIDI audio processor stopped. Turn Audio on to restart it.';
     this._audioEnabled = false; this._desiredAudio = false; this._playing = false;
     this._updateGain(); this._cancelLoads(); this._clear('processor-error');
+    this._releaseMidiSources(null, this._error);
     void this._closeEngine().then(() => this._publish());
   }
 
@@ -607,6 +664,7 @@ export class MidiphoriaPlayer {
       this._error = 'Audio stopped. Turn Audio on to restart it.';
       this._audioEnabled = false; this._desiredAudio = false;
       this._cancelLoads(); this._clear('audio-closed');
+      this._releaseMidiSources(null, this._error);
       void this._closeEngine().then(() => this._publish());
       return;
     }
@@ -614,7 +672,8 @@ export class MidiphoriaPlayer {
     // button. Retain the user's intent and transport so one Audio click resumes
     // the existing score; a native recovery must still respect an explicit mute.
     this._audioEnabled = this._desiredAudio && this._engineReady && context.state === 'running';
-    if (!this._audioEnabled) this.releasePads();
+    if (context.state !== 'running') this._releaseMidiSources(null, 'Audio processing was interrupted. Re-enable MIDI output to resume.');
+    if (!this._audioEnabled && !this._midiOutputEnabled) this.releasePads();
     this._updateGain(); this._publish();
   }
 
@@ -636,6 +695,27 @@ export class MidiphoriaPlayer {
     this._compressor?.disconnect(); this._compressor = null;
     this._ceiling?.disconnect(); this._ceiling = null;
     if (ownsContext && context && context.state !== 'closed') await context.close().catch(() => {});
+  }
+
+  _emitMidiBatch(batch, context = this.context) {
+    for (const callback of this._midiOutputListeners) safeCall(callback, batch, context);
+  }
+
+  _releaseMidiSources(only = null, error = '') {
+    if (!this._midiOutputEnabled || !this.context) return;
+    const sources = only ? [only] : [SOURCE, PAD_SOURCE];
+    const events = sources.flatMap(prefix => Array.from({ length: prefix === PAD_SOURCE ? 1 : 16 }, (_, channel) =>
+      ({ type: 'release', source: `${prefix}:${channel}`, channel, time: this.context.currentTime })));
+    this._emitMidiBatch({ epoch: this._midiOutputEpoch, events, ...(error ? { error } : {}) });
+  }
+
+  _configureMidiOutput() {
+    if (!this._midiOutputTouched) return;
+    const fileEnabled = this._midiOutputEnabled && Boolean(this._file) && this._readyToken === this._file.token && !this._visual && !this._midiOutputError;
+    for (const [synth, source, enabled, channels] of [
+      [this._synth, SOURCE, fileEnabled, this._fileMidiChannels],
+      [this._padSynth, PAD_SOURCE, this._midiOutputEnabled, [0]],
+    ]) synth?.worklet?.port?.postMessage({ type: 'midiphoriaMidiOutput', enabled, epoch: this._midiOutputEpoch, source, channels });
   }
 
   _updateGain() {

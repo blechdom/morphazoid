@@ -172,9 +172,14 @@ test('the live layer Loop checkbox finishes only that layer’s current pass', a
   expect(await sample(page, first.id)).toMatchObject({ loop: false, paused: false });
   expect(await sample(page, second.id)).toMatchObject({ loop: true, paused: false });
   await page.waitForTimeout(350);
-  await expect(row(page, first.id)).toHaveCount(1);
-  await expect(row(page, first.id)).toHaveCount(0, { timeout: 6500 });
-  expect((await snapshot(page)).samples.map(item => item.id)).toEqual([second.id]);
+  expect(await sample(page, first.id)).toMatchObject({ loop: false, paused: false });
+  await expect.poll(async () => (await snapshot(page)).samples.map(item => item.id), { timeout: 6500 }).toEqual([second.id]);
+  // A completed spigot stays available for replay until explicitly removed.
+  await expect(row(page, first.id)).toContainText('Valve closed');
+  await expect(row(page, first.id).locator('[data-layer-pause]')).toHaveAccessibleName(`Play ${first.name} · ${first.id}`);
+  await expect(row(page, second.id)).toContainText('Looping');
+  const continuing = progress(await sample(page, second.id));
+  await expect.poll(async () => progress(await sample(page, second.id))).toBeGreaterThan(continuing + .1);
   expect((await snapshot(page)).contexts).toBe(0);
 });
 

@@ -4,7 +4,7 @@ import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS, MAX_MIDI_MIXER_TEMPO } from './midi-mixer-model.js';
 import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
 import { reverseMidiAnalysis, buildMidiStateHistories, getMidiNoteGates, midiStateMessages } from './midi-mixer-reverse.js';
-import { compileSampleTempoMap, advanceSampleTiming, liveSampleReplacementTiming, sampleReplacementBoundary, sampleTempoAt, sampleSecondsAt } from './midi-mixer-clock.js';
+import { compileSampleTempoMap, advanceSampleTiming, liveSampleReplacementTiming, sampleReplacementBoundary, sampleTempoAt, sampleSecondsAt, sampleBeatAt } from './midi-mixer-clock.js';
 import { transformMidiStamp } from './midi-mixer-score-transform.js';
 import { MidiAutomataClock, captureAutomataMidi } from './midi-mixer-automata.js';
 import { BLECH_RAIL_MAX_SOURCES, normalizeBlechRailSource } from '../blech-midi-ultra/blech-midi-rail-clock.js';
@@ -66,6 +66,7 @@ export class MidiMixerEngine {
     this._externalSources = new Map();
     this._maxTempo = clamp(maxTempo, 30, MAX_MIDI_MIXER_TEMPO, 300);
     this._playing = false; this._desiredAudio = false; this._audioEnabled = false; this._volume = 0.6; this._tempo = 120; this._crossfade = 0;
+    this._desiredMidi = false; this._midiEnabled = false; this._midiEpoch = 0; this._midiSubscribers = new Set(); this._midiWarning = '';
     this._beat = 0; this._anchor = this._now(); this._audioAnchor = null; this._audioTempo = 120;
     this._sampleTime = 0; this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._finishedSamples = []; this._completedSampleSources = new WeakSet(); this._sampleMidi = {}; this._noteSubscribers = new Set();
     this._sampleBuffers = new WeakMap();
@@ -108,18 +109,25 @@ export class MidiMixerEngine {
     }
     const weave = weavePosition(beat, this._weave, this._weavePhase);
     this._finishedSamples = this._finishedSamples.filter(sample => sample.finishedAt > sampleTime - 30 && sample.finishedAt <= sampleTime);
-    return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
+    return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', midiOutputEnabled: this._midiEnabled && this.context?.state === 'running', playing: this._playing,
       tempo: this._tempo, beat, sampleBeat, sampleTime, rails, automata: { ...this._automata.snapshot(), skippedSilentBeats: this._automataSkippedSilentBeats }, samples: this._samples.flatMap(sample => {
         const timing = this._sampleTiming(sample, sampleBeat, sampleTime);
         if (timing.ended) { this._rememberFinishedSample(sample, timing, sampleBeat, sampleTime); return []; }
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, pendingReplacement, ...visible } = sample;
         return [{ ...visible, effectiveMuted: sample.muted || this._samples.some(other => other.solo && !this._sampleTiming(other, sampleBeat, sampleTime).ended) && !sample.solo, ...(pendingReplacement ? { pendingReplacement: { name: pendingReplacement.name, analysis: pendingReplacement.analysis, token: pendingReplacement.token } } : {}), midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pendingBeats: timing.pendingBeats, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
       }), finishedSamples: this._finishedSamples.map(sample => ({ ...sample, midi: sanitizeMidiParameters(sample.midi) })), sampleMidi: sanitizeMidiParameters(this._sampleMidi), noteEffects: { ...this._noteEffects }, effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
-      generatedNoteCount: Math.max(0, this._sampleNoteCount + this._railNoteCount + this._automata.serial - this._generatedNoteBaseline),
+      generatedNoteCount: Math.max(0, this._sampleNoteCount + this._railNoteCount + this._automata.serial - this._generatedNoteBaseline), midiOutputWarning: this._midiWarning,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
       decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
   subscribeNotes(callback) { if (typeof callback !== 'function') return () => {}; this._noteSubscribers.add(callback); return () => this._noteSubscribers.delete(callback); }
+  subscribeMidiOutput(callback) { if (typeof callback !== 'function') return () => {}; this._midiSubscribers.add(callback); return () => this._midiSubscribers.delete(callback); }
+  _publishMidiOutput(batch) {
+    for (const callback of this._midiSubscribers) try { callback(batch, this.context); } catch { /* A disconnected MIDI output cannot stop the audio clock. */ }
+  }
+  _releaseMidiOutput() {
+    if (this._midiEnabled) this._publishMidiOutput({ epoch: this._midiEpoch, events: [{ type: 'release', source: '*', time: this.context?.currentTime ?? 0 }] });
+  }
   _publishNotes(notes) { if (!notes.length) return; safeCall(this.onNotes, notes); for (const callback of this._noteSubscribers) safeCall(callback, notes); }
   /** Count source-score attacks crossed by the layer clocks, before MIDI FX,
    * voice limits or display thinning. The weak ledger retains no expired score;
@@ -297,7 +305,7 @@ export class MidiMixerEngine {
         : 'All four layers are paused. Press Play to resume, or remove a layer before adding another.');
       slot = this._samples.splice(oldestPlaying, 1)[0].slot;
     }
-    const sample = { muted: Boolean(muted), solo: Boolean(solo), pan: clamp(pan, -1, 1, 0), pinned: Boolean(pinned), id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, hold: Boolean(hold), sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(quantizedBeats && state.audioEnabled), delayBeats, source: String(source).slice(0, 64), channel: channel == null ? null : Math.round(clamp(channel, 0, 15, 0)), transpose: Math.round(clamp(transpose, -127, 127, 0)), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
+    const sample = { muted: Boolean(muted), solo: Boolean(solo), pan: clamp(pan, -1, 1, 0), pinned: Boolean(pinned), id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, hold: Boolean(hold), sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(quantizedBeats && (state.audioEnabled || state.midiOutputEnabled)), delayBeats, source: String(source).slice(0, 64), channel: channel == null ? null : Math.round(clamp(channel, 0, 15, 0)), transpose: Math.round(clamp(transpose, -127, 127, 0)), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
     this._sampleBuffers.set(sample, sourceBuffer);
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
@@ -455,7 +463,7 @@ export class MidiMixerEngine {
   sendSampleController(controller, value = 0) { return this._sendMidiAction({ samples: true }, { kind: 'cc', controller, value }); }
   sendSampleParameter(parameter) { return this._sendMidiAction({ samples: true }, { ...parameter, kind: 'parameter' }); }
   _sendMidiAction(target, action) {
-    if (this._disposed || !this._audioEnabled) return false;
+    if (this._disposed || !(this._audioEnabled || this._midiEnabled)) return false;
     if (target.samples ? !this.state.samples.length : !this._decks[target.index]?.analysis || target.channel != null && !this._decks[target.index].analysis.channels.some(item => item.channel === Number(target.channel))) return false;
     if (target.channel != null && (!Number.isInteger(Number(target.channel)) || Number(target.channel) < 0 || Number(target.channel) > 4095)) return false;
     const normalized = action.kind === 'cc'
@@ -501,8 +509,37 @@ export class MidiMixerEngine {
     void this.state;
     this._rails.clear(); this._post({ type: 'railStopAll' }); this._publish();
   }
+  /** Rebase existing drops after a host seek, retaining their independent
+   * pause/loop/tempo policies. Crossed attacks are skipped, never replayed. */
+  seekSamples(deltaBeats) {
+    if (this._disposed || !Number.isFinite(deltaBeats) || !deltaBeats) return false;
+    const state = this.state;
+    for (const sample of this._samples) {
+      let timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
+      if (sample.sent) this._post({ type: 'stopSample', slot: sample.slot, id: sample.id });
+      if (deltaBeats > 0) timing = advanceSampleTiming(timing, sample.compiled, { ...sample, paused: false }, deltaBeats, deltaBeats * 60 / this._tempo);
+      else {
+        const unit = sample.sync ? 1 : 60 / this._tempo;
+        const length = sample.sync ? sample.compiled.durationBeats : sampleSecondsAt(sample.compiled, sample.compiled.durationBeats);
+        const position = sample.sync ? timing.positionBeats : sampleSecondsAt(sample.compiled, timing.positionBeats);
+        const coordinate = (sample.loop ? timing.cycle * length : 0) + position - timing.pendingBeats * unit + deltaBeats * unit;
+        const cycle = sample.loop && coordinate > 0 ? Math.floor(coordinate / length) : 0;
+        const next = Math.max(0, coordinate - cycle * length);
+        timing = { positionBeats: sample.sync ? next : sampleBeatAt(sample.compiled, next), cycle, pendingBeats: Math.max(0, -coordinate / unit), ended: false };
+      }
+      sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
+      sample.revision++; sample.playbackEpoch++; sample.resumedPositionBeats = timing.positionBeats; sample.resumedCycle = timing.cycle;
+      sample.sent = false; sample.quantize = false;
+      if (sample.paused) { sample.pausedAt = state.sampleTime; sample.pausedEpoch = sample.playbackEpoch; }
+      let counted = 0, high = timing.pendingBeats > 0 ? 0 : sample.compiled.held.start.length;
+      while (counted < high) { const middle = (counted + high) >>> 1; if (sample.compiled.held.start[middle] <= timing.positionBeats) counted = middle + 1; else high = middle; }
+      this._sampleNoteLedger.set(sample, { firstCycle: timing.cycle, counted });
+    }
+    this._samples = this._samples.filter(sample => !sample.timing.ended);
+    this._sendSamples(); this._publish(); return true;
+  }
   _sendSamples() {
-    if (!this._audioEnabled) return;
+    if (!(this._audioEnabled || this._midiEnabled)) return;
     const state = this.state;
     this._samples = this._samples.filter(sample => !this._sampleTiming(sample, state.sampleBeat, state.sampleTime).ended);
     for (const sample of this._samples) if (!sample.sent) {
@@ -541,7 +578,21 @@ export class MidiMixerEngine {
   }
   async enableAudio() {
     if (this._disposed) return false;
-    this._desiredAudio = true; this._error = null; const wasReady = this._ready;
+    this._desiredAudio = true;
+    return this._enableClock(true);
+  }
+  async setMidiOutput(enabled, epoch = 0) {
+    if (this._disposed) return false;
+    if (Boolean(enabled) === this._desiredMidi && epoch === this._midiEpoch && (!enabled || this._midiEnabled && this.context?.state === 'running')) return this._midiEnabled;
+    this._releaseMidiOutput(); this._desiredMidi = Boolean(enabled); this._midiEpoch = epoch; this._midiWarning = '';
+    this._midiEnabled = false;
+    this._post({ type: 'midiOutput', enabled: false, epoch });
+    if (!this._desiredMidi) { this._publish(); return false; }
+    await this._enableClock();
+    return this._midiEnabled;
+  }
+  async _enableClock(rejoinAudio = false) {
+    this._error = null; const wasReady = this._ready, wasMidi = this._midiEnabled;
     try {
       if (this.context?.state === 'closed') await this._close();
       if (!this.context) {
@@ -552,6 +603,9 @@ export class MidiMixerEngine {
         const onState = () => {
           if (this.context !== context || this._disposed) return;
           this._audioEnabled = this._desiredAudio && this._ready && context.state === 'running';
+          if (context.state !== 'running') this._releaseMidiOutput();
+          this._midiEnabled = this._desiredMidi && this._ready && context.state === 'running';
+          this._post({ type: 'midiOutput', enabled: this._midiEnabled, epoch: this._midiEpoch });
           if (context.state === 'closed') { this._error = 'Audio stopped. Turn Audio on to restart it.'; this._freezeClock(); this._ready = false; }
           this._updateGain(); this._publish();
         };
@@ -564,13 +618,15 @@ export class MidiMixerEngine {
       this._publish(); await Promise.all([resumed, this._promise]);
       if (this._disposed || this.context !== context) return false;
       this._audioEnabled = this._desiredAudio && this._ready && context.state === 'running';
+      this._midiEnabled = this._desiredMidi && this._ready && context.state === 'running';
+      if (!wasMidi || !wasReady) this._post({ type: 'midiOutput', enabled: this._midiEnabled, epoch: this._midiEpoch });
       this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
-      if (wasReady && this._audioEnabled) this._post({ type: 'rejoin' });
+      if (rejoinAudio && wasReady && this._audioEnabled && !wasMidi) this._post({ type: 'rejoin' });
       this._sendSamples();
       if (!wasReady && this._rails.size) this._post({ type: 'railAdd', rails: [...this._rails.values()] });
       this._updateGain(); this._publish(); return this._audioEnabled;
     } catch (error) {
-      if (!this._disposed) { this._error = error.message || 'Could not start MIDI audio.'; this._desiredAudio = false; await this._close(); this._publish(); }
+      if (!this._disposed) { this._error = error.message || 'Could not start MIDI audio.'; this._desiredAudio = false; this._desiredMidi = false; await this._close(); this._publish(); }
       return false;
     }
   }
@@ -579,8 +635,8 @@ export class MidiMixerEngine {
     this._desiredAudio = Boolean(enabled);
     this._audioEnabled = this._desiredAudio && this._ready && this.context?.state === 'running';
     this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
-    if (!this._audioEnabled) { this.stopSamples(); this.stopRails(); this._post({ type: 'release' }); }
-    else if (!wasEnabled) this._post({ type: 'rejoin' });
+    if (!this._audioEnabled && !this._midiEnabled) { this.stopSamples(); this.stopRails(); this._post({ type: 'release' }); }
+    else if (this._audioEnabled && !wasEnabled && !this._midiEnabled) this._post({ type: 'rejoin' });
     this._sendSamples();
     this._updateGain(); this._publish(); return this._audioEnabled;
   }
@@ -758,6 +814,11 @@ export class MidiMixerEngine {
         // display tick can skip this frequent notification without delaying
         // immediate feedback for user edits or changing sound scheduling.
         this._publish('clock');
+      } else if (data.type === 'midiOutput') {
+        if (this._midiEnabled && data.epoch === this._midiEpoch) {
+          if (data.warnings?.length) { this._midiWarning = data.warnings.join(' '); this._publish(); }
+          this._publishMidiOutput({ epoch: data.epoch, events: data.events, ...(data.overflow ? { overflow: true } : {}), ...(data.warnings?.length ? { warnings: data.warnings } : {}) });
+        }
       } else if (data.type === 'notes') this._publishNotes(this._audioEnabled ? data.notes : data.notes.filter(note => note.type === 'noteOff'));
       else if (data.type === 'loaded' && this._decks[data.index]?.token === data.token) { this._decks[data.index].loaded = true; this._publish(); }
     };
@@ -820,6 +881,7 @@ export class MidiMixerEngine {
     ramp(this._feedback.gain, this._effects.feedback);
   }
   async _close() {
+    this._releaseMidiOutput(); this._midiEnabled = false;
     this._freezeClock(); this.stopSamples(); this.stopRails(); this._ready = false; this._audioEnabled = false; this._audioAnchor = this._sampleAudioAnchor = null;
     const context = this.context; this.context = null; this._promise = null;
     this._abort?.abort(); this._abort = null; this._waitCancel?.(); this._waitCancel = null;
@@ -832,7 +894,7 @@ export class MidiMixerEngine {
     for (const key of ['_preamp', '_compressor', '_gain', '_ceiling', '_filter', '_delay', '_dry', '_wet', '_feedback']) { this[key]?.disconnect(); this[key] = null; }
     if (context && context.state !== 'closed') await context.close().catch(() => {});
   }
-  async dispose() { if (this._disposed) return; this._automata.setPlaying(false); this._disposed = true; this._playing = false; this._desiredAudio = false; this.runtime.removeEventListener?.('pagehide', this._onPageHide); await this._close(); this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._finishedSamples = []; this._noteSubscribers.clear(); }
+  async dispose() { if (this._disposed) return; this._automata.setPlaying(false); this._disposed = true; this._playing = false; this._desiredAudio = false; this._desiredMidi = false; this.runtime.removeEventListener?.('pagehide', this._onPageHide); await this._close(); this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._finishedSamples = []; this._noteSubscribers.clear(); this._midiSubscribers.clear(); }
   _publish(reason) { if (!this._disposed) safeCall(this.onState, this.state, reason); }
 }
 export const createMixerEngine = options => new MidiMixerEngine(options);

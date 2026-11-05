@@ -14,6 +14,7 @@ import {
   initializeMidiToolbars,
   initializeSharedNavigation,
   createHeaderSettingsMenu,
+  createMidiToolbar,
   initializeSettingsMenus,
   normalizeNavigationPath,
   normalizeAudioButtonIcons,
@@ -25,6 +26,7 @@ import {
   MIDI_PROFILES,
   WebMidiManager,
 } from "../src/midi-manager.js";
+import { getSharedMidiOutputRoutes } from '../src/midi-output-routes.js';
 import { expectedFaveToolIds, cataloguePlan as plan } from "./helpers/catalogue-plan.mjs";
 
 const SITE_ROOT = "https://example.test/blechdom/morphazoid/";
@@ -1402,6 +1404,29 @@ test("MIDI and audio controls keep one semantic order across shared header varia
     assert.equal(host.classList.contains("has-midi-toolbar"), false);
   }
   controls.forEach(({ destroy }) => destroy());
+});
+
+test('native MIDI output can register after the shared header and keeps its route in Settings', async () => {
+  const doc = new FakeDocument();
+  const runtime = { navigator: { requestMIDIAccess: async () => ({ inputs: new Map(), outputs: new Map() }) }, addEventListener() {}, removeEventListener() {} };
+  const manager = new WebMidiManager(runtime);
+  const control = createMidiToolbar(doc, runtime, manager, { routeId: 'blech-midi' });
+  const unregister = manager.registerClient({ id: 'blech-midi:output', computerKeyboard: false });
+  assert.equal(control.midiOutputSelect.disabled, true);
+  assert.equal(control.midiOutputSelect.getAttribute('aria-label'), 'MIDI output route');
+  let value = 'off'; const selections = [];
+  const route = getSharedMidiOutputRoutes(runtime).register({ id: 'blech-midi',
+    getState: () => ({ value, disabled: false, options: [{ value: 'off', label: 'Off' }, { value: 'port:synth', label: 'Synth' }] }),
+    select(next) { value = next; selections.push(next); route.changed(); },
+  });
+  assert.equal(control.midiOutputSelect.disabled, false);
+  control.midiOutputSelect.value = 'port:synth';
+  await control.midiOutputSelect.listeners.get('change')[0]();
+  assert.deepEqual(selections, ['port:synth']);
+  assert.equal(control.midiOutputSelect.value, 'port:synth');
+  assert.equal(control.toggle.getAttribute('aria-label'), 'Turn MIDI connection on');
+  route.destroy(); assert.equal(control.midiOutputSelect.disabled, true);
+  unregister(); control.destroy();
 });
 
 test("header settings meter and browser output chooser report real shared output state", async () => {

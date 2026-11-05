@@ -16,6 +16,7 @@ import { mountBlechDropStage } from './blech-midi-drop-stage.js';
 import { createBlechSpigotEngine, blechStrokeScore } from './blech-midi-spigot-engine.js';
 import { mountBlechSpigots } from './blech-midi-spigots.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
+import { mountBlechMidiOutput } from './blech-midi-output.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 
 const $ = id => document.getElementById(id);
@@ -46,9 +47,9 @@ function mountBlechMidi() {
     focus?.focus({ preventScroll: true });
   }
   on(mobileLayout, 'change', placeControls);
-  let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
+  let disposed = false, frame = null, lastReflect = -Infinity, reflectPending = true, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
-  let masterPause = null;
+  let masterPause = null, midiOutput;
   let selectedSpigot = null, canvasStampId = 'heart', canvasStampPrepared = null;
   let dropStage, stampPicker, spigots, spigotView, frameMode = 'stamps', automataSignature = '';
   const prepared = new Map();
@@ -282,6 +283,12 @@ function mountBlechMidi() {
     downloadUrl = null; $('downloadDrawingMidi').hidden = true; $('downloadDrawingMidi').removeAttribute('href');
   }
   function reflect() {
+    // Audio/worklet callbacks and a single Drop can request several refreshes.
+    // Keep those callbacks short so timestamped MIDI can reach its destination;
+    // the existing visual frame paints the latest state once.
+    reflectPending = true;
+  }
+  function paintState() {
     if (disposed || !engine) return;
     const state = engine.state, enabled = state.audioEnabled;
     $('blechNotesPlayed').value = Math.round((filePlayer?.getPlayedNoteCount() ?? 0) + (state.generatedNoteCount ?? 0) + keyboardNoteCount).toLocaleString();
@@ -595,16 +602,22 @@ function mountBlechMidi() {
   }
   on($('blechMasterPlay'), 'click', toggleMasterPlayback);
   for (const id of ['automataMidiPlayPause', 'automataMidiRestart']) on($(id), 'click', () => { if (masterPause) masterPause.automata = false; });
-  on($('creativeStop'), 'click', () => { masterPause = null; spigotView?.cancelGesture(); spigots?.stopAll(); performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); reflect(); });
+  function stopMasterPlayback() {
+    masterPause = null; spigotView?.cancelGesture(); spigots?.stopAll(); performanceView.stopSamples();
+    engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); midiOutput?.panic(); reflect();
+  }
+  on($('creativeStop'), 'click', stopMasterPlayback);
   on($('blechResetNoteCount'), 'click', () => { filePlayer.resetNoteCount(); engine.resetNoteCount(); keyboardNoteCount = 0; reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
-  on($('creativeTempo'), 'input', () => {
-    const tempo = engine.setTempo(Number($('creativeTempo').value));
+  function setMasterTempo(value) {
+    const tempo = engine.setTempo(Number(value));
+    $('creativeTempo').value = String(tempo); knobs?.update($('creativeTempo'));
     $('creativeTempoOut').value = `${Number(tempo.toFixed(1))} BPM`;
     if (document.activeElement !== $('creativeTempoExact')) $('creativeTempoExact').value = String(Number(tempo.toFixed(1)));
     textTools.refreshTempo(); frameTools.refreshTempo();
     filePlayer.setTempo(); dropStage.refresh();
-  });
+  }
+  on($('creativeTempo'), 'input', () => setMasterTempo($('creativeTempo').value));
   on($('creativeTempoExact'), 'input', event => {
     if (!event.target.validity.valid || event.target.value === '') return;
     $('creativeTempo').value = event.target.value;
@@ -660,7 +673,13 @@ function mountBlechMidi() {
   on($('blechShowBanks'), 'click', () => { $('blechTab-files').click(); $('mixerBankChooser').scrollIntoView({ block: 'nearest' }); $('mixerBankChooser').querySelector('summary')?.focus({ preventScroll: true }); });
   on($('audioButton'), 'click', async () => {
     audioIntent = !(starting ? audioIntent : engine.state.audioEnabled);
-    if (!audioIntent) { spigotView?.cancelGesture(); spigots?.stopAll(); masterPause = null; starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return; }
+    if (!audioIntent) {
+      spigotView?.cancelGesture();
+      // MIDI owns an independently armed performance clock. Muting local
+      // SoundFont audio must not delete the layers being sent to a DAW.
+      if (!engine.state.midiOutputEnabled) { spigots?.stopAll(); masterPause = null; performanceView.cancelPending(); }
+      starting = false; engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return;
+    }
     starting = true; field($('creativeStatus'), '');
     // Creating and resuming the native context stays inside this explicit gesture.
     const pending = engine.enableAudio(); reflect();
@@ -669,7 +688,7 @@ function mountBlechMidi() {
   });
   function tick(now) {
     frame = null; if (disposed || document.hidden) return;
-    if (now - lastReflect > 100) { lastReflect = now; reflect(); }
+    if (reflectPending || now - lastReflect > 100) { reflectPending = false; lastReflect = now; paintState(); }
     frame = requestAnimationFrame(tick);
   }
   on(document, 'visibilitychange', () => {
@@ -680,7 +699,7 @@ function mountBlechMidi() {
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     retainedDraft = drawing.model.pixels.map(row => [...row]);
-    disposed = true; audioIntent = false; masterPause = null; bankChooser?.dispose(); revokeDownload(); events.abort();
+    disposed = true; audioIntent = false; masterPause = null; midiOutput?.destroy(); bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
     // These page-owned controls must survive the file viewport's teardown.
@@ -688,6 +707,28 @@ function mountBlechMidi() {
     spigotView?.dispose(); spigots?.dispose(); dropStage.dispose(); stampPicker.dispose(); frameAdvanced.remove(); prepared.clear(); textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
+  const masterPlaying = () => engine.state.samples.some(sample => !sample.paused)
+    || engine.state.automata.playing || filePlayer.getTransportState().playing;
+  midiOutput = mountBlechMidiOutput({ engine, filePlayer, transport: {
+    getPlaying: masterPlaying, getTempo: () => engine.state.tempo, setTempo: setMasterTempo,
+    play() { if (!masterPlaying()) toggleMasterPlayback(); },
+    pause() { if (masterPlaying()) toggleMasterPlayback(); filePlayer.releaseKeyboard(); },
+    stop: stopMasterPlayback,
+    seek(_ppq, { deltaBeats = 0 } = {}) {
+      if (!Number.isFinite(deltaBeats) || Math.abs(deltaBeats) < 1e-6) return;
+      engine.seekSamples(deltaBeats); filePlayer.seekByBeats(deltaBeats);
+      if (engine.state.automata.playing || masterPause?.automata) engine.restartAutomata();
+      if (masterPause) {
+        // A host seek deliberately rebases the paused sources; preserve the
+        // master's ownership so the next host Play resumes those same layers.
+        for (const sample of engine.state.samples) if (masterPause.samples.has(sample.id)) {
+          masterPause.samples.set(sample.id, { scoreVersion: sample.scoreVersion, playbackEpoch: sample.playbackEpoch });
+        }
+        if (masterPause.file) masterPause.file = filePlayer.getTransportState();
+      }
+      reflect();
+    },
+  } });
   if (!document.hidden) frame = requestAnimationFrame(tick);
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('File stamps could not load. Drawings and generated patterns are ready.'); return response.json(); })

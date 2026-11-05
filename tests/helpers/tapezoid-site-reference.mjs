@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { restoreBlechMidiOutputSite } from "./blech-midi-output-site-reference.mjs";
 
 // An additive, exact reversal for older frozen-site byte references. These
 // historical tests still reject unrelated drift; they just predate Tapezoid.
@@ -87,6 +88,7 @@ const changes = new Map([
 ]);
 
 export function restoreTapezoidSite(source, file, { allowRestored = false } = {}) {
+  source = restoreBlechMidiOutputSite(source, file, { allowRestored: true });
   if (typeof source !== "string" || !changes.has(file)) return source;
   const replacements = changes.get(file);
   const counts = replacements.map(([after]) => source.split(after).length - 1);

@@ -30,10 +30,10 @@ test('Blech MIDI is a separate browseable Graphic-UI lab with its own tempo owne
   assert.ok(!TAP_TEMPO_TARGETS.some(({ route, selector }) => route === 'midiphoria.html' && selector === '#creativeTempo'));
 });
 
-test('generated MIDI does not claim live MIDI ports or computer piano keys', () => {
+test('BLECH declares native output without claiming MIDI input or computer piano keys', () => {
   assert.deepEqual(instrumentMidiCapabilityForId('blech-midi'), {
     id: 'blech-midi', midiInput: false, midiInputMode: 'none', noteMode: 'sequence',
-    audioInput: false, midiOutput: false, startsAudio: true, computerKeyboardMode: 'none',
+    audioInput: false, midiOutput: true, midiOutputMode: 'native', startsAudio: true, computerKeyboardMode: 'none',
   });
   assert.ok(!catalogueItemById('blech-midi').features.includes('MIDI'));
   assert.equal(instrumentMidiCapabilityForId('midiphoria').midiInputMode, 'native');

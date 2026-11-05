@@ -5,6 +5,7 @@ import { filterWaxSupport } from "../wax-page.js";
 import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
 import {
   WAX_INSTRUMENT_SUPPORT,
+  WAX_NATIVE_LABS,
   WAX_ROLE_DEFINITIONS,
   WAX_ROLE_IDS,
   waxSupportForId,
@@ -12,11 +13,12 @@ import {
 
 const validRoleIds = new Set(Object.values(WAX_ROLE_IDS));
 
-test("every catalog instrument has exactly one complete WAX support record", () => {
-  assert.equal(WAX_INSTRUMENT_SUPPORT.length, INSTRUMENTS.length);
+test("every catalog instrument and explicitly supported lab has one complete WAX support record", () => {
+  const supportedPages = [...INSTRUMENTS, ...WAX_NATIVE_LABS];
+  assert.equal(WAX_INSTRUMENT_SUPPORT.length, supportedPages.length);
   assert.deepEqual(
     WAX_INSTRUMENT_SUPPORT.map(({ id }) => id),
-    INSTRUMENTS.map(({ id }) => id),
+    supportedPages.map(({ id }) => id),
   );
   assert.equal(
     new Set(WAX_INSTRUMENT_SUPPORT.map(({ id }) => id)).size,
@@ -49,7 +51,8 @@ test("every catalog instrument has exactly one complete WAX support record", () 
       `${support.id} must expose Audio FX exactly when it accepts track audio`,
     );
     assert.equal(typeof support.midiInput, "boolean");
-    assert.ok(["native", "universal-control"].includes(support.midiInputMode));
+    assert.ok(["native", "universal-control"].includes(support.midiInputMode)
+      || support.midiInput === false && support.midiInputMode === "none");
     assert.ok(["midi", "page", "none"].includes(support.computerKeyboardMode));
     assert.equal(typeof support.midiOutput, "boolean");
     assert.equal(typeof support.hostSync, "boolean");
@@ -59,6 +62,9 @@ test("every catalog instrument has exactly one complete WAX support record", () 
     assert.equal(support.hostSync && !support.midiOutput, false);
   }
   assert.equal(waxSupportForId("not-an-instrument"), null);
+  assert.deepEqual(WAX_NATIVE_LABS.map(({ id }) => id), ["blech-midi"]);
+  assert.equal(waxSupportForId("blech-midi").adapter, "native");
+  assert.match(waxSupportForId("blech-midi").summary, /actual layers/);
 });
 
 test("the three WAX roles define fixed DAW inputs and outputs", () => {

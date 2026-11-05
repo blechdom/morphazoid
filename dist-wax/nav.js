@@ -8,6 +8,7 @@ import { initializeOutputRecording } from "./src/site/output-recording-controls.
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/site/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
+import { getSharedMidiOutputRoutes } from "./src/midi-output-routes.js";
 import { initializeChaoticViewportControls } from "./src/families/chaotic/chaotic-viewport-controls.js";
 import { createMidiStatus, createStereoMeter } from "./src/ui/index.js";
 import { createChoosePickerShell } from "./src/ui/patterns/choose-picker-shell.js";
@@ -841,6 +842,8 @@ export function createMidiToolbar(
 ) {
   const suffix = idSuffix ? `-${String(idSuffix).replace(/[^a-z\d_-]/gi, "-")}` : "";
   const capability = instrumentMidiCapabilityForId(routeId);
+  const nativeMidiOutput = capability?.midiOutputMode === "native";
+  const outputRoutes = nativeMidiOutput ? getSharedMidiOutputRoutes(runtime) : null;
   const midiStatus = createMidiStatus({
     ariaLabel: "MIDI and computer keyboard controls",
     controlled: true,
@@ -945,7 +948,7 @@ export function createMidiToolbar(
   midiOutputSelect.id = `midiOutputSelect${suffix}`;
   midiOutputSelect.setAttribute(
     "aria-label",
-    capability?.midiOutput && !runtime?.MorphazoidWAX
+    capability?.midiOutput && !nativeMidiOutput && !runtime?.MorphazoidWAX
       ? "MIDI output: preview only, not routed"
       : "MIDI output route",
   );
@@ -954,7 +957,7 @@ export function createMidiToolbar(
     value: "",
     label: !capability?.midiOutput
       ? "Not used"
-      : runtime?.MorphazoidWAX ? "DAW / host" : "Preview · no route",
+      : nativeMidiOutput ? "Off" : runtime?.MorphazoidWAX ? "DAW / host" : "Preview · no route",
   }]);
   const midiOutSection = headerSettingsSection(
     doc,
@@ -963,6 +966,11 @@ export function createMidiToolbar(
     midiOutputSelect,
   );
   midiOutSection.classList.add("is-unavailable");
+  const midiOutputError = element(doc, "p", "header-settings-error");
+  midiOutputError.id = `midiOutputError${suffix}`;
+  midiOutputError.setAttribute("role", "alert");
+  midiOutputError.hidden = true;
+  if (nativeMidiOutput) midiOutSection.append(midiOutputError);
 
   const select = element(doc, "select", "midi-profile-select");
   select.id = `midiProfileSelect${suffix}`;
@@ -1042,6 +1050,16 @@ export function createMidiToolbar(
   };
 
   const paintMidiOutput = () => {
+    if (nativeMidiOutput) {
+      const state = outputRoutes.get(routeId)?.getState();
+      syncSelectOptions(doc, midiOutputSelect, state?.options ?? [{ value: "off", label: "Off" }], state?.value ?? "off");
+      midiOutputSelect.disabled = state?.disabled ?? true;
+      if (midiOutputSelect.disabled) midiOutSection.classList.add("is-unavailable");
+      else midiOutSection.classList.remove("is-unavailable");
+      midiOutputError.textContent = state?.error ?? "";
+      midiOutputError.hidden = !state?.error;
+      return;
+    }
     if (!capability?.midiOutput) {
       syncSelectOptions(doc, midiOutputSelect, [{
         value: "",
@@ -1087,13 +1105,17 @@ export function createMidiToolbar(
     toggle.setAttribute("aria-pressed", String(Boolean(status.enabled)));
     toggle.setAttribute(
       "aria-label",
-      status.enabled ? "Turn MIDI input off" : "Turn MIDI input on",
+      nativeMidiOutput
+        ? status.enabled ? "Turn MIDI connection off" : "Turn MIDI connection on"
+        : status.enabled ? "Turn MIDI input off" : "Turn MIDI input on",
     );
-    toggle.title = status.enabled ? "MIDI input on" : "MIDI input off";
+    toggle.title = nativeMidiOutput
+      ? status.enabled ? "MIDI connection on" : "MIDI connection off"
+      : status.enabled ? "MIDI input on" : "MIDI input off";
     toggleState.textContent = status.enabled
       ? status.computerKeyboard?.active
         ? status.inputCount ? `keys+${status.inputCount}` : "keys"
-        : `${status.inputCount} in`
+        : nativeMidiOutput ? "ready" : `${status.inputCount} in`
       : status.enabling ? "wait" : status.supported ? "off" : "n/a";
     select.value = status.selectedProfileId;
     paintMidiInput(status);
@@ -1102,6 +1124,7 @@ export function createMidiToolbar(
   };
 
   const unsubscribe = manager.subscribeStatus(paint);
+  const unsubscribeOutputRoute = outputRoutes?.subscribe(routeId, paintMidiOutput) ?? (() => {});
   let audioOutputCanSelect = false;
   const paintAudioOutput = (status = {}) => {
     const clampLevel = (value) => Math.max(0, Math.min(1, Number(value) || 0));
@@ -1309,6 +1332,17 @@ export function createMidiToolbar(
       audioOutputSelect.disabled = !audioOutputCanSelect;
     }
   };
+  const handleMidiOutputChange = async () => {
+    const route = outputRoutes?.get(routeId);
+    if (!route) return;
+    try { await route.select(midiOutputSelect.value); }
+    catch (reason) {
+      midiOutputError.textContent = reason instanceof Error ? reason.message : String(reason);
+      midiOutputError.hidden = false;
+      return;
+    }
+    paintMidiOutput();
+  };
   const handleDetailsToggle = () => {
     if (details.open) return refreshAudioOutputChoices();
     return undefined;
@@ -1321,6 +1355,7 @@ export function createMidiToolbar(
     unsubscribe();
     unsubscribeMessages();
     unsubscribeAudioOutput();
+    unsubscribeOutputRoute();
     clearActivity();
     settingsMenu.destroy();
     midiStatus.destroy();
@@ -1328,6 +1363,7 @@ export function createMidiToolbar(
     select.removeEventListener?.("change", handleProfileChange);
     midiInputSelect.removeEventListener?.("change", handleMidiInputChange);
     audioOutputSelect.removeEventListener?.("change", handleAudioOutputChange);
+    midiOutputSelect.removeEventListener?.("change", handleMidiOutputChange);
     details.removeEventListener?.("toggle", handleDetailsToggle);
     runtime.removeEventListener?.("pagehide", handlePageHide);
   };
@@ -1339,6 +1375,7 @@ export function createMidiToolbar(
   select.addEventListener("change", handleProfileChange);
   midiInputSelect.addEventListener("change", handleMidiInputChange);
   audioOutputSelect.addEventListener("change", handleAudioOutputChange);
+  midiOutputSelect.addEventListener("change", handleMidiOutputChange);
   details.addEventListener("toggle", handleDetailsToggle);
   runtime.addEventListener?.("pagehide", handlePageHide);
 

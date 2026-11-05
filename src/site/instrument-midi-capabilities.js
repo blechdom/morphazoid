@@ -388,14 +388,15 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze([
       ? "page"
       : noGenericNoteKeyboardIds.has(id) ? "none" : "midi",
   }))),
-  // Generates MIDI files and internal SoundFont notes; no live MIDI port or piano-key mapping.
+  // Native timestamped output follows the actual performance; no input or QWERTY mapping.
   Object.freeze({
     id: "blech-midi",
     midiInput: false,
     midiInputMode: "none",
     noteMode: "sequence",
     audioInput: false,
-    midiOutput: false,
+    midiOutput: true,
+    midiOutputMode: "native",
     startsAudio: true,
     computerKeyboardMode: "none",
   }),
